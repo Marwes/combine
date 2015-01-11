@@ -4,20 +4,18 @@
 pub struct Error;
 
 pub type ParseResult<O, I> = Result<(O, I), Error>;
-pub type StrResult<'a, O> = ParseResult<O, &'a str>;
 
 
 pub trait Parser {
     type Input: Clone;
     type Output;
-    fn parse(&mut self, input: <Self as Parser>::Input) -> 
-        Result<(<Self as Parser>::Output, <Self as Parser>::Input), Error>;
+    fn parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
 }
 impl <'a, I, O, P> Parser for &'a mut P 
     where I: Clone, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: I) -> Result<(O, I), Error> {
+    fn parse(&mut self, input: I) -> ParseResult<O, I> {
         (*self).parse(input)
     }
 }
@@ -36,7 +34,7 @@ pub struct ManyAppend<'a, O: 'a, P: Parser<Output=O> + 'a> {
 impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
     type Input = <P as Parser>::Input;
     type Output = ();
-    fn parse(&mut self, mut input: <P as Parser>::Input) -> Result<((), <P as Parser>::Input), Error> {
+    fn parse(&mut self, mut input: <P as Parser>::Input) -> ParseResult<(), <P as Parser>::Input> {
         loop {
             match self.parser.parse(input.clone()) {
                 Ok((x, rest)) => {
@@ -60,7 +58,7 @@ pub struct Many<P> {
 impl <P: Parser> Parser for Many<P> {
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, input: <P as Parser>::Input) -> Result<(Vec<<P as Parser>::Output>, <P as Parser>::Input), Error> {
+    fn parse(&mut self, input: <P as Parser>::Input) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
         let ((), input) = try!(many_append(&mut self.parser, &mut result).parse(input));
         Ok((result, input))
@@ -89,7 +87,7 @@ impl <P, S> Parser for SepBy<P, S>
 
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, mut input: <P as Parser>::Input) -> Result<(Vec<<P as Parser>::Output>, <P as Parser>::Input), Error> {
+    fn parse(&mut self, mut input: <P as Parser>::Input) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
         match self.parser.parse(input.clone()) {
             Ok((x, rest)) => {
@@ -113,10 +111,10 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
 }
 
 
-impl <'a, I: Clone, O> Parser for Box<FnMut(I) -> Result<(O, I), Error> + 'a> {
+impl <'a, I: Clone, O> Parser for Box<FnMut(I) -> ParseResult<O, I> + 'a> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: I) -> Result<(O, I), Error> {
+    fn parse(&mut self, input: I) -> ParseResult<O, I> {
         self(input)
     }
 }
@@ -146,7 +144,7 @@ impl <'a, Pred> Parser for Satisfy<Pred>
 
     type Input = &'a str;
     type Output = char;
-    fn parse(&mut self, input: &'a str) -> Result<(char, &'a str), Error> {
+    fn parse(&mut self, input: &'a str) -> ParseResult<char, &'a str> {
         match input.slice_shift_char() {
             Some((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
@@ -170,7 +168,7 @@ pub struct StringP<'a> { s: &'a str }
 impl <'a, 'b> Parser for StringP<'b> {
     type Input = &'a str;
     type Output = &'a str;
-    fn parse(&mut self, input: &'a str) -> Result<(&'a str, &'a str), Error> {
+    fn parse(&mut self, input: &'a str) -> ParseResult<&'a str, &'a str> {
         if input.starts_with(self.s) {
             let l = self.s.len();
             Ok((&input[..l], &input[l..]))
@@ -191,7 +189,7 @@ impl <I: Clone, A, B, P1, P2> Parser for AndThen<P1, P2>
 
     type Input = I;
     type Output = (A, B);
-    fn parse(&mut self, input: I) -> Result<((A, B), I), Error> {
+    fn parse(&mut self, input: I) -> ParseResult<(A, B), I> {
         let (a, rest) = try!(self.0.parse(input));
         let (b, rest) = try!(self.1.parse(rest));
         Ok(((a, b), rest))
@@ -207,7 +205,7 @@ impl <P> Parser for Optional<P>
     where P: Parser {
     type Input = <P as Parser>::Input;
     type Output = Option<<P as Parser>::Output>;
-    fn parse(&mut self, input: <P as Parser>::Input) -> Result<(Option<<P as Parser>::Output>, <P as Parser>::Input), Error> {
+    fn parse(&mut self, input: <P as Parser>::Input) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
         match self.0.parse(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
             Err(_) => Ok((None, input))
@@ -235,7 +233,7 @@ impl <I: Clone> Env<I> {
         Ok(o)
     }
 
-    pub fn result<O>(self, output: O) -> Result<(O, I), Error> {
+    pub fn result<O>(self, output: O) -> ParseResult<O, I> {
         Ok((output, self.input))
     }
 }
@@ -253,7 +251,7 @@ mod tests {
     use super::*;
     
 
-    fn integer<'a>(input: &'a str) -> Result<(i64, &'a str), Error> {
+    fn integer<'a>(input: &'a str) -> ParseResult<i64, &'a str> {
         let mut env = Env::new(input);
         let chars = try!(env.with(many(digit as fn(_) -> _)));
         let mut n = 0;
