@@ -103,14 +103,20 @@ pub fn many<P: Parser>(p: P) -> Many<P> {
     Many { parser: p }
 }
 
-pub fn many1<'a, P: Clone + 'a>(mut p: P) -> Box<Parser<Input=<P as Parser>::Input, Output=Vec<<P as Parser>::Output>> + 'a>
-    where P: Parser {
-    Box::new(FnParser(move |&mut:input| {
-        let (first, input) = try!(p.parse(input));
+pub struct Many1<P>(P);
+impl <P: Parser> Parser for Many1<P> {
+    type Input = <P as Parser>::Input;
+    type Output = Vec<<P as Parser>::Output>;
+    fn parse(&mut self, input: <P as Parser>::Input) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+        let (first, input) = try!(self.0.parse(input));
         let mut result = vec![first];
-        let ((), input) = try!(many_append(&mut p, &mut result).parse(input));
+        let ((), input) = try!(many_append(&mut self.0, &mut result).parse(input));
         Ok((result, input))
-    }))
+    }
+}
+pub fn many1<P>(p: P) -> Many1<P>
+    where P: Parser {
+    Many1(p)
 }
 
 #[derive(Clone)]
