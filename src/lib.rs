@@ -1,18 +1,54 @@
 #![allow(unstable)]
 
-#[derive(Show, PartialEq)]
+#[derive(Clone, Show, PartialEq)]
 pub struct Error;
 
 pub type ParseResult<O, I> = Result<(O, I), Error>;
 
 
+pub trait Stream {
+    type Item;
+    fn uncons(self) -> ParseResult<<Self as Stream>::Item, Self>;
+}
+
+impl <I: Iterator> Stream for I {
+    type Item = <I as Iterator>::Item;
+    fn uncons(mut self) -> ParseResult<<I as Iterator>::Item, I> {
+        match self.next() {
+            Some(x) => Ok((x, self)),
+            None => Err(Error)
+        }
+    }
+}
+
+impl <'a> Stream for &'a str {
+    type Item = char;
+    fn uncons(self) -> ParseResult<char, &'a str> {
+        match self.slice_shift_char() {
+            Some(x) => Ok(x),
+            None => Err(Error)
+        }
+    }
+}
+
+impl <'a, T> Stream for &'a [T] {
+    type Item = &'a T;
+    fn uncons(self) -> ParseResult<&'a T, &'a [T]> {
+        match self {
+            [ref x, rest..] => Ok((x, rest)),
+            [] => Err(Error)
+        }
+    }
+}
+
+
 pub trait Parser {
-    type Input: Clone;
+    type Input: Clone + Stream;
     type Output;
     fn parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
 }
 impl <'a, I, O, P> Parser for &'a mut P 
-    where I: Clone, P: Parser<Input=I, Output=O> {
+    where I: Clone + Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: I) -> ParseResult<O, I> {
@@ -20,11 +56,9 @@ impl <'a, I, O, P> Parser for &'a mut P
     }
 }
 
-pub fn char<'a>(input: &'a str) -> ParseResult<char, &'a str> {
-    match input.slice_shift_char() {
-        Some(x) => Ok(x),
-        None => Err(Error)
-    }
+pub fn char<'a, I>(input: I) -> ParseResult<char, I>
+    where I: Stream<Item=char> + Clone {
+    input.uncons()
 }
 
 pub struct ManyAppend<'a, O: 'a, P: Parser<Output=O> + 'a> {
@@ -52,6 +86,7 @@ pub fn many_append<'a, O, P: Parser<Output=O>>(parser: P, vec: &'a mut Vec<O>) -
     ManyAppend { parser: parser, vec: vec }
 }
 
+#[derive(Clone)]
 pub struct Many<P> {
     parser: P
 }
@@ -78,6 +113,7 @@ pub fn many1<'a, P: Clone + 'a>(mut p: P) -> Box<Parser<Input=<P as Parser>::Inp
     }))
 }
 
+#[derive(Clone)]
 pub struct SepBy<P, S> {
     parser: P,
     separator: S
@@ -111,17 +147,19 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
 }
 
 
-impl <'a, I: Clone, O> Parser for Box<FnMut(I) -> ParseResult<O, I> + 'a> {
+impl <'a, I: Clone + Stream, O> Parser for Box<FnMut(I) -> ParseResult<O, I> + 'a> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: I) -> ParseResult<O, I> {
         self(input)
     }
 }
-struct FnParser<'a, I: Clone, O, F: FnMut(I) -> ParseResult<O, I>>(F);
+
+#[derive(Clone)]
+struct FnParser<'a, I: Stream, O, F: FnMut(I) -> ParseResult<O, I>>(F);
 
 impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
-    where I: Clone, F: FnMut(I) -> ParseResult<O, I> {
+    where I: Clone + Stream, F: FnMut(I) -> ParseResult<O, I> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: I) -> ParseResult<O, I> {
@@ -129,7 +167,8 @@ impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
     }
 }
 
-impl <'a, I: Clone, O> Parser for fn (I) -> ParseResult<O, I> {
+impl <'a, I, O> Parser for fn (I) -> ParseResult<O, I>
+    where I: Clone + Stream {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: I) -> ParseResult<O, I> {
@@ -137,55 +176,64 @@ impl <'a, I: Clone, O> Parser for fn (I) -> ParseResult<O, I> {
     }
 }
 
-pub struct Satisfy<Pred> { pred: Pred }
+#[derive(Clone)]
+pub struct Satisfy<I, Pred> { pred: Pred }
 
-impl <'a, Pred> Parser for Satisfy<Pred>
-    where Pred: FnMut(char) -> bool {
+impl <'a, I, Pred> Parser for Satisfy<I, Pred>
+    where I: Stream<Item=char> + Clone, Pred: FnMut(char) -> bool {
 
-    type Input = &'a str;
+    type Input = I;
     type Output = char;
-    fn parse(&mut self, input: &'a str) -> ParseResult<char, &'a str> {
-        match input.slice_shift_char() {
-            Some((c, s)) => {
+    fn parse(&mut self, input: I) -> ParseResult<char, I> {
+        match input.uncons() {
+            Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
                 else { Err(Error) }
             }
-            None => Err(Error)
+            Err(err) => Err(err)
         }
     }
 }
 
-pub fn satisfy<Pred>(pred: Pred) -> Satisfy<Pred>
-    where Pred: FnMut(char) -> bool {
+pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
+    where I: Stream + Clone, Pred: FnMut(char) -> bool {
     Satisfy { pred: pred }
 }
 
-pub fn space() -> Satisfy<fn (char) -> bool> {
+pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream + Clone {
     satisfy(CharExt::is_whitespace as fn (char) -> bool)
 }
 
-pub struct StringP<'a> { s: &'a str }
-impl <'a, 'b> Parser for StringP<'b> {
-    type Input = &'a str;
-    type Output = &'a str;
-    fn parse(&mut self, input: &'a str) -> ParseResult<&'a str, &'a str> {
-        if input.starts_with(self.s) {
-            let l = self.s.len();
-            Ok((&input[..l], &input[l..]))
+#[derive(Clone)]
+pub struct StringP<'a, I> { s: &'a str }
+impl <'a, 'b, I> Parser for StringP<'b, I>
+    where I: Stream<Item=char> + Clone {
+    type Input = I;
+    type Output = &'b str;
+    fn parse(&mut self, mut input: I) -> ParseResult<&'b str, I> {
+        for c in self.s.chars() {
+            match input.uncons() {
+                Ok((other, rest)) => {
+                    if c != other { return Err(Error);  }
+                    input = rest;
+                }
+                Err(err) => return Err(err)
+            }
         }
-        else {
-            Err(Error)
-        }
+        Ok((self.s, input))
     }
 }
 
-pub fn string(s: &str) -> StringP {
+pub fn string<I>(s: &str) -> StringP<I>
+    where I: Stream + Clone {
     StringP { s: s }
 }
 
+#[derive(Clone)]
 pub struct AndThen<P1, P2>(P1, P2);
-impl <I: Clone, A, B, P1, P2> Parser for AndThen<P1, P2>
-    where P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
+impl <I, A, B, P1, P2> Parser for AndThen<P1, P2>
+    where I: Clone + Stream, P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
 
     type Input = I;
     type Output = (A, B);
@@ -200,6 +248,7 @@ pub fn and_then<P1, P2>(p1: P1, p2: P2) -> AndThen<P1, P2>
     AndThen(p1, p2)
 }
 
+#[derive(Clone)]
 pub struct Optional<P>(P);
 impl <P> Parser for Optional<P>
     where P: Parser {
@@ -221,7 +270,7 @@ pub struct Env<I> {
     input: I
 }
 
-impl <I: Clone> Env<I> {
+impl <I: Clone + Stream> Env<I> {
     pub fn new(input: I) -> Env<I> {
         Env { input: input }
     }
@@ -238,11 +287,26 @@ impl <I: Clone> Env<I> {
     }
 }
 
-pub fn digit<'a>(input: &'a str) -> ParseResult<char, &'a str> {
-    match input.slice_shift_char() {
-        Some(x) if x.0.is_digit(10) => Ok(x),
-        Some((c, _)) => Err(Error),
-        None => Err(Error)
+pub fn digit<'a, I>(input: I) -> ParseResult<char, I>
+    where I: Stream<Item=char> + Clone {
+    match input.uncons() {
+        Ok((c, rest)) => {
+            if c.is_digit(10) { Ok((c, rest)) }
+            else { Err(Error) }
+        }
+        Err(err) => Err(err)
+    }
+}
+
+pub trait ParserExt {
+    fn and_then<P>(self, P) -> AndThen<Self, P>
+        where P: Parser;
+}
+
+impl <P: Parser> ParserExt for P {
+    fn and_then<P2>(self, p: P2) -> AndThen<Self, P2>
+        where P2: Parser {
+        and_then(self, p)
     }
 }
 
@@ -251,7 +315,8 @@ mod tests {
     use super::*;
     
 
-    fn integer<'a>(input: &'a str) -> ParseResult<i64, &'a str> {
+    fn integer<'a, I>(input: I) -> ParseResult<i64, I>
+        where I: Stream<Item=char> + Clone {
         let mut env = Env::new(input);
         let chars = try!(env.with(many(digit as fn(_) -> _)));
         let mut n = 0;
@@ -270,13 +335,24 @@ mod tests {
         let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
         assert_eq!(p.parse("123,4,56"), Ok((vec![123, 4, 56], "")));
     }
+    #[test]
+    fn iterator() {
+        let result = (integer as fn(_) -> _).parse("123".chars())
+            .map(|(i, mut iter)| (i, iter.next()));
+        assert_eq!(result, Ok((123i64, None)));
+    }
+    #[test]
+    fn field() {
+        let word = many(satisfy(|c| c.is_alphanumeric()));
+        let word2 = many(satisfy(|c| c.is_alphanumeric()));
+        let spaces = many(space());
+        let c_decl = word
+            .and_then(spaces.clone())
+            .and_then(satisfy(|c| c == ':'))
+            .and_then(spaces)
+            .and_then(word2)
+            .parse("x: int")
+            .map(|(((((ret, _), _), _), name), rest)| ((ret, name), rest));
+        assert_eq!(c_decl, Ok(((vec!['x'], vec!['i', 'n', 't']), "")));
+    }
 }
-
-/*
-
-impl Parser for  {
-    type Input = ;
-    type Output = ;
-    fn parse(&mut self, input: ) -> Result<(, ), Error>;
-}
- */
