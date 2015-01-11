@@ -298,17 +298,46 @@ pub fn digit<'a, I>(input: I) -> ParseResult<char, I>
     }
 }
 
-pub trait ParserExt {
-    fn and_then<P>(self, P) -> AndThen<Self, P>
-        where P: Parser;
+
+pub struct With<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
+impl <I, P1, P2> Parser for With<P1, P2>
+    where I: Clone + Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
+
+    type Input = I;
+    type Output = <P2 as Parser>::Output;
+    fn parse(&mut self, input: I) -> ParseResult<<Self as Parser>::Output, I> {
+        let ((_, b), rest) = try!((&mut self.0).and_then(&mut self.1).parse(input));
+        Ok((b, rest))
+    }
+}
+pub struct Skip<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
+impl <I, P1, P2> Parser for Skip<P1, P2>
+    where I: Clone + Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
+
+    type Input = I;
+    type Output = <P1 as Parser>::Output;
+    fn parse(&mut self, input: I) -> ParseResult<<Self as Parser>::Output, I> {
+        let ((a, _), rest) = try!((&mut self.0).and_then(&mut self.1).parse(input));
+        Ok((a, rest))
+    }
 }
 
-impl <P: Parser> ParserExt for P {
+pub trait ParserExt : Parser + Sized {
     fn and_then<P2>(self, p: P2) -> AndThen<Self, P2>
         where P2: Parser {
         and_then(self, p)
     }
+    fn with<P2>(self, p: P2) -> With<Self, P2>
+        where P2: Parser {
+        With(self, p)
+    }
+    fn skip<P2>(self, p: P2) -> Skip<Self, P2>
+        where P2: Parser {
+        Skip(self, p)
+    }
 }
+
+impl <P: Parser> ParserExt for P { }
 
 #[cfg(test)]
 mod tests {
@@ -347,12 +376,11 @@ mod tests {
         let word2 = many(satisfy(|c| c.is_alphanumeric()));
         let spaces = many(space());
         let c_decl = word
-            .and_then(spaces.clone())
-            .and_then(satisfy(|c| c == ':'))
-            .and_then(spaces)
+            .skip(spaces.clone())
+            .skip(satisfy(|c| c == ':'))
+            .skip(spaces)
             .and_then(word2)
-            .parse("x: int")
-            .map(|(((((ret, _), _), _), name), rest)| ((ret, name), rest));
+            .parse("x: int");
         assert_eq!(c_decl, Ok(((vec!['x'], vec!['i', 'n', 't']), "")));
     }
 }
