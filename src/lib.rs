@@ -1,7 +1,26 @@
 #![allow(unstable)]
 
+
+#[derive(Clone, Copy, Show, PartialEq)]
+pub struct SourcePosition {
+    line: i32,
+    row: i32
+}
 #[derive(Clone, Show, PartialEq)]
-pub struct Error;
+pub struct Error {
+    position: SourcePosition,
+    messages: Vec<String>
+}
+
+impl Error {
+    pub fn add_message(&mut self, message: String) {
+        self.messages.push(message);
+    }
+}
+
+fn error() -> Error {
+    Error { position: SourcePosition { line: 0, row: 0 }, messages: Vec::new() }
+}
 
 pub type ParseResult<O, I> = Result<(O, I), Error>;
 
@@ -16,7 +35,7 @@ impl <I: Iterator> Stream for I {
     fn uncons(mut self) -> ParseResult<<I as Iterator>::Item, I> {
         match self.next() {
             Some(x) => Ok((x, self)),
-            None => Err(Error)
+            None => Err(error())
         }
     }
 }
@@ -26,7 +45,7 @@ impl <'a> Stream for &'a str {
     fn uncons(self) -> ParseResult<char, &'a str> {
         match self.slice_shift_char() {
             Some(x) => Ok(x),
-            None => Err(Error)
+            None => Err(error())
         }
     }
 }
@@ -36,7 +55,7 @@ impl <'a, T> Stream for &'a [T] {
     fn uncons(self) -> ParseResult<&'a T, &'a [T]> {
         match self {
             [ref x, rest..] => Ok((x, rest)),
-            [] => Err(Error)
+            [] => Err(error())
         }
     }
 }
@@ -194,7 +213,7 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
         match input.uncons() {
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
-                else { Err(Error) }
+                else { Err(error()) }
             }
             Err(err) => Err(err)
         }
@@ -221,7 +240,7 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
         for c in self.s.chars() {
             match input.uncons() {
                 Ok((other, rest)) => {
-                    if c != other { return Err(Error);  }
+                    if c != other { return Err(error());  }
                     input = rest;
                 }
                 Err(err) => return Err(err)
@@ -298,7 +317,11 @@ pub fn digit<'a, I>(input: I) -> ParseResult<char, I>
     match input.uncons() {
         Ok((c, rest)) => {
             if c.is_digit(10) { Ok((c, rest)) }
-            else { Err(Error) }
+            else {
+                let mut error = error();
+                error.add_message("Expected digit".to_string());
+                Err(error)
+            }
         }
         Err(err) => Err(err)
     }
@@ -327,6 +350,22 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
         Ok((a, rest))
     }
 }
+pub struct Message<P>(P, String) where P: Parser;
+impl <I, P> Parser for Message<P>
+    where I: Clone + Stream, P: Parser<Input=I> {
+
+    type Input = I;
+    type Output = <P as Parser>::Output;
+    fn parse(&mut self, input: I) -> ParseResult<<Self as Parser>::Output, I> {
+        match self.0.parse(input.clone()) {
+            Ok(x) => Ok(x),
+            Err(mut err) => {
+                err.add_message(self.1.clone());
+                Err(err)
+            }
+        }
+    }
+}
 
 pub trait ParserExt : Parser + Sized {
     fn and_then<P2>(self, p: P2) -> AndThen<Self, P2>
@@ -341,6 +380,9 @@ pub trait ParserExt : Parser + Sized {
         where P2: Parser {
         Skip(self, p)
     }
+    fn message(self, s: String) -> Message<Self> {
+        Message(self, s)
+    }
 }
 
 impl <P: Parser> ParserExt for P { }
@@ -352,13 +394,13 @@ mod tests {
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
         where I: Stream<Item=char> + Clone {
-        let mut env = Env::new(input);
-        let chars = try!(env.with(many(digit as fn(_) -> _)));
+        let (chars, input) = try!(many1(digit as fn(_) -> _)
+            .parse(input));
         let mut n = 0;
         for &c in chars.iter() {
             n = n * 10 + (c as i64 - '0' as i64);
         }
-        env.result(n)
+        Ok((n, input))
     }
 
     #[test]
