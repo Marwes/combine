@@ -1,0 +1,10 @@
+[package]
+
+name = "parser-combinators"
+version = "0.0.1"
+authors = ["Markus Westerlind <marwes91@gmail.com>"]
+
+[lib]
+
+name = "parser-combinators"
+path = "src/lib.rs"
