@@ -29,23 +29,40 @@ pub fn char<'a>(input: &'a str) -> ParseResult<char, &'a str> {
     }
 }
 
+pub struct ManyAppend<'a, O: 'a, P: Parser<Output=O> + 'a> {
+    parser: P,
+    vec: &'a mut Vec<O>
+}
+impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
+    type Input = <P as Parser>::Input;
+    type Output = ();
+    fn parse(&mut self, mut input: <P as Parser>::Input) -> Result<((), <P as Parser>::Input), Error> {
+        loop {
+            match self.parser.parse(input.clone()) {
+                Ok((x, rest)) => {
+                    self.vec.push(x);
+                    input = rest;
+                }
+                Err(_) => break
+            }
+        }
+        Ok(((), input))
+    }
+}
+
+pub fn many_append<'a, O, P: Parser<Output=O>>(parser: P, vec: &'a mut Vec<O>) -> ManyAppend<'a, O, P> {
+    ManyAppend { parser: parser, vec: vec }
+}
+
 pub struct Many<P> {
     parser: P
 }
 impl <P: Parser> Parser for Many<P> {
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, mut input: <P as Parser>::Input) -> Result<(Vec<<P as Parser>::Output>, <P as Parser>::Input), Error> {
+    fn parse(&mut self, input: <P as Parser>::Input) -> Result<(Vec<<P as Parser>::Output>, <P as Parser>::Input), Error> {
         let mut result = Vec::new();
-        loop {
-            match self.parser.parse(input.clone()) {
-                Ok((x, rest)) => {
-                    result.push(x);
-                    input = rest;
-                }
-                Err(_) => break
-            }
-        }
+        let ((), input) = try!(many_append(&mut self.parser, &mut result).parse(input));
         Ok((result, input))
     }
 }
@@ -53,14 +70,14 @@ pub fn many<P: Parser>(p: P) -> Many<P> {
     Many { parser: p }
 }
 
-pub fn many1<'a, P: Clone + 'a>(mut p: P) -> FnParser<'a, <P as Parser>::Input, Vec<<P as Parser>::Output>>
+pub fn many1<'a, P: Clone + 'a>(mut p: P) -> Box<Parser<Input=<P as Parser>::Input, Output=Vec<<P as Parser>::Output>> + 'a>
     where P: Parser {
-    Box::new(move |&mut:input| {
+    Box::new(FnParser(move |&mut:input| {
         let (first, input) = try!(p.parse(input));
-        let (mut rest, input) = try!(many(&mut p).parse(input));
-        rest.insert(0, first);
-        Ok((rest, input))
-    })
+        let mut result = vec![first];
+        let ((), input) = try!(many_append(&mut p, &mut result).parse(input));
+        Ok((result, input))
+    }))
 }
 
 pub struct SepBy<P, S> {
@@ -81,19 +98,13 @@ impl <P, S> Parser for SepBy<P, S>
             }
             Err(_) => return Ok((result, input))
         }
-        loop {
-            match self.separator.parse(input.clone()) {
-                Ok((_, rest)) => input = rest,
-                Err(e) => break
-            }
-            match self.parser.parse(input.clone()) {
-                Ok((x, rest)) => {
-                    result.push(x);
-                    input = rest;
-                }
-                Err(e) => return Err(e)
-            }
-        }
+        let rest = FnParser(|input| {
+            let mut env = Env::new(input);
+            try!(env.with(&mut self.separator));
+            let v = try!(env.with(&mut self.parser));
+            env.result(v)
+        });
+        let ((), input) = try!(many_append(rest, &mut result).parse(input));
         Ok((result, input))
     }
 }
@@ -101,13 +112,22 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
     SepBy { parser: parser, separator: separator }
 }
 
-pub type FnParser<'a, I, O> = Box<FnMut(I) -> Result<(O, I), Error> + 'a>;
 
-impl <'a, I: Clone, O> Parser for FnParser<'a, I, O> {
+impl <'a, I: Clone, O> Parser for Box<FnMut(I) -> Result<(O, I), Error> + 'a> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: I) -> Result<(O, I), Error> {
         self(input)
+    }
+}
+struct FnParser<'a, I: Clone, O, F: FnMut(I) -> ParseResult<O, I>>(F);
+
+impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
+    where I: Clone, F: FnMut(I) -> ParseResult<O, I> {
+    type Input = I;
+    type Output = O;
+    fn parse(&mut self, input: I) -> ParseResult<O, I> {
+        (self.0)(input)
     }
 }
 
