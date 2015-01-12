@@ -77,7 +77,6 @@ impl <I: Stream<Item=char>> State<I> {
 
 pub type ParseResult<O, I> = Result<(O, State<I>), Error>;
 
-
 pub trait Stream {
     type Item;
     fn uncons(self) -> Result<(<Self as Stream>::Item, Self), ()>;
@@ -113,10 +112,12 @@ impl <'a, T> Stream for &'a [T] {
     }
 }
 
-
 pub trait Parser {
     type Input: Clone + Stream;
     type Output;
+
+    ///Parses using `input` by calling Stream::uncons one or more times
+    ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
     fn parse(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
     fn start_parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
         self.parse(State::new(input))
@@ -131,6 +132,7 @@ impl <'a, I, O, P> Parser for &'a mut P
     }
 }
 
+///Parses any character
 pub fn char<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> + Clone {
     input.uncons_char()
@@ -157,6 +159,7 @@ impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
     }
 }
 
+///Parses `p` one or more times and pushes each result to `vec`
 pub fn many_append<'a, O, P: Parser<Output=O>>(parser: P, vec: &'a mut Vec<O>) -> ManyAppend<'a, O, P> {
     ManyAppend { parser: parser, vec: vec }
 }
@@ -174,6 +177,7 @@ impl <P: Parser> Parser for Many<P> {
         Ok((result, input))
     }
 }
+///Parses `p` zero or more times
 pub fn many<P: Parser>(p: P) -> Many<P> {
     Many { parser: p }
 }
@@ -189,6 +193,8 @@ impl <P: Parser> Parser for Many1<P> {
         Ok((result, input))
     }
 }
+
+///Parses `p` one or more times
 pub fn many1<P>(p: P) -> Many1<P>
     where P: Parser {
     Many1(p)
@@ -223,6 +229,8 @@ impl <P, S> Parser for SepBy<P, S>
         Ok((result, input))
     }
 }
+
+///Parses `parser` zero or more time separated by `separator`
 pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
     SepBy { parser: parser, separator: separator }
 }
@@ -278,11 +286,13 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
     }
 }
 
+///Parses a character and succeeds depending on the result of `pred`
 pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
     where I: Stream + Clone, Pred: FnMut(char) -> bool {
     Satisfy { pred: pred }
 }
 
+///Parses whitespace
 pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
     where I: Stream + Clone {
     satisfy(CharExt::is_whitespace as fn (char) -> bool)
@@ -308,6 +318,7 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
     }
 }
 
+///Parses the string `s`
 pub fn string<I>(s: &str) -> StringP<I>
     where I: Stream + Clone {
     StringP { s: s }
@@ -340,6 +351,8 @@ impl <P> Parser for Optional<P>
         }
     }
 }
+
+///Returns `Some(value)` and `None` on parse failure (always succeeds)
 pub fn optional<P>(parser: P) -> Optional<P> {
     Optional(parser)
 }
@@ -366,6 +379,7 @@ impl <I: Clone + Stream> Env<I> {
     }
 }
 
+///Parses a digit from a stream containing characters
 pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> + Clone {
     match input.uncons_char() {
@@ -382,6 +396,8 @@ pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
 }
 
 pub type Between<L, R, P> = Skip<With<L, P>, R>;
+///Parses `open` followed by `parser` followed by `close`
+///Returns the value of `parser`
 pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
     where I: Clone + Stream
         , L: Parser<Input=I>
@@ -461,28 +477,38 @@ impl <I, A, B, P, F> Parser for Map<P, F, B>
     }
 }
 pub trait ParserExt : Parser + Sized {
-    fn and<P2>(self, p: P2) -> And<Self, P2>
-        where P2: Parser {
-        And(self, p)
-    }
+    ///Discards the value of the `self` parser and returns the value of `p`
+    ///Fails if any of the parsers fails
     fn with<P2>(self, p: P2) -> With<Self, P2>
         where P2: Parser {
         With(self, p)
     }
+    ///Discards the value of the `p` parser and returns the value of `self`
+    ///Fails if any of the parsers fails
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
         where P2: Parser {
         Skip(self, p)
     }
+    ///Parses with `self` followed by `p`
+    ///Succeds if both parsers succed, otherwise fails
+    ///Returns a tuple with both values on success
+    fn and<P2>(self, p: P2) -> And<Self, P2>
+        where P2: Parser {
+        And(self, p)
+    }
+    ///Tries to parse using `self` and if it fails returns the result of parsing `p`
     fn or<P2>(self, p: P2) -> Or<Self, P2>
         where P2: Parser {
         Or(self, p)
     }
-    fn map<F, B>(self, p: F) -> Map<Self, F, B>
+    ///Uses `f` to map over the parsed value
+    fn map<F, B>(self, f: F) -> Map<Self, F, B>
         where F: FnMut(<Self as Parser>::Output) -> B {
-        Map(self, p)
+        Map(self, f)
     }
-    fn message(self, s: String) -> Message<Self> {
-        Message(self, s)
+    ///Parses with `self` and if it fails, adds the message msg to the error
+    fn message(self, msg: String) -> Message<Self> {
+        Message(self, msg)
     }
 }
 
