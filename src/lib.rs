@@ -4,8 +4,22 @@
 #[derive(Clone, Copy, Show, PartialEq)]
 pub struct SourcePosition {
     line: i32,
-    row: i32
+    column: i32
 }
+impl SourcePosition {
+    fn start() -> SourcePosition {
+        SourcePosition { line: 1, column: 1 }
+    }
+
+    fn update(&mut self, c: &char) {
+        self.column += 1;
+        if *c == '\n' {
+            self.column = 1;
+            self.line += 1;
+        }
+    }
+}
+
 #[derive(Clone, Show, PartialEq)]
 pub struct Error {
     position: SourcePosition,
@@ -19,43 +33,78 @@ impl Error {
 }
 
 fn error() -> Error {
-    Error { position: SourcePosition { line: 0, row: 0 }, messages: Vec::new() }
+    Error { position: SourcePosition { line: 0, column: 0 }, messages: Vec::new() }
+}
+fn message(s: String) -> Error {
+    Error { position: SourcePosition { line: 0, column: 0 }, messages: vec![s] }
 }
 
-pub type ParseResult<O, I> = Result<(O, I), Error>;
+#[derive(Clone, PartialEq, Show)]
+pub struct State<I> {
+    position: SourcePosition,
+    input: I
+}
+
+impl <I: Stream> State<I> {
+    fn new(input: I) -> State<I> {
+        State { position: SourcePosition::start(), input: input }
+    }
+    fn uncons<F>(self, f: F) -> ParseResult<<I as Stream>::Item, I>
+        where F: FnOnce(&mut SourcePosition, &<I as Stream>::Item) {
+        let State { mut position, input } = self;
+        match input.uncons() {
+            Ok((c, input)) => {
+                f(&mut position, &c);
+                Ok((c, State { position: position, input: input }))
+            }
+            Err(()) => Err(message("End of input".to_string()))
+        }
+    }
+    fn into_inner(self) -> I {
+        self.input
+    }
+}
+impl <I: Stream<Item=char>> State<I> {
+    fn uncons_char(self) -> ParseResult<<I as Stream>::Item, I> {
+        self.uncons(SourcePosition::update)
+    }
+
+}
+
+pub type ParseResult<O, I> = Result<(O, State<I>), Error>;
 
 
 pub trait Stream {
     type Item;
-    fn uncons(self) -> ParseResult<<Self as Stream>::Item, Self>;
+    fn uncons(self) -> Result<(<Self as Stream>::Item, Self), ()>;
 }
 
 impl <I: Iterator> Stream for I {
     type Item = <I as Iterator>::Item;
-    fn uncons(mut self) -> ParseResult<<I as Iterator>::Item, I> {
+    fn uncons(mut self) -> Result<(<Self as Stream>::Item, Self), ()> {
         match self.next() {
             Some(x) => Ok((x, self)),
-            None => Err(error())
+            None => Err(())
         }
     }
 }
 
 impl <'a> Stream for &'a str {
     type Item = char;
-    fn uncons(self) -> ParseResult<char, &'a str> {
+    fn uncons(self) -> Result<(char, &'a str), ()> {
         match self.slice_shift_char() {
             Some(x) => Ok(x),
-            None => Err(error())
+            None => Err(())
         }
     }
 }
 
 impl <'a, T> Stream for &'a [T] {
     type Item = &'a T;
-    fn uncons(self) -> ParseResult<&'a T, &'a [T]> {
+    fn uncons(self) -> Result<(&'a T, &'a [T]), ()> {
         match self {
             [ref x, rest..] => Ok((x, rest)),
-            [] => Err(error())
+            [] => Err(())
         }
     }
 }
@@ -64,20 +113,23 @@ impl <'a, T> Stream for &'a [T] {
 pub trait Parser {
     type Input: Clone + Stream;
     type Output;
-    fn parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
+    fn parse(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
+    fn start_parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+        self.parse(State::new(input))
+    }
 }
 impl <'a, I, O, P> Parser for &'a mut P 
     where I: Clone + Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
         (*self).parse(input)
     }
 }
 
-pub fn char<'a, I>(input: I) -> ParseResult<char, I>
+pub fn char<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> + Clone {
-    input.uncons()
+    input.uncons_char()
 }
 
 pub struct ManyAppend<'a, O: 'a, P: Parser<Output=O> + 'a> {
@@ -87,7 +139,7 @@ pub struct ManyAppend<'a, O: 'a, P: Parser<Output=O> + 'a> {
 impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
     type Input = <P as Parser>::Input;
     type Output = ();
-    fn parse(&mut self, mut input: <P as Parser>::Input) -> ParseResult<(), <P as Parser>::Input> {
+    fn parse(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
         loop {
             match self.parser.parse(input.clone()) {
                 Ok((x, rest)) => {
@@ -112,7 +164,7 @@ pub struct Many<P> {
 impl <P: Parser> Parser for Many<P> {
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, input: <P as Parser>::Input) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
         let ((), input) = try!(many_append(&mut self.parser, &mut result).parse(input));
         Ok((result, input))
@@ -126,7 +178,7 @@ pub struct Many1<P>(P);
 impl <P: Parser> Parser for Many1<P> {
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, input: <P as Parser>::Input) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let (first, input) = try!(self.0.parse(input));
         let mut result = vec![first];
         let ((), input) = try!(many_append(&mut self.0, &mut result).parse(input));
@@ -148,7 +200,7 @@ impl <P, S> Parser for SepBy<P, S>
 
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, mut input: <P as Parser>::Input) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
         match self.parser.parse(input.clone()) {
             Ok((x, rest)) => {
@@ -172,31 +224,31 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
 }
 
 
-impl <'a, I: Clone + Stream, O> Parser for Box<FnMut(I) -> ParseResult<O, I> + 'a> {
+impl <'a, I: Clone + Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
         self(input)
     }
 }
 
 #[derive(Clone)]
-struct FnParser<'a, I: Stream, O, F: FnMut(I) -> ParseResult<O, I>>(F);
+struct FnParser<'a, I: Stream, O, F: FnMut(State<I>) -> ParseResult<O, I>>(F);
 
 impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
-    where I: Clone + Stream, F: FnMut(I) -> ParseResult<O, I> {
+    where I: Clone + Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
         (self.0)(input)
     }
 }
 
-impl <'a, I, O> Parser for fn (I) -> ParseResult<O, I>
+impl <'a, I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     where I: Clone + Stream {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
         self(input)
     }
 }
@@ -209,11 +261,13 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
 
     type Input = I;
     type Output = char;
-    fn parse(&mut self, input: I) -> ParseResult<char, I> {
-        match input.uncons() {
+    fn parse(&mut self, input: State<I>) -> ParseResult<char, I> {
+        match input.uncons_char() {
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
-                else { Err(error()) }
+                else {
+                    Err(message(format!("{} did not satisfy", c)))
+                }
             }
             Err(err) => Err(err)
         }
@@ -236,9 +290,9 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
     where I: Stream<Item=char> + Clone {
     type Input = I;
     type Output = &'b str;
-    fn parse(&mut self, mut input: I) -> ParseResult<&'b str, I> {
+    fn parse(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
         for c in self.s.chars() {
-            match input.uncons() {
+            match input.uncons_char() {
                 Ok((other, rest)) => {
                     if c != other { return Err(error());  }
                     input = rest;
@@ -262,7 +316,7 @@ impl <I, A, B, P1, P2> Parser for AndThen<P1, P2>
 
     type Input = I;
     type Output = (A, B);
-    fn parse(&mut self, input: I) -> ParseResult<(A, B), I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
         let (a, rest) = try!(self.0.parse(input));
         let (b, rest) = try!(self.1.parse(rest));
         Ok(((a, b), rest))
@@ -279,7 +333,7 @@ impl <P> Parser for Optional<P>
     where P: Parser {
     type Input = <P as Parser>::Input;
     type Output = Option<<P as Parser>::Output>;
-    fn parse(&mut self, input: <P as Parser>::Input) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
         match self.0.parse(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
             Err(_) => Ok((None, input))
@@ -292,11 +346,11 @@ pub fn optional<P>(parser: P) -> Optional<P> {
 
 
 pub struct Env<I> {
-    input: I
+    input: State<I>
 }
 
 impl <I: Clone + Stream> Env<I> {
-    pub fn new(input: I) -> Env<I> {
+    pub fn new(input: State<I>) -> Env<I> {
         Env { input: input }
     }
     
@@ -312,9 +366,9 @@ impl <I: Clone + Stream> Env<I> {
     }
 }
 
-pub fn digit<'a, I>(input: I) -> ParseResult<char, I>
+pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> + Clone {
-    match input.uncons() {
+    match input.uncons_char() {
         Ok((c, rest)) => {
             if c.is_digit(10) { Ok((c, rest)) }
             else {
@@ -334,7 +388,7 @@ impl <I, P1, P2> Parser for With<P1, P2>
 
     type Input = I;
     type Output = <P2 as Parser>::Output;
-    fn parse(&mut self, input: I) -> ParseResult<<Self as Parser>::Output, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
         let ((_, b), rest) = try!((&mut self.0).and_then(&mut self.1).parse(input));
         Ok((b, rest))
     }
@@ -345,7 +399,7 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 
     type Input = I;
     type Output = <P1 as Parser>::Output;
-    fn parse(&mut self, input: I) -> ParseResult<<Self as Parser>::Output, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
         let ((a, _), rest) = try!((&mut self.0).and_then(&mut self.1).parse(input));
         Ok((a, rest))
     }
@@ -356,7 +410,7 @@ impl <I, P> Parser for Message<P>
 
     type Input = I;
     type Output = <P as Parser>::Output;
-    fn parse(&mut self, input: I) -> ParseResult<<Self as Parser>::Output, I> {
+    fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
         match self.0.parse(input.clone()) {
             Ok(x) => Ok(x),
             Err(mut err) => {
@@ -392,7 +446,7 @@ mod tests {
     use super::*;
     
 
-    fn integer<'a, I>(input: I) -> ParseResult<i64, I>
+    fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> + Clone {
         let (chars, input) = try!(many1(digit as fn(_) -> _)
             .parse(input));
@@ -405,17 +459,21 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        assert_eq!((integer as fn(_) -> _).parse("123"), Ok((123i64, "")));
+        let result = (integer as fn(_) -> _).start_parse("123")
+            .map(|(x, s)| (x, s.into_inner()));
+        assert_eq!(result, Ok((123i64, "")));
     }
     #[test]
     fn list() {
         let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
-        assert_eq!(p.parse("123,4,56"), Ok((vec![123, 4, 56], "")));
+        let result = p.start_parse("123,4,56")
+            .map(|(x, s)| (x, s.into_inner()));
+        assert_eq!(result, Ok((vec![123, 4, 56], "")));
     }
     #[test]
     fn iterator() {
-        let result = (integer as fn(_) -> _).parse("123".chars())
-            .map(|(i, mut iter)| (i, iter.next()));
+        let result = (integer as fn(_) -> _).start_parse("123".chars())
+            .map(|(i, iter)| (i, iter.into_inner().next()));
         assert_eq!(result, Ok((123i64, None)));
     }
     #[test]
@@ -428,7 +486,20 @@ mod tests {
             .skip(satisfy(|c| c == ':'))
             .skip(spaces)
             .and_then(word2)
-            .parse("x: int");
+            .start_parse("x: int")
+            .map(|(x, s)| (x, s.into_inner()));
         assert_eq!(c_decl, Ok(((vec!['x'], vec!['i', 'n', 't']), "")));
+    }
+    #[test]
+    fn source_position() {
+        let source =
+r"
+123
+";
+        let result = many(space())
+            .with(integer as fn(_) -> _)
+            .skip(many(space()))
+            .start_parse(source);
+        assert_eq!(result, Ok((123i64, State { position: SourcePosition { line: 3, column: 1 }, input: "" })));
     }
 }
