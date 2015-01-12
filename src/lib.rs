@@ -20,25 +20,35 @@ impl SourcePosition {
     }
 }
 
-#[derive(Clone, Show, PartialEq)]
-pub struct Error {
-    position: SourcePosition,
-    messages: Vec<String>
+#[derive(Clone, PartialEq, Show)]
+enum Error {
+    Unexpected(char),
+    Expected(String),
+    Message(String)
 }
 
-impl Error {
-    fn new(position: SourcePosition, message: String) -> Error {
-        Error { position: position, messages: vec![message] }
+#[derive(Clone, Show, PartialEq)]
+pub struct ParseError {
+    position: SourcePosition,
+    messages: Vec<Error>
+}
+
+impl ParseError {
+    fn new(position: SourcePosition, error: Error) -> ParseError {
+        ParseError { position: position, messages: vec![error] }
     }
     pub fn add_message(&mut self, message: String) {
-        //Don't add duplicate messages
+        self.add_error(Error::Message(message));
+    }
+    fn add_error(&mut self, message: Error) {
+        //Don't add duplicate errors
         if self.messages.iter().find(|msg| **msg == message).is_none() {
             self.messages.push(message);
         }
     }
-    fn merge(mut self, other: Error) -> Error {
+    fn merge(mut self, other: ParseError) -> ParseError {
         for message in other.messages.into_iter() {
-            self.add_message(message);
+            self.add_error(message);
         }
         self
     }
@@ -62,7 +72,7 @@ impl <I: Stream> State<I> {
                 f(&mut position, &c);
                 Ok((c, State { position: position, input: input }))
             }
-            Err(()) => Err(Error::new(position, "End of input".to_string()))
+            Err(()) => Err(ParseError::new(position, Error::Message("End of input".to_string())))
         }
     }
     fn into_inner(self) -> I {
@@ -76,7 +86,7 @@ impl <I: Stream<Item=char>> State<I> {
 
 }
 
-pub type ParseResult<O, I> = Result<(O, State<I>), Error>;
+pub type ParseResult<O, I> = Result<(O, State<I>), ParseError>;
 
 pub trait Stream : Clone {
     type Item;
@@ -279,7 +289,7 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
                 else {
-                    Err(Error::new(input.position, format!("Unexpected '{}'", c)))
+                    Err(ParseError::new(input.position, Error::Unexpected(c)))
                 }
             }
             Err(err) => Err(err)
@@ -309,7 +319,7 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
         for c in self.s.chars() {
             match input.clone().uncons_char() {
                 Ok((other, rest)) => {
-                    if c != other { return Err(Error::new(input.position, format!("Expected {}", self.s)));  }
+                    if c != other { return Err(ParseError::new(input.position, Error::Expected(self.s.to_string())));  }
                     input = rest;
                 }
                 Err(err) => return Err(err)
@@ -368,7 +378,7 @@ impl <I: Stream> Env<I> {
         Env { input: input }
     }
     
-    pub fn with<P, O>(&mut self, mut parser: P) -> Result<O, Error>
+    pub fn with<P, O>(&mut self, mut parser: P) -> Result<O, ParseError>
         where P: Parser<Input=I, Output=O> {
         let (o, rest) = try!(parser.parse(self.input.clone()));
         self.input = rest;
@@ -387,7 +397,7 @@ pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
         Ok((c, rest)) => {
             if c.is_digit(10) { Ok((c, rest)) }
             else {
-                Err(Error::new(input.position, "Expected digit".to_string()))
+                Err(ParseError::new(input.position, Error::Message("Expected digit".to_string())))
             }
         }
         Err(err) => Err(err)
@@ -516,6 +526,7 @@ impl <P: Parser> ParserExt for P { }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::Error;
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
@@ -614,9 +625,9 @@ r"
 ";
         let result = (expr as fn (_) -> _)
             .start_parse(input);
-        let err = Error {
+        let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            messages: vec!["Unexpected ','".to_string(), "Expected digit".to_string()]
+            messages: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
         };
         assert_eq!(result, Err(err));
     }
