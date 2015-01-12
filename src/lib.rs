@@ -77,12 +77,12 @@ impl <I: Stream<Item=char>> State<I> {
 
 pub type ParseResult<O, I> = Result<(O, State<I>), Error>;
 
-pub trait Stream {
+pub trait Stream : Clone {
     type Item;
     fn uncons(self) -> Result<(<Self as Stream>::Item, Self), ()>;
 }
 
-impl <I: Iterator> Stream for I {
+impl <I: Iterator + Clone> Stream for I {
     type Item = <I as Iterator>::Item;
     fn uncons(mut self) -> Result<(<Self as Stream>::Item, Self), ()> {
         match self.next() {
@@ -113,7 +113,7 @@ impl <'a, T> Stream for &'a [T] {
 }
 
 pub trait Parser {
-    type Input: Clone + Stream;
+    type Input: Stream;
     type Output;
 
     ///Parses using `input` by calling Stream::uncons one or more times
@@ -124,7 +124,7 @@ pub trait Parser {
     }
 }
 impl <'a, I, O, P> Parser for &'a mut P 
-    where I: Clone + Stream, P: Parser<Input=I, Output=O> {
+    where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
@@ -134,7 +134,7 @@ impl <'a, I, O, P> Parser for &'a mut P
 
 ///Parses any character
 pub fn char<'a, I>(input: State<I>) -> ParseResult<char, I>
-    where I: Stream<Item=char> + Clone {
+    where I: Stream<Item=char> {
     input.uncons_char()
 }
 
@@ -236,7 +236,7 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
 }
 
 
-impl <'a, I: Clone + Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a> {
+impl <'a, I: Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
@@ -248,7 +248,7 @@ impl <'a, I: Clone + Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O,
 struct FnParser<'a, I: Stream, O, F: FnMut(State<I>) -> ParseResult<O, I>>(F);
 
 impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
-    where I: Clone + Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
+    where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
@@ -257,7 +257,7 @@ impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
 }
 
 impl <'a, I, O> Parser for fn (State<I>) -> ParseResult<O, I>
-    where I: Clone + Stream {
+    where I: Stream {
     type Input = I;
     type Output = O;
     fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
@@ -269,7 +269,7 @@ impl <'a, I, O> Parser for fn (State<I>) -> ParseResult<O, I>
 pub struct Satisfy<I, Pred> { pred: Pred }
 
 impl <'a, I, Pred> Parser for Satisfy<I, Pred>
-    where I: Stream<Item=char> + Clone, Pred: FnMut(char) -> bool {
+    where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
 
     type Input = I;
     type Output = char;
@@ -288,20 +288,20 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
 
 ///Parses a character and succeeds depending on the result of `pred`
 pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
-    where I: Stream + Clone, Pred: FnMut(char) -> bool {
+    where I: Stream, Pred: FnMut(char) -> bool {
     Satisfy { pred: pred }
 }
 
 ///Parses whitespace
 pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
-    where I: Stream + Clone {
+    where I: Stream {
     satisfy(CharExt::is_whitespace as fn (char) -> bool)
 }
 
 #[derive(Clone)]
 pub struct StringP<'a, I> { s: &'a str }
 impl <'a, 'b, I> Parser for StringP<'b, I>
-    where I: Stream<Item=char> + Clone {
+    where I: Stream<Item=char> {
     type Input = I;
     type Output = &'b str;
     fn parse(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
@@ -320,14 +320,14 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
 
 ///Parses the string `s`
 pub fn string<I>(s: &str) -> StringP<I>
-    where I: Stream + Clone {
+    where I: Stream {
     StringP { s: s }
 }
 
 #[derive(Clone)]
 pub struct And<P1, P2>(P1, P2);
 impl <I, A, B, P1, P2> Parser for And<P1, P2>
-    where I: Clone + Stream, P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
+    where I: Stream, P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
 
     type Input = I;
     type Output = (A, B);
@@ -362,7 +362,7 @@ pub struct Env<I> {
     input: State<I>
 }
 
-impl <I: Clone + Stream> Env<I> {
+impl <I: Stream> Env<I> {
     pub fn new(input: State<I>) -> Env<I> {
         Env { input: input }
     }
@@ -381,7 +381,7 @@ impl <I: Clone + Stream> Env<I> {
 
 ///Parses a digit from a stream containing characters
 pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
-    where I: Stream<Item=char> + Clone {
+    where I: Stream<Item=char> {
     match input.uncons_char() {
         Ok((c, rest)) => {
             if c.is_digit(10) { Ok((c, rest)) }
@@ -399,7 +399,7 @@ pub type Between<L, R, P> = Skip<With<L, P>, R>;
 ///Parses `open` followed by `parser` followed by `close`
 ///Returns the value of `parser`
 pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
-    where I: Clone + Stream
+    where I: Stream
         , L: Parser<Input=I>
         , R: Parser<Input=I>
         , P: Parser<Input=I> {
@@ -408,7 +408,7 @@ pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
 
 pub struct With<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, P1, P2> Parser for With<P1, P2>
-    where I: Clone + Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
+    where I: Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
 
     type Input = I;
     type Output = <P2 as Parser>::Output;
@@ -419,7 +419,7 @@ impl <I, P1, P2> Parser for With<P1, P2>
 }
 pub struct Skip<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, P1, P2> Parser for Skip<P1, P2>
-    where I: Clone + Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
+    where I: Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
 
     type Input = I;
     type Output = <P1 as Parser>::Output;
@@ -430,7 +430,7 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 }
 pub struct Message<P>(P, String) where P: Parser;
 impl <I, P> Parser for Message<P>
-    where I: Clone + Stream, P: Parser<Input=I> {
+    where I: Stream, P: Parser<Input=I> {
 
     type Input = I;
     type Output = <P as Parser>::Output;
@@ -447,7 +447,7 @@ impl <I, P> Parser for Message<P>
 
 pub struct Or<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, O, P1, P2> Parser for Or<P1, P2>
-    where I: Clone + Stream, P1: Parser<Input=I, Output=O>, P2: Parser<Input=I, Output=O> {
+    where I: Stream, P1: Parser<Input=I, Output=O>, P2: Parser<Input=I, Output=O> {
 
     type Input = I;
     type Output = O;
@@ -465,7 +465,7 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
 }
 pub struct Map<P, F, B>(P, F);
 impl <I, A, B, P, F> Parser for Map<P, F, B>
-    where I: Clone + Stream, P: Parser<Input=I, Output=A>, F: FnMut(A) -> B {
+    where I: Stream, P: Parser<Input=I, Output=A>, F: FnMut(A) -> B {
 
     type Input = I;
     type Output = B;
@@ -520,7 +520,7 @@ mod tests {
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
-        where I: Stream<Item=char> + Clone {
+        where I: Stream<Item=char> {
         let (chars, input) = try!(many1(digit as fn(_) -> _)
             .parse(input));
         let mut n = 0;
