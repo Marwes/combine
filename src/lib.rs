@@ -27,20 +27,21 @@ pub struct Error {
 }
 
 impl Error {
+    fn new(position: SourcePosition, message: String) -> Error {
+        Error { position: position, messages: vec![message] }
+    }
     pub fn add_message(&mut self, message: String) {
-        self.messages.push(message);
+        //Don't add duplicate messages
+        if self.messages.iter().find(|msg| **msg == message).is_none() {
+            self.messages.push(message);
+        }
     }
     fn merge(mut self, other: Error) -> Error {
-        self.messages.extend(other.messages.into_iter());
+        for message in other.messages.into_iter() {
+            self.add_message(message);
+        }
         self
     }
-}
-
-fn error() -> Error {
-    Error { position: SourcePosition { line: 0, column: 0 }, messages: Vec::new() }
-}
-fn message(s: String) -> Error {
-    Error { position: SourcePosition { line: 0, column: 0 }, messages: vec![s] }
 }
 
 #[derive(Clone, PartialEq, Show)]
@@ -61,7 +62,7 @@ impl <I: Stream> State<I> {
                 f(&mut position, &c);
                 Ok((c, State { position: position, input: input }))
             }
-            Err(()) => Err(message("End of input".to_string()))
+            Err(()) => Err(Error::new(position, "End of input".to_string()))
         }
     }
     fn into_inner(self) -> I {
@@ -245,9 +246,9 @@ impl <'a, I: Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a
 }
 
 #[derive(Clone)]
-struct FnParser<'a, I: Stream, O, F: FnMut(State<I>) -> ParseResult<O, I>>(F);
+struct FnParser<I: Stream, O, F: FnMut(State<I>) -> ParseResult<O, I>>(F);
 
-impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
+impl <I, O, F> Parser for FnParser<I, O, F>
     where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
     type Input = I;
     type Output = O;
@@ -256,7 +257,7 @@ impl <'a, I, O, F> Parser for FnParser<'a, I, O, F>
     }
 }
 
-impl <'a, I, O> Parser for fn (State<I>) -> ParseResult<O, I>
+impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     where I: Stream {
     type Input = I;
     type Output = O;
@@ -274,11 +275,11 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
     type Input = I;
     type Output = char;
     fn parse(&mut self, input: State<I>) -> ParseResult<char, I> {
-        match input.uncons_char() {
+        match input.clone().uncons_char() {
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
                 else {
-                    Err(message(format!("{} did not satisfy", c)))
+                    Err(Error::new(input.position, format!("Unexpected '{}'", c)))
                 }
             }
             Err(err) => Err(err)
@@ -306,9 +307,9 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
     type Output = &'b str;
     fn parse(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
         for c in self.s.chars() {
-            match input.uncons_char() {
+            match input.clone().uncons_char() {
                 Ok((other, rest)) => {
-                    if c != other { return Err(error());  }
+                    if c != other { return Err(Error::new(input.position, format!("Expected {}", self.s)));  }
                     input = rest;
                 }
                 Err(err) => return Err(err)
@@ -382,13 +383,11 @@ impl <I: Stream> Env<I> {
 ///Parses a digit from a stream containing characters
 pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> {
-    match input.uncons_char() {
+    match input.clone().uncons_char() {
         Ok((c, rest)) => {
             if c.is_digit(10) { Ok((c, rest)) }
             else {
-                let mut error = error();
-                error.add_message("Expected digit".to_string());
-                Err(error)
+                Err(Error::new(input.position, "Expected digit".to_string()))
             }
         }
         Err(err) => Err(err)
@@ -575,26 +574,27 @@ r"
             .start_parse(source);
         assert_eq!(result, Ok((123i64, State { position: SourcePosition { line: 3, column: 1 }, input: "" })));
     }
+
+    #[derive(Show, PartialEq)]
+    enum Expr {
+        Id(Vec<char>),
+        Int(i64),
+        Array(Vec<Expr>)
+    }
+    fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
+        let word = many1(satisfy(|c| c.is_alphabetic()));
+        let integer = integer as fn (_) -> _;
+        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
+        let spaces = many(space());
+        spaces.clone()
+            .with(word.map(Expr::Id)
+                .or(integer.map(Expr::Int))
+                .or(array.map(Expr::Array)))
+            .parse(input)
+    }
+
     #[test]
     fn expression() {
-        #[derive(Show, PartialEq)]
-        enum Expr {
-            Id(Vec<char>),
-            Int(i64),
-            Array(Vec<Expr>)
-        }
-        fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-            let word = many1(satisfy(|c| c.is_alphabetic()));
-            let integer = integer as fn (_) -> _;
-            let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
-            let spaces = many(space());
-            spaces.clone()
-                .with(word.map(Expr::Id)
-                    .or(integer.map(Expr::Int))
-                    .or(array.map(Expr::Array)))
-                .parse(input)
-        }
-
         let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
             .start_parse("int, 100, [[], 123]")
             .map(|(x, s)| (x, s.into_inner()));
@@ -604,5 +604,20 @@ r"
             , Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)])
         ];
         assert_eq!(result, Ok((exprs, "")));
+    }
+
+    #[test]
+    fn expression_error() {
+        let input =
+r"
+,123
+";
+        let result = (expr as fn (_) -> _)
+            .start_parse(input);
+        let err = Error {
+            position: SourcePosition { line: 2, column: 1 },
+            messages: vec!["Unexpected ','".to_string(), "Expected digit".to_string()]
+        };
+        assert_eq!(result, Err(err));
     }
 }
