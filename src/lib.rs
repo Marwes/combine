@@ -230,12 +230,8 @@ impl <P, S> Parser for SepBy<P, S>
             }
             Err(_) => return Ok((result, input))
         }
-        let rest = FnParser(|input| {
-            let mut env = Env::new(input);
-            try!(env.with(&mut self.separator));
-            let v = try!(env.with(&mut self.parser));
-            env.result(v)
-        });
+        let rest = (&mut self.separator)
+            .with(&mut self.parser);
         let ((), input) = try!(many_append(rest, &mut result).parse(input));
         Ok((result, input))
     }
@@ -366,28 +362,6 @@ impl <P> Parser for Optional<P>
 ///Returns `Some(value)` and `None` on parse failure (always succeeds)
 pub fn optional<P>(parser: P) -> Optional<P> {
     Optional(parser)
-}
-
-
-pub struct Env<I> {
-    input: State<I>
-}
-
-impl <I: Stream> Env<I> {
-    pub fn new(input: State<I>) -> Env<I> {
-        Env { input: input }
-    }
-    
-    pub fn with<P, O>(&mut self, mut parser: P) -> Result<O, ParseError>
-        where P: Parser<Input=I, Output=O> {
-        let (o, rest) = try!(parser.parse(self.input.clone()));
-        self.input = rest;
-        Ok(o)
-    }
-
-    pub fn result<O>(self, output: O) -> ParseResult<O, I> {
-        Ok((output, self.input))
-    }
 }
 
 ///Parses a digit from a stream containing characters
