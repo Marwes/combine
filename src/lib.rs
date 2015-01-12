@@ -314,8 +314,8 @@ pub fn string<I>(s: &str) -> StringP<I>
 }
 
 #[derive(Clone)]
-pub struct AndThen<P1, P2>(P1, P2);
-impl <I, A, B, P1, P2> Parser for AndThen<P1, P2>
+pub struct And<P1, P2>(P1, P2);
+impl <I, A, B, P1, P2> Parser for And<P1, P2>
     where I: Clone + Stream, P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
 
     type Input = I;
@@ -325,10 +325,6 @@ impl <I, A, B, P1, P2> Parser for AndThen<P1, P2>
         let (b, rest) = try!(self.1.parse(rest));
         Ok(((a, b), rest))
     }
-}
-pub fn and_then<P1, P2>(p1: P1, p2: P2) -> AndThen<P1, P2>
-    where P1: Parser, P2: Parser {
-    AndThen(p1, p2)
 }
 
 #[derive(Clone)]
@@ -393,7 +389,7 @@ impl <I, P1, P2> Parser for With<P1, P2>
     type Input = I;
     type Output = <P2 as Parser>::Output;
     fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
-        let ((_, b), rest) = try!((&mut self.0).and_then(&mut self.1).parse(input));
+        let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse(input));
         Ok((b, rest))
     }
 }
@@ -404,7 +400,7 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
     type Input = I;
     type Output = <P1 as Parser>::Output;
     fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
-        let ((a, _), rest) = try!((&mut self.0).and_then(&mut self.1).parse(input));
+        let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse(input));
         Ok((a, rest))
     }
 }
@@ -457,9 +453,9 @@ impl <I, A, B, P, F> Parser for Map<P, F, B>
     }
 }
 pub trait ParserExt : Parser + Sized {
-    fn and_then<P2>(self, p: P2) -> AndThen<Self, P2>
+    fn and<P2>(self, p: P2) -> And<Self, P2>
         where P2: Parser {
-        and_then(self, p)
+        And(self, p)
     }
     fn with<P2>(self, p: P2) -> With<Self, P2>
         where P2: Parser {
@@ -528,7 +524,7 @@ mod tests {
             .skip(spaces.clone())
             .skip(satisfy(|c| c == ':'))
             .skip(spaces)
-            .and_then(word2)
+            .and(word2)
             .start_parse("x: int")
             .map(|(x, s)| (x, s.into_inner()));
         assert_eq!(c_decl, Ok(((vec!['x'], vec!['i', 'n', 't']), "")));
