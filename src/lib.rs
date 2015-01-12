@@ -1,4 +1,5 @@
 #![allow(unstable)]
+use std::fmt;
 
 
 #[derive(Clone, Copy, Show, PartialEq)]
@@ -30,27 +31,51 @@ enum Error {
 #[derive(Clone, Show, PartialEq)]
 pub struct ParseError {
     position: SourcePosition,
-    messages: Vec<Error>
+    errors: Vec<Error>
 }
 
 impl ParseError {
     fn new(position: SourcePosition, error: Error) -> ParseError {
-        ParseError { position: position, messages: vec![error] }
+        ParseError { position: position, errors: vec![error] }
     }
     pub fn add_message(&mut self, message: String) {
         self.add_error(Error::Message(message));
     }
     fn add_error(&mut self, message: Error) {
         //Don't add duplicate errors
-        if self.messages.iter().find(|msg| **msg == message).is_none() {
-            self.messages.push(message);
+        if self.errors.iter().find(|msg| **msg == message).is_none() {
+            self.errors.push(message);
         }
     }
     fn merge(mut self, other: ParseError) -> ParseError {
-        for message in other.messages.into_iter() {
+        for message in other.errors.into_iter() {
             self.add_error(message);
         }
         self
+    }
+}
+
+impl fmt::String for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(writeln!(f, "Parse error at {}", self.position));
+        for error in self.errors.iter() {
+            try!(writeln!(f, "{}", error));
+        }
+        Ok(())
+    }
+}
+impl fmt::String for SourcePosition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "line: {}, column: {}", self.line, self.column)
+    }
+}
+impl fmt::String for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Unexpected(c) => write!(f, "Unexpected character '{}'", c),
+            Error::Expected(ref s) => write!(f, "Expected {}", s),
+            Error::Message(ref msg) => write!(f, "{}", msg),
+        }
     }
 }
 
@@ -601,7 +626,7 @@ r"
             .start_parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            messages: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
+            errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
         };
         assert_eq!(result, Err(err));
     }
