@@ -381,6 +381,14 @@ pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
     }
 }
 
+pub type Between<L, R, P> = Skip<With<L, P>, R>;
+pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
+    where I: Clone + Stream
+        , L: Parser<Input=I>
+        , R: Parser<Input=I>
+        , P: Parser<Input=I> {
+    open.with(parser).skip(close)
+}
 
 pub struct With<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, P1, P2> Parser for With<P1, P2>
@@ -546,18 +554,29 @@ r"
         #[derive(Show, PartialEq)]
         enum Expr {
             Id(Vec<char>),
-            Int(i64)
+            Int(i64),
+            Array(Vec<Expr>)
         }
-        let word = many1(satisfy(|c| c.is_alphabetic()));
-        let integer = integer as fn (_) -> _;
-        let spaces = many(space());
-        let expr = spaces.clone()
-            .with(word.map(Expr::Id)
-                .or(integer.map(Expr::Int)));
+        fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
+            let word = many1(satisfy(|c| c.is_alphabetic()));
+            let integer = integer as fn (_) -> _;
+            let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
+            let spaces = many(space());
+            spaces.clone()
+                .with(word.map(Expr::Id)
+                    .or(integer.map(Expr::Int))
+                    .or(array.map(Expr::Array)))
+                .parse(input)
+        }
 
-        let result = sep_by(expr, satisfy(|c| c == ','))
-            .start_parse("int, 100")
+        let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
+            .start_parse("int, 100, [[], 123]")
             .map(|(x, s)| (x, s.into_inner()));
-        assert_eq!(result, Ok((vec![Expr::Id(vec!['i', 'n', 't']), Expr::Int(100)], "")));
+        let exprs = vec![
+              Expr::Id(vec!['i', 'n', 't'])
+            , Expr::Int(100)
+            , Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)])
+        ];
+        assert_eq!(result, Ok((exprs, "")));
     }
 }
