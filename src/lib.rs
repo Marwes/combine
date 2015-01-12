@@ -30,6 +30,10 @@ impl Error {
     pub fn add_message(&mut self, message: String) {
         self.messages.push(message);
     }
+    fn merge(mut self, other: Error) -> Error {
+        self.messages.extend(other.messages.into_iter());
+        self
+    }
 }
 
 fn error() -> Error {
@@ -421,6 +425,37 @@ impl <I, P> Parser for Message<P>
     }
 }
 
+pub struct Or<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
+impl <I, O, P1, P2> Parser for Or<P1, P2>
+    where I: Clone + Stream, P1: Parser<Input=I, Output=O>, P2: Parser<Input=I, Output=O> {
+
+    type Input = I;
+    type Output = O;
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
+        match self.0.parse(input.clone()) {
+            Ok(x) => Ok(x),
+            Err(error1) => {
+                match self.1.parse(input) {
+                    Ok(x) => Ok(x),
+                    Err(error2) => Err(error1.merge(error2))
+                }
+            }
+        }
+    }
+}
+pub struct Map<P, F, B>(P, F);
+impl <I, A, B, P, F> Parser for Map<P, F, B>
+    where I: Clone + Stream, P: Parser<Input=I, Output=A>, F: FnMut(A) -> B {
+
+    type Input = I;
+    type Output = B;
+    fn parse(&mut self, input: State<I>) -> ParseResult<B, I> {
+        match self.0.parse(input.clone()) {
+            Ok((x, input)) => Ok(((self.1)(x), input)),
+            Err(err) => Err(err)
+        }
+    }
+}
 pub trait ParserExt : Parser + Sized {
     fn and_then<P2>(self, p: P2) -> AndThen<Self, P2>
         where P2: Parser {
@@ -433,6 +468,14 @@ pub trait ParserExt : Parser + Sized {
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
         where P2: Parser {
         Skip(self, p)
+    }
+    fn or<P2>(self, p: P2) -> Or<Self, P2>
+        where P2: Parser {
+        Or(self, p)
+    }
+    fn map<F, B>(self, p: F) -> Map<Self, F, B>
+        where F: FnMut(<Self as Parser>::Output) -> B {
+        Map(self, p)
     }
     fn message(self, s: String) -> Message<Self> {
         Message(self, s)
@@ -501,5 +544,24 @@ r"
             .skip(many(space()))
             .start_parse(source);
         assert_eq!(result, Ok((123i64, State { position: SourcePosition { line: 3, column: 1 }, input: "" })));
+    }
+    #[test]
+    fn expression() {
+        #[derive(Show, PartialEq)]
+        enum Expr {
+            Id(Vec<char>),
+            Int(i64)
+        }
+        let word = many1(satisfy(|c| c.is_alphabetic()));
+        let integer = integer as fn (_) -> _;
+        let spaces = many(space());
+        let expr = spaces.clone()
+            .with(word.map(Expr::Id)
+                .or(integer.map(Expr::Int)));
+
+        let result = sep_by(expr, satisfy(|c| c == ','))
+            .start_parse("int, 100")
+            .map(|(x, s)| (x, s.into_inner()));
+        assert_eq!(result, Ok((vec![Expr::Id(vec!['i', 'n', 't']), Expr::Int(100)], "")));
     }
 }
