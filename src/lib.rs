@@ -28,15 +28,22 @@ enum Error {
     Message(String)
 }
 
+#[derive(Clone, PartialEq, Show)]
+enum Consumed {
+    Consumed,
+    Empty
+}
+
 #[derive(Clone, Show, PartialEq)]
 pub struct ParseError {
     position: SourcePosition,
+    consumed: Consumed,
     errors: Vec<Error>
 }
 
 impl ParseError {
-    fn new(position: SourcePosition, error: Error) -> ParseError {
-        ParseError { position: position, errors: vec![error] }
+    fn new(position: SourcePosition, consumed: Consumed, error: Error) -> ParseError {
+        ParseError { position: position, consumed: consumed, errors: vec![error] }
     }
     pub fn add_message(&mut self, message: String) {
         self.add_error(Error::Message(message));
@@ -97,7 +104,7 @@ impl <I: Stream> State<I> {
                 f(&mut position, &c);
                 Ok((c, State { position: position, input: input }))
             }
-            Err(()) => Err(ParseError::new(position, Error::Message("End of input".to_string())))
+            Err(()) => Err(ParseError::new(position, Consumed::Empty, Error::Message("End of input".to_string())))
         }
     }
     fn into_inner(self) -> I {
@@ -188,6 +195,7 @@ impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
                     self.vec.push(x);
                     input = rest;
                 }
+                Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
                 Err(_) => break
             }
         }
@@ -310,7 +318,7 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
                 else {
-                    Err(ParseError::new(input.position, Error::Unexpected(c)))
+                    Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
                 }
             }
             Err(err) => Err(err)
@@ -337,10 +345,14 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
     type Input = I;
     type Output = &'b str;
     fn parse(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
-        for c in self.s.chars() {
-            match input.clone().uncons_char() {
+        let start = input.position;
+        for (i, c) in self.s.chars().enumerate() {
+            match input.uncons_char() {
                 Ok((other, rest)) => {
-                    if c != other { return Err(ParseError::new(input.position, Error::Expected(self.s.to_string())));  }
+                    if c != other {
+                        let consumed = if i == 0 { Consumed::Empty } else { Consumed::Consumed };
+                        return Err(ParseError::new(start, consumed, Error::Expected(self.s.to_string())));
+                    }
                     input = rest;
                 }
                 Err(err) => return Err(err)
@@ -396,7 +408,7 @@ pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
         Ok((c, rest)) => {
             if c.is_digit(10) { Ok((c, rest)) }
             else {
-                Err(ParseError::new(input.position, Error::Message("Expected digit".to_string())))
+                Err(ParseError::new(input.position, Consumed::Empty, Error::Message("Expected digit".to_string())))
             }
         }
         Err(err) => Err(err)
@@ -462,6 +474,7 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
     fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
         match self.0.parse(input.clone()) {
             Ok(x) => Ok(x),
+            Err(err@ParseError { consumed: Consumed::Consumed, .. }) => Err(err),
             Err(error1) => {
                 match self.1.parse(input) {
                     Ok(x) => Ok(x),
@@ -556,7 +569,7 @@ impl <P: Parser> ParserExt for P { }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::Error;
+    use super::{Error, Consumed};
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
@@ -661,6 +674,7 @@ r"
             .start_parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
+            consumed: Consumed::Empty,
             errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
         };
         assert_eq!(result, Err(err));
@@ -690,5 +704,27 @@ r"
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
         let e2 = Expr::Times(Box::new(Expr::Int(3)), Box::new(Expr::Id("test".to_string())));
         assert_eq!(result, Expr::Plus(Box::new(e1), Box::new(e2)));
+    }
+    #[test]
+    fn error_position() {
+        fn follow(input: State<&str>) -> ParseResult<(), &str> {
+            match input.clone().uncons_char() {
+                Ok((c, _)) => {
+                    if c.is_alphanumeric() {
+                        Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
+                    }
+                    else {
+                        Ok(((), input))
+                    }
+                }
+                Err(_) => Ok(((), input))
+            }
+        }
+        let mut p = string("let").skip(follow as fn (_) -> _).map(|x| x.to_string())
+            .or(many1(satisfy(|c| c.is_digit(10))).map(|x| x.into_iter().collect()));
+        match p.start_parse("le123") {
+            Ok(_) => assert!(false),
+            Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
+        }
     }
 }
