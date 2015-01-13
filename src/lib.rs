@@ -484,6 +484,37 @@ impl <I, A, B, P, F> Parser for Map<P, F, B>
         }
     }
 }
+pub struct Chainl1<P, Op>(P, Op);
+impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
+    where I: Stream
+        , P: Parser<Input=I, Output=O>
+        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+
+    type Input = I;
+    type Output = O;
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
+        let (mut l, mut input) = try!(self.0.parse(input));
+        loop {
+            //FIXME
+            match (&mut self.1).and(&mut self.0).parse(input.clone()) {
+                Ok(((mut op, r), rest)) => {
+                    l = op(l, r);
+                    input = rest;
+                }
+                Err(_) => break
+            };
+
+        }
+        Ok((l, input))
+    }
+}
+pub fn chainl1<'a, I, O, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
+    where I: Stream
+        , P: Parser<Input=I, Output=O>
+        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+    Chainl1(parser, op)
+}
+
 pub trait ParserExt : Parser + Sized {
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
@@ -587,19 +618,23 @@ r"
 
     #[derive(Show, PartialEq)]
     enum Expr {
-        Id(Vec<char>),
+        Id(String),
         Int(i64),
-        Array(Vec<Expr>)
+        Array(Vec<Expr>),
+        Plus(Box<Expr>, Box<Expr>),
+        Times(Box<Expr>, Box<Expr>)
     }
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-        let word = many1(satisfy(|c| c.is_alphabetic()));
+        let word = many1(satisfy(|c| c.is_alphabetic()))
+            .map(|vec| vec.into_iter().collect::<String>());
         let integer = integer as fn (_) -> _;
         let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
         let spaces = many(space());
-        spaces.clone()
-            .with(word.map(Expr::Id)
+        spaces.clone().with(
+                word.map(Expr::Id)
                 .or(integer.map(Expr::Int))
-                .or(array.map(Expr::Array)))
+                .or(array.map(Expr::Array))
+            ).skip(spaces)
             .parse(input)
     }
 
@@ -609,7 +644,7 @@ r"
             .start_parse("int, 100, [[], 123]")
             .map(|(x, s)| (x, s.into_inner()));
         let exprs = vec![
-              Expr::Id(vec!['i', 'n', 't'])
+              Expr::Id("int".to_string())
             , Expr::Int(100)
             , Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)])
         ];
@@ -629,5 +664,31 @@ r"
             errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
         };
         assert_eq!(result, Err(err));
+    }
+
+    fn term(input: State<&str>) -> ParseResult<Expr, &str> {
+
+        let mul = satisfy(|c| c == '*')
+            .map(|_| Box::new(|&mut:l, r| Expr::Times(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
+        let add = satisfy(|c| c == '+')
+            .map(|_| Box::new(|&mut:l, r| Expr::Plus(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
+        let factor = chainl1(expr as fn (_) -> _, mul);
+        chainl1(factor, add)
+            .parse(input)
+    }
+
+    #[test]
+    fn operators() {
+        let input =
+r"
+1 * 2 + 3 * test
+";
+        let (result, _) = (term as fn (_) -> _)
+            .start_parse(input)
+            .unwrap();
+
+        let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
+        let e2 = Expr::Times(Box::new(Expr::Int(3)), Box::new(Expr::Id("test".to_string())));
+        assert_eq!(result, Expr::Plus(Box::new(e1), Box::new(e2)));
     }
 }
