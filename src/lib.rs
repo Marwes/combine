@@ -528,6 +528,28 @@ pub fn chainl1<'a, I, O, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
     Chainl1(parser, op)
 }
 
+pub struct Try<P>(P);
+impl <I, O, P> Parser for Try<P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> {
+
+    type Input = I;
+    type Output = O;
+    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
+        self.0.parse(input)
+            .map_err(|mut err| {
+                err.consumed = Consumed::Empty;
+                err
+            })
+    }
+}
+///Try acts as `p` except it acts as if the parser hadn't consumed any input
+///if `p` returns an error after consuming input
+pub fn try<P>(p : P) -> Try<P>
+    where P: Parser {
+    Try(p)
+}
+
 pub trait ParserExt : Parser + Sized {
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
@@ -705,26 +727,36 @@ r"
         let e2 = Expr::Times(Box::new(Expr::Int(3)), Box::new(Expr::Id("test".to_string())));
         assert_eq!(result, Expr::Plus(Box::new(e1), Box::new(e2)));
     }
+
+
+    fn follow(input: State<&str>) -> ParseResult<(), &str> {
+        match input.clone().uncons_char() {
+            Ok((c, _)) => {
+                if c.is_alphanumeric() {
+                    Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
+                }
+                else {
+                    Ok(((), input))
+                }
+            }
+            Err(_) => Ok(((), input))
+        }
+    }
     #[test]
     fn error_position() {
-        fn follow(input: State<&str>) -> ParseResult<(), &str> {
-            match input.clone().uncons_char() {
-                Ok((c, _)) => {
-                    if c.is_alphanumeric() {
-                        Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
-                    }
-                    else {
-                        Ok(((), input))
-                    }
-                }
-                Err(_) => Ok(((), input))
-            }
-        }
         let mut p = string("let").skip(follow as fn (_) -> _).map(|x| x.to_string())
             .or(many1(satisfy(|c| c.is_digit(10))).map(|x| x.into_iter().collect()));
         match p.start_parse("le123") {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
         }
+    }
+
+    #[test]
+    fn try_parser() {
+        let mut p = try(string("let").skip(follow as fn (_) -> _)).map(|x| x.to_string())
+            .or(many1(satisfy(CharExt::is_alphabetic)).map(|x| x.into_iter().collect()));
+        let result = p.start_parse("lex  ").map(|x| x.0);
+        assert_eq!(result, Ok("lex".to_string()));
     }
 }
