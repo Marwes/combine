@@ -465,6 +465,7 @@ pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
     open.with(parser).skip(close)
 }
 
+#[derive(Clone)]
 pub struct With<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, P1, P2> Parser for With<P1, P2>
     where I: Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
@@ -476,6 +477,8 @@ impl <I, P1, P2> Parser for With<P1, P2>
         Ok((b, rest))
     }
 }
+
+#[derive(Clone)]
 pub struct Skip<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, P1, P2> Parser for Skip<P1, P2>
     where I: Stream, P1: Parser<Input=I>, P2: Parser<Input=I> {
@@ -487,6 +490,8 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
         Ok((a, rest))
     }
 }
+
+#[derive(Clone)]
 pub struct Message<P>(P, String) where P: Parser;
 impl <I, P> Parser for Message<P>
     where I: Stream, P: Parser<Input=I> {
@@ -504,6 +509,7 @@ impl <I, P> Parser for Message<P>
     }
 }
 
+#[derive(Clone)]
 pub struct Or<P1, P2>(P1, P2) where P1: Parser, P2: Parser;
 impl <I, O, P1, P2> Parser for Or<P1, P2>
     where I: Stream, P1: Parser<Input=I, Output=O>, P2: Parser<Input=I, Output=O> {
@@ -523,6 +529,8 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
         }
     }
 }
+
+#[derive(Clone)]
 pub struct Map<P, F, B>(P, F);
 impl <I, A, B, P, F> Parser for Map<P, F, B>
     where I: Stream, P: Parser<Input=I, Output=A>, F: FnMut(A) -> B {
@@ -536,6 +544,8 @@ impl <I, A, B, P, F> Parser for Map<P, F, B>
         }
     }
 }
+
+#[derive(Clone)]
 pub struct Chainl1<P, Op>(P, Op);
 impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
     where I: Stream
@@ -567,6 +577,7 @@ pub fn chainl1<'a, I, O, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
     Chainl1(parser, op)
 }
 
+#[derive(Clone)]
 pub struct Try<P>(P);
 impl <I, O, P> Parser for Try<P>
     where I: Stream
