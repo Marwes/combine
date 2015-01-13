@@ -181,18 +181,20 @@ pub fn char<'a, I>(input: State<I>) -> ParseResult<char, I>
     input.uncons_char()
 }
 
-pub struct ManyAppend<'a, O: 'a, P: Parser<Output=O> + 'a> {
-    parser: P,
-    vec: &'a mut Vec<O>
-}
-impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
+#[derive(Clone)]
+pub struct ConsumeMany<P, F>(P, F)
+    where P: Parser
+        , F: FnMut(<P as Parser>::Output);
+impl <P, F> Parser for ConsumeMany<P, F>
+    where P: Parser
+        , F: FnMut(<P as Parser>::Output) {
     type Input = <P as Parser>::Input;
     type Output = ();
     fn parse(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
         loop {
-            match self.parser.parse(input.clone()) {
+            match self.0.parse(input.clone()) {
                 Ok((x, rest)) => {
-                    self.vec.push(x);
+                    (self.1)(x);
                     input = rest;
                 }
                 Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
@@ -201,11 +203,6 @@ impl <'a, O, P: Parser<Output=O> + 'a> Parser for ManyAppend<'a, O, P> {
         }
         Ok(((), input))
     }
-}
-
-///Parses `p` one or more times and pushes each result to `vec`
-pub fn many_append<'a, O, P: Parser<Output=O>>(parser: P, vec: &'a mut Vec<O>) -> ManyAppend<'a, O, P> {
-    ManyAppend { parser: parser, vec: vec }
 }
 
 #[derive(Clone)]
@@ -217,7 +214,7 @@ impl <P: Parser> Parser for Many<P> {
     type Output = Vec<<P as Parser>::Output>;
     fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
-        let ((), input) = try!(many_append(&mut self.parser, &mut result).parse(input));
+        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse(input));
         Ok((result, input))
     }
 }
@@ -226,6 +223,7 @@ pub fn many<P: Parser>(p: P) -> Many<P> {
     Many { parser: p }
 }
 
+#[derive(Clone)]
 pub struct Many1<P>(P);
 impl <P: Parser> Parser for Many1<P> {
     type Input = <P as Parser>::Input;
@@ -233,7 +231,7 @@ impl <P: Parser> Parser for Many1<P> {
     fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let (first, input) = try!(self.0.parse(input));
         let mut result = vec![first];
-        let ((), input) = try!(many_append(&mut self.0, &mut result).parse(input));
+        let ((), input) = try!(ConsumeMany(&mut self.0, |x| result.push(x)).parse(input));
         Ok((result, input))
     }
 }
@@ -242,6 +240,47 @@ impl <P: Parser> Parser for Many1<P> {
 pub fn many1<P>(p: P) -> Many1<P>
     where P: Parser {
     Many1(p)
+}
+
+#[derive(Clone)]
+pub struct Chars<P> {
+    parser: P
+}
+impl <P> Parser for Chars<P>
+    where P: Parser<Output=char> {
+    type Input = <P as Parser>::Input;
+    type Output = String;
+    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
+        let mut result = String::new();
+        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse(input));
+        Ok((result, input))
+    }
+}
+///Parses `p` zero or more times
+pub fn chars<P>(p: P) -> Chars<P>
+    where P: Parser<Output=char> {
+    Chars { parser: p }
+}
+#[derive(Clone)]
+pub struct Chars1<P> {
+    parser: P
+}
+impl <P> Parser for Chars1<P>
+    where P: Parser<Output=char> {
+    type Input = <P as Parser>::Input;
+    type Output = String;
+    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
+        let (first, input) = try!(self.parser.parse(input));
+        let mut result = String::new();
+        result.push(first);
+        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse(input));
+        Ok((result, input))
+    }
+}
+///Parses `p` zero or more times
+pub fn chars1<P>(p: P) -> Chars1<P>
+    where P: Parser<Output=char> {
+    Chars1 { parser: p }
 }
 
 #[derive(Clone)]
@@ -265,7 +304,7 @@ impl <P, S> Parser for SepBy<P, S>
         }
         let rest = (&mut self.separator)
             .with(&mut self.parser);
-        let ((), input) = try!(many_append(rest, &mut result).parse(input));
+        let ((), input) = try!(ConsumeMany(rest, |x| result.push(x)).parse(input));
         Ok((result, input))
     }
 }
@@ -596,10 +635,10 @@ mod tests {
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> {
-        let (chars, input) = try!(many1(digit as fn(_) -> _)
+        let (s, input) = try!(chars1(digit as fn(_) -> _)
             .parse(input));
         let mut n = 0;
-        for &c in chars.iter() {
+        for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
         }
         Ok((n, input))
@@ -626,8 +665,8 @@ mod tests {
     }
     #[test]
     fn field() {
-        let word = many(satisfy(|c| c.is_alphanumeric()));
-        let word2 = many(satisfy(|c| c.is_alphanumeric()));
+        let word = chars(satisfy(|c| c.is_alphanumeric()));
+        let word2 = chars(satisfy(|c| c.is_alphanumeric()));
         let spaces = many(space());
         let c_decl = word
             .skip(spaces.clone())
@@ -636,7 +675,7 @@ mod tests {
             .and(word2)
             .start_parse("x: int")
             .map(|(x, s)| (x, s.into_inner()));
-        assert_eq!(c_decl, Ok(((vec!['x'], vec!['i', 'n', 't']), "")));
+        assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
     fn source_position() {
@@ -660,8 +699,7 @@ r"
         Times(Box<Expr>, Box<Expr>)
     }
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-        let word = many1(satisfy(|c| c.is_alphabetic()))
-            .map(|vec| vec.into_iter().collect::<String>());
+        let word = chars1(satisfy(|c| c.is_alphabetic()));
         let integer = integer as fn (_) -> _;
         let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
         let spaces = many(space());
@@ -745,7 +783,7 @@ r"
     #[test]
     fn error_position() {
         let mut p = string("let").skip(follow as fn (_) -> _).map(|x| x.to_string())
-            .or(many1(satisfy(|c| c.is_digit(10))).map(|x| x.into_iter().collect()));
+            .or(chars1(satisfy(|c| c.is_digit(10))));
         match p.start_parse("le123") {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
@@ -755,7 +793,7 @@ r"
     #[test]
     fn try_parser() {
         let mut p = try(string("let").skip(follow as fn (_) -> _)).map(|x| x.to_string())
-            .or(many1(satisfy(CharExt::is_alphabetic)).map(|x| x.into_iter().collect()));
+            .or(chars1(satisfy(CharExt::is_alphabetic)));
         let result = p.start_parse("lex  ").map(|x| x.0);
         assert_eq!(result, Ok("lex".to_string()));
     }
