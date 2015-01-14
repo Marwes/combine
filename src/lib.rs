@@ -1,5 +1,10 @@
 #![allow(unstable)]
+
+#[cfg(test)]
+extern crate test;
+
 use std::fmt;
+
 
 
 #[derive(Clone, Copy, Show, PartialEq)]
@@ -707,7 +712,7 @@ r"
         Int(i64),
         Array(Vec<Expr>),
         Plus(Box<Expr>, Box<Expr>),
-        Times(Box<Expr>, Box<Expr>)
+        Times(Box<Expr>, Box<Expr>),
     }
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
         let word = chars1(satisfy(|c| c.is_alphabetic()));
@@ -718,6 +723,7 @@ r"
                 word.map(Expr::Id)
                 .or(integer.map(Expr::Int))
                 .or(array.map(Expr::Array))
+                .or(between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _))
             ).skip(spaces)
             .parse(input)
     }
@@ -807,5 +813,27 @@ r"
             .or(chars1(satisfy(CharExt::is_alphabetic)));
         let result = p.start_parse("lex  ").map(|x| x.0);
         assert_eq!(result, Ok("lex".to_string()));
+    }
+
+static LONG_EXPR: &'static str =
+r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+* (a + 2 * ((476128368 + i * (((3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+* (a + 2 * ((476128368 + i * ((476128368 + 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42 + 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42 +
+(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+* (a + 2 * ((476128368 + i * (((3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+* (a + 2 * ((476128368 + i * ((476128368 + 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42
++ 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42";
+    #[bench]
+    fn bench_expression(bench: &mut ::test::Bencher) {
+
+        let result = (term as fn (_) -> _)
+            .start_parse(LONG_EXPR);
+        assert!(result.is_ok()); 
+        assert_eq!(result.unwrap().1.input, "");
+        bench.iter(|| {
+            let result = (term as fn (_) -> _)
+                .start_parse(LONG_EXPR);
+            ::test::black_box(result);
+        })
     }
 }
