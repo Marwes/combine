@@ -34,7 +34,7 @@ mod tests {
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> {
-        let (s, input) = try!(chars1(digit as fn(_) -> _)
+        let (s, input) = try!(chars1(digit())
             .parse(input));
         let mut n = 0;
         for c in s.chars() {

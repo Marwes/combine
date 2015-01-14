@@ -148,9 +148,10 @@ impl <'a, I: Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a
         self(input)
     }
 }
-
 #[derive(Clone)]
-struct FnParser<I: Stream, O, F: FnMut(State<I>) -> ParseResult<O, I>>(F);
+pub struct FnParser<I, O, F>(F)
+    where I: Stream
+        , F: FnMut(State<I>) -> ParseResult<O, I>;
 
 impl <I, O, F> Parser for FnParser<I, O, F>
     where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
@@ -267,17 +268,21 @@ pub fn optional<P>(parser: P) -> Optional<P> {
 }
 
 ///Parses a digit from a stream containing characters
-pub fn digit<'a, I>(input: State<I>) -> ParseResult<char, I>
-    where I: Stream<Item=char> {
-    match input.clone().uncons_char() {
-        Ok((c, rest)) => {
-            if c.is_digit(10) { Ok((c, rest)) }
-            else {
-                Err(ParseError::new(input.position, Consumed::Empty, Error::Message("Expected digit".to_string())))
+pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
+        where I: Stream<Item=char> {
+    fn digit_<I>(input: State<I>) -> ParseResult<char, I>
+        where I: Stream<Item=char> {
+        match input.clone().uncons_char() {
+            Ok((c, rest)) => {
+                if c.is_digit(10) { Ok((c, rest)) }
+                else {
+                    Err(ParseError::new(input.position, Consumed::Empty, Error::Message("Expected digit".to_string())))
+                }
             }
+            Err(err) => Err(err)
         }
-        Err(err) => Err(err)
     }
+    FnParser(digit_ as fn (_) -> _)
 }
 
 pub type Between<L, R, P> = Skip<With<L, P>, R>;
