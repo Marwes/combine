@@ -156,16 +156,16 @@ pub trait Parser {
 
     ///Parses using `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
-    fn start_parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
-        self.parse(State::new(input))
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
+    fn parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+        self.parse_state(State::new(input))
     }
 }
 impl <'a, I, O, P> Parser for &'a mut P 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
-        (*self).parse(input)
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        (*self).parse_state(input)
     }
 }

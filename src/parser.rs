@@ -16,9 +16,9 @@ impl <P, F> Parser for ConsumeMany<P, F>
         , F: FnMut(<P as Parser>::Output) {
     type Input = <P as Parser>::Input;
     type Output = ();
-    fn parse(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
+    fn parse_state(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
         loop {
-            match self.0.parse(input.clone()) {
+            match self.0.parse_state(input.clone()) {
                 Ok((x, rest)) => {
                     (self.1)(x);
                     input = rest;
@@ -38,9 +38,9 @@ pub struct Many<P> {
 impl <P: Parser> Parser for Many<P> {
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
-        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse(input));
+        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input));
         Ok((result, input))
     }
 }
@@ -54,10 +54,10 @@ pub struct Many1<P>(P);
 impl <P: Parser> Parser for Many1<P> {
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
-        let (first, input) = try!(self.0.parse(input));
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+        let (first, input) = try!(self.0.parse_state(input));
         let mut result = vec![first];
-        let ((), input) = try!(ConsumeMany(&mut self.0, |x| result.push(x)).parse(input));
+        let ((), input) = try!(ConsumeMany(&mut self.0, |x| result.push(x)).parse_state(input));
         Ok((result, input))
     }
 }
@@ -76,9 +76,9 @@ impl <P> Parser for Chars<P>
     where P: Parser<Output=char> {
     type Input = <P as Parser>::Input;
     type Output = String;
-    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
         let mut result = String::new();
-        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse(input));
+        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input));
         Ok((result, input))
     }
 }
@@ -95,11 +95,11 @@ impl <P> Parser for Chars1<P>
     where P: Parser<Output=char> {
     type Input = <P as Parser>::Input;
     type Output = String;
-    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
-        let (first, input) = try!(self.parser.parse(input));
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
+        let (first, input) = try!(self.parser.parse_state(input));
         let mut result = String::new();
         result.push(first);
-        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse(input));
+        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input));
         Ok((result, input))
     }
 }
@@ -119,9 +119,9 @@ impl <P, S> Parser for SepBy<P, S>
 
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse_state(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
-        match self.parser.parse(input.clone()) {
+        match self.parser.parse_state(input.clone()) {
             Ok((x, rest)) => {
                 result.push(x);
                 input = rest;
@@ -130,7 +130,7 @@ impl <P, S> Parser for SepBy<P, S>
         }
         let rest = (&mut self.separator)
             .with(&mut self.parser);
-        let ((), input) = try!(ConsumeMany(rest, |x| result.push(x)).parse(input));
+        let ((), input) = try!(ConsumeMany(rest, |x| result.push(x)).parse_state(input));
         Ok((result, input))
     }
 }
@@ -144,7 +144,7 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
 impl <'a, I: Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         self(input)
     }
 }
@@ -157,7 +157,7 @@ impl <I, O, F> Parser for FnParser<I, O, F>
     where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         (self.0)(input)
     }
 }
@@ -166,7 +166,7 @@ impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     where I: Stream {
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         self(input)
     }
 }
@@ -179,7 +179,7 @@ impl <'a, I, Pred> Parser for Satisfy<I, Pred>
 
     type Input = I;
     type Output = char;
-    fn parse(&mut self, input: State<I>) -> ParseResult<char, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<char, I> {
         match input.clone().uncons_char() {
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
@@ -210,7 +210,7 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
     where I: Stream<Item=char> {
     type Input = I;
     type Output = &'b str;
-    fn parse(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
+    fn parse_state(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
         let start = input.position;
         for (i, c) in self.s.chars().enumerate() {
             match input.uncons_char() {
@@ -241,9 +241,9 @@ impl <I, A, B, P1, P2> Parser for And<P1, P2>
 
     type Input = I;
     type Output = (A, B);
-    fn parse(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
-        let (a, rest) = try!(self.0.parse(input));
-        let (b, rest) = try!(self.1.parse(rest));
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
+        let (a, rest) = try!(self.0.parse_state(input));
+        let (b, rest) = try!(self.1.parse_state(rest));
         Ok(((a, b), rest))
     }
 }
@@ -254,8 +254,8 @@ impl <P> Parser for Optional<P>
     where P: Parser {
     type Input = <P as Parser>::Input;
     type Output = Option<<P as Parser>::Output>;
-    fn parse(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
-        match self.0.parse(input.clone()) {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
+        match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
             Err(_) => Ok((None, input))
         }
@@ -303,8 +303,8 @@ impl <I, P1, P2> Parser for With<P1, P2>
 
     type Input = I;
     type Output = <P2 as Parser>::Output;
-    fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
-        let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse(input));
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
+        let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse_state(input));
         Ok((b, rest))
     }
 }
@@ -316,8 +316,8 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 
     type Input = I;
     type Output = <P1 as Parser>::Output;
-    fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
-        let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse(input));
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
+        let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse_state(input));
         Ok((a, rest))
     }
 }
@@ -329,8 +329,8 @@ impl <I, P> Parser for Message<P>
 
     type Input = I;
     type Output = <P as Parser>::Output;
-    fn parse(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
-        match self.0.parse(input.clone()) {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
+        match self.0.parse_state(input.clone()) {
             Ok(x) => Ok(x),
             Err(mut err) => {
                 err.add_message(self.1.clone());
@@ -347,12 +347,12 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
 
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
-        match self.0.parse(input.clone()) {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        match self.0.parse_state(input.clone()) {
             Ok(x) => Ok(x),
             Err(err@ParseError { consumed: Consumed::Consumed, .. }) => Err(err),
             Err(error1) => {
-                match self.1.parse(input) {
+                match self.1.parse_state(input) {
                     Ok(x) => Ok(x),
                     Err(error2) => Err(error1.merge(error2))
                 }
@@ -368,8 +368,8 @@ impl <I, A, B, P, F> Parser for Map<P, F, B>
 
     type Input = I;
     type Output = B;
-    fn parse(&mut self, input: State<I>) -> ParseResult<B, I> {
-        match self.0.parse(input.clone()) {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<B, I> {
+        match self.0.parse_state(input.clone()) {
             Ok((x, input)) => Ok(((self.1)(x), input)),
             Err(err) => Err(err)
         }
@@ -385,11 +385,11 @@ impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
 
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
-        let (mut l, mut input) = try!(self.0.parse(input));
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        let (mut l, mut input) = try!(self.0.parse_state(input));
         loop {
             //FIXME
-            match (&mut self.1).and(&mut self.0).parse(input.clone()) {
+            match (&mut self.1).and(&mut self.0).parse_state(input.clone()) {
                 Ok(((mut op, r), rest)) => {
                     l = op(l, r);
                     input = rest;
@@ -419,8 +419,8 @@ impl <I, O, P> Parser for Try<P>
 
     type Input = I;
     type Output = O;
-    fn parse(&mut self, input: State<I>) -> ParseResult<O, I> {
-        self.0.parse(input)
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        self.0.parse_state(input)
             .map_err(|mut err| {
                 err.consumed = Consumed::Empty;
                 err

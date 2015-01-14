@@ -35,7 +35,7 @@ mod tests {
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> {
         let (s, input) = try!(chars1(digit())
-            .parse(input));
+            .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -45,20 +45,20 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        let result = (integer as fn(_) -> _).start_parse("123")
+        let result = (integer as fn(_) -> _).parse("123")
             .map(|(x, s)| (x, s.input));
         assert_eq!(result, Ok((123i64, "")));
     }
     #[test]
     fn list() {
         let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
-        let result = p.start_parse("123,4,56")
+        let result = p.parse("123,4,56")
             .map(|(x, s)| (x, s.input));
         assert_eq!(result, Ok((vec![123, 4, 56], "")));
     }
     #[test]
     fn iterator() {
-        let result = (integer as fn(_) -> _).start_parse("123".chars())
+        let result = (integer as fn(_) -> _).parse("123".chars())
             .map(|(i, mut state)| (i, state.input.next()));
         assert_eq!(result, Ok((123i64, None)));
     }
@@ -72,7 +72,7 @@ mod tests {
             .skip(satisfy(|c| c == ':'))
             .skip(spaces)
             .and(word2)
-            .start_parse("x: int")
+            .parse("x: int")
             .map(|(x, s)| (x, s.input));
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
@@ -85,7 +85,7 @@ r"
         let result = many(space())
             .with(integer as fn(_) -> _)
             .skip(many(space()))
-            .start_parse(source);
+            .parse(source);
         assert_eq!(result, Ok((123i64, State { position: SourcePosition { line: 3, column: 1 }, input: "" })));
     }
 
@@ -108,13 +108,13 @@ r"
                 .or(array.map(Expr::Array))
                 .or(between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _))
             ).skip(spaces)
-            .parse(input)
+            .parse_state(input)
     }
 
     #[test]
     fn expression() {
         let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
-            .start_parse("int, 100, [[], 123]")
+            .parse("int, 100, [[], 123]")
             .map(|(x, s)| (x, s.input));
         let exprs = vec![
               Expr::Id("int".to_string())
@@ -131,7 +131,7 @@ r"
 ,123
 ";
         let result = (expr as fn (_) -> _)
-            .start_parse(input);
+            .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
             consumed: Consumed::Empty,
@@ -148,7 +148,7 @@ r"
             .map(|_| Box::new(|&mut:l, r| Expr::Plus(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
         let factor = chainl1(expr as fn (_) -> _, mul);
         chainl1(factor, add)
-            .parse(input)
+            .parse_state(input)
     }
 
     #[test]
@@ -158,7 +158,7 @@ r"
 1 * 2 + 3 * test
 ";
         let (result, _) = (term as fn (_) -> _)
-            .start_parse(input)
+            .parse(input)
             .unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
@@ -184,7 +184,7 @@ r"
     fn error_position() {
         let mut p = string("let").skip(follow as fn (_) -> _).map(|x| x.to_string())
             .or(chars1(satisfy(|c| c.is_digit(10))));
-        match p.start_parse("le123") {
+        match p.parse("le123") {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
         }
@@ -194,7 +194,7 @@ r"
     fn try_parser() {
         let mut p = try(string("let").skip(follow as fn (_) -> _)).map(|x| x.to_string())
             .or(chars1(satisfy(CharExt::is_alphabetic)));
-        let result = p.start_parse("lex  ").map(|x| x.0);
+        let result = p.parse("lex  ").map(|x| x.0);
         assert_eq!(result, Ok("lex".to_string()));
     }
 
@@ -210,12 +210,12 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     fn bench_expression(bench: &mut ::test::Bencher) {
 
         let result = (term as fn (_) -> _)
-            .start_parse(LONG_EXPR);
+            .parse(LONG_EXPR);
         assert!(result.is_ok()); 
         assert_eq!(result.unwrap().1.input, "");
         bench.iter(|| {
             let result = (term as fn (_) -> _)
-                .start_parse(LONG_EXPR);
+                .parse(LONG_EXPR);
             ::test::black_box(result);
         })
     }
