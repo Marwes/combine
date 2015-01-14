@@ -181,7 +181,7 @@ impl <'a, I, O, P> Parser for &'a mut P
 }
 
 ///Parses any character
-pub fn char<'a, I>(input: State<I>) -> ParseResult<char, I>
+pub fn any_char<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> {
     input.uncons_char()
 }
