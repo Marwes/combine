@@ -126,6 +126,7 @@ impl <P, S> Parser for SepBy<P, S>
                 result.push(x);
                 input = rest;
             }
+            Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
             Err(_) => return Ok((result, input))
         }
         let rest = (&mut self.separator)
@@ -221,7 +222,12 @@ impl <'a, 'b, I> Parser for StringP<'b, I>
                     }
                     input = rest;
                 }
-                Err(err) => return Err(err)
+                Err(mut err) => {
+                    let consumed = if i == 0 { Consumed::Empty } else { Consumed::Consumed };
+                    err.consumed = consumed;
+                    err.position = start;
+                    return Err(err)
+                }
             }
         }
         Ok((self.s, input))
@@ -257,13 +263,15 @@ impl <P> Parser for Optional<P>
     fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
         match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
+            Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
             Err(_) => Ok((None, input))
         }
     }
 }
 
 ///Returns `Some(value)` and `None` on parse failure (always succeeds)
-pub fn optional<P>(parser: P) -> Optional<P> {
+pub fn optional<P>(parser: P) -> Optional<P>
+    where P: Parser {
     Optional(parser)
 }
 
@@ -388,12 +396,12 @@ impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         let (mut l, mut input) = try!(self.0.parse_state(input));
         loop {
-            //FIXME
             match (&mut self.1).and(&mut self.0).parse_state(input.clone()) {
                 Ok(((mut op, r), rest)) => {
                     l = op(l, r);
                     input = rest;
                 }
+                Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
                 Err(_) => break
             };
 

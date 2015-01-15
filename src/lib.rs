@@ -219,4 +219,23 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
             ::test::black_box(result);
         })
     }
+
+    #[test]
+    fn sep_by_error_consume() {
+        let mut p = sep_by(string("abc"), satisfy(|c| c == ','));
+        let err = p.parse("ab,abc").unwrap_err();
+        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
+    }
+
+    #[test]
+    fn optional_error_consume() {
+        let mut p = optional(string("abc"));
+        let err = p.parse("ab").unwrap_err();
+        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
+    }
+    #[test]
+    fn chainl1_error_consume() {
+        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|&:l, r| l) as Box<FnMut(_, _) -> _>));
+        assert!(p.parse("abc,ab").is_err());
+    }
 }
