@@ -141,7 +141,7 @@ pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
 }
 
 
-impl <'a, I: Stream, O> Parser for Box<FnMut(State<I>) -> ParseResult<O, I> + 'a> {
+impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
