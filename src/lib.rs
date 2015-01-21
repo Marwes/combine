@@ -17,6 +17,7 @@ pub use parser::{
     satisfy,
     sep_by,
     space,
+    spaces,
     string,
     try,
 
@@ -216,7 +217,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         bench.iter(|| {
             let result = (term as fn (_) -> _)
                 .parse(LONG_EXPR);
-            ::test::black_box(result);
+            let _ = ::test::black_box(result);
         })
     }
 
@@ -235,7 +236,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     }
     #[test]
     fn chainl1_error_consume() {
-        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|&:l, r| l) as Box<FnMut(_, _) -> _>));
+        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|&:l, _| l) as Box<FnMut(_, _) -> _>));
         assert!(p.parse("abc,ab").is_err());
     }
 }

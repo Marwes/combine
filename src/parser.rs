@@ -35,13 +35,14 @@ macro_rules! static_fn {
 }
 
 impl_char_parser! { Spaces(), Many<Map<Satisfy<I, fn (char) -> bool>, fn (char), ()>> }
+///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
     Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
 }
 
 ///Parses any character
-pub fn any_char<'a, I>(input: State<I>) -> ParseResult<char, I>
+pub fn any_char<I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> {
     input.uncons_char()
 }
@@ -214,7 +215,7 @@ impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
 #[derive(Clone)]
 pub struct Satisfy<I, Pred> { pred: Pred }
 
-impl <'a, I, Pred> Parser for Satisfy<I, Pred>
+impl <I, Pred> Parser for Satisfy<I, Pred>
     where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
 
     type Input = I;
@@ -246,11 +247,11 @@ pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
 
 #[derive(Clone)]
 pub struct StringP<'a, I> { s: &'a str }
-impl <'a, 'b, I> Parser for StringP<'b, I>
+impl <'a, I> Parser for StringP<'a, I>
     where I: Stream<Item=char> {
     type Input = I;
-    type Output = &'b str;
-    fn parse_state(&mut self, mut input: State<I>) -> ParseResult<&'b str, I> {
+    type Output = &'a str;
+    fn parse_state(&mut self, mut input: State<I>) -> ParseResult<&'a str, I> {
         let start = input.position;
         for (i, c) in self.s.chars().enumerate() {
             match input.uncons_char() {
