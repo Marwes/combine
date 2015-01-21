@@ -21,6 +21,9 @@ pub use parser::{
     spaces,
     string,
     try,
+    value,
+    unexpected,
+    not_followed_by,
 
     ParserExt
 };

@@ -48,6 +48,55 @@ pub fn any_char<I>(input: State<I>) -> ParseResult<char, I>
 }
 
 #[derive(Clone)]
+pub struct Unexpected<I>(String);
+impl <I> Parser for Unexpected<I>
+    where I : Stream<Item=char> {
+    type Input = I;
+    type Output = ();
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
+        Err(ParseError::new(input.position, Consumed::Empty, Error::Message(self.0.clone())))
+    }
+}
+///Always fails with `message` as the error.
+///Never consumes any input.
+pub fn unexpected<I>(message: String) -> Unexpected<I>
+    where I: Stream<Item=char> {
+    Unexpected(message)
+}
+
+#[derive(Clone)]
+pub struct Value<I, T>(T);
+impl <I, T> Parser for Value<I, T>
+    where I: Stream
+        , T: Clone {
+    type Input = I;
+    type Output = T;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I> {
+        Ok((self.0.clone(), input))
+    }
+}
+///Always returns the value `v` without consuming any input.
+pub fn value<I, T>(v: T) -> Value<I, T>
+    where I: Stream<Item=char>
+        , T: Clone {
+    Value(v)
+}
+
+impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Parser>::Output) -> Unexpected<I>>, Value<I, ()>> }
+///Succeeds only if `parser` fails.
+///Never consumes any input.
+pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
+    where I: Stream<Item=char>
+        , P: Parser<Input=I>
+        , <P as Parser>::Output: ::std::fmt::String {
+    fn f<T: ::std::fmt::String, I: Stream<Item=char>>(t: T) -> Unexpected<I> {
+        unexpected(format!("{}", t))
+    }
+    NotFollowedBy(try(parser).then(f as fn (_) -> _)
+                 .or(value(())))
+}
+
+#[derive(Clone)]
 pub struct ConsumeMany<P, F>(P, F)
     where P: Parser
         , F: FnMut(<P as Parser>::Output);
@@ -475,6 +524,23 @@ impl <I, O, P> Parser for Try<P>
             })
     }
 }
+
+#[derive(Clone)]
+pub struct Then<P, N, F>(P, F);
+impl <P, N, F> Parser for Then<P, N, F>
+    where F: FnMut(<P as Parser>::Output) -> N
+        , P: Parser
+        , N: Parser<Input=<P as Parser>::Input> {
+
+    type Input = <N as Parser>::Input;
+    type Output = <N as Parser>::Output;
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+        let (value, input) = try!(self.0.parse_state(input));
+        let mut next = (self.1)(value);
+        next.parse_state(input)
+    }
+}
+
 ///Try acts as `p` except it acts as if the parser hadn't consumed any input
 ///if `p` returns an error after consuming input
 pub fn try<P>(p : P) -> Try<P>
@@ -507,9 +573,14 @@ pub trait ParserExt : Parser + Sized {
         where P2: Parser {
         Or(self, p)
     }
+    fn then<N, F>(self, f: F) -> Then<Self, N, F>
+        where F: FnMut(Self::Output) -> N
+            , N: Parser<Input=Self::Input> {
+        Then(self, f)
+    }
     ///Uses `f` to map over the parsed value
     fn map<F, B>(self, f: F) -> Map<Self, F, B>
-        where F: FnMut(<Self as Parser>::Output) -> B {
+        where F: FnMut(Self::Output) -> B {
         Map(self, f)
     }
     ///Parses with `self` and if it fails, adds the message msg to the error
