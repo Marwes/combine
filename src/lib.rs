@@ -1,4 +1,5 @@
 #![allow(unstable)]
+#![unstable]
 
 #[cfg(test)]
 extern crate test;
