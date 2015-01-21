@@ -117,12 +117,12 @@ pub type ParseResult<O, I> = Result<(O, State<I>), ParseError>;
 
 pub trait Stream : Clone {
     type Item;
-    fn uncons(self) -> Result<(<Self as Stream>::Item, Self), ()>;
+    fn uncons(self) -> Result<(Self::Item, Self), ()>;
 }
 
 impl <I: Iterator + Clone> Stream for I {
     type Item = <I as Iterator>::Item;
-    fn uncons(mut self) -> Result<(<Self as Stream>::Item, Self), ()> {
+    fn uncons(mut self) -> Result<(I::Item, Self), ()> {
         match self.next() {
             Some(x) => Ok((x, self)),
             None => Err(())
@@ -154,12 +154,14 @@ pub trait Parser {
     type Input: Stream;
     type Output;
 
-    ///Parses using `input` by calling Stream::uncons one or more times
-    ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input>;
-    fn parse(&mut self, input: <Self as Parser>::Input) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+    ///Entrypoint of the parser
+    ///Takes some input and tries to parse it returning a `ParseResult`
+    fn parse(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.parse_state(State::new(input))
     }
+    ///Parses using the state `input` by calling Stream::uncons one or more times
+    ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
+    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input>;
 }
 impl <'a, I, O, P> Parser for &'a mut P 
     where I: Stream, P: Parser<Input=I, Output=O> {
