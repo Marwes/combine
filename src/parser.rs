@@ -1,6 +1,45 @@
 
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
+macro_rules! impl_char_parser {
+    ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
+    pub struct $name<I $(,$ty_var)*>($inner_type)
+        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
+    impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
+        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
+        type Input = I;
+        type Output = <$inner_type as Parser>::Output;
+        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+            self.0.parse_state(input)
+        }
+    }
+}
+}
+macro_rules! impl_parser {
+    ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
+    pub struct $name<$first $(,$ty_var)*>($inner_type)
+        where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
+    impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
+        where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
+        type Input = <$first as Parser>::Input;
+        type Output = <$inner_type as Parser>::Output;
+        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+            self.0.parse_state(input)
+        }
+    }
+}
+}
+
+macro_rules! static_fn {
+    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
+}
+
+impl_char_parser! { Spaces(), Many<Map<Satisfy<I, fn (char) -> bool>, fn (char), ()>> }
+pub fn spaces<I>() -> Spaces<I>
+    where I: Stream<Item=char> {
+    Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
+}
+
 ///Parses any character
 pub fn any_char<'a, I>(input: State<I>) -> ParseResult<char, I>
     where I: Stream<Item=char> {
@@ -293,7 +332,7 @@ pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
     FnParser(digit_ as fn (_) -> _)
 }
 
-pub type Between<L, R, P> = Skip<With<L, P>, R>;
+impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 ///Parses `open` followed by `parser` followed by `close`
 ///Returns the value of `parser`
 pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
@@ -301,7 +340,7 @@ pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
         , L: Parser<Input=I>
         , R: Parser<Input=I>
         , P: Parser<Input=I> {
-    open.with(parser).skip(close)
+    Between(open.with(parser).skip(close))
 }
 
 #[derive(Clone)]
