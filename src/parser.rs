@@ -107,10 +107,11 @@ impl <P, F> Parser for ConsumeMany<P, F>
     type Output = ();
     fn parse_state(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
         loop {
-            match self.0.parse_state(input.clone()) {
+            match self.0.parse_state(input.as_empty()) {
                 Ok((x, rest)) => {
                     (self.1)(x);
                     input = rest;
+                    input.consumed = Consumed::Consumed;
                 }
                 Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
                 Err(_) => break
@@ -210,7 +211,7 @@ impl <P, S> Parser for SepBy<P, S>
     type Output = Vec<<P as Parser>::Output>;
     fn parse_state(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
-        match self.parser.parse_state(input.clone()) {
+        match self.parser.parse_state(input.as_empty()) {
             Ok((x, rest)) => {
                 result.push(x);
                 input = rest;
@@ -338,7 +339,14 @@ impl <I, A, B, P1, P2> Parser for And<P1, P2>
     type Output = (A, B);
     fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
         let (a, rest) = try!(self.0.parse_state(input));
-        let (b, rest) = try!(self.1.parse_state(rest));
+        let first_consumed = rest.consumed;
+        let (b, rest) = match self.1.parse_state(rest) {
+            Ok(v) => v,
+            Err(mut error) => {
+                error.consumed.combine(first_consumed);
+                return Err(error)
+            }
+        };
         Ok(((a, b), rest))
     }
 }
@@ -536,8 +544,18 @@ impl <P, N, F> Parser for Then<P, N, F>
     type Output = <N as Parser>::Output;
     fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
         let (value, input) = try!(self.0.parse_state(input));
+        let first_consumed = input.consumed;
         let mut next = (self.1)(value);
-        next.parse_state(input)
+        match next.parse_state(input) {
+            Ok(mut tuple) => {
+                tuple.1.consumed.combine(first_consumed);
+                Ok(tuple)
+            }
+            Err(mut error) => {
+                error.consumed.combine(first_consumed);
+                Err(error)
+            }
+        }
     }
 }
 

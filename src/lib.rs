@@ -91,7 +91,12 @@ r"
             .with(integer as fn(_) -> _)
             .skip(many(space()))
             .parse(source);
-        assert_eq!(result, Ok((123i64, State { position: SourcePosition { line: 3, column: 1 }, input: "" })));
+        let state = State {
+            position: SourcePosition { line: 3, column: 1 },
+            consumed: Consumed::Consumed,
+            input: ""
+        };
+        assert_eq!(result, Ok((123i64, state)));
     }
 
     #[derive(Show, PartialEq)]
@@ -139,7 +144,7 @@ r"
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            consumed: Consumed::Empty,
+            consumed: Consumed::Consumed,
             errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
         };
         assert_eq!(result, Err(err));
@@ -242,5 +247,15 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     fn chainl1_error_consume() {
         let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|&:l, _| l) as Box<FnMut(_, _) -> _>));
         assert!(p.parse("abc,ab").is_err());
+    }
+
+    #[test]
+    fn inner_error_consume() {
+        let mut p = many(between(string("["), string("]"), satisfy(|c| c.is_digit(10))));
+        let result = p.parse("[1][2][]");
+        assert!(result.is_err(), format!("{:?}", result));
+        let error = result.unwrap_err();
+        assert_eq!(error.consumed, Consumed::Consumed);
+        assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
     }
 }

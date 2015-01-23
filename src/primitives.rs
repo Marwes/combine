@@ -26,10 +26,18 @@ pub enum Error {
     Message(String)
 }
 
-#[derive(Clone, PartialEq, Show)]
+#[derive(Clone, PartialEq, Show, Copy)]
 pub enum Consumed {
     Consumed,
     Empty
+}
+
+impl Consumed {
+    pub fn combine(&mut self, other: Consumed) {
+        if other == Consumed::Consumed {
+            *self = Consumed::Consumed;
+        }
+    }
 }
 
 #[derive(Clone, Show, PartialEq)]
@@ -87,20 +95,26 @@ impl fmt::String for Error {
 #[derive(Clone, PartialEq, Show)]
 pub struct State<I> {
     pub position: SourcePosition,
-    pub input: I
+    pub input: I,
+    pub consumed: Consumed
 }
 
 impl <I: Stream> State<I> {
     fn new(input: I) -> State<I> {
-        State { position: SourcePosition::start(), input: input }
+        State { position: SourcePosition::start(), input: input, consumed: Consumed::Empty }
     }
+
+    pub fn as_empty(&self) -> State<I> {
+        State { position: self.position, input: self.input.clone(), consumed: Consumed::Empty }
+    }
+
     fn uncons<F>(self, f: F) -> ParseResult<<I as Stream>::Item, I>
         where F: FnOnce(&mut SourcePosition, &<I as Stream>::Item) {
-        let State { mut position, input } = self;
+        let State { mut position, input, .. } = self;
         match input.uncons() {
             Ok((c, input)) => {
                 f(&mut position, &c);
-                Ok((c, State { position: position, input: input }))
+                Ok((c, State { position: position, input: input, consumed: Consumed::Consumed }))
             }
             Err(()) => Err(ParseError::new(position, Consumed::Empty, Error::Message("End of input".to_string())))
         }
