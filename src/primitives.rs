@@ -1,8 +1,12 @@
 use std::fmt;
 
+
+///Struct which containing the current position
 #[derive(Clone, Copy, Show, PartialEq)]
 pub struct SourcePosition {
+    ///Current line of the input
     pub line: i32,
+    ///Current column of the input
     pub column: i32
 }
 impl SourcePosition {
@@ -19,16 +23,23 @@ impl SourcePosition {
     }
 }
 
+///Enum used to store information about an error that has occured
 #[derive(Clone, PartialEq, Show)]
 pub enum Error {
+    ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
+    ///Error indicating that the parser expected something else
     Expected(String),
+    ///Generic message
     Message(String)
 }
 
+///Enum used to indicate if a stream has had any elements consumed
 #[derive(Clone, PartialEq, Show, Copy)]
 pub enum Consumed {
+    ///Flag indicating that the parser has consumed elements
     Consumed,
+    ///Flag indicating that the parser did not consume any elements
     Empty
 }
 
@@ -39,11 +50,16 @@ impl Consumed {
         }
     }
 }
-
+///Struct which hold information about an error that occured at a specific position.
+///Can hold multiple instances of `Error` if more that one error occured at the position.
 #[derive(Clone, Show, PartialEq)]
 pub struct ParseError {
+    ///The position where the error occured
     pub position: SourcePosition,
+    ///Flag indicating wether the parser had consumed any elements from the stream before the error
+    ///occured
     pub consumed: Consumed,
+    ///A vector containing specific information on what errors occured at `position`
     pub errors: Vec<Error>
 }
 
@@ -92,6 +108,7 @@ impl fmt::String for Error {
     }
 }
 
+///The `State<I>` struct keeps track of the current position in the stream `I`
 #[derive(Clone, PartialEq, Show)]
 pub struct State<I> {
     pub position: SourcePosition,
@@ -108,7 +125,11 @@ impl <I: Stream> State<I> {
         State { position: self.position, input: self.input.clone(), consumed: Consumed::Empty }
     }
 
-    fn uncons<F>(self, f: F) -> ParseResult<<I as Stream>::Item, I>
+    ///`uncons` is the most general way of extracting and item from a stream
+    ///It takes a function `f` as argument which should update the position
+    ///according to the item that was extracted
+    ///Usually you want to use `uncons_char` instead which works directly on character streams
+    pub fn uncons<F>(self, f: F) -> ParseResult<<I as Stream>::Item, I>
         where F: FnOnce(&mut SourcePosition, &<I as Stream>::Item) {
         let State { mut position, input, .. } = self;
         match input.uncons() {
@@ -121,16 +142,24 @@ impl <I: Stream> State<I> {
     }
 }
 impl <I: Stream<Item=char>> State<I> {
+    ///Specialized uncons function for character streams which updates the position
+    ///with no further action needed
     pub fn uncons_char(self) -> ParseResult<<I as Stream>::Item, I> {
         self.uncons(SourcePosition::update)
     }
 
 }
 
+///A type alias over the specific `Result` type used to indicated parser success/failure.
+///`O` is the type that is output on success
+///`I` is the specific stream type used in the parser
 pub type ParseResult<O, I> = Result<(O, State<I>), ParseError>;
 
+///A stream is a sequence of items that can be extracted one by one
 pub trait Stream : Clone {
     type Item;
+    ///Takes a stream and removes its first item, yielding the item and the rest of the elements
+    ///Returns `Err` when no more elements could be retrieved
     fn uncons(self) -> Result<(Self::Item, Self), ()>;
 }
 
@@ -164,8 +193,13 @@ impl <'a, T> Stream for &'a [T] {
     }
 }
 
+///By implementing the `Parser` trait a type says that it can be used to parse an input stream into
+///the type `Output`.
 pub trait Parser {
+    ///A type implementing the `Stream` trait which is the specific type
+    ///that is parsed.
     type Input: Stream;
+    ///The type which is returned when the parsing is successful.
     type Output;
 
     ///Entrypoint of the parser

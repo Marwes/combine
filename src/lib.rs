@@ -4,7 +4,9 @@
 #[cfg(test)]
 extern crate test;
 
+#[doc(inline)]
 pub use primitives::{Parser, ParseResult, ParseError};
+#[doc(inline)]
 pub use parser::{
     any_char,
     between,
@@ -28,8 +30,10 @@ pub use parser::{
     ParserExt
 };
 
-mod primitives;
-mod parser;
+///Module containing the primitive types which is used to create and compose more advanced parsers
+pub mod primitives;
+///Module containing all specific parsers
+pub mod parser;
 
 #[cfg(test)]
 mod tests {

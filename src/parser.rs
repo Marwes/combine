@@ -566,6 +566,7 @@ pub fn try<P>(p : P) -> Try<P>
     Try(p)
 }
 
+///Extension trait which provides functions that are more conveniently used through method calls
 pub trait ParserExt : Parser + Sized {
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
