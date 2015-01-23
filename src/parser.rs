@@ -59,6 +59,18 @@ impl <I> Parser for Unexpected<I>
 }
 ///Always fails with `message` as the error.
 ///Never consumes any input.
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # use pc::primitives::Error;
+/// # fn main() {
+/// let result = unexpected("token".to_string())
+///     .parse("a");
+/// assert!(result.is_err());
+/// assert_eq!(result.unwrap_err().errors[0], Error::Message("token".to_string()));
+/// # }
+/// ```
 pub fn unexpected<I>(message: String) -> Unexpected<I>
     where I: Stream<Item=char> {
     Unexpected(message)
@@ -76,6 +88,17 @@ impl <I, T> Parser for Value<I, T>
     }
 }
 ///Always returns the value `v` without consuming any input.
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = value(42)
+///     .parse("hello world")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(42));
+/// # }
+/// ```
 pub fn value<I, T>(v: T) -> Value<I, T>
     where I: Stream<Item=char>
         , T: Clone {
@@ -85,6 +108,18 @@ pub fn value<I, T>(v: T) -> Value<I, T>
 impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Parser>::Output) -> Unexpected<I>>, Value<I, ()>> }
 ///Succeeds only if `parser` fails.
 ///Never consumes any input.
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = string("let")
+///     .skip(not_followed_by(satisfy(|c| c.is_alphanumeric())))
+///     .parse("letx")
+///     .map(|x| x.0);
+/// assert!(result.is_err());
+/// # }
+/// ```
 pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
     where I: Stream<Item=char>
         , P: Parser<Input=I>
@@ -135,6 +170,17 @@ impl <P: Parser> Parser for Many<P> {
     }
 }
 ///Parses `p` zero or more times
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = many(digit())
+///     .parse("123A")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(vec!['1', '2', '3']));
+/// # }
+/// ```
 pub fn many<P: Parser>(p: P) -> Many<P> {
     Many { parser: p }
 }
@@ -153,6 +199,16 @@ impl <P: Parser> Parser for Many1<P> {
 }
 
 ///Parses `p` one or more times
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = many1(digit())
+///     .parse("A123");
+/// assert!(result.is_err());
+/// # }
+/// ```
 pub fn many1<P>(p: P) -> Many1<P>
     where P: Parser {
     Many1(p)
@@ -227,6 +283,17 @@ impl <P, S> Parser for SepBy<P, S>
 }
 
 ///Parses `parser` zero or more time separated by `separator`
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = sep_by(digit(), satisfy(|c| c == ','))
+///     .parse("1,2,3")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(vec!['1', '2', '3']));
+/// # }
+/// ```
 pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
     SepBy { parser: parser, separator: separator }
 }
@@ -284,6 +351,17 @@ impl <I, Pred> Parser for Satisfy<I, Pred>
 }
 
 ///Parses a character and succeeds depending on the result of `pred`
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = satisfy(|c| c == '!')
+///     .parse("!")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok('!'));
+/// # }
+/// ```
 pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
     where I: Stream, Pred: FnMut(char) -> bool {
     Satisfy { pred: pred }
@@ -325,6 +403,17 @@ impl <'a, I> Parser for StringP<'a, I>
 }
 
 ///Parses the string `s`
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = string("rust")
+///     .parse("rust")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok("rust"));
+/// # }
+/// ```
 pub fn string<I>(s: &str) -> StringP<I>
     where I: Stream {
     StringP { s: s }
@@ -367,6 +456,17 @@ impl <P> Parser for Optional<P>
 }
 
 ///Returns `Some(value)` and `None` on parse failure (always succeeds)
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = optional(digit())
+///     .parse("a")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(None));
+/// # }
+/// ```
 pub fn optional<P>(parser: P) -> Optional<P>
     where P: Parser {
     Optional(parser)
@@ -393,6 +493,17 @@ pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
 impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 ///Parses `open` followed by `parser` followed by `close`
 ///Returns the value of `parser`
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = between(string("["), string("]"), string("rust"))
+///     .parse("[rust]")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok("rust"));
+/// # }
+/// ```
 pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
     where I: Stream
         , L: Parser<Input=I>
@@ -561,6 +672,17 @@ impl <P, N, F> Parser for Then<P, N, F>
 
 ///Try acts as `p` except it acts as if the parser hadn't consumed any input
 ///if `p` returns an error after consuming input
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let mut p = try(string("let"))
+///     .or(string("lex"));
+/// let result = p.parse("lex").map(|x| x.0);
+/// assert_eq!(result, Ok("lex"));
+/// # }
+/// ```
 pub fn try<P>(p : P) -> Try<P>
     where P: Parser {
     Try(p)
@@ -568,40 +690,72 @@ pub fn try<P>(p : P) -> Try<P>
 
 ///Extension trait which provides functions that are more conveniently used through method calls
 pub trait ParserExt : Parser + Sized {
+
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
     fn with<P2>(self, p: P2) -> With<Self, P2>
         where P2: Parser {
         With(self, p)
     }
+
     ///Discards the value of the `p` parser and returns the value of `self`
     ///Fails if any of the parsers fails
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
         where P2: Parser {
         Skip(self, p)
     }
+
     ///Parses with `self` followed by `p`
     ///Succeds if both parsers succed, otherwise fails
     ///Returns a tuple with both values on success
+    ///
+    /// ```
+    /// # extern crate "parser-combinators" as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .and(satisfy(|c| c == 'i'))
+    ///     .parse("9i")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok(('9', 'i')));
+    /// # }
+    /// ```
     fn and<P2>(self, p: P2) -> And<Self, P2>
         where P2: Parser {
         And(self, p)
     }
     ///Tries to parse using `self` and if it fails returns the result of parsing `p`
+    ///
+    /// ```
+    /// # extern crate "parser-combinators" as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let result = digit().map(|_| "")
+    ///     .or(string("let"))
+    ///     .parse("let")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok("let"));
+    /// # }
+    /// ```
     fn or<P2>(self, p: P2) -> Or<Self, P2>
         where P2: Parser {
         Or(self, p)
     }
+
+    ///Parses using `self` and then passes the value to `f` which returns the parser used to parse
+    ///the rest of the input
     fn then<N, F>(self, f: F) -> Then<Self, N, F>
         where F: FnMut(Self::Output) -> N
             , N: Parser<Input=Self::Input> {
         Then(self, f)
     }
+
     ///Uses `f` to map over the parsed value
     fn map<F, B>(self, f: F) -> Map<Self, F, B>
         where F: FnMut(Self::Output) -> B {
         Map(self, f)
     }
+
     ///Parses with `self` and if it fails, adds the message msg to the error
     fn message(self, msg: String) -> Message<Self> {
         Message(self, msg)

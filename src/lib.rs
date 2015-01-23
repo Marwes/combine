@@ -204,14 +204,6 @@ r"
         }
     }
 
-    #[test]
-    fn try_parser() {
-        let mut p = try(string("let").skip(follow as fn (_) -> _)).map(|x| x.to_string())
-            .or(chars1(satisfy(CharExt::is_alphabetic)));
-        let result = p.parse("lex  ").map(|x| x.0);
-        assert_eq!(result, Ok("lex".to_string()));
-    }
-
 static LONG_EXPR: &'static str =
 r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 * (a + 2 * ((476128368 + i * (((3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
