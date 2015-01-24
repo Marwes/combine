@@ -2,7 +2,7 @@ use std::fmt;
 
 
 ///Struct which containing the current position
-#[derive(Clone, Copy, Show, PartialEq)]
+#[derive(Clone, Copy, Show, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
     ///Current line of the input
     pub line: i32,
@@ -77,10 +77,18 @@ impl ParseError {
         }
     }
     pub fn merge(mut self, other: ParseError) -> ParseError {
-        for message in other.errors.into_iter() {
-            self.add_error(message);
+        use std::cmp::Ordering;
+        //Only keep the errors which occured after consuming the most amount of data
+        match self.position.cmp(&other.position) {
+            Ordering::Less => other,
+            Ordering::Greater => self,
+            Ordering::Equal => {
+                for message in other.errors.into_iter() {
+                    self.add_error(message);
+                }
+                self
+            }
         }
-        self
     }
 }
 
