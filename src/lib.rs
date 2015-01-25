@@ -229,14 +229,18 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by(string("abc"), satisfy(|c| c == ','));
-        let err = p.parse("ab,abc").unwrap_err();
+        let err = p.parse("ab,abc")
+            .map(|x| format!("{:?}", x))
+            .unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1});
     }
 
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.parse("ab").unwrap_err();
+        let err = p.parse("ab")
+            .map(|x| format!("{:?}", x))
+            .unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1});
     }
     #[test]
@@ -250,7 +254,9 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let mut p = many(between(string("["), string("]"), satisfy(|c| c.is_digit(10))));
         let result = p.parse("[1][2][]");
         assert!(result.is_err(), format!("{:?}", result));
-        let error = result.unwrap_err();
+        let error = result
+            .map(|x| format!("{:?}", x))
+            .unwrap_err();
         assert_eq!(error.consumed, Consumed::Consumed);
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
     }

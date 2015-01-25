@@ -2,7 +2,7 @@ use std::fmt;
 
 
 ///Struct which containing the current position
-#[derive(Clone, Copy, Show, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
     ///Current line of the input
     pub line: i32,
@@ -24,7 +24,7 @@ impl SourcePosition {
 }
 
 ///Enum used to store information about an error that has occured
-#[derive(Clone, PartialEq, Show)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Error {
     ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
@@ -35,7 +35,7 @@ pub enum Error {
 }
 
 ///Enum used to indicate if a stream has had any elements consumed
-#[derive(Clone, PartialEq, Show, Copy)]
+#[derive(Clone, PartialEq, Debug, Copy)]
 pub enum Consumed {
     ///Flag indicating that the parser has consumed elements
     Consumed,
@@ -52,7 +52,7 @@ impl Consumed {
 }
 ///Struct which hold information about an error that occured at a specific position.
 ///Can hold multiple instances of `Error` if more that one error occured at the position.
-#[derive(Clone, Show, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParseError {
     ///The position where the error occured
     pub position: SourcePosition,
@@ -92,7 +92,7 @@ impl ParseError {
     }
 }
 
-impl fmt::String for ParseError {
+impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
         for error in self.errors.iter() {
@@ -101,12 +101,12 @@ impl fmt::String for ParseError {
         Ok(())
     }
 }
-impl fmt::String for SourcePosition {
+impl fmt::Display for SourcePosition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "line: {}, column: {}", self.line, self.column)
     }
 }
-impl fmt::String for Error {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Unexpected(c) => write!(f, "Unexpected character '{}'", c),
@@ -117,7 +117,7 @@ impl fmt::String for Error {
 }
 
 ///The `State<I>` struct keeps track of the current position in the stream `I`
-#[derive(Clone, PartialEq, Show)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct State<I> {
     pub position: SourcePosition,
     pub input: I,

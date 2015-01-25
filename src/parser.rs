@@ -68,7 +68,7 @@ impl <I> Parser for Unexpected<I>
 /// let result = unexpected("token".to_string())
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert_eq!(result.unwrap_err().errors[0], Error::Message("token".to_string()));
+/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".to_string()));
 /// # }
 /// ```
 pub fn unexpected<I>(message: String) -> Unexpected<I>
@@ -123,8 +123,8 @@ impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Pa
 pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
     where I: Stream<Item=char>
         , P: Parser<Input=I>
-        , <P as Parser>::Output: ::std::fmt::String {
-    fn f<T: ::std::fmt::String, I: Stream<Item=char>>(t: T) -> Unexpected<I> {
+        , <P as Parser>::Output: ::std::fmt::Display {
+    fn f<T: ::std::fmt::Display, I: Stream<Item=char>>(t: T) -> Unexpected<I> {
         unexpected(format!("{}", t))
     }
     NotFollowedBy(try(parser).then(f as fn (_) -> _)
