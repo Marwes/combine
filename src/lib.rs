@@ -37,7 +37,7 @@
 //!     let mut integer_list = sep_by(integer, spaces.skip(char(',')));
 //! 
 //!     //Call parse with the input to execute the parser
-//!     let result: Result<(Vec<i32>, &str), ParseError> = integer_list.parse(input);
+//!     let result: Result<(Vec<i32>, &str), ParseError<char>> = integer_list.parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -99,7 +99,7 @@
 //!```
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseResult, ParseError, from_iter};
+pub use primitives::{Parser, ParseError, from_iter};
 #[doc(inline)]
 pub use char::{
     any_char,
@@ -118,6 +118,8 @@ pub use char::{
     oct_digit,
     string,
     satisfy,
+
+    ParseResult//use char::ParseResult for compatibility
 };
 #[doc(inline)]
 pub use combinator::{

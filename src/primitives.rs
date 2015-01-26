@@ -1,5 +1,6 @@
 use std::fmt;
 use std::error::Error as StdError;
+use std::any::Any;
 
 ///Struct which represents the positions in the source file
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -179,8 +180,9 @@ impl <T> Consumed<T> {
     /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
     /// }
     ///```
-    pub fn combine<F, U, I>(self, f: F) -> ParseResult<U, I>
-        where F: FnOnce(T) -> ParseResult<U, I> {
+    pub fn combine<F, U, I>(self, f: F) -> ParseResult<U, I, I::Item>
+        where F: FnOnce(T) -> ParseResult<U, I, I::Item>
+            , I: Stream {
         match self {
             Consumed::Consumed(x) => {
                 match f(x) {
@@ -196,18 +198,18 @@ impl <T> Consumed<T> {
 ///Struct which hold information about an error that occured at a specific position.
 ///Can hold multiple instances of `Error` if more that one error occured at the position.
 #[derive(Debug, PartialEq)]
-pub struct ParseError {
+pub struct ParseError<P: Positioner> {
     ///The position where the error occured
-    pub position: SourcePosition,
+    pub position: P::Position,
     ///A vector containing specific information on what errors occured at `position`
     pub errors: Vec<Error>
 }
 
-impl ParseError {
-    pub fn new(position: SourcePosition, error: Error) -> ParseError {
+impl <P: Positioner> ParseError<P> {
+    pub fn new(position: P::Position, error: Error) -> ParseError<P> {
         ParseError::from_errors(position, vec![error])
     }
-    pub fn from_errors(position: SourcePosition, errors: Vec<Error>) -> ParseError {
+    pub fn from_errors(position: P::Position, errors: Vec<Error>) -> ParseError<P> {
         ParseError { position: position, errors: errors }
     }
     pub fn add_message<S>(&mut self, message: S)
@@ -225,7 +227,7 @@ impl ParseError {
         self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
         self.errors.push(Error::Expected(message));
     }
-    pub fn merge(mut self, other: ParseError) -> ParseError {
+    pub fn merge(mut self, other: ParseError<P>) -> ParseError<P> {
         use std::cmp::Ordering;
         //Only keep the errors which occured after consuming the most amount of data
         match self.position.cmp(&other.position) {
@@ -241,11 +243,14 @@ impl ParseError {
     }
 }
 
-impl StdError for ParseError {
+impl <P> StdError for ParseError<P>
+    where P: fmt::Display + fmt::Debug + Positioner + Any
+        , P::Position: fmt::Display + fmt::Debug + Positioner + Any {
     fn description(&self) -> &str { "parse error" }
 }
 
-impl fmt::Display for ParseError {
+impl <P: Positioner> fmt::Display for ParseError<P>
+    where P::Position: fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
 
@@ -312,30 +317,30 @@ impl fmt::Display for Error {
 
 ///The `State<I>` struct keeps track of the current position in the stream `I`
 #[derive(Clone, PartialEq, Debug)]
-pub struct State<I> {
-    pub position: SourcePosition,
+pub struct State<I>
+    where I: Stream, <<I as Stream>::Item as Positioner>::Position: Clone + PartialEq + fmt::Debug {
+    pub position: <<I as Stream>::Item as Positioner>::Position,
     pub input: I
 }
 
 impl <I: Stream> State<I> {
     pub fn new(input: I) -> State<I> {
-        State { position: SourcePosition::start(), input: input }
+        State { position: <I::Item as Positioner>::start(), input: input }
     }
 
     pub fn as_empty(&self) -> State<I> {
-        State { position: self.position, input: self.input.clone() }
+        State { position: self.position.clone(), input: self.input.clone() }
     }
 
     ///`uncons` is the most general way of extracting and item from a stream
     ///It takes a function `f` as argument which should update the position
     ///according to the item that was extracted
     ///Usually you want to use `uncons_char` instead which works directly on character streams
-    pub fn uncons<F>(self, f: F) -> ParseResult<<I as Stream>::Item, I>
-        where F: FnOnce(&mut SourcePosition, &<I as Stream>::Item) {
+    pub fn uncons(self) -> ParseResult<I::Item, I, I::Item> {
         let State { mut position, input, .. } = self;
         match input.uncons() {
             Ok((c, input)) => {
-                f(&mut position, &c);
+                c.update(&mut position);
                 Ok((c, Consumed::Consumed(State { position: position, input: input })))
             }
             Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into()))))
@@ -345,21 +350,20 @@ impl <I: Stream> State<I> {
 impl <I: Stream<Item=char>> State<I> {
     ///Specialized uncons function for character streams which updates the position
     ///with no further action needed
-    pub fn uncons_char(self) -> ParseResult<<I as Stream>::Item, I> {
-        self.uncons(SourcePosition::update)
+    pub fn uncons_char(self) -> ParseResult<I::Item, I, I::Item> {
+        self.uncons()
     }
-
 }
 
 ///A type alias over the specific `Result` type used by parsers to indicate wether they were
 ///successful or not.
 ///`O` is the type that is output on success
 ///`I` is the specific stream type used in the parser
-pub type ParseResult<O, I> = Result<(O, Consumed<State<I>>), Consumed<ParseError>>;
+pub type ParseResult<O, I, T> = Result<(O, Consumed<State<I>>), Consumed<ParseError<T>>>;
 
 ///A stream is a sequence of items that can be extracted one by one
 pub trait Stream : Clone {
-    type Item;
+    type Item: Positioner;
     ///Takes a stream and removes its first item, yielding the item and the rest of the elements
     ///Returns `Err` when no more elements could be retrieved
     fn uncons(self) -> Result<(Self::Item, Self), ()>;
@@ -375,7 +379,8 @@ impl <'a> Stream for &'a str {
     }
 }
 
-impl <'a, T> Stream for &'a [T] {
+impl <'a, T> Stream for &'a [T]
+    where T: Positioner {
     type Item = &'a T;
     fn uncons(self) -> Result<(&'a T, &'a [T]), ()> {
         if self.len() > 0 {
@@ -398,13 +403,40 @@ pub fn from_iter<I>(iter: I) -> IteratorStream<I>
     IteratorStream(iter)
 }
 
-impl <I: Iterator + Clone> Stream for IteratorStream<I> {
+impl <I: Iterator + Clone> Stream for IteratorStream<I>
+    where I::Item: Positioner {
     type Item = <I as Iterator>::Item;
     fn uncons(mut self) -> Result<(I::Item, Self), ()> {
         match self.0.next() {
             Some(x) => Ok((x, self)),
             None => Err(())
         }
+    }
+}
+
+pub trait Positioner {
+    type Position: Clone + Ord + fmt::Display + fmt::Debug;
+    fn start() -> Self::Position;
+    fn update(&self, position: &mut Self::Position);
+}
+impl <'a, T> Positioner for &'a T
+    where T: Positioner {
+    type Position = <T as Positioner>::Position;
+    fn start() -> <T as Positioner>::Position {
+        <T as Positioner>::start()
+    }
+    fn update(&self, position: &mut <T as Positioner>::Position) {
+        (*self).update(position)
+    }
+}
+
+impl Positioner for char {
+    type Position = SourcePosition;
+    fn start() -> SourcePosition {
+        SourcePosition::start()
+    }
+    fn update(&self, position: &mut SourcePosition) {
+        position.update(self);
     }
 }
 
@@ -419,7 +451,7 @@ pub trait Parser {
 
     ///Entrypoint of the parser
     ///Takes some input and tries to parse it returning a `ParseResult`
-    fn parse(&mut self, input: Self::Input) -> Result<(Self::Output, Self::Input), ParseError> {
+    fn parse(&mut self, input: Self::Input) -> Result<(Self::Output, Self::Input), ParseError<<Self::Input as Stream>::Item>> {
         match self.parse_state(State::new(input)) {
             Ok((v, state)) => Ok((v, state.into_inner().input)),
             Err(error) => Err(error.into_inner())
@@ -427,13 +459,13 @@ pub trait Parser {
     }
     ///Parses using the state `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input>;
+    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item>;
 }
 impl <'a, I, O, P: ?Sized> Parser for &'a mut P 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         (*self).parse_state(input)
     }
 }
@@ -441,7 +473,7 @@ impl <I, O, P: ?Sized> Parser for Box<P>
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         (**self).parse_state(input)
     }
 }

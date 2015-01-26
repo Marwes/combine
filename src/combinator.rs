@@ -11,7 +11,7 @@ macro_rules! impl_parser {
         where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
         type Input = <$first as Parser>::Input;
         type Output = <$inner_type as Parser>::Output;
-        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
             self.0.parse_state(input)
         }
     }
@@ -26,7 +26,7 @@ impl <I, O, S, P> Parser for Choice<S, P>
         , P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         let mut empty_err = None;
         for p in AsMut::as_mut(&mut self.0) {
             match p.parse_state(input.clone()) {
@@ -73,7 +73,7 @@ impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
     type Output = ();
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I, I::Item> {
         Err(Consumed::Empty(ParseError::new(input.position, Error::Message(self.0.clone()))))
     }
 }
@@ -104,7 +104,7 @@ impl <I, T> Parser for Value<I, T>
         , T: Clone {
     type Input = I;
     type Output = T;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I, I::Item> {
         Ok((self.0.clone(), Consumed::Empty(input)))
     }
 }
@@ -155,7 +155,7 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
 pub struct Iter<P: Parser> {
     parser: P,
     input: Consumed<State<P::Input>>,
-    error: Option<Consumed<ParseError>>
+    error: Option<Consumed<ParseError<<P::Input as Stream>::Item>>>
 }
 
 impl <P: Parser> Iter<P> {
@@ -164,7 +164,7 @@ impl <P: Parser> Iter<P> {
     }
     ///Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     ///without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
+    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input, <P::Input as Stream>::Item> {
         match self.error {
             Some(err@Consumed::Consumed(_)) => Err(err),
             _ => Ok((value, self.input))
@@ -199,7 +199,7 @@ impl <F, P> Parser for Many<F, P>
     where P: Parser, F: FromIterator<<P as Parser>::Output> {
     type Input = <P as Parser>::Input;
     type Output = F;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
         let mut iter = (&mut self.0).iter(input);
         let result = iter.by_ref().collect();
         iter.into_result(result)
@@ -234,7 +234,7 @@ impl <F, P> Parser for Many1<F, P>
         , P: Parser {
     type Input = <P as Parser>::Input;
     type Output = F;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
         let (first, input) = try!(self.0.parse_state(input));
 		input.combine(move |input| {
 	        let mut iter = Iter::new(&mut self.0, input);
@@ -320,7 +320,7 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 
     type Input = <P as Parser>::Input;
     type Output = F;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
         let mut input = Consumed::Empty(input);
         let first;
         match input.clone().combine(|input| self.parser.parse_state(input)) {
@@ -368,10 +368,10 @@ pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 }
 
 
-impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
+impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I, I::Item> + 'a {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         self(input)
     }
 }
@@ -407,24 +407,24 @@ pub struct FnParser<I, F>(F, PhantomData<fn (I) -> I>);
 /// ```
 pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
     where I: Stream
-        , F: FnMut(State<I>) -> ParseResult<O, I> {
+        , F: FnMut(State<I>) -> ParseResult<O, I, I::Item> {
     FnParser(f, PhantomData)
 }
 
 impl <I, O, F> Parser for FnParser<I, F>
-    where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
+    where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I, I::Item> {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         (self.0)(input)
     }
 }
 
-impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
+impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I, I::Item>
     where I: Stream {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         self(input)
     }
 }
@@ -435,7 +435,7 @@ impl <P> Parser for Optional<P>
     where P: Parser {
     type Input = <P as Parser>::Input;
     type Output = Option<<P as Parser>::Output>;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input, <Self::Input as Stream>::Item> {
         match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
             Err(err@Consumed::Consumed(_)) => return Err(err),
@@ -493,7 +493,7 @@ impl <I, O, P, Op> Parser for Chainl1<P, Op>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         let (mut l, mut input) = try!(self.0.parse_state(input));
         loop {
             let was_empty = input.is_empty();
@@ -532,7 +532,7 @@ impl <I, O, P, Op> Parser for Chainr1<P, Op>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         let (mut l, mut input) = try!(self.0.parse_state(input));
         loop {
             let was_empty = input.is_empty();
@@ -579,7 +579,7 @@ impl <I, O, P> Parser for Try<P>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         self.0.parse_state(input)
             .map_err(Consumed::as_empty)
     }
@@ -610,7 +610,7 @@ impl <I, A, B, P1, P2> Parser for And<P1, P2>
 
     type Input = I;
     type Output = (A, B);
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I, I::Item> {
         let (a, rest) = try!(self.0.parse_state(input));
         rest.combine(move |rest| {
             let (b, rest) = try!(self.1.parse_state(rest));
@@ -626,7 +626,7 @@ impl <I, P1, P2> Parser for With<P1, P2>
 
     type Input = I;
     type Output = <P2 as Parser>::Output;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
         let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse_state(input));
         Ok((b, rest))
     }
@@ -639,7 +639,7 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 
     type Input = I;
     type Output = <P1 as Parser>::Output;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
         let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse_state(input));
         Ok((a, rest))
     }
@@ -652,7 +652,7 @@ impl <I, P> Parser for Message<P>
 
     type Input = I;
     type Output = <P as Parser>::Output;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
         match self.0.parse_state(input.clone()) {
             Ok(x) => Ok(x),
             Err(err@Consumed::Consumed(_)) => Err(err),
@@ -671,7 +671,7 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         match self.0.parse_state(input.clone()) {
             Ok(x) => Ok(x),
             Err(err@Consumed::Consumed(_)) => Err(err),
@@ -693,7 +693,7 @@ impl <I, A, B, P, F> Parser for Map<P, F>
 
     type Input = I;
     type Output = B;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<B, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<B, I, I::Item> {
         match self.0.parse_state(input.clone()) {
             Ok((x, input)) => Ok(((self.1)(x), input)),
             Err(err) => Err(err)
@@ -710,7 +710,7 @@ impl <P, N, F> Parser for Then<P, F>
 
     type Input = <N as Parser>::Input;
     type Output = <N as Parser>::Output;
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
         let (value, input) = try!(self.0.parse_state(input));
         input.combine(move |input| {
             let mut next = (self.1)(value);
@@ -726,7 +726,7 @@ impl <P> Parser for Expected<P>
 
     type Input = <P as Parser>::Input;
     type Output = <P as Parser>::Output;
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
         match self.0.parse_state(input) {
             Ok(x) => Ok(x),
             Err(err@Consumed::Consumed(_)) => Err(err),
@@ -746,7 +746,7 @@ impl <P, F, O, E> Parser for AndThen<P, F>
 
     type Input = <P as Parser>::Input;
     type Output = O;
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<O, <Self as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<O, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
         self.0.parse_state(input)
             .and_then(|(o, input)|
                 match (self.1)(o) {
@@ -974,7 +974,7 @@ macro_rules! tuple_parser {
             type Input = Input;
             type Output = ($($id::Output),+);
             #[allow(non_snake_case)]
-            fn parse_state(&mut self, input: State<Input>) -> ParseResult<($($id::Output),+), Input> {
+            fn parse_state(&mut self, input: State<Input>) -> ParseResult<($($id::Output),+), Input, Input::Item> {
                 let ($(ref mut $id),+) = *self;
                 let input = Consumed::Empty(input);
                 $(let ($id, input) = try!(input.combine(|input| $id.parse_state(input)));)+

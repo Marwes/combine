@@ -1,6 +1,8 @@
-use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
+use primitives::{Consumed, Parser, ParseError, Error, State, Stream};
 use combinator::{Expected, skip_many, SkipMany, ParserExt, With};
 use std::marker::PhantomData;
+
+pub type ParseResult<O, I> = ::primitives::ParseResult<O, I, char>;
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
