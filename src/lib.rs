@@ -1,6 +1,81 @@
 #![allow(unstable)]
 #![unstable]
 
+//!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
+//!
+//!A parser in this library can be described as a function which takes some input and if it
+//!is succesful, returns a value together with the remaining input.
+//!A parser combinator is a function which takes one or more parsers and returns a new parser.
+//!For instance the `many` parser can be used to convert a parser for single digits into one that
+//!parses multiple digits.
+//!
+//!# Examples:
+//!
+//!```
+//! extern crate "parser-combinators" as parser_combinators;
+//! use parser_combinators::{many, space, chars1, sep_by, digit, satisfy, Parser, ParserExt};
+//! 
+//! fn main() {
+//!     let input = "1234, 45,78";
+//!     let spaces = many(space());
+//!     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
+//!         .with(chars1(digit()).map(|string| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
+//!     //Parse integers separated by commas, skipping whitespace
+//!     let mut integer_list = sep_by(integer, spaces.skip(satisfy(|c| c == ',')));
+//! 
+//!     //Call parse with the input to execute the parser
+//!     match integer_list.parse(input) {
+//!         Ok((value, _remaining_input)) => println!("{:?}", value),
+//!         Err(err) => println!("{}", err)
+//!     }
+//! }
+//!```
+//!
+//!If we need a parser that is mutually recursive we can define a free function which internally
+//!can in turn be used as a parser (Note that we need to explicitly cast the function, this should
+//!not be necessary once changes in rustc to make orphan checking less restrictive gets implemented)
+//!
+//!`expr` is written fully general here which may not be necessary in a specific implementation
+//!The `Stream` trait is predefined to work with array slices, string slices and iterators
+//!meaning that in this case it could be defined as
+//!`fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
+//!
+//!```
+//! extern crate "parser-combinators" as parser_combinators;
+//! use parser_combinators::{between, many, space, chars1, sep_by, satisfy, Parser, ParserExt,
+//! ParseResult};
+//! use parser_combinators::primitives::{State, Stream};
+//!
+//! #[derive(Debug, PartialEq)]
+//! enum Expr {
+//!     Id(String),
+//!     Array(Vec<Expr>),
+//! }
+//! fn expr<I>(input: State<I>) -> ParseResult<Expr, I>
+//!     where I: Stream<Item=char> {
+//!     let word = chars1(satisfy(|c| c.is_alphabetic()));
+//!     let comma_list = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','));
+//!     let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), comma_list);
+//!     let spaces = many(space());
+//!     spaces.clone().with(
+//!             word.map(Expr::Id)
+//!             .or(array.map(Expr::Array))
+//!         ).parse_state(input)
+//! }
+//! 
+//! fn main() {
+//!     let result = (expr as fn (_) -> _)
+//!         .parse("[[], hello, [world]]")
+//!         .map(|(x, state)| (x, state.input));
+//!     let expr = Expr::Array(vec![
+//!           Expr::Array(Vec::new())
+//!         , Expr::Id("hello".to_string())
+//!         , Expr::Array(vec![Expr::Id("world".to_string())])
+//!     ]);
+//!     assert_eq!(result, Ok((expr, "")));
+//! }
+//!```
+
 #[cfg(test)]
 extern crate test;
 
