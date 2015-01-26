@@ -7,11 +7,11 @@ The API mostly mirrors the Haskell library [Parsec](https://hackage.haskell.org/
 ##Example
 ```rust
 extern crate "parser-combinators" as parser_combinators;
-use parser_combinators::{many, space, chars1, sep_by, digit, satisfy, Parser, ParserExt};
+use parser_combinators::{spaces, chars1, sep_by, digit, satisfy, Parser, ParserExt};
 
 fn main() {
     let input = "1234, 45,78";
-    let spaces = many(space());
+    let spaces = spaces();
     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
         .with(chars1(digit()).map(|string| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
     let mut integer_list = sep_by(integer, spaces.skip(satisfy(|c| c == ',')));//Parse integers separated by commas, skipping whitespace

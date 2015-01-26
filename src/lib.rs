@@ -13,11 +13,11 @@
 //!
 //!```
 //! extern crate "parser-combinators" as parser_combinators;
-//! use parser_combinators::{many, space, chars1, sep_by, digit, satisfy, Parser, ParserExt};
+//! use parser_combinators::{spaces, chars1, sep_by, digit, satisfy, Parser, ParserExt};
 //! 
 //! fn main() {
 //!     let input = "1234, 45,78";
-//!     let spaces = many(space());
+//!     let spaces = spaces();
 //!     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
 //!         .with(chars1(digit()).map(|string| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
 //!     //Parse integers separated by commas, skipping whitespace
@@ -42,7 +42,7 @@
 //!
 //!```
 //! extern crate "parser-combinators" as parser_combinators;
-//! use parser_combinators::{between, many, space, chars1, sep_by, satisfy, Parser, ParserExt,
+//! use parser_combinators::{between, spaces, chars1, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
 //! use parser_combinators::primitives::{State, Stream};
 //!
@@ -56,7 +56,7 @@
 //!     let word = chars1(satisfy(|c| c.is_alphabetic()));
 //!     let comma_list = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','));
 //!     let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), comma_list);
-//!     let spaces = many(space());
+//!     let spaces = spaces();
 //!     spaces.clone().with(
 //!             word.map(Expr::Id)
 //!             .or(array.map(Expr::Array))
@@ -150,7 +150,7 @@ mod tests {
     fn field() {
         let word = chars(satisfy(|c| c.is_alphanumeric()));
         let word2 = chars(satisfy(|c| c.is_alphanumeric()));
-        let spaces = many(space());
+        let spaces = spaces();
         let c_decl = word
             .skip(spaces.clone())
             .skip(satisfy(|c| c == ':'))
@@ -166,9 +166,9 @@ mod tests {
 r"
 123
 ";
-        let result = many(space())
+        let result = spaces()
             .with(integer as fn(_) -> _)
-            .skip(many(space()))
+            .skip(spaces())
             .parse(source);
         let state = State {
             position: SourcePosition { line: 3, column: 1 },
@@ -190,7 +190,7 @@ r"
         let word = chars1(satisfy(|c| c.is_alphabetic()));
         let integer = integer as fn (_) -> _;
         let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
-        let spaces = many(space());
+        let spaces = spaces();
         spaces.clone().with(
                 word.map(Expr::Id)
                 .or(integer.map(Expr::Int))
