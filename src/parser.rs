@@ -3,6 +3,7 @@ use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
+    #[derive(Clone)]
     pub struct $name<I $(,$ty_var)*>($inner_type)
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
     impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
@@ -17,6 +18,7 @@ macro_rules! impl_char_parser {
 }
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
+    #[derive(Clone)]
     pub struct $name<$first $(,$ty_var)*>($inner_type)
         where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
     impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
