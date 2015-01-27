@@ -251,7 +251,7 @@ impl <P> Parser for Chars1<P>
         Ok((result, input))
     }
 }
-///Parses `p` zero or more times collecting into a string
+///Parses `p` one or more times collecting into a string
 pub fn chars1<P>(p: P) -> Chars1<P>
     where P: Parser<Output=char> {
     Chars1 { parser: p }
