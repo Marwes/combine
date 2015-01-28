@@ -36,17 +36,62 @@ pub enum Error {
 
 ///Enum used to indicate if a stream has had any elements consumed
 #[derive(Clone, PartialEq, Debug, Copy)]
-pub enum Consumed {
-    ///Flag indicating that the parser has consumed elements
-    Consumed,
-    ///Flag indicating that the parser did not consume any elements
-    Empty
+pub enum Consumed<T> {
+    ///Constructor indicating that the parser has consumed elements
+    Consumed(T),
+    ///Constructor indicating that the parser did not consume any elements
+    Empty(T)
 }
 
-impl Consumed {
-    pub fn combine(&mut self, other: Consumed) {
-        if other == Consumed::Consumed {
-            *self = Consumed::Consumed;
+impl <T> Consumed<T> {
+
+    ///Returns true if the `self` is empty
+    pub fn is_empty(&self) -> bool {
+        match *self {
+            Consumed::Empty(_) => true,
+            Consumed::Consumed(_) => false
+        }
+    }
+
+    ///Extracts the contained value
+    pub fn into_inner(self) -> T {
+        match self {
+            Consumed::Empty(x) => x,
+            Consumed::Consumed(x) => x
+        }
+    }
+
+    ///Converts the consumed state into the Consumed state
+    pub fn as_consumed(self) -> Consumed<T> {
+        Consumed::Consumed(self.into_inner())
+    }
+
+    ///Converts the consumed state into the Empty state
+    pub fn as_empty(self) -> Consumed<T> {
+        Consumed::Empty(self.into_inner())
+    }
+
+    ///Maps over the contained value without changing the consumed state
+    pub fn map<F, U>(self, f: F) -> Consumed<U>
+        where F: FnOnce(T) -> U {
+        match self {
+            Consumed::Empty(x) => Consumed::Empty(f(x)),
+            Consumed::Consumed(x) => Consumed::Consumed(f(x))
+        }
+    }
+
+    ///Combines the Consumed flags from `self` and the result of `f`
+    pub fn combine<F, U, I>(self, f: F) -> ParseResult<U, I>
+        where F: FnOnce(T) -> ParseResult<U, I> {
+        match self {
+            Consumed::Consumed(x) => {
+                match f(x) {
+                    Ok((v, Consumed::Empty(rest))) => Ok((v, Consumed::Consumed(rest))),
+                    Err(Consumed::Empty(err)) => Err(Consumed::Consumed(err)),
+                    y => y
+                }
+            }
+            Consumed::Empty(x) => f(x)
         }
     }
 }
@@ -56,16 +101,13 @@ impl Consumed {
 pub struct ParseError {
     ///The position where the error occured
     pub position: SourcePosition,
-    ///Flag indicating wether the parser had consumed any elements from the stream before the error
-    ///occured
-    pub consumed: Consumed,
     ///A vector containing specific information on what errors occured at `position`
     pub errors: Vec<Error>
 }
 
 impl ParseError {
-    pub fn new(position: SourcePosition, consumed: Consumed, error: Error) -> ParseError {
-        ParseError { position: position, consumed: consumed, errors: vec![error] }
+    pub fn new(position: SourcePosition, error: Error) -> ParseError {
+        ParseError { position: position, errors: vec![error] }
     }
     pub fn add_message(&mut self, message: String) {
         self.add_error(Error::Message(message));
@@ -120,17 +162,16 @@ impl fmt::Display for Error {
 #[derive(Clone, PartialEq, Debug)]
 pub struct State<I> {
     pub position: SourcePosition,
-    pub input: I,
-    pub consumed: Consumed
+    pub input: I
 }
 
 impl <I: Stream> State<I> {
     fn new(input: I) -> State<I> {
-        State { position: SourcePosition::start(), input: input, consumed: Consumed::Empty }
+        State { position: SourcePosition::start(), input: input }
     }
 
     pub fn as_empty(&self) -> State<I> {
-        State { position: self.position, input: self.input.clone(), consumed: Consumed::Empty }
+        State { position: self.position, input: self.input.clone() }
     }
 
     ///`uncons` is the most general way of extracting and item from a stream
@@ -143,9 +184,9 @@ impl <I: Stream> State<I> {
         match input.uncons() {
             Ok((c, input)) => {
                 f(&mut position, &c);
-                Ok((c, State { position: position, input: input, consumed: Consumed::Consumed }))
+                Ok((c, Consumed::Consumed(State { position: position, input: input })))
             }
-            Err(()) => Err(ParseError::new(position, Consumed::Empty, Error::Message("End of input".to_string())))
+            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".to_string()))))
         }
     }
 }
@@ -161,7 +202,7 @@ impl <I: Stream<Item=char>> State<I> {
 ///A type alias over the specific `Result` type used to indicated parser success/failure.
 ///`O` is the type that is output on success
 ///`I` is the specific stream type used in the parser
-pub type ParseResult<O, I> = Result<(O, State<I>), ParseError>;
+pub type ParseResult<O, I> = Result<(O, Consumed<State<I>>), Consumed<ParseError>>;
 
 ///A stream is a sequence of items that can be extracted one by one
 pub trait Stream : Clone {

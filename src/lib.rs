@@ -26,7 +26,7 @@
 //!     //Call parse with the input to execute the parser
 //!     match integer_list.parse(input) {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
-//!         Err(err) => println!("{}", err)
+//!         Err(err) => println!("{}", err.into_inner())
 //!     }
 //! }
 //!```
@@ -44,7 +44,7 @@
 //! extern crate "parser-combinators" as parser_combinators;
 //! use parser_combinators::{between, spaces, chars1, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
-//! use parser_combinators::primitives::{State, Stream};
+//! use parser_combinators::primitives::{State, Stream, Consumed};
 //!
 //! #[derive(Debug, PartialEq)]
 //! enum Expr {
@@ -66,13 +66,13 @@
 //! fn main() {
 //!     let result = (expr as fn (_) -> _)
 //!         .parse("[[], hello, [world]]")
-//!         .map(|(x, state)| (x, state.input));
+//!         .map(|(x, state)| (x, state.map(|s| s.input)));
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
 //!         , Expr::Id("hello".to_string())
 //!         , Expr::Array(vec![Expr::Id("world".to_string())])
 //!     ]);
-//!     assert_eq!(result, Ok((expr, "")));
+//!     assert_eq!(result, Ok((expr, Consumed::Consumed(""))));
 //! }
 //!```
 
@@ -130,20 +130,20 @@ mod tests {
     #[test]
     fn test_integer() {
         let result = (integer as fn(_) -> _).parse("123")
-            .map(|(x, s)| (x, s.input));
+            .map(|(x, s)| (x, s.into_inner().input));
         assert_eq!(result, Ok((123i64, "")));
     }
     #[test]
     fn list() {
         let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
         let result = p.parse("123,4,56")
-            .map(|(x, s)| (x, s.input));
+            .map(|(x, s)| (x, s.into_inner().input));
         assert_eq!(result, Ok((vec![123, 4, 56], "")));
     }
     #[test]
     fn iterator() {
         let result = (integer as fn(_) -> _).parse("123".chars())
-            .map(|(i, mut state)| (i, state.input.next()));
+            .map(|(i, state)| (i, state.into_inner().input.next()));
         assert_eq!(result, Ok((123i64, None)));
     }
     #[test]
@@ -157,7 +157,7 @@ mod tests {
             .skip(spaces)
             .and(word2)
             .parse("x: int")
-            .map(|(x, s)| (x, s.input));
+            .map(|(x, s)| (x, s.into_inner().input));
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
@@ -170,11 +170,10 @@ r"
             .with(integer as fn(_) -> _)
             .skip(spaces())
             .parse(source);
-        let state = State {
+        let state = Consumed::Consumed(State {
             position: SourcePosition { line: 3, column: 1 },
-            consumed: Consumed::Consumed,
             input: ""
-        };
+        });
         assert_eq!(result, Ok((123i64, state)));
     }
 
@@ -204,7 +203,7 @@ r"
     fn expression() {
         let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
             .parse("int, 100, [[], 123]")
-            .map(|(x, s)| (x, s.input));
+            .map(|(x, s)| (x, s.into_inner().input));
         let exprs = vec![
               Expr::Id("int".to_string())
             , Expr::Int(100)
@@ -221,11 +220,10 @@ r"
 ";
         let result = (expr as fn (_) -> _)
             .parse(input);
-        let err = ParseError {
+        let err = Consumed::Consumed(ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            consumed: Consumed::Consumed,
             errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
-        };
+        });
         assert_eq!(result, Err(err));
     }
 
@@ -260,13 +258,13 @@ r"
         match input.clone().uncons_char() {
             Ok((c, _)) => {
                 if c.is_alphanumeric() {
-                    Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
+                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
                 }
                 else {
-                    Ok(((), input))
+                    Ok(((), Consumed::Empty(input)))
                 }
             }
-            Err(_) => Ok(((), input))
+            Err(_) => Ok(((), Consumed::Empty(input)))
         }
     }
     #[test]
@@ -275,7 +273,7 @@ r"
             .or(chars1(satisfy(|c| c.is_digit(10))));
         match p.parse("le123") {
             Ok(_) => assert!(false),
-            Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
+            Err(err) => assert_eq!(err.into_inner().position, SourcePosition { line: 1, column: 1 })
         }
     }
 
@@ -293,7 +291,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let result = (term as fn (_) -> _)
             .parse(LONG_EXPR);
         assert!(result.is_ok()); 
-        assert_eq!(result.unwrap().1.input, "");
+        assert_eq!(result.unwrap().1.map(|s| s.input), Consumed::Consumed(""));
         bench.iter(|| {
             let result = (term as fn (_) -> _)
                 .parse(LONG_EXPR);
@@ -307,7 +305,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let err = p.parse("ab,abc")
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
+        assert_eq!(err.map(|e| e.position), Consumed::Consumed(SourcePosition { line: 1, column: 1}));
     }
 
     #[test]
@@ -316,7 +314,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let err = p.parse("ab")
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
+        assert_eq!(err.map(|e| e.position), Consumed::Consumed(SourcePosition { line: 1, column: 1}));
     }
     #[test]
     fn chainl1_error_consume() {
@@ -332,8 +330,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let error = result
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(error.consumed, Consumed::Consumed);
-        assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
+        assert_eq!(error.map(|e| e.position), Consumed::Consumed(SourcePosition { line: 1, column: 8 }));
     }
 
     #[test]
