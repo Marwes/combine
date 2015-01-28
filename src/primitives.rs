@@ -232,6 +232,6 @@ impl <I, O, P> Parser for Box<P>
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        (*self).parse_state(input)
+        (**self).parse_state(input)
     }
 }

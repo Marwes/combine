@@ -335,4 +335,10 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         assert_eq!(error.consumed, Consumed::Consumed);
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
     }
+
+    #[test]
+    fn infinite_recursion_in_box_parser() {
+        (many(Box::new(digit())))
+            .parse("1");
+    }
 }
