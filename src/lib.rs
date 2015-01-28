@@ -65,8 +65,7 @@
 //! 
 //! fn main() {
 //!     let result = (expr as fn (_) -> _)
-//!         .parse("[[], hello, [world]]")
-//!         .map(|(x, state)| (x, state.input));
+//!         .parse("[[], hello, [world]]");
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
 //!         , Expr::Id("hello".to_string())
@@ -129,21 +128,19 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        let result = (integer as fn(_) -> _).parse("123")
-            .map(|(x, s)| (x, s.input));
+        let result = (integer as fn(_) -> _).parse("123");
         assert_eq!(result, Ok((123i64, "")));
     }
     #[test]
     fn list() {
         let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
-        let result = p.parse("123,4,56")
-            .map(|(x, s)| (x, s.input));
+        let result = p.parse("123,4,56");
         assert_eq!(result, Ok((vec![123, 4, 56], "")));
     }
     #[test]
     fn iterator() {
         let result = (integer as fn(_) -> _).parse("123".chars())
-            .map(|(i, mut state)| (i, state.input.next()));
+            .map(|(i, mut input)| (i, input.next()));
         assert_eq!(result, Ok((123i64, None)));
     }
     #[test]
@@ -156,8 +153,7 @@ mod tests {
             .skip(satisfy(|c| c == ':'))
             .skip(spaces)
             .and(word2)
-            .parse("x: int")
-            .map(|(x, s)| (x, s.input));
+            .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
@@ -169,12 +165,11 @@ r"
         let result = spaces()
             .with(integer as fn(_) -> _)
             .skip(spaces())
-            .parse(source);
-        let state = State {
+            .parse_state(State::new(source));
+        let state = Consumed::Consumed(State {
             position: SourcePosition { line: 3, column: 1 },
-            consumed: Consumed::Consumed,
             input: ""
-        };
+        });
         assert_eq!(result, Ok((123i64, state)));
     }
 
@@ -203,8 +198,7 @@ r"
     #[test]
     fn expression() {
         let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
-            .parse("int, 100, [[], 123]")
-            .map(|(x, s)| (x, s.input));
+            .parse("int, 100, [[], 123]");
         let exprs = vec![
               Expr::Id("int".to_string())
             , Expr::Int(100)
@@ -223,7 +217,6 @@ r"
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            consumed: Consumed::Consumed,
             errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
         };
         assert_eq!(result, Err(err));
@@ -260,13 +253,13 @@ r"
         match input.clone().uncons_char() {
             Ok((c, _)) => {
                 if c.is_alphanumeric() {
-                    Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
+                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
                 }
                 else {
-                    Ok(((), input))
+                    Ok(((), Consumed::Empty(input)))
                 }
             }
-            Err(_) => Ok(((), input))
+            Err(_) => Ok(((), Consumed::Empty(input)))
         }
     }
     #[test]
@@ -293,7 +286,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let result = (term as fn (_) -> _)
             .parse(LONG_EXPR);
         assert!(result.is_ok()); 
-        assert_eq!(result.unwrap().1.input, "");
+        assert_eq!(result.unwrap().1, "");
         bench.iter(|| {
             let result = (term as fn (_) -> _)
                 .parse(LONG_EXPR);
@@ -332,13 +325,12 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let error = result
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(error.consumed, Consumed::Consumed);
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
     }
 
     #[test]
     fn infinite_recursion_in_box_parser() {
-        (many(Box::new(digit())))
+        let _ = (many(Box::new(digit())))
             .parse("1");
     }
 }

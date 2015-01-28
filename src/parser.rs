@@ -56,7 +56,7 @@ impl <I> Parser for Unexpected<I>
     type Input = I;
     type Output = ();
     fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
-        Err(ParseError::new(input.position, Consumed::Empty, Error::Message(self.0.clone())))
+        Err(Consumed::Empty(ParseError::new(input.position, Error::Message(self.0.clone()))))
     }
 }
 ///Always fails with `message` as the error.
@@ -86,7 +86,7 @@ impl <I, T> Parser for Value<I, T>
     type Input = I;
     type Output = T;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I> {
-        Ok((self.0.clone(), input))
+        Ok((self.0.clone(), Consumed::Empty(input)))
     }
 }
 ///Always returns the value `v` without consuming any input.
@@ -142,15 +142,17 @@ impl <P, F> Parser for ConsumeMany<P, F>
         , F: FnMut(<P as Parser>::Output) {
     type Input = <P as Parser>::Input;
     type Output = ();
-    fn parse_state(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
+        let mut input = Consumed::Empty(input);
         loop {
-            match self.0.parse_state(input.as_empty()) {
+            let was_empty = input.is_empty();
+            let rest = input.clone().into_inner();
+            match self.0.parse_state(rest) {
                 Ok((x, rest)) => {
                     (self.1)(x);
-                    input = rest;
-                    input.consumed = Consumed::Consumed;
+                    input = if was_empty { rest } else { rest.as_consumed() };
                 }
-                Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
+                Err(err@Consumed::Consumed(_)) => return Err(err),
                 Err(_) => break
             }
         }
@@ -195,7 +197,7 @@ impl <P: Parser> Parser for Many1<P> {
     fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let (first, input) = try!(self.0.parse_state(input));
         let mut result = vec![first];
-        let ((), input) = try!(ConsumeMany(&mut self.0, |x| result.push(x)).parse_state(input));
+        let ((), input) = try!(input.combine(|input| ConsumeMany(&mut self.0, |x| result.push(x)).parse_state(input)));
         Ok((result, input))
     }
 }
@@ -247,7 +249,7 @@ impl <P> Parser for Chars1<P>
         let (first, input) = try!(self.parser.parse_state(input));
         let mut result = String::new();
         result.push(first);
-        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input));
+        let ((), input) = try!(input.combine(|input| ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input)));
         Ok((result, input))
     }
 }
@@ -267,19 +269,22 @@ impl <P, S> Parser for SepBy<P, S>
 
     type Input = <P as Parser>::Input;
     type Output = Vec<<P as Parser>::Output>;
-    fn parse_state(&mut self, mut input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
         let mut result = Vec::new();
-        match self.parser.parse_state(input.as_empty()) {
+        let mut input = Consumed::Empty(input);
+        match input.clone().combine(|input| self.parser.parse_state(input)) {
             Ok((x, rest)) => {
                 result.push(x);
                 input = rest;
             }
-            Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
-            Err(_) => return Ok((result, input))
+            Err(err@Consumed::Consumed(_)) => return Err(err),
+            Err(Consumed::Empty(_)) => return Ok((result, input))
         }
-        let rest = (&mut self.separator)
-            .with(&mut self.parser);
-        let ((), input) = try!(ConsumeMany(rest, |x| result.push(x)).parse_state(input));
+        let ((), input) = try!(input.combine(|input| {
+            let rest = (&mut self.separator)
+                .with(&mut self.parser);
+            ConsumeMany(rest, |x| result.push(x)).parse_state(input)
+        }));
         Ok((result, input))
     }
 }
@@ -344,7 +349,7 @@ impl <I, Pred> Parser for Satisfy<I, Pred>
             Ok((c, s)) => {
                 if (self.pred)(c) { Ok((c, s)) }
                 else {
-                    Err(ParseError::new(input.position, Consumed::Empty, Error::Unexpected(c)))
+                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
                 }
             }
             Err(err) => Err(err)
@@ -381,22 +386,23 @@ impl <'a, I> Parser for StringP<'a, I>
     where I: Stream<Item=char> {
     type Input = I;
     type Output = &'a str;
-    fn parse_state(&mut self, mut input: State<I>) -> ParseResult<&'a str, I> {
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<&'a str, I> {
         let start = input.position;
+        let mut input = Consumed::Empty(input);
         for (i, c) in self.s.chars().enumerate() {
-            match input.uncons_char() {
+            match input.combine(|input| input.uncons_char()) {
                 Ok((other, rest)) => {
                     if c != other {
-                        let consumed = if i == 0 { Consumed::Empty } else { Consumed::Consumed };
-                        return Err(ParseError::new(start, consumed, Error::Expected(self.s.to_string())));
+                        let error = ParseError::new(start, Error::Expected(self.s.to_string()));
+                        return Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) });
                     }
                     input = rest;
                 }
-                Err(mut err) => {
-                    let consumed = if i == 0 { Consumed::Empty } else { Consumed::Consumed };
-                    err.consumed = consumed;
-                    err.position = start;
-                    return Err(err)
+                Err(error) => {
+                    return error.combine(move |mut error| {
+                        error.position = start;
+                        Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) })
+                    })
                 }
             }
         }
@@ -430,15 +436,10 @@ impl <I, A, B, P1, P2> Parser for And<P1, P2>
     type Output = (A, B);
     fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
         let (a, rest) = try!(self.0.parse_state(input));
-        let first_consumed = rest.consumed;
-        let (b, rest) = match self.1.parse_state(rest) {
-            Ok(v) => v,
-            Err(mut error) => {
-                error.consumed.combine(first_consumed);
-                return Err(error)
-            }
-        };
-        Ok(((a, b), rest))
+        rest.combine(move |rest| {
+            let (b, rest) = try!(self.1.parse_state(rest));
+            Ok(((a, b), rest))
+        })
     }
 }
 
@@ -451,8 +452,8 @@ impl <P> Parser for Optional<P>
     fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input> {
         match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
-            Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
-            Err(_) => Ok((None, input))
+            Err(err@Consumed::Consumed(_)) => return Err(err),
+            Err(Consumed::Empty(_)) => Ok((None, Consumed::Empty(input)))
         }
     }
 }
@@ -483,7 +484,7 @@ pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
             Ok((c, rest)) => {
                 if c.is_digit(10) { Ok((c, rest)) }
                 else {
-                    Err(ParseError::new(input.position, Consumed::Empty, Error::Message("Expected digit".to_string())))
+                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".to_string()))))
                 }
             }
             Err(err) => Err(err)
@@ -550,9 +551,10 @@ impl <I, P> Parser for Message<P>
     fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I> {
         match self.0.parse_state(input.clone()) {
             Ok(x) => Ok(x),
-            Err(mut err) => {
+            Err(err@Consumed::Consumed(_)) => Err(err),
+            Err(Consumed::Empty(mut err)) => {
                 err.add_message(self.1.clone());
-                Err(err)
+                Err(Consumed::Empty(err))
             }
         }
     }
@@ -568,11 +570,12 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         match self.0.parse_state(input.clone()) {
             Ok(x) => Ok(x),
-            Err(err@ParseError { consumed: Consumed::Consumed, .. }) => Err(err),
-            Err(error1) => {
+            Err(err@Consumed::Consumed(_)) => Err(err),
+            Err(Consumed::Empty(error1)) => {
                 match self.1.parse_state(input) {
                     Ok(x) => Ok(x),
-                    Err(error2) => Err(error1.merge(error2))
+                    Err(err@Consumed::Consumed(_)) => Err(err),
+                    Err(Consumed::Empty(error2)) => Err(Consumed::Empty(error1.merge(error2)))
                 }
             }
         }
@@ -606,14 +609,17 @@ impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         let (mut l, mut input) = try!(self.0.parse_state(input));
         loop {
-            match (&mut self.1).and(&mut self.0).parse_state(input.clone()) {
+            let was_empty = input.is_empty();
+            let rest = input.clone().into_inner();
+            match (&mut self.1).and(&mut self.0).parse_state(rest) {
                 Ok(((mut op, r), rest)) => {
                     l = op(l, r);
-                    input = rest;
+                    input = if was_empty { rest } else { rest.as_consumed() };
                 }
-                Err(err@ParseError { consumed: Consumed::Consumed, .. }) => return Err(err),
+                Err(err@Consumed::Consumed(_)) => return Err(err),
                 Err(_) => break
-            };
+            }
+            
 
         }
         Ok((l, input))
@@ -639,10 +645,7 @@ impl <I, O, P> Parser for Try<P>
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         self.0.parse_state(input)
-            .map_err(|mut err| {
-                err.consumed = Consumed::Empty;
-                err
-            })
+            .map_err(Consumed::as_empty)
     }
 }
 
@@ -657,18 +660,10 @@ impl <P, N, F> Parser for Then<P, N, F>
     type Output = <N as Parser>::Output;
     fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
         let (value, input) = try!(self.0.parse_state(input));
-        let first_consumed = input.consumed;
-        let mut next = (self.1)(value);
-        match next.parse_state(input) {
-            Ok(mut tuple) => {
-                tuple.1.consumed.combine(first_consumed);
-                Ok(tuple)
-            }
-            Err(mut error) => {
-                error.consumed.combine(first_consumed);
-                Err(error)
-            }
-        }
+        input.combine(move |input| {
+            let mut next = (self.1)(value);
+            next.parse_state(input)
+        })
     }
 }
 
