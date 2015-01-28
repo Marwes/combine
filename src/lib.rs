@@ -26,7 +26,7 @@
 //!     //Call parse with the input to execute the parser
 //!     match integer_list.parse(input) {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
-//!         Err(err) => println!("{}", err.into_inner())
+//!         Err(err) => println!("{}", err)
 //!     }
 //! }
 //!```
@@ -44,7 +44,7 @@
 //! extern crate "parser-combinators" as parser_combinators;
 //! use parser_combinators::{between, spaces, chars1, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
-//! use parser_combinators::primitives::{State, Stream, Consumed};
+//! use parser_combinators::primitives::{State, Stream};
 //!
 //! #[derive(Debug, PartialEq)]
 //! enum Expr {
@@ -65,14 +65,13 @@
 //! 
 //! fn main() {
 //!     let result = (expr as fn (_) -> _)
-//!         .parse("[[], hello, [world]]")
-//!         .map(|(x, state)| (x, state.map(|s| s.input)));
+//!         .parse("[[], hello, [world]]");
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
 //!         , Expr::Id("hello".to_string())
 //!         , Expr::Array(vec![Expr::Id("world".to_string())])
 //!     ]);
-//!     assert_eq!(result, Ok((expr, Consumed::Consumed(""))));
+//!     assert_eq!(result, Ok((expr, "")));
 //! }
 //!```
 
@@ -129,21 +128,19 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        let result = (integer as fn(_) -> _).parse("123")
-            .map(|(x, s)| (x, s.into_inner().input));
+        let result = (integer as fn(_) -> _).parse("123");
         assert_eq!(result, Ok((123i64, "")));
     }
     #[test]
     fn list() {
         let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
-        let result = p.parse("123,4,56")
-            .map(|(x, s)| (x, s.into_inner().input));
+        let result = p.parse("123,4,56");
         assert_eq!(result, Ok((vec![123, 4, 56], "")));
     }
     #[test]
     fn iterator() {
         let result = (integer as fn(_) -> _).parse("123".chars())
-            .map(|(i, state)| (i, state.into_inner().input.next()));
+            .map(|(i, mut input)| (i, input.next()));
         assert_eq!(result, Ok((123i64, None)));
     }
     #[test]
@@ -156,8 +153,7 @@ mod tests {
             .skip(satisfy(|c| c == ':'))
             .skip(spaces)
             .and(word2)
-            .parse("x: int")
-            .map(|(x, s)| (x, s.into_inner().input));
+            .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
@@ -169,7 +165,7 @@ r"
         let result = spaces()
             .with(integer as fn(_) -> _)
             .skip(spaces())
-            .parse(source);
+            .parse_state(State::new(source));
         let state = Consumed::Consumed(State {
             position: SourcePosition { line: 3, column: 1 },
             input: ""
@@ -202,8 +198,7 @@ r"
     #[test]
     fn expression() {
         let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
-            .parse("int, 100, [[], 123]")
-            .map(|(x, s)| (x, s.into_inner().input));
+            .parse("int, 100, [[], 123]");
         let exprs = vec![
               Expr::Id("int".to_string())
             , Expr::Int(100)
@@ -220,10 +215,10 @@ r"
 ";
         let result = (expr as fn (_) -> _)
             .parse(input);
-        let err = Consumed::Consumed(ParseError {
+        let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
-        });
+        };
         assert_eq!(result, Err(err));
     }
 
@@ -273,7 +268,7 @@ r"
             .or(chars1(satisfy(|c| c.is_digit(10))));
         match p.parse("le123") {
             Ok(_) => assert!(false),
-            Err(err) => assert_eq!(err.into_inner().position, SourcePosition { line: 1, column: 1 })
+            Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
         }
     }
 
@@ -291,7 +286,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let result = (term as fn (_) -> _)
             .parse(LONG_EXPR);
         assert!(result.is_ok()); 
-        assert_eq!(result.unwrap().1.map(|s| s.input), Consumed::Consumed(""));
+        assert_eq!(result.unwrap().1, "");
         bench.iter(|| {
             let result = (term as fn (_) -> _)
                 .parse(LONG_EXPR);
@@ -305,7 +300,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let err = p.parse("ab,abc")
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(err.map(|e| e.position), Consumed::Consumed(SourcePosition { line: 1, column: 1}));
+        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
     }
 
     #[test]
@@ -314,7 +309,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let err = p.parse("ab")
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(err.map(|e| e.position), Consumed::Consumed(SourcePosition { line: 1, column: 1}));
+        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
     }
     #[test]
     fn chainl1_error_consume() {
@@ -330,12 +325,12 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let error = result
             .map(|x| format!("{:?}", x))
             .unwrap_err();
-        assert_eq!(error.map(|e| e.position), Consumed::Consumed(SourcePosition { line: 1, column: 8 }));
+        assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
     }
 
     #[test]
     fn infinite_recursion_in_box_parser() {
-        (many(Box::new(digit())))
+        let _ = (many(Box::new(digit())))
             .parse("1");
     }
 }

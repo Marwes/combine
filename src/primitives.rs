@@ -166,7 +166,7 @@ pub struct State<I> {
 }
 
 impl <I: Stream> State<I> {
-    fn new(input: I) -> State<I> {
+    pub fn new(input: I) -> State<I> {
         State { position: SourcePosition::start(), input: input }
     }
 
@@ -253,8 +253,11 @@ pub trait Parser {
 
     ///Entrypoint of the parser
     ///Takes some input and tries to parse it returning a `ParseResult`
-    fn parse(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        self.parse_state(State::new(input))
+    fn parse(&mut self, input: Self::Input) -> Result<(Self::Output, Self::Input), ParseError> {
+        match self.parse_state(State::new(input)) {
+            Ok((v, state)) => Ok((v, state.into_inner().input)),
+            Err(error) => Err(error.into_inner())
+        }
     }
     ///Parses using the state `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`

@@ -70,7 +70,7 @@ impl <I> Parser for Unexpected<I>
 /// let result = unexpected("token".to_string())
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert_eq!(result.err().unwrap().into_inner().errors[0], Error::Message("token".to_string()));
+/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".to_string()));
 /// # }
 /// ```
 pub fn unexpected<I>(message: String) -> Unexpected<I>
