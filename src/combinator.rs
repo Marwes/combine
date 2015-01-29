@@ -303,7 +303,6 @@ impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     }
 }
 
-
 #[derive(Clone)]
 pub struct And<P1, P2>(P1, P2);
 impl <I, A, B, P1, P2> Parser for And<P1, P2>
