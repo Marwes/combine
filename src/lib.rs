@@ -95,6 +95,7 @@ pub use parser::{
     sep_by,
     space,
     spaces,
+    tab,
     string,
     try,
     value,

@@ -380,6 +380,12 @@ pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
     satisfy(CharExt::is_whitespace as fn (char) -> bool)
 }
 
+///Parses a tab character
+pub fn tab<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch == '\t'}))
+}
+
 #[derive(Clone)]
 pub struct StringP<'a, I> { s: &'a str }
 impl <'a, I> Parser for StringP<'a, I>
