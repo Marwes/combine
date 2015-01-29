@@ -91,6 +91,11 @@ pub fn spaces<I>() -> Spaces<I>
     Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
 }
 
+///Parses a tab character
+pub fn tab<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch == '\t'}))
+}
 
 #[derive(Clone)]
 pub struct StringP<'a, I> { s: &'a str }
