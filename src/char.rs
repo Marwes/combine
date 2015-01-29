@@ -62,23 +62,12 @@ pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
     Satisfy { pred: pred }
 }
 
-impl_char_parser! { Digit(), FnParser<I, char, fn (State<I>) -> ParseResult<char, I>> }
+impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a digit from a stream containing characters
 pub fn digit<I>() -> Digit<I>
-        where I: Stream<Item=char> {
-    fn digit_<I>(input: State<I>) -> ParseResult<char, I>
-        where I: Stream<Item=char> {
-        match input.clone().uncons_char() {
-            Ok((c, rest)) => {
-                if c.is_digit(10) { Ok((c, rest)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".into_cow()))))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-    Digit(FnParser(digit_ as fn (_) -> _))
+    where I: Stream<Item=char> {
+    Digit(satisfy(static_fn!((c, char) -> bool { c.is_digit(10) }) as fn (_) -> _)
+         .expected("digit"))
 }
 
 impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
