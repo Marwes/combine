@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{FnParser, many, Many, Map, ParserExt, With};
+use combinator::{Expected, FnParser, many, Many, Map, ParserExt, With};
 use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
@@ -81,13 +81,13 @@ pub fn digit<I>() -> Digit<I>
     Digit(FnParser(digit_ as fn (_) -> _))
 }
 
-impl_char_parser! { Space(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses whitespace
 pub fn space<I>() -> Space<I>
     where I: Stream<Item=char> {
-    Space(satisfy(CharExt::is_whitespace as fn (char) -> bool))
+    Space(satisfy(CharExt::is_whitespace as fn (char) -> bool)
+        .expected("whitespace"))
 }
-
 impl_char_parser! { Spaces(), Many<Vec<()>, Map<Space<I>, fn (char)>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
@@ -205,4 +205,21 @@ impl <'a, I> Parser for StringP<'a, I>
 pub fn string<I>(s: &str) -> StringP<I>
     where I: Stream<Item=char> {
     StringP { s: s }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::space;
+    use primitives::{Error, Parser};
+    use std::borrow::IntoCow;
+
+    #[test]
+    fn space_error() {
+        let result = space()
+            .parse("");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().errors, vec![Error::Expected("whitespace".into_cow())]);
+
+    }
 }
