@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{FnParser, many, Many, Map, ParserExt};
+use combinator::{FnParser, many, Many, Map, ParserExt, With};
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
@@ -91,6 +91,59 @@ pub fn spaces<I>() -> Spaces<I>
     Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
 }
 
+///Parses a newline character
+pub fn newline<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch == '\n' }))
+}
+
+///Parses carriage return and newline
+pub fn crlf<I>() -> With<Satisfy<I, fn (char) -> bool>, Satisfy<I, fn (char) -> bool>>
+    where I: Stream<Item=char> {
+    satisfy(static_fn!((ch, char) -> bool { ch == '\r' }) as fn (char) -> bool).with(newline())
+}
+
+///Parses a tab character
+pub fn tab<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch == '\t'}))
+}
+
+///Parses an uppercase letter
+pub fn upper<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase() }))
+}
+
+///Parses an uppercase letter
+pub fn lower<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() }))
+}
+
+///Parses either an alphabet letter or digit
+pub fn alpha_num<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() }))
+}
+
+///Parses an alphabet letter
+pub fn letter<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() }))
+}
+
+///Parses an octal digit
+pub fn oct_digit<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) }))
+}
+
+///Parses a hexdecimal digit with uppercase and lowercase
+pub fn hex_digit<I>() -> Satisfy<I, fn (char) -> bool>
+    where I: Stream {
+    satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) }))
+}
 
 #[derive(Clone)]
 pub struct StringP<'a, I> { s: &'a str }

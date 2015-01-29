@@ -87,6 +87,15 @@ pub use char::{
     digit,
     space,
     spaces,
+    newline,
+    crlf,
+    tab,
+    upper,
+    lower,
+    alpha_num,
+    letter,
+    oct_digit,
+    hex_digit,
     string,
     satisfy,
 };
@@ -98,13 +107,6 @@ pub use combinator::{
     many1,
     optional,
     sep_by,
-<<<<<<< HEAD
-    space,
-    spaces,
-    tab,
-    string,
-=======
->>>>>>> 08b7167a7845824a6cde09e2af79af1ada4e2c6a
     try,
     value,
     unexpected,
