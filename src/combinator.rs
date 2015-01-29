@@ -1,21 +1,7 @@
 
+use std::iter::FromIterator;
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
-macro_rules! impl_char_parser {
-    ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type)
-        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
-    impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
-        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
-        type Input = I;
-        type Output = <$inner_type as Parser>::Output;
-        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
-            self.0.parse_state(input)
-        }
-    }
-}
-}
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
     #[derive(Clone)]
@@ -32,27 +18,82 @@ macro_rules! impl_parser {
 }
 }
 
-macro_rules! static_fn {
-    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
+struct Iter<P: Parser> {
+    parser: P,
+    input: Consumed<State<P::Input>>,
+    error: Option<Consumed<ParseError>>
 }
 
-impl_char_parser! { Spaces(), Many<Map<Satisfy<I, fn (char) -> bool>, fn (char), ()>> }
-///Skips over zero or more spaces
-pub fn spaces<I>() -> Spaces<I>
-    where I: Stream<Item=char> {
-    Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
+impl <P: Parser> Iter<P> {
+    fn new(parser: P, input: State<P::Input>) -> Iter<P> {
+        Iter { parser: parser, input: Consumed::Empty(input), error: None }
+    }
+    fn into_result<O>(self, result: O) -> ParseResult<O, P::Input> {
+        match self.error {
+            Some(err@Consumed::Consumed(_)) => Err(err),
+            _ => Ok((result, self.input))
+        }
+    }
 }
 
-///Parses any character
-pub fn any_char<I>(input: State<I>) -> ParseResult<char, I>
-    where I: Stream<Item=char> {
-    input.uncons_char()
+impl <P: Parser> Iterator for Iter<P> {
+    type Item = P::Output;
+    fn next(&mut self) -> Option<P::Output> {
+        if self.error.is_some() {
+            return None;
+        }
+        let was_empty = self.input.is_empty();
+        match self.parser.parse_state(self.input.clone().into_inner()) {
+            Ok((value, rest)) => {
+                self.input = if was_empty { rest } else { rest.as_consumed() };
+                Some(value)
+            }
+            Err(err) => {
+                self.error = Some(err);
+                None
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Many<F, P>(P)
+    where P: Parser;
+impl <F, P> Parser for Many<F, P>
+    where P: Parser, F: FromIterator<<P as Parser>::Output> {
+    type Input = <P as Parser>::Input;
+    type Output = F;
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
+        let mut iter = Iter::new(&mut self.0, input);
+        let result = iter.by_ref().collect();
+        iter.into_result(result)
+    }
+}
+
+///Parses `p` zero or more times returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling many, `many::<Vec<_>, _>(...)`
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = many(digit())
+///     .parse("123A")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(vec!['1', '2', '3']));
+/// # }
+/// ```
+pub fn many<F, P>(p: P) -> Many<F, P>
+    where P: Parser, F: FromIterator<<P as Parser>::Output> {
+    Many(p)
 }
 
 #[derive(Clone)]
 pub struct Unexpected<I>(String);
 impl <I> Parser for Unexpected<I>
-    where I : Stream<Item=char> {
+    where I : Stream {
     type Input = I;
     type Output = ();
     fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
@@ -74,7 +115,7 @@ impl <I> Parser for Unexpected<I>
 /// # }
 /// ```
 pub fn unexpected<I>(message: String) -> Unexpected<I>
-    where I: Stream<Item=char> {
+    where I: Stream {
     Unexpected(message)
 }
 
@@ -102,12 +143,12 @@ impl <I, T> Parser for Value<I, T>
 /// # }
 /// ```
 pub fn value<I, T>(v: T) -> Value<I, T>
-    where I: Stream<Item=char>
+    where I: Stream
         , T: Clone {
     Value(v)
 }
 
-impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Parser>::Output) -> Unexpected<I>>, Value<I, ()>> }
+impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, Unexpected<<P as Parser>::Input>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
 ///Succeeds only if `parser` fails.
 ///Never consumes any input.
 ///
@@ -122,11 +163,10 @@ impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Pa
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
-    where I: Stream<Item=char>
-        , P: Parser<Input=I>
+pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
+    where P: Parser
         , <P as Parser>::Output: ::std::fmt::Display {
-    fn f<T: ::std::fmt::Display, I: Stream<Item=char>>(t: T) -> Unexpected<I> {
+    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
         unexpected(format!("{}", t))
     }
     NotFollowedBy(try(parser).then(f as fn (_) -> _)
@@ -134,162 +174,86 @@ pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
 }
 
 #[derive(Clone)]
-pub struct ConsumeMany<P, F>(P, F)
-    where P: Parser
-        , F: FnMut(<P as Parser>::Output);
-impl <P, F> Parser for ConsumeMany<P, F>
-    where P: Parser
-        , F: FnMut(<P as Parser>::Output) {
+pub struct Many1<F, P>(P);
+impl <F, P> Parser for Many1<F, P>
+    where F: FromIterator<<P as Parser>::Output>
+        , P: Parser {
     type Input = <P as Parser>::Input;
-    type Output = ();
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<(), <P as Parser>::Input> {
-        let mut input = Consumed::Empty(input);
-        loop {
-            let was_empty = input.is_empty();
-            let rest = input.clone().into_inner();
-            match self.0.parse_state(rest) {
-                Ok((x, rest)) => {
-                    (self.1)(x);
-                    input = if was_empty { rest } else { rest.as_consumed() };
-                }
-                Err(err@Consumed::Consumed(_)) => return Err(err),
-                Err(_) => break
-            }
-        }
-        Ok(((), input))
-    }
-}
-
-#[derive(Clone)]
-pub struct Many<P> {
-    parser: P
-}
-impl <P: Parser> Parser for Many<P> {
-    type Input = <P as Parser>::Input;
-    type Output = Vec<<P as Parser>::Output>;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
-        let mut result = Vec::new();
-        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input));
-        Ok((result, input))
-    }
-}
-///Parses `p` zero or more times
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let result = many(digit())
-///     .parse("123A")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(vec!['1', '2', '3']));
-/// # }
-/// ```
-pub fn many<P: Parser>(p: P) -> Many<P> {
-    Many { parser: p }
-}
-
-#[derive(Clone)]
-pub struct Many1<P>(P);
-impl <P: Parser> Parser for Many1<P> {
-    type Input = <P as Parser>::Input;
-    type Output = Vec<<P as Parser>::Output>;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
+    type Output = F;
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
         let (first, input) = try!(self.0.parse_state(input));
-        let mut result = vec![first];
-        let ((), input) = try!(input.combine(|input| ConsumeMany(&mut self.0, |x| result.push(x)).parse_state(input)));
-        Ok((result, input))
+		input.combine(move |input| {
+	        let mut iter = Iter::new(&mut self.0, input);
+	        let result = Some(first).into_iter()
+	            .chain(iter.by_ref())
+	            .collect();
+	        iter.into_result(result)
+		})
     }
 }
 
-///Parses `p` one or more times
+///Parses `p` one or more times returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling many1 `many1::<Vec<_>, _>(...)`
+///
 ///
 /// ```
 /// # extern crate "parser-combinators" as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = many1(digit())
+/// let result = many1::<Vec<_>, _>(digit())
 ///     .parse("A123");
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn many1<P>(p: P) -> Many1<P>
-    where P: Parser {
+pub fn many1<F, P>(p: P) -> Many1<F, P>
+    where F: FromIterator<<P as Parser>::Output>
+        , P: Parser {
     Many1(p)
 }
 
 #[derive(Clone)]
-pub struct Chars<P> {
-    parser: P
-}
-impl <P> Parser for Chars<P>
-    where P: Parser<Output=char> {
-    type Input = <P as Parser>::Input;
-    type Output = String;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
-        let mut result = String::new();
-        let ((), input) = try!(ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input));
-        Ok((result, input))
-    }
-}
-///Parses `p` zero or more times collecting into a string
-pub fn chars<P>(p: P) -> Chars<P>
-    where P: Parser<Output=char> {
-    Chars { parser: p }
-}
-#[derive(Clone)]
-pub struct Chars1<P> {
-    parser: P
-}
-impl <P> Parser for Chars1<P>
-    where P: Parser<Output=char> {
-    type Input = <P as Parser>::Input;
-    type Output = String;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<String, <P as Parser>::Input> {
-        let (first, input) = try!(self.parser.parse_state(input));
-        let mut result = String::new();
-        result.push(first);
-        let ((), input) = try!(input.combine(|input| ConsumeMany(&mut self.parser, |x| result.push(x)).parse_state(input)));
-        Ok((result, input))
-    }
-}
-///Parses `p` one or more times collecting into a string
-pub fn chars1<P>(p: P) -> Chars1<P>
-    where P: Parser<Output=char> {
-    Chars1 { parser: p }
-}
-
-#[derive(Clone)]
-pub struct SepBy<P, S> {
+pub struct SepBy<F, P, S> {
     parser: P,
     separator: S
 }
-impl <P, S> Parser for SepBy<P, S>
-    where P: Parser, S: Parser<Input=<P as Parser>::Input> {
+impl <F, P, S> Parser for SepBy<F, P, S>
+    where F: FromIterator<<P as Parser>::Output>
+        , P: Parser
+        , S: Parser<Input=<P as Parser>::Input> {
 
     type Input = <P as Parser>::Input;
-    type Output = Vec<<P as Parser>::Output>;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Vec<<P as Parser>::Output>, <P as Parser>::Input> {
-        let mut result = Vec::new();
+    type Output = F;
+    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
         let mut input = Consumed::Empty(input);
+        let first;
         match input.clone().combine(|input| self.parser.parse_state(input)) {
             Ok((x, rest)) => {
-                result.push(x);
                 input = rest;
+                first = x
             }
             Err(err@Consumed::Consumed(_)) => return Err(err),
-            Err(Consumed::Empty(_)) => return Ok((result, input))
-        }
-        let ((), input) = try!(input.combine(|input| {
+            Err(Consumed::Empty(_)) => return Ok((None.into_iter().collect(), input))
+        };
+
+        let (result, input) = try!(input.combine(move |input| {
             let rest = (&mut self.separator)
                 .with(&mut self.parser);
-            ConsumeMany(rest, |x| result.push(x)).parse_state(input)
+	        let mut iter = Iter::new(rest, input);
+	        let result = Some(first).into_iter()
+	            .chain(iter.by_ref())
+	            .collect();
+        	iter.into_result(result)
         }));
         Ok((result, input))
     }
 }
 
-///Parses `parser` zero or more time separated by `separator`
+///Parses `parser` zero or more time separated by `separator`, returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
 ///
 /// ```
 /// # extern crate "parser-combinators" as pc;
@@ -301,7 +265,10 @@ impl <P, S> Parser for SepBy<P, S>
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
 /// # }
 /// ```
-pub fn sep_by<P: Parser, S: Parser>(parser: P, separator: S) -> SepBy<P, S> {
+pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
+    where F: FromIterator<<P as Parser>::Output>
+        , P: Parser
+        , S: Parser<Input=<P as Parser>::Input> {
     SepBy { parser: parser, separator: separator }
 }
 
@@ -314,7 +281,7 @@ impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, O, F>(F)
+pub struct FnParser<I, O, F>(pub F)
     where I: Stream
         , F: FnMut(State<I>) -> ParseResult<O, I>;
 
@@ -336,6 +303,7 @@ impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     }
 }
 
+<<<<<<< HEAD:src/parser.rs
 #[derive(Clone)]
 pub struct Satisfy<I, Pred> { pred: Pred }
 
@@ -432,6 +400,8 @@ pub fn string<I>(s: &str) -> StringP<I>
     where I: Stream {
     StringP { s: s }
 }
+=======
+>>>>>>> 08b7167a7845824a6cde09e2af79af1ada4e2c6a:src/combinator.rs
 
 #[derive(Clone)]
 pub struct And<P1, P2>(P1, P2);
@@ -479,24 +449,6 @@ impl <P> Parser for Optional<P>
 pub fn optional<P>(parser: P) -> Optional<P>
     where P: Parser {
     Optional(parser)
-}
-
-///Parses a digit from a stream containing characters
-pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
-        where I: Stream<Item=char> {
-    fn digit_<I>(input: State<I>) -> ParseResult<char, I>
-        where I: Stream<Item=char> {
-        match input.clone().uncons_char() {
-            Ok((c, rest)) => {
-                if c.is_digit(10) { Ok((c, rest)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".to_string()))))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-    FnParser(digit_ as fn (_) -> _)
 }
 
 impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }

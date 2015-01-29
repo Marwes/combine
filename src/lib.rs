@@ -13,18 +13,19 @@
 //!
 //!```
 //! extern crate "parser-combinators" as parser_combinators;
-//! use parser_combinators::{spaces, chars1, sep_by, digit, satisfy, Parser, ParserExt};
+//! use parser_combinators::{spaces, many1, sep_by, digit, satisfy, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
 //!     let input = "1234, 45,78";
 //!     let spaces = spaces();
 //!     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
-//!         .with(chars1(digit()).map(|string| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
+//!         .with(many1(digit()).map(|string: String| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
 //!     //Parse integers separated by commas, skipping whitespace
 //!     let mut integer_list = sep_by(integer, spaces.skip(satisfy(|c| c == ',')));
 //! 
 //!     //Call parse with the input to execute the parser
-//!     match integer_list.parse(input) {
+//!     let result: Result<(Vec<i32>, &str), ParseError> = integer_list.parse(input);
+//!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
 //!     }
@@ -42,7 +43,7 @@
 //!
 //!```
 //! extern crate "parser-combinators" as parser_combinators;
-//! use parser_combinators::{between, spaces, chars1, sep_by, satisfy, Parser, ParserExt,
+//! use parser_combinators::{between, spaces, many1, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
 //! use parser_combinators::primitives::{State, Stream};
 //!
@@ -53,7 +54,7 @@
 //! }
 //! fn expr<I>(input: State<I>) -> ParseResult<Expr, I>
 //!     where I: Stream<Item=char> {
-//!     let word = chars1(satisfy(|c| c.is_alphabetic()));
+//!     let word = many1(satisfy(|c| c.is_alphabetic()));
 //!     let comma_list = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','));
 //!     let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), comma_list);
 //!     let spaces = spaces();
@@ -81,22 +82,29 @@ extern crate test;
 #[doc(inline)]
 pub use primitives::{Parser, ParseResult, ParseError};
 #[doc(inline)]
-pub use parser::{
+pub use char::{
     any_char,
+    digit,
+    space,
+    spaces,
+    string,
+    satisfy,
+};
+#[doc(inline)]
+pub use combinator::{
     between,
     chainl1,
-    chars,
-    chars1,
-    digit,
     many,
     many1,
     optional,
-    satisfy,
     sep_by,
+<<<<<<< HEAD
     space,
     spaces,
     tab,
     string,
+=======
+>>>>>>> 08b7167a7845824a6cde09e2af79af1ada4e2c6a
     try,
     value,
     unexpected,
@@ -105,10 +113,16 @@ pub use parser::{
     ParserExt
 };
 
+macro_rules! static_fn {
+    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
+}
+
 ///Module containing the primitive types which is used to create and compose more advanced parsers
 pub mod primitives;
 ///Module containing all specific parsers
-pub mod parser;
+pub mod combinator;
+///Module containg parsers specialized on character streams
+pub mod char;
 
 #[cfg(test)]
 mod tests {
@@ -118,7 +132,7 @@ mod tests {
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> {
-        let (s, input) = try!(chars1(digit())
+        let (s, input) = try!(many1::<String, _>(digit())
             .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
@@ -146,8 +160,8 @@ mod tests {
     }
     #[test]
     fn field() {
-        let word = chars(satisfy(|c| c.is_alphanumeric()));
-        let word2 = chars(satisfy(|c| c.is_alphanumeric()));
+        let word = many(satisfy(|c| c.is_alphanumeric()));
+        let word2 = many(satisfy(|c| c.is_alphanumeric()));
         let spaces = spaces();
         let c_decl = word
             .skip(spaces.clone())
@@ -183,7 +197,7 @@ r"
         Times(Box<Expr>, Box<Expr>),
     }
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-        let word = chars1(satisfy(|c| c.is_alphabetic()));
+        let word = many1(satisfy(|c| c.is_alphabetic()));
         let integer = integer as fn (_) -> _;
         let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
         let spaces = spaces();
@@ -266,7 +280,7 @@ r"
     #[test]
     fn error_position() {
         let mut p = string("let").skip(follow as fn (_) -> _).map(|x| x.to_string())
-            .or(chars1(satisfy(|c| c.is_digit(10))));
+            .or(many1(satisfy(|c| c.is_digit(10))));
         match p.parse("le123") {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
@@ -297,7 +311,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
     #[test]
     fn sep_by_error_consume() {
-        let mut p = sep_by(string("abc"), satisfy(|c| c == ','));
+        let mut p = sep_by::<Vec<_>, _, _>(string("abc"), satisfy(|c| c == ','));
         let err = p.parse("ab,abc")
             .map(|x| format!("{:?}", x))
             .unwrap_err();
@@ -320,7 +334,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
     #[test]
     fn inner_error_consume() {
-        let mut p = many(between(string("["), string("]"), satisfy(|c| c.is_digit(10))));
+        let mut p = many::<Vec<_>, _>(between(string("["), string("]"), satisfy(|c| c.is_digit(10))));
         let result = p.parse("[1][2][]");
         assert!(result.is_err(), format!("{:?}", result));
         let error = result
@@ -331,7 +345,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
     #[test]
     fn infinite_recursion_in_box_parser() {
-        let _ = (many(Box::new(digit())))
+        let _: Result<(Vec<_>, _), _> = (many(Box::new(digit())))
             .parse("1");
     }
 }
