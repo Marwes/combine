@@ -87,6 +87,7 @@ pub use char::{
     digit,
     space,
     spaces,
+    newline,
     tab,
     string,
     satisfy,
