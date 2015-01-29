@@ -57,12 +57,13 @@ impl <I, Pred> Parser for Satisfy<I, Pred>
 /// # }
 /// ```
 pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
-    where I: Stream, Pred: FnMut(char) -> bool {
+    where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
     Satisfy { pred: pred }
 }
 
+impl_char_parser! { Digit(), FnParser<I, char, fn (State<I>) -> ParseResult<char, I>> }
 ///Parses a digit from a stream containing characters
-pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
+pub fn digit<I>() -> Digit<I>
         where I: Stream<Item=char> {
     fn digit_<I>(input: State<I>) -> ParseResult<char, I>
         where I: Stream<Item=char> {
@@ -76,21 +77,22 @@ pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
             Err(err) => Err(err)
         }
     }
-    FnParser(digit_ as fn (_) -> _)
+    Digit(FnParser(digit_ as fn (_) -> _))
 }
 
+impl_char_parser! { Space(), Satisfy<I, fn (char) -> bool> }
 ///Parses whitespace
-pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
-    where I: Stream {
-    satisfy(CharExt::is_whitespace as fn (char) -> bool)
+pub fn space<I>() -> Space<I>
+    where I: Stream<Item=char> {
+    Space(satisfy(CharExt::is_whitespace as fn (char) -> bool))
 }
-impl_char_parser! { Spaces(), Many<Vec<()>, Map<Satisfy<I, fn (char) -> bool>, fn (char), ()>> }
+
+impl_char_parser! { Spaces(), Many<Vec<()>, Map<Space<I>, fn (char), ()>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
     Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
 }
-
 
 #[derive(Clone)]
 pub struct StringP<'a, I> { s: &'a str }
@@ -135,6 +137,6 @@ impl <'a, I> Parser for StringP<'a, I>
 /// # }
 /// ```
 pub fn string<I>(s: &str) -> StringP<I>
-    where I: Stream {
+    where I: Stream<Item=char> {
     StringP { s: s }
 }
