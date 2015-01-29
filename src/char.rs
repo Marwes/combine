@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{FnParser, many, Many, Map, ParserExt};
+use combinator::{FnParser, many, Many, Map, ParserExt, With};
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
@@ -95,6 +95,13 @@ pub fn spaces<I>() -> Spaces<I>
 pub fn newline<I>() -> Satisfy<I, fn (char) -> bool>
     where I: Stream {
     satisfy(static_fn!((ch, char) -> bool { ch == '\n' }))
+}
+
+///Parses carriage return and newline
+pub fn crlf<I>() -> With<Satisfy<I, fn (char) -> bool>, Satisfy<I, fn (char) -> bool>>
+    where I: Stream<Item=char> {
+    let cr: Satisfy<I, fn (char) -> bool> = satisfy(static_fn!((ch, char) -> bool { ch == '\r' }));
+    cr.with(newline())
 }
 
 ///Parses a tab character
