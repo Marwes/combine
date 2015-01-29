@@ -547,6 +547,24 @@ pub fn try<P>(p : P) -> Try<P>
     Try(p)
 }
 
+#[derive(Clone)]
+pub struct Expected<P>(P, CowString<'static>);
+impl <P> Parser for Expected<P>
+    where P: Parser {
+
+    type Input = <P as Parser>::Input;
+    type Output = <P as Parser>::Output;
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+        match self.0.parse_state(input) {
+            Ok(x) => Ok(x),
+            Err(err@Consumed::Consumed(_)) => Err(err),
+            Err(Consumed::Empty(err)) => {
+                Err(Consumed::Empty(ParseError::new(err.position, Error::Expected(self.1.clone()))))
+            }
+        }
+    }
+}
+
 ///Extension trait which provides functions that are more conveniently used through method calls
 pub trait ParserExt : Parser + Sized {
 
@@ -615,9 +633,16 @@ pub trait ParserExt : Parser + Sized {
         Map(self, f)
     }
 
-    ///Parses with `self` and if it fails, adds the message msg to the error
+    ///Parses with `self` and if it fails, adds the message `msg` to the error
     fn message(self, msg: String) -> Message<Self> {
         Message(self, msg)
+    }
+
+    ///Parses with `self` and if it fails without consuming any input the error is replaced by
+    ///`msg`. `msg` is then used in error messages as "Expected `msg`".
+    fn expected<S>(self, msg: S) -> Expected<Self>
+        where S: IntoCow<'static, String, str> {
+        Expected(self, msg.into_cow())
     }
 }
 
