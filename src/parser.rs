@@ -126,7 +126,7 @@ pub fn many<F, P>(p: P) -> Many<F, P>
 #[derive(Clone)]
 pub struct Unexpected<I>(String);
 impl <I> Parser for Unexpected<I>
-    where I : Stream<Item=char> {
+    where I : Stream {
     type Input = I;
     type Output = ();
     fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
@@ -148,7 +148,7 @@ impl <I> Parser for Unexpected<I>
 /// # }
 /// ```
 pub fn unexpected<I>(message: String) -> Unexpected<I>
-    where I: Stream<Item=char> {
+    where I: Stream {
     Unexpected(message)
 }
 
@@ -176,12 +176,12 @@ impl <I, T> Parser for Value<I, T>
 /// # }
 /// ```
 pub fn value<I, T>(v: T) -> Value<I, T>
-    where I: Stream<Item=char>
+    where I: Stream
         , T: Clone {
     Value(v)
 }
 
-impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Parser>::Output) -> Unexpected<I>>, Value<I, ()>> }
+impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, Unexpected<<P as Parser>::Input>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
 ///Succeeds only if `parser` fails.
 ///Never consumes any input.
 ///
@@ -196,11 +196,10 @@ impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Pa
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
-    where I: Stream<Item=char>
-        , P: Parser<Input=I>
+pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
+    where P: Parser
         , <P as Parser>::Output: ::std::fmt::Display {
-    fn f<T: ::std::fmt::Display, I: Stream<Item=char>>(t: T) -> Unexpected<I> {
+    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
         unexpected(format!("{}", t))
     }
     NotFollowedBy(try(parser).then(f as fn (_) -> _)
@@ -315,7 +314,7 @@ impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, O, F>(F)
+pub struct FnParser<I, O, F>(pub F)
     where I: Stream
         , F: FnMut(State<I>) -> ParseResult<O, I>;
 
