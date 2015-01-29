@@ -82,19 +82,22 @@ extern crate test;
 #[doc(inline)]
 pub use primitives::{Parser, ParseResult, ParseError};
 #[doc(inline)]
-pub use parser::{
+pub use char::{
     any_char,
-    between,
-    chainl1,
     digit,
-    many,
-    many1,
-    optional,
-    satisfy,
-    sep_by,
     space,
     spaces,
     string,
+    satisfy,
+};
+#[doc(inline)]
+pub use combinator::{
+    between,
+    chainl1,
+    many,
+    many1,
+    optional,
+    sep_by,
     try,
     value,
     unexpected,
@@ -103,10 +106,16 @@ pub use parser::{
     ParserExt
 };
 
+macro_rules! static_fn {
+    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
+}
+
 ///Module containing the primitive types which is used to create and compose more advanced parsers
 pub mod primitives;
 ///Module containing all specific parsers
-pub mod parser;
+pub mod combinator;
+///Module containg parsers specialized on character streams
+pub mod char;
 
 #[cfg(test)]
 mod tests {

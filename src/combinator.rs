@@ -2,21 +2,6 @@
 use std::iter::FromIterator;
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
-macro_rules! impl_char_parser {
-    ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type)
-        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
-    impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
-        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
-        type Input = I;
-        type Output = <$inner_type as Parser>::Output;
-        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
-            self.0.parse_state(input)
-        }
-    }
-}
-}
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
     #[derive(Clone)]
@@ -32,24 +17,6 @@ macro_rules! impl_parser {
     }
 }
 }
-
-macro_rules! static_fn {
-    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
-}
-
-impl_char_parser! { Spaces(), Many<Vec<()>, Map<Satisfy<I, fn (char) -> bool>, fn (char), ()>> }
-///Skips over zero or more spaces
-pub fn spaces<I>() -> Spaces<I>
-    where I: Stream<Item=char> {
-    Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
-}
-
-///Parses any character
-pub fn any_char<I>(input: State<I>) -> ParseResult<char, I>
-    where I: Stream<Item=char> {
-    input.uncons_char()
-}
-
 
 struct Iter<P: Parser> {
     parser: P,
@@ -126,7 +93,7 @@ pub fn many<F, P>(p: P) -> Many<F, P>
 #[derive(Clone)]
 pub struct Unexpected<I>(String);
 impl <I> Parser for Unexpected<I>
-    where I : Stream<Item=char> {
+    where I : Stream {
     type Input = I;
     type Output = ();
     fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
@@ -148,7 +115,7 @@ impl <I> Parser for Unexpected<I>
 /// # }
 /// ```
 pub fn unexpected<I>(message: String) -> Unexpected<I>
-    where I: Stream<Item=char> {
+    where I: Stream {
     Unexpected(message)
 }
 
@@ -176,12 +143,12 @@ impl <I, T> Parser for Value<I, T>
 /// # }
 /// ```
 pub fn value<I, T>(v: T) -> Value<I, T>
-    where I: Stream<Item=char>
+    where I: Stream
         , T: Clone {
     Value(v)
 }
 
-impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Parser>::Output) -> Unexpected<I>>, Value<I, ()>> }
+impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, Unexpected<<P as Parser>::Input>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
 ///Succeeds only if `parser` fails.
 ///Never consumes any input.
 ///
@@ -196,11 +163,10 @@ impl_char_parser! { NotFollowedBy(P), Or<Then<Try<P>, Unexpected<I>, fn(<P as Pa
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn not_followed_by<I, P>(parser: P) -> NotFollowedBy<I, P>
-    where I: Stream<Item=char>
-        , P: Parser<Input=I>
+pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
+    where P: Parser
         , <P as Parser>::Output: ::std::fmt::Display {
-    fn f<T: ::std::fmt::Display, I: Stream<Item=char>>(t: T) -> Unexpected<I> {
+    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
         unexpected(format!("{}", t))
     }
     NotFollowedBy(try(parser).then(f as fn (_) -> _)
@@ -315,7 +281,7 @@ impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, O, F>(F)
+pub struct FnParser<I, O, F>(pub F)
     where I: Stream
         , F: FnMut(State<I>) -> ParseResult<O, I>;
 
@@ -337,96 +303,6 @@ impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     }
 }
 
-#[derive(Clone)]
-pub struct Satisfy<I, Pred> { pred: Pred }
-
-impl <I, Pred> Parser for Satisfy<I, Pred>
-    where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
-
-    type Input = I;
-    type Output = char;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<char, I> {
-        match input.clone().uncons_char() {
-            Ok((c, s)) => {
-                if (self.pred)(c) { Ok((c, s)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-}
-
-///Parses a character and succeeds depending on the result of `pred`
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let result = satisfy(|c| c == '!')
-///     .parse("!")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok('!'));
-/// # }
-/// ```
-pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
-    where I: Stream, Pred: FnMut(char) -> bool {
-    Satisfy { pred: pred }
-}
-
-///Parses whitespace
-pub fn space<I>() -> Satisfy<I, fn (char) -> bool>
-    where I: Stream {
-    satisfy(CharExt::is_whitespace as fn (char) -> bool)
-}
-
-#[derive(Clone)]
-pub struct StringP<'a, I> { s: &'a str }
-impl <'a, I> Parser for StringP<'a, I>
-    where I: Stream<Item=char> {
-    type Input = I;
-    type Output = &'a str;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<&'a str, I> {
-        let start = input.position;
-        let mut input = Consumed::Empty(input);
-        for (i, c) in self.s.chars().enumerate() {
-            match input.combine(|input| input.uncons_char()) {
-                Ok((other, rest)) => {
-                    if c != other {
-                        let error = ParseError::new(start, Error::Expected(self.s.to_string()));
-                        return Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) });
-                    }
-                    input = rest;
-                }
-                Err(error) => {
-                    return error.combine(move |mut error| {
-                        error.position = start;
-                        Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) })
-                    })
-                }
-            }
-        }
-        Ok((self.s, input))
-    }
-}
-
-///Parses the string `s`
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let result = string("rust")
-///     .parse("rust")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok("rust"));
-/// # }
-/// ```
-pub fn string<I>(s: &str) -> StringP<I>
-    where I: Stream {
-    StringP { s: s }
-}
 
 #[derive(Clone)]
 pub struct And<P1, P2>(P1, P2);
@@ -474,24 +350,6 @@ impl <P> Parser for Optional<P>
 pub fn optional<P>(parser: P) -> Optional<P>
     where P: Parser {
     Optional(parser)
-}
-
-///Parses a digit from a stream containing characters
-pub fn digit<I>() -> FnParser<I, char, fn (State<I>) -> ParseResult<char, I>>
-        where I: Stream<Item=char> {
-    fn digit_<I>(input: State<I>) -> ParseResult<char, I>
-        where I: Stream<Item=char> {
-        match input.clone().uncons_char() {
-            Ok((c, rest)) => {
-                if c.is_digit(10) { Ok((c, rest)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".to_string()))))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-    FnParser(digit_ as fn (_) -> _)
 }
 
 impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
