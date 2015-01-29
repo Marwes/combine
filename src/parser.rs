@@ -103,7 +103,10 @@ impl <F, P> Parser for Many<F, P>
     }
 }
 
-///Parses `p` zero or more times
+///Parses `p` zero or more times returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling many, `many::<Vec<_>, _>(...)`
 ///
 /// ```
 /// # extern crate "parser-combinators" as pc;
@@ -223,7 +226,11 @@ impl <F, P> Parser for Many1<F, P>
     }
 }
 
-///Parses `p` one or more times
+///Parses `p` one or more times returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling many1 `many1::<Vec<_>, _>(...)`
+///
 ///
 /// ```
 /// # extern crate "parser-combinators" as pc;
@@ -277,7 +284,10 @@ impl <F, P, S> Parser for SepBy<F, P, S>
     }
 }
 
-///Parses `parser` zero or more time separated by `separator`
+///Parses `parser` zero or more time separated by `separator`, returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
 ///
 /// ```
 /// # extern crate "parser-combinators" as pc;
