@@ -1,5 +1,7 @@
-#![allow(unstable)]
 #![unstable]
+#![feature(core)]
+#![feature(collections)]
+#![feature(unicode)]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
