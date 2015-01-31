@@ -105,6 +105,7 @@ pub use char::{
 pub use combinator::{
     between,
     chainl1,
+    choice_slice,
     many,
     many1,
     optional,

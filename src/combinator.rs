@@ -56,6 +56,37 @@ impl <P: Parser> Iterator for Iter<P> {
     }
 }
 
+pub struct ChoiceSlice<'a, P>(&'a mut [P])
+    where P: Parser + 'a;
+
+impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> + 'a {
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        if self.0.len() == 0 { // err: slice empty of parsers
+            return Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+        }
+        for i in range(0, self.0.len()) {
+            match self.0[i].parse_state(input.clone()) {
+                Err(_) => {},
+                Ok(x) => {
+                    return Ok(x)
+                }
+            }
+        }
+        // err: no parsers matched
+        Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+    }
+}
+
+
+pub fn choice_slice<'a, P>(ps: &'a mut [P]) -> ChoiceSlice<'a, P>
+    where P: Parser + 'a {
+    ChoiceSlice(ps)
+}
+
 #[derive(Clone)]
 pub struct Many<F, P>(P)
     where P: Parser;
