@@ -351,4 +351,11 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let _: Result<(Vec<_>, _), _> = (many(Box::new(digit())))
             .parse("1");
     }
+
+    #[test]
+    fn unsized_parser() {
+        let mut parser = Box::new(digit()) as Box<Parser<Input=&str, Output=char>>;
+        let borrow_parser = &mut *parser;
+        assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
+    }
 }

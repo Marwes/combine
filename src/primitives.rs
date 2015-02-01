@@ -263,7 +263,7 @@ pub trait Parser {
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
     fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input>;
 }
-impl <'a, I, O, P> Parser for &'a mut P 
+impl <'a, I, O, P: ?Sized> Parser for &'a mut P 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
@@ -271,7 +271,7 @@ impl <'a, I, O, P> Parser for &'a mut P
         (*self).parse_state(input)
     }
 }
-impl <I, O, P> Parser for Box<P> 
+impl <I, O, P: ?Sized> Parser for Box<P> 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
