@@ -106,6 +106,7 @@ pub use combinator::{
     between,
     chainl1,
     choice_slice,
+    choice_vec,
     many,
     many1,
     optional,

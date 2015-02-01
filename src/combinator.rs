@@ -56,12 +56,13 @@ impl <P: Parser> Iterator for Iter<P> {
     }
 }
 
-pub struct ChoiceSlice<'a, P>(&'a mut [P])
+#[derive(Clone)]
+pub struct ChoiceSlice<'a, P>(&'a [P])
     where P: Parser + 'a;
 
 impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     where I: Stream
-        , P: Parser<Input=I, Output=O> + 'a {
+        , P: Parser<Input=I, Output=O> + Clone +  'a {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
@@ -69,11 +70,9 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
             return Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
         }
         for i in range(0, self.0.len()) {
-            match self.0[i].parse_state(input.clone()) {
+            match self.0[i].clone().parse_state(input.clone()) {
                 Err(_) => {},
-                Ok(x) => {
-                    return Ok(x)
-                }
+                ok => return ok,
             }
         }
         // err: no parsers matched
@@ -81,10 +80,39 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     }
 }
 
-
-pub fn choice_slice<'a, P>(ps: &'a mut [P]) -> ChoiceSlice<'a, P>
+pub fn choice_slice<'a, P>(ps: &'a [P]) -> ChoiceSlice<'a, P>
     where P: Parser + 'a {
     ChoiceSlice(ps)
+}
+
+#[derive(Clone)]
+pub struct ChoiceVec<P>(Vec<P>)
+    where P: Parser;
+
+/* The body of parse_state is exactly the same text as ChoiceSlice's parse_state */
+impl <I, O, P> Parser for ChoiceVec<P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> + Clone {
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        if self.0.len() == 0 { // err: slice empty of parsers
+            return Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+        }
+        for i in range(0, self.0.len()) {
+            match self.0[i].clone().parse_state(input.clone()) {
+                Err(_) => {},
+                ok => return ok,
+            }
+        }
+        // err: no parsers matched
+        Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+    }
+}
+
+pub fn choice_vec<P>(ps: Vec<P>) -> ChoiceVec<P>
+    where P: Parser {
+    ChoiceVec(ps)
 }
 
 #[derive(Clone)]
