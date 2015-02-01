@@ -1,7 +1,6 @@
 #![unstable]
-#![feature(core)]
-#![feature(collections)]
-#![feature(unicode)]
+#![feature(core, collections, unicode)]
+#![cfg_attr(test, feature(test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
@@ -192,7 +191,7 @@ r"
         assert_eq!(result, Ok((123i64, state)));
     }
 
-    #[derive(Show, PartialEq)]
+    #[derive(Debug, PartialEq)]
     enum Expr {
         Id(String),
         Int(i64),
