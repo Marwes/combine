@@ -148,7 +148,7 @@ pub fn value<I, T>(v: T) -> Value<I, T>
     Value(v)
 }
 
-impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, Unexpected<<P as Parser>::Input>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
+impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
 ///Succeeds only if `parser` fails.
 ///Never consumes any input.
 ///
@@ -442,8 +442,8 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Map<P, F, B>(P, F);
-impl <I, A, B, P, F> Parser for Map<P, F, B>
+pub struct Map<P, F>(P, F);
+impl <I, A, B, P, F> Parser for Map<P, F>
     where I: Stream, P: Parser<Input=I, Output=A>, F: FnMut(A) -> B {
 
     type Input = I;
@@ -509,8 +509,8 @@ impl <I, O, P> Parser for Try<P>
 }
 
 #[derive(Clone)]
-pub struct Then<P, N, F>(P, F);
-impl <P, N, F> Parser for Then<P, N, F>
+pub struct Then<P, F>(P, F);
+impl <P, N, F> Parser for Then<P, F>
     where F: FnMut(<P as Parser>::Output) -> N
         , P: Parser
         , N: Parser<Input=<P as Parser>::Input> {
@@ -600,14 +600,14 @@ pub trait ParserExt : Parser + Sized {
 
     ///Parses using `self` and then passes the value to `f` which returns the parser used to parse
     ///the rest of the input
-    fn then<N, F>(self, f: F) -> Then<Self, N, F>
+    fn then<N, F>(self, f: F) -> Then<Self, F>
         where F: FnMut(Self::Output) -> N
             , N: Parser<Input=Self::Input> {
         Then(self, f)
     }
 
     ///Uses `f` to map over the parsed value
-    fn map<F, B>(self, f: F) -> Map<Self, F, B>
+    fn map<F, B>(self, f: F) -> Map<Self, F>
         where F: FnMut(Self::Output) -> B {
         Map(self, f)
     }

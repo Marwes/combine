@@ -87,7 +87,7 @@ pub fn space<I>() -> Space<I>
     Space(satisfy(CharExt::is_whitespace as fn (char) -> bool))
 }
 
-impl_char_parser! { Spaces(), Many<Vec<()>, Map<Space<I>, fn (char), ()>> }
+impl_char_parser! { Spaces(), Many<Vec<()>, Map<Space<I>, fn (char)>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
