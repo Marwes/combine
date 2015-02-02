@@ -1,5 +1,6 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
 use combinator::{FnParser, many, Many, Map, ParserExt, With};
+use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
@@ -71,7 +72,7 @@ pub fn digit<I>() -> Digit<I>
             Ok((c, rest)) => {
                 if c.is_digit(10) { Ok((c, rest)) }
                 else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".to_string()))))
+                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".into_cow()))))
                 }
             }
             Err(err) => Err(err)
@@ -172,7 +173,7 @@ impl <'a, I> Parser for StringP<'a, I>
             match input.combine(|input| input.uncons_char()) {
                 Ok((other, rest)) => {
                     if c != other {
-                        let error = ParseError::new(start, Error::Expected(self.s.to_string()));
+                        let error = ParseError::new(start, Error::Expected(self.s.to_string().into_cow()));
                         return Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) });
                     }
                     input = rest;
