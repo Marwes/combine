@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{Expected, FnParser, many, Many, Map, ParserExt, With};
+use combinator::{Expected, many, Many, Map, ParserExt, With};
 use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
@@ -66,7 +66,7 @@ impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a digit from a stream containing characters
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item=char> {
-    Digit(satisfy(static_fn!((c, char) -> bool { c.is_digit(10) }) as fn (_) -> _)
+    Digit(satisfy(static_fn!((c, char) -> bool { c.is_digit(10) }))
          .expected("digit"))
 }
 
@@ -77,75 +77,85 @@ pub fn space<I>() -> Space<I>
     Space(satisfy(CharExt::is_whitespace as fn (char) -> bool)
         .expected("whitespace"))
 }
-impl_char_parser! { Spaces(), Many<Vec<()>, Map<Space<I>, fn (char)>> }
+impl_char_parser! { Spaces(), Expected<Many<Vec<()>, Map<Space<I>, fn (char)>>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
-    Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
+    Spaces(many(space().map(static_fn!((_, char) -> () { () })))
+          .expected("whitespaces"))
 }
 
-impl_char_parser! { NewLine(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a newline character
 pub fn newline<I>() -> NewLine<I>
     where I: Stream<Item=char> {
-    NewLine(satisfy(static_fn!((ch, char) -> bool { ch == '\n' })))
+    NewLine(satisfy(static_fn!((ch, char) -> bool { ch == '\n' }))
+           .expected("lf newline"))
 }
 
-impl_char_parser! { CrLf(), With<Satisfy<I, fn (char) -> bool>, NewLine<I>> }
+impl_char_parser! { CrLf(), Expected<With<Satisfy<I, fn (char) -> bool>, NewLine<I>>> }
 ///Parses carriage return and newline, returning the newline character.
 pub fn crlf<I>() -> CrLf<I>
     where I: Stream<Item=char> {
-    CrLf(satisfy(static_fn!((ch, char) -> bool { ch == '\r' }) as fn (char) -> bool)
-        .with(newline()))
+    CrLf(satisfy(static_fn!((ch, char) -> bool { ch == '\r' }))
+        .with(newline())
+        .expected("crlf newline"))
 }
 
-impl_char_parser! { Tab(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a tab character
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item=char> {
-    Tab(satisfy(static_fn!((ch, char) -> bool { ch == '\t' })))
+    Tab(satisfy(static_fn!((ch, char) -> bool { ch == '\t' }))
+       .expected("tab"))
 }
 
-impl_char_parser! { Upper(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an uppercase letter
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item=char> {
-    Upper(satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()})))
+    Upper(satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()}))
+         .expected("uppercase letter"))
 }
 
-impl_char_parser! { Lower(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an uppercase letter
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item=char> {
-    Lower(satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() })))
+    Lower(satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() }))
+         .expected("lowercase letter"))
 }
 
-impl_char_parser! { AlphaNum(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses either an alphabet letter or digit
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item=char> {
-    AlphaNum(satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() })))
+    AlphaNum(satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() }))
+            .expected("letter or digit"))
 }
 
-impl_char_parser! { Letter(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an alphabet letter
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item=char> {
-    Letter(satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() })))
+    Letter(satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() }))
+          .expected("letter"))
 }
 
-impl_char_parser! { OctDigit(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an octal digit
 pub fn oct_digit<I>() -> OctDigit<I>
     where I: Stream<Item=char> {
-    OctDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) })))
+    OctDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) }))
+            .expected("octal digit"))
 }
 
-impl_char_parser! { HexDigit(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a hexdecimal digit with uppercase and lowercase
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item=char> {
-    HexDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) })))
+    HexDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) }))
+            .expected("hexadecimal digit"))
 }
 
 
