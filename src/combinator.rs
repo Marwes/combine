@@ -248,6 +248,20 @@ impl <F, P> Parser for Many1<F, P>
     }
 }
 
+impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (<P as Parser>::Output)>>, fn (Vec<()>)> }
+pub fn skip_many<P>(p: P) -> SkipMany<P>
+    where P: Parser {
+    fn ignore<T>(_: T) {  }
+    SkipMany(many(p.map(ignore as fn (_))).map(ignore as fn (_)))
+}
+
+impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (<P as Parser>::Output)>>, fn (Vec<()>)> }
+pub fn skip_many1<P>(p: P) -> SkipMany1<P>
+    where P: Parser {
+    fn ignore<T>(_: T) {  }
+    SkipMany1(many1(p.map(ignore as fn (_))).map(ignore as fn (_)))
+}
+
 ///Parses `p` one or more times returning a collection with the values from `p`.
 ///If the returned collection cannot be inferred type annotations must be supplied, either by
 ///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
