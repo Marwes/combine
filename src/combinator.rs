@@ -1,5 +1,6 @@
-
 use std::iter::FromIterator;
+use std::string::CowString;
+use std::borrow::IntoCow;
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
 macro_rules! impl_parser {
@@ -91,7 +92,7 @@ pub fn many<F, P>(p: P) -> Many<F, P>
 }
 
 #[derive(Clone)]
-pub struct Unexpected<I>(String);
+pub struct Unexpected<I>(CowString<'static>);
 impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
@@ -107,16 +108,18 @@ impl <I> Parser for Unexpected<I>
 /// # extern crate "parser-combinators" as pc;
 /// # use pc::*;
 /// # use pc::primitives::Error;
+/// # use std::borrow::IntoCow;
 /// # fn main() {
-/// let result = unexpected("token".to_string())
+/// let result = unexpected("token")
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".to_string()));
+/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".into_cow()));
 /// # }
 /// ```
-pub fn unexpected<I>(message: String) -> Unexpected<I>
-    where I: Stream {
-    Unexpected(message)
+pub fn unexpected<I, S>(message: S) -> Unexpected<I>
+    where I: Stream
+        , S: IntoCow<'static, String, str> {
+    Unexpected(message.into_cow())
 }
 
 #[derive(Clone)]

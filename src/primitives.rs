@@ -1,4 +1,6 @@
 use std::fmt;
+use std::borrow::IntoCow;
+use std::string::CowString;
 
 
 ///Struct which containing the current position
@@ -29,9 +31,9 @@ pub enum Error {
     ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
     ///Error indicating that the parser expected something else
-    Expected(String),
+    Expected(CowString<'static>),
     ///Generic message
-    Message(String)
+    Message(CowString<'static>)
 }
 
 ///Enum used to indicate if a stream has had any elements consumed
@@ -109,8 +111,9 @@ impl ParseError {
     pub fn new(position: SourcePosition, error: Error) -> ParseError {
         ParseError { position: position, errors: vec![error] }
     }
-    pub fn add_message(&mut self, message: String) {
-        self.add_error(Error::Message(message));
+    pub fn add_message<S>(&mut self, message: S)
+        where S: IntoCow<'static, String, str> {
+        self.add_error(Error::Message(message.into_cow()));
     }
     pub fn add_error(&mut self, message: Error) {
         //Don't add duplicate errors
@@ -186,7 +189,7 @@ impl <I: Stream> State<I> {
                 f(&mut position, &c);
                 Ok((c, Consumed::Consumed(State { position: position, input: input })))
             }
-            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".to_string()))))
+            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into_cow()))))
         }
     }
 }

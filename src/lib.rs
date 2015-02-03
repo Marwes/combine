@@ -131,6 +131,7 @@ pub mod char;
 mod tests {
     use super::*;
     use super::primitives::{SourcePosition, State, Stream, Error, Consumed};
+    use std::borrow::IntoCow;
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
@@ -235,7 +236,7 @@ r"
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
+                errors: vec![Error::Unexpected(','), Error::Message("Expected digit".into_cow())]
         };
         assert_eq!(result, Err(err));
     }
