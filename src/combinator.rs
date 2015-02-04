@@ -1,5 +1,6 @@
-
 use std::iter::FromIterator;
+use std::string::CowString;
+use std::borrow::IntoCow;
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
 macro_rules! impl_parser {
@@ -18,44 +19,6 @@ macro_rules! impl_parser {
 }
 }
 
-struct Iter<P: Parser> {
-    parser: P,
-    input: Consumed<State<P::Input>>,
-    error: Option<Consumed<ParseError>>
-}
-
-impl <P: Parser> Iter<P> {
-    fn new(parser: P, input: State<P::Input>) -> Iter<P> {
-        Iter { parser: parser, input: Consumed::Empty(input), error: None }
-    }
-    fn into_result<O>(self, result: O) -> ParseResult<O, P::Input> {
-        match self.error {
-            Some(err@Consumed::Consumed(_)) => Err(err),
-            _ => Ok((result, self.input))
-        }
-    }
-}
-
-impl <P: Parser> Iterator for Iter<P> {
-    type Item = P::Output;
-    fn next(&mut self) -> Option<P::Output> {
-        if self.error.is_some() {
-            return None;
-        }
-        let was_empty = self.input.is_empty();
-        match self.parser.parse_state(self.input.clone().into_inner()) {
-            Ok((value, rest)) => {
-                self.input = if was_empty { rest } else { rest.as_consumed() };
-                Some(value)
-            }
-            Err(err) => {
-                self.error = Some(err);
-                None
-            }
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct ChoiceSlice<'a, P>(&'a [P])
     where P: Parser + 'a;
@@ -70,7 +33,7 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
         let mut res_err: Result<ParseError, ParseError> = {
             // Default error
             let pos = input.position.clone();
-            let err_msg =  Error::Message("parser choice is empty".to_string());
+            let err_msg =  Error::Message("parser choice is empty".into_cow());
             Ok(ParseError::new(pos, err_msg))
         };
         let mut no_err_yet = true;
@@ -123,6 +86,128 @@ pub fn choice_vec<P>(ps: Vec<P>) -> ChoiceVec<P>
 }
 
 #[derive(Clone)]
+pub struct Unexpected<I>(CowString<'static>);
+impl <I> Parser for Unexpected<I>
+    where I : Stream {
+    type Input = I;
+    type Output = ();
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
+        Err(Consumed::Empty(ParseError::new(input.position, Error::Message(self.0.clone()))))
+    }
+}
+///Always fails with `message` as the error.
+///Never consumes any input.
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # use pc::primitives::Error;
+/// # use std::borrow::IntoCow;
+/// # fn main() {
+/// let result = unexpected("token")
+///     .parse("a");
+/// assert!(result.is_err());
+/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".into_cow()));
+/// # }
+/// ```
+pub fn unexpected<I, S>(message: S) -> Unexpected<I>
+    where I: Stream
+        , S: IntoCow<'static, String, str> {
+    Unexpected(message.into_cow())
+}
+
+#[derive(Clone)]
+pub struct Value<I, T>(T);
+impl <I, T> Parser for Value<I, T>
+    where I: Stream
+        , T: Clone {
+    type Input = I;
+    type Output = T;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I> {
+        Ok((self.0.clone(), Consumed::Empty(input)))
+    }
+}
+///Always returns the value `v` without consuming any input.
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = value(42)
+///     .parse("hello world")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(42));
+/// # }
+/// ```
+pub fn value<I, T>(v: T) -> Value<I, T>
+    where I: Stream
+        , T: Clone {
+    Value(v)
+}
+
+impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
+///Succeeds only if `parser` fails.
+///Never consumes any input.
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = string("let")
+///     .skip(not_followed_by(satisfy(|c| c.is_alphanumeric())))
+///     .parse("letx")
+///     .map(|x| x.0);
+/// assert!(result.is_err());
+/// # }
+/// ```
+pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
+    where P: Parser
+        , <P as Parser>::Output: ::std::fmt::Display {
+    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
+        unexpected(format!("{}", t))
+    } NotFollowedBy(try(parser).then(f as fn (_) -> _)
+                 .or(value(())))
+}
+
+struct Iter<P: Parser> {
+    parser: P,
+    input: Consumed<State<P::Input>>,
+    error: Option<Consumed<ParseError>>
+}
+
+impl <P: Parser> Iter<P> {
+    fn new(parser: P, input: State<P::Input>) -> Iter<P> {
+        Iter { parser: parser, input: Consumed::Empty(input), error: None }
+    }
+    fn into_result<O>(self, result: O) -> ParseResult<O, P::Input> {
+        match self.error {
+            Some(err@Consumed::Consumed(_)) => Err(err),
+            _ => Ok((result, self.input))
+        }
+    }
+}
+
+impl <P: Parser> Iterator for Iter<P> {
+    type Item = P::Output;
+    fn next(&mut self) -> Option<P::Output> {
+        if self.error.is_some() {
+            return None;
+        }
+        let was_empty = self.input.is_empty();
+        match self.parser.parse_state(self.input.clone().into_inner()) {
+            Ok((value, rest)) => {
+                self.input = if was_empty { rest } else { rest.as_consumed() };
+                Some(value)
+            }
+            Err(err) => {
+                self.error = Some(err);
+                None
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct Many<F, P>(P)
     where P: Parser;
 impl <F, P> Parser for Many<F, P>
@@ -156,88 +241,6 @@ pub fn many<F, P>(p: P) -> Many<F, P>
     Many(p)
 }
 
-#[derive(Clone)]
-pub struct Unexpected<I>(String);
-impl <I> Parser for Unexpected<I>
-    where I : Stream {
-    type Input = I;
-    type Output = ();
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I> {
-        Err(Consumed::Empty(ParseError::new(input.position, Error::Message(self.0.clone()))))
-    }
-}
-///Always fails with `message` as the error.
-///Never consumes any input.
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # use pc::primitives::Error;
-/// # fn main() {
-/// let result = unexpected("token".to_string())
-///     .parse("a");
-/// assert!(result.is_err());
-/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".to_string()));
-/// # }
-/// ```
-pub fn unexpected<I>(message: String) -> Unexpected<I>
-    where I: Stream {
-    Unexpected(message)
-}
-
-#[derive(Clone)]
-pub struct Value<I, T>(T);
-impl <I, T> Parser for Value<I, T>
-    where I: Stream
-        , T: Clone {
-    type Input = I;
-    type Output = T;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I> {
-        Ok((self.0.clone(), Consumed::Empty(input)))
-    }
-}
-///Always returns the value `v` without consuming any input.
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let result = value(42)
-///     .parse("hello world")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(42));
-/// # }
-/// ```
-pub fn value<I, T>(v: T) -> Value<I, T>
-    where I: Stream
-        , T: Clone {
-    Value(v)
-}
-
-impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, Unexpected<<P as Parser>::Input>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
-///Succeeds only if `parser` fails.
-///Never consumes any input.
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let result = string("let")
-///     .skip(not_followed_by(satisfy(|c| c.is_alphanumeric())))
-///     .parse("letx")
-///     .map(|x| x.0);
-/// assert!(result.is_err());
-/// # }
-/// ```
-pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
-    where P: Parser
-        , <P as Parser>::Output: ::std::fmt::Display {
-    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
-        unexpected(format!("{}", t))
-    }
-    NotFollowedBy(try(parser).then(f as fn (_) -> _)
-                 .or(value(())))
-}
 
 #[derive(Clone)]
 pub struct Many1<F, P>(P);
@@ -369,23 +372,6 @@ impl <I, O> Parser for fn (State<I>) -> ParseResult<O, I>
     }
 }
 
-
-#[derive(Clone)]
-pub struct And<P1, P2>(P1, P2);
-impl <I, A, B, P1, P2> Parser for And<P1, P2>
-    where I: Stream, P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
-
-    type Input = I;
-    type Output = (A, B);
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
-        let (a, rest) = try!(self.0.parse_state(input));
-        rest.combine(move |rest| {
-            let (b, rest) = try!(self.1.parse_state(rest));
-            Ok(((a, b), rest))
-        })
-    }
-}
-
 #[derive(Clone)]
 pub struct Optional<P>(P);
 impl <P> Parser for Optional<P>
@@ -438,6 +424,138 @@ pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
         , R: Parser<Input=I>
         , P: Parser<Input=I> {
     Between(open.with(parser).skip(close))
+}
+
+#[derive(Clone)]
+pub struct Chainl1<P, Op>(P, Op);
+impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
+    where I: Stream
+        , P: Parser<Input=I, Output=O>
+        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        let (mut l, mut input) = try!(self.0.parse_state(input));
+        loop {
+            let was_empty = input.is_empty();
+            let rest = input.clone().into_inner();
+            match (&mut self.1).and(&mut self.0).parse_state(rest) {
+                Ok(((mut op, r), rest)) => {
+                    l = op(l, r);
+                    input = if was_empty { rest } else { rest.as_consumed() };
+                }
+                Err(err@Consumed::Consumed(_)) => return Err(err),
+                Err(_) => break
+            }
+            
+
+        }
+        Ok((l, input))
+    }
+}
+
+///Parses `p` 1 or more times separated by `op`
+///The value returned is the one produced by the left associative application of `op`
+pub fn chainl1<'a, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
+    where P: Parser
+        , Op: Parser<Input=<P as Parser>::Input, Output=Box<FnMut(<P as Parser>::Output, <P as Parser>::Output) -> <P as Parser>::Output + 'a>> {
+    Chainl1(parser, op)
+}
+
+#[derive(Clone)]
+pub struct Chainr1<P, Op>(P, Op);
+impl <'a, I, O, P, Op> Parser for Chainr1<P, Op>
+    where I: Stream
+        , P: Parser<Input=I, Output=O>
+        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        let (mut l, mut input) = try!(self.0.parse_state(input));
+        loop {
+            let was_empty = input.is_empty();
+            let rest = input.clone().into_inner();
+            let mut op = match self.1.parse_state(rest) {
+                Ok((x, rest)) => {
+                    input = if was_empty { rest } else { rest.as_consumed() };
+                    x
+                }
+                Err(err@Consumed::Consumed(_)) => return Err(err),
+                Err(Consumed::Empty(_)) => break
+            };
+            let was_empty = was_empty && input.is_empty();
+            let rest = input.clone().into_inner();
+            match self.parse_state(rest) {
+                Ok((r, rest)) => {
+                    l = op(l, r);
+                    input = if was_empty { rest } else { rest.as_consumed() };
+                }
+                Err(err@Consumed::Consumed(_)) => return Err(err),
+                Err(_) => break
+            }
+            
+
+        }
+        Ok((l, input))
+    }
+}
+
+///Parses `p` one or more times separated by `op`
+///The value returned is the one produced by the right associative application of `op`
+pub fn chainr1<'a, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
+    where P: Parser
+        , Op: Parser<Input=<P as Parser>::Input, Output=Box<FnMut(<P as Parser>::Output, <P as Parser>::Output) -> <P as Parser>::Output + 'a>> {
+    Chainr1(parser, op)
+}
+
+#[derive(Clone)]
+pub struct Try<P>(P);
+impl <I, O, P> Parser for Try<P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> {
+
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        self.0.parse_state(input)
+            .map_err(Consumed::as_empty)
+    }
+}
+
+///Try acts as `p` except it acts as if the parser hadn't consumed any input
+///if `p` returns an error after consuming input
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let mut p = try(string("let"))
+///     .or(string("lex"));
+/// let result = p.parse("lex").map(|x| x.0);
+/// assert_eq!(result, Ok("lex"));
+/// # }
+/// ```
+pub fn try<P>(p : P) -> Try<P>
+    where P: Parser {
+    Try(p)
+}
+
+#[derive(Clone)]
+pub struct And<P1, P2>(P1, P2);
+impl <I, A, B, P1, P2> Parser for And<P1, P2>
+    where I: Stream, P1: Parser<Input=I, Output=A>, P2: Parser<Input=I, Output=B> {
+
+    type Input = I;
+    type Output = (A, B);
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I> {
+        let (a, rest) = try!(self.0.parse_state(input));
+        rest.combine(move |rest| {
+            let (b, rest) = try!(self.1.parse_state(rest));
+            Ok(((a, b), rest))
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -508,8 +626,8 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Map<P, F, B>(P, F);
-impl <I, A, B, P, F> Parser for Map<P, F, B>
+pub struct Map<P, F>(P, F);
+impl <I, A, B, P, F> Parser for Map<P, F>
     where I: Stream, P: Parser<Input=I, Output=A>, F: FnMut(A) -> B {
 
     type Input = I;
@@ -523,60 +641,8 @@ impl <I, A, B, P, F> Parser for Map<P, F, B>
 }
 
 #[derive(Clone)]
-pub struct Chainl1<P, Op>(P, Op);
-impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
-    where I: Stream
-        , P: Parser<Input=I, Output=O>
-        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
-
-    type Input = I;
-    type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        let (mut l, mut input) = try!(self.0.parse_state(input));
-        loop {
-            let was_empty = input.is_empty();
-            let rest = input.clone().into_inner();
-            match (&mut self.1).and(&mut self.0).parse_state(rest) {
-                Ok(((mut op, r), rest)) => {
-                    l = op(l, r);
-                    input = if was_empty { rest } else { rest.as_consumed() };
-                }
-                Err(err@Consumed::Consumed(_)) => return Err(err),
-                Err(_) => break
-            }
-            
-
-        }
-        Ok((l, input))
-    }
-}
-
-///Parses `p` 1 or more times separated by `op`
-///The value returned is the one produced by the left associative application of `op`
-pub fn chainl1<'a, I, O, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
-    where I: Stream
-        , P: Parser<Input=I, Output=O>
-        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
-    Chainl1(parser, op)
-}
-
-#[derive(Clone)]
-pub struct Try<P>(P);
-impl <I, O, P> Parser for Try<P>
-    where I: Stream
-        , P: Parser<Input=I, Output=O> {
-
-    type Input = I;
-    type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        self.0.parse_state(input)
-            .map_err(Consumed::as_empty)
-    }
-}
-
-#[derive(Clone)]
-pub struct Then<P, N, F>(P, F);
-impl <P, N, F> Parser for Then<P, N, F>
+pub struct Then<P, F>(P, F);
+impl <P, N, F> Parser for Then<P, F>
     where F: FnMut(<P as Parser>::Output) -> N
         , P: Parser
         , N: Parser<Input=<P as Parser>::Input> {
@@ -592,22 +658,23 @@ impl <P, N, F> Parser for Then<P, N, F>
     }
 }
 
-///Try acts as `p` except it acts as if the parser hadn't consumed any input
-///if `p` returns an error after consuming input
-///
-/// ```
-/// # extern crate "parser-combinators" as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let mut p = try(string("let"))
-///     .or(string("lex"));
-/// let result = p.parse("lex").map(|x| x.0);
-/// assert_eq!(result, Ok("lex"));
-/// # }
-/// ```
-pub fn try<P>(p : P) -> Try<P>
+#[derive(Clone)]
+pub struct Expected<P>(P, CowString<'static>);
+impl <P> Parser for Expected<P>
     where P: Parser {
-    Try(p)
+
+    type Input = <P as Parser>::Input;
+    type Output = <P as Parser>::Output;
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+        match self.0.parse_state(input) {
+            Ok(x) => Ok(x),
+            Err(err@Consumed::Consumed(_)) => Err(err),
+            Err(Consumed::Empty(mut err)) => {
+                err.set_expected(self.1.clone());
+                Err(Consumed::Empty(err))
+            }
+        }
+    }
 }
 
 ///Extension trait which provides functions that are more conveniently used through method calls
@@ -616,14 +683,14 @@ pub trait ParserExt : Parser + Sized {
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
     fn with<P2>(self, p: P2) -> With<Self, P2>
-        where P2: Parser {
+        where P2: Parser<Input=Self::Input> {
         With(self, p)
     }
 
     ///Discards the value of the `p` parser and returns the value of `self`
     ///Fails if any of the parsers fails
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
-        where P2: Parser {
+        where P2: Parser<Input=Self::Input> {
         Skip(self, p)
     }
 
@@ -643,7 +710,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn and<P2>(self, p: P2) -> And<Self, P2>
-        where P2: Parser {
+        where P2: Parser<Input=Self::Input> {
         And(self, p)
     }
     ///Tries to parse using `self` and if it fails returns the result of parsing `p`
@@ -660,28 +727,50 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn or<P2>(self, p: P2) -> Or<Self, P2>
-        where P2: Parser {
+        where P2: Parser<Input=Self::Input> {
         Or(self, p)
     }
 
     ///Parses using `self` and then passes the value to `f` which returns the parser used to parse
     ///the rest of the input
-    fn then<N, F>(self, f: F) -> Then<Self, N, F>
+    fn then<N, F>(self, f: F) -> Then<Self, F>
         where F: FnMut(Self::Output) -> N
             , N: Parser<Input=Self::Input> {
         Then(self, f)
     }
 
     ///Uses `f` to map over the parsed value
-    fn map<F, B>(self, f: F) -> Map<Self, F, B>
+    fn map<F, B>(self, f: F) -> Map<Self, F>
         where F: FnMut(Self::Output) -> B {
         Map(self, f)
     }
 
-    ///Parses with `self` and if it fails, adds the message msg to the error
+    ///Parses with `self` and if it fails, adds the message `msg` to the error
     fn message(self, msg: String) -> Message<Self> {
         Message(self, msg)
+    }
+
+    ///Parses with `self` and if it fails without consuming any input any expected errors are replaced by
+    ///`msg`. `msg` is then used in error messages as "Expected `msg`".
+    fn expected<S>(self, msg: S) -> Expected<Self>
+        where S: IntoCow<'static, String, str> {
+        Expected(self, msg.into_cow())
     }
 }
 
 impl <P: Parser> ParserExt for P { }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use primitives::Parser;
+    use char::{digit, string};
+    use std::num::Int;
+
+    #[test]
+    fn chainr1_test() {
+        let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
+        let mut parser = chainr1(number, string("^").map(|_| Box::new(|l:i32, r:i32| l.pow(r as usize)) as Box<FnMut(_, _) -> _>));
+        assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
+    }
+}

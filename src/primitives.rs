@@ -1,4 +1,6 @@
 use std::fmt;
+use std::borrow::IntoCow;
+use std::string::CowString;
 
 
 ///Struct which containing the current position
@@ -29,9 +31,9 @@ pub enum Error {
     ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
     ///Error indicating that the parser expected something else
-    Expected(String),
+    Expected(CowString<'static>),
     ///Generic message
-    Message(String)
+    Message(CowString<'static>)
 }
 
 ///Enum used to indicate if a stream has had any elements consumed
@@ -109,14 +111,20 @@ impl ParseError {
     pub fn new(position: SourcePosition, error: Error) -> ParseError {
         ParseError { position: position, errors: vec![error] }
     }
-    pub fn add_message(&mut self, message: String) {
-        self.add_error(Error::Message(message));
+    pub fn add_message<S>(&mut self, message: S)
+        where S: IntoCow<'static, String, str> {
+        self.add_error(Error::Message(message.into_cow()));
     }
     pub fn add_error(&mut self, message: Error) {
         //Don't add duplicate errors
         if self.errors.iter().find(|msg| **msg == message).is_none() {
             self.errors.push(message);
         }
+    }
+    pub fn set_expected(&mut self, message: CowString<'static>) {
+        //Remove all other expected messages
+        self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
+        self.errors.push(Error::Expected(message));
     }
     pub fn merge(mut self, other: ParseError) -> ParseError {
         use std::cmp::Ordering;
@@ -137,7 +145,47 @@ impl ParseError {
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
+
+        //First print the token that we did not expect
+        //There should really just be one unexpected message at this point though we print them
+        //all to be safe
+        let unexpected = self.errors.iter()
+            .filter(|e| match **e { Error::Unexpected(_) => true, _ => false } );
+        for error in unexpected {
+            try!(writeln!(f, "{}", error));
+        }
+
+        //Then we print out all the things that were expected in a comma separated list
+        //'Expected 'a', 'expression' or 'let'
+        let expected_count = self.errors.iter()
+            .filter(|e| match **e { Error::Expected(_) => true, _ => false } )
+            .count();
+        let mut i = 0;
         for error in self.errors.iter() {
+            match *error {
+                Error::Expected(ref message) => {
+                    i += 1;
+                    if i == 1 {
+                        try!(write!(f, "Expected"));
+                    }
+                    else if i == expected_count {//Last expected message to be written
+                        try!(write!(f, " or"));
+                    }
+                    else {
+                        try!(write!(f, ","));
+                    }
+                    try!(write!(f, " '{}'", message));
+                }
+                _ => ()
+            }
+        }
+        if expected_count != 0 {
+            try!(writeln!(f, ""));
+        }
+        //If there are any generic messages we print them out last
+        let messages = self.errors.iter()
+            .filter(|e| match **e { Error::Message(_) => true, _ => false } );
+        for error in messages {
             try!(writeln!(f, "{}", error));
         }
         Ok(())
@@ -186,7 +234,7 @@ impl <I: Stream> State<I> {
                 f(&mut position, &c);
                 Ok((c, Consumed::Consumed(State { position: position, input: input })))
             }
-            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".to_string()))))
+            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into_cow()))))
         }
     }
 }
@@ -263,7 +311,7 @@ pub trait Parser {
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
     fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input>;
 }
-impl <'a, I, O, P> Parser for &'a mut P 
+impl <'a, I, O, P: ?Sized> Parser for &'a mut P 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
@@ -271,7 +319,7 @@ impl <'a, I, O, P> Parser for &'a mut P
         (*self).parse_state(input)
     }
 }
-impl <I, O, P> Parser for Box<P> 
+impl <I, O, P: ?Sized> Parser for Box<P> 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;

@@ -1,26 +1,12 @@
 # parser-combinators
-An early implementation of parser combinators implemented in Rust
+An implementation of (LL(1)) parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec).
 
-Very much a work in progress at this point any suggestions or comments are welcome!
-The API mostly mirrors the Haskell library [Parsec](https://hackage.haskell.org/package/parsec) but is implemented differntly behind the scenes.
+A parser combinators is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](http://marwes.github.io/parser-combinators/doc/parser-combinators/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times.
 
-##Example
-```rust
-extern crate "parser-combinators" as parser_combinators;
-use parser_combinators::{spaces, chars1, sep_by, digit, satisfy, Parser, ParserExt};
+The library is still unstable but if you end up trying it I welcome any feedback from your experience with it.
 
-fn main() {
-    let input = "1234, 45,78";
-    let spaces = spaces();
-    let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
-        .with(chars1(digit()).map(|string| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
-    let mut integer_list = sep_by(integer, spaces.skip(satisfy(|c| c == ',')));//Parse integers separated by commas, skipping whitespace
-    
-    //Call parse with the input to execute the parser
-    match integer_list.parse(input) {
-        Ok((value, _remaining_input)) => println!("{:?}", value),
-        Err(err) => println!("{}", err)
-    }
-}
+[![Build Status](https://travis-ci.org/Marwes/parser-combinators.svg)](https://travis-ci.org/Marwes/parser-combinators)
 
-```
+[Documentation and examples](http://marwes.github.io/parser-combinators/doc/parser-combinators/index.html)
+
+[crates.io](https://crates.io/crates/parser-combinators)

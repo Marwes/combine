@@ -1,5 +1,6 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{FnParser, many, Many, Map, ParserExt, With};
+use combinator::{Expected, many, Many, Map, ParserExt, With};
+use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
@@ -61,101 +62,100 @@ pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
     Satisfy { pred: pred }
 }
 
-impl_char_parser! { Digit(), FnParser<I, char, fn (State<I>) -> ParseResult<char, I>> }
+impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a digit from a stream containing characters
 pub fn digit<I>() -> Digit<I>
-        where I: Stream<Item=char> {
-    fn digit_<I>(input: State<I>) -> ParseResult<char, I>
-        where I: Stream<Item=char> {
-        match input.clone().uncons_char() {
-            Ok((c, rest)) => {
-                if c.is_digit(10) { Ok((c, rest)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Message("Expected digit".to_string()))))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-    Digit(FnParser(digit_ as fn (_) -> _))
+    where I: Stream<Item=char> {
+    Digit(satisfy(static_fn!((c, char) -> bool { c.is_digit(10) }))
+         .expected("digit"))
 }
 
-impl_char_parser! { Space(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses whitespace
 pub fn space<I>() -> Space<I>
     where I: Stream<Item=char> {
-    Space(satisfy(CharExt::is_whitespace as fn (char) -> bool))
+    Space(satisfy(CharExt::is_whitespace as fn (char) -> bool)
+        .expected("whitespace"))
 }
-
-impl_char_parser! { Spaces(), Many<Vec<()>, Map<Space<I>, fn (char), ()>> }
+impl_char_parser! { Spaces(), Expected<Many<Vec<()>, Map<Space<I>, fn (char)>>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
-    Spaces(many(space().map(static_fn!((_, char) -> () { () }))))
+    Spaces(many(space().map(static_fn!((_, char) -> () { () })))
+          .expected("whitespaces"))
 }
 
-impl_char_parser! { NewLine(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a newline character
 pub fn newline<I>() -> NewLine<I>
     where I: Stream<Item=char> {
-    NewLine(satisfy(static_fn!((ch, char) -> bool { ch == '\n' })))
+    NewLine(satisfy(static_fn!((ch, char) -> bool { ch == '\n' }))
+           .expected("lf newline"))
 }
 
-impl_char_parser! { CrLf(), With<Satisfy<I, fn (char) -> bool>, NewLine<I>> }
+impl_char_parser! { CrLf(), Expected<With<Satisfy<I, fn (char) -> bool>, NewLine<I>>> }
 ///Parses carriage return and newline, returning the newline character.
 pub fn crlf<I>() -> CrLf<I>
     where I: Stream<Item=char> {
-    CrLf(satisfy(static_fn!((ch, char) -> bool { ch == '\r' }) as fn (char) -> bool)
-        .with(newline()))
+    CrLf(satisfy(static_fn!((ch, char) -> bool { ch == '\r' }))
+        .with(newline())
+        .expected("crlf newline"))
 }
 
-impl_char_parser! { Tab(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a tab character
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item=char> {
-    Tab(satisfy(static_fn!((ch, char) -> bool { ch == '\t' })))
+    Tab(satisfy(static_fn!((ch, char) -> bool { ch == '\t' }))
+       .expected("tab"))
 }
 
-impl_char_parser! { Upper(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an uppercase letter
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item=char> {
-    Upper(satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()})))
+    Upper(satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()}))
+         .expected("uppercase letter"))
 }
 
-impl_char_parser! { Lower(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an uppercase letter
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item=char> {
-    Lower(satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() })))
+    Lower(satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() }))
+         .expected("lowercase letter"))
 }
 
-impl_char_parser! { AlphaNum(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses either an alphabet letter or digit
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item=char> {
-    AlphaNum(satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() })))
+    AlphaNum(satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() }))
+            .expected("letter or digit"))
 }
 
-impl_char_parser! { Letter(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an alphabet letter
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item=char> {
-    Letter(satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() })))
+    Letter(satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() }))
+          .expected("letter"))
 }
 
-impl_char_parser! { OctDigit(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses an octal digit
 pub fn oct_digit<I>() -> OctDigit<I>
     where I: Stream<Item=char> {
-    OctDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) })))
+    OctDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) }))
+            .expected("octal digit"))
 }
 
-impl_char_parser! { HexDigit(), Satisfy<I, fn (char) -> bool> }
+impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a hexdecimal digit with uppercase and lowercase
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item=char> {
-    HexDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) })))
+    HexDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) }))
+            .expected("hexadecimal digit"))
 }
 
 
@@ -172,7 +172,7 @@ impl <'a, I> Parser for StringP<'a, I>
             match input.combine(|input| input.uncons_char()) {
                 Ok((other, rest)) => {
                     if c != other {
-                        let error = ParseError::new(start, Error::Expected(self.s.to_string()));
+                        let error = ParseError::new(start, Error::Expected(self.s.to_string().into_cow()));
                         return Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) });
                     }
                     input = rest;
@@ -204,4 +204,21 @@ impl <'a, I> Parser for StringP<'a, I>
 pub fn string<I>(s: &str) -> StringP<I>
     where I: Stream<Item=char> {
     StringP { s: s }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::space;
+    use primitives::{Error, Parser};
+    use std::borrow::IntoCow;
+
+    #[test]
+    fn space_error() {
+        let result = space()
+            .parse("");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().errors, vec![Error::Message("End of input".into_cow()), Error::Expected("whitespace".into_cow())]);
+
+    }
 }

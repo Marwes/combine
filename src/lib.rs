@@ -1,7 +1,6 @@
 #![unstable]
-#![feature(core)]
-#![feature(collections)]
-#![feature(unicode)]
+#![feature(core, collections, unicode)]
+#![cfg_attr(test, feature(test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
@@ -120,7 +119,9 @@ pub use combinator::{
 };
 
 macro_rules! static_fn {
-    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
+    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
+        fn temp($($arg: $arg_ty),*) -> $ret { $body } temp as fn (_) -> _
+    } }
 }
 
 ///Module containing the primitive types which is used to create and compose more advanced parsers
@@ -134,11 +135,13 @@ pub mod char;
 mod tests {
     use super::*;
     use super::primitives::{SourcePosition, State, Stream, Error, Consumed};
+    use std::borrow::IntoCow;
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> {
         let (s, input) = try!(many1::<String, _>(digit())
+            .expected("integer")
             .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
@@ -194,7 +197,7 @@ r"
         assert_eq!(result, Ok((123i64, state)));
     }
 
-    #[derive(Show, PartialEq)]
+    #[derive(Debug, PartialEq)]
     enum Expr {
         Id(String),
         Int(i64),
@@ -203,15 +206,19 @@ r"
         Times(Box<Expr>, Box<Expr>),
     }
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-        let word = many1(satisfy(|c| c.is_alphabetic()));
+        let word = many1(satisfy(|c| c.is_alphabetic()))
+            .expected("identifier");
         let integer = integer as fn (_) -> _;
-        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
+        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')))
+            .expected("[");
+        let paren_expr = between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _)
+            .expected("(");
         let spaces = spaces();
         spaces.clone().with(
                 word.map(Expr::Id)
                 .or(integer.map(Expr::Int))
                 .or(array.map(Expr::Array))
-                .or(between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _))
+                .or(paren_expr)
             ).skip(spaces)
             .parse_state(input)
     }
@@ -238,9 +245,32 @@ r"
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            errors: vec![Error::Unexpected(','), Error::Message("Expected digit".to_string())]
+                errors: vec![
+                    Error::Unexpected(','),
+                    Error::Expected("identifier".into_cow()),
+                    Error::Expected("integer".into_cow()),
+                    Error::Expected("[".into_cow()),
+                    Error::Expected("(".into_cow()),
+                ]
         };
         assert_eq!(result, Err(err));
+    }
+
+    #[test]
+    fn expression_error_message() {
+        let input =
+r"
+,123
+";
+        let result = (expr as fn (_) -> _)
+            .parse(input);
+        let m = format!("{}", result.unwrap_err());
+let expected =
+r"Parse error at line: 2, column: 1
+Unexpected character ','
+Expected 'identifier', 'integer', '[' or '('
+";
+        assert_eq!(m, expected);
     }
 
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
@@ -353,5 +383,12 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     fn infinite_recursion_in_box_parser() {
         let _: Result<(Vec<_>, _), _> = (many(Box::new(digit())))
             .parse("1");
+    }
+
+    #[test]
+    fn unsized_parser() {
+        let mut parser = Box::new(digit()) as Box<Parser<Input=&str, Output=char>>;
+        let borrow_parser = &mut *parser;
+        assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
 }
