@@ -558,8 +558,9 @@ impl <P> Parser for Expected<P>
         match self.0.parse_state(input) {
             Ok(x) => Ok(x),
             Err(err@Consumed::Consumed(_)) => Err(err),
-            Err(Consumed::Empty(err)) => {
-                Err(Consumed::Empty(ParseError::new(err.position, Error::Expected(self.1.clone()))))
+            Err(Consumed::Empty(mut err)) => {
+                err.set_expected(self.1.clone());
+                Err(Consumed::Empty(err))
             }
         }
     }
@@ -638,7 +639,7 @@ pub trait ParserExt : Parser + Sized {
         Message(self, msg)
     }
 
-    ///Parses with `self` and if it fails without consuming any input the error is replaced by
+    ///Parses with `self` and if it fails without consuming any input any expected errors are replaced by
     ///`msg`. `msg` is then used in error messages as "Expected `msg`".
     fn expected<S>(self, msg: S) -> Expected<Self>
         where S: IntoCow<'static, String, str> {

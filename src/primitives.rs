@@ -121,6 +121,11 @@ impl ParseError {
             self.errors.push(message);
         }
     }
+    pub fn set_expected(&mut self, message: CowString<'static>) {
+        //Remove all other expected messages
+        self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
+        self.errors.push(Error::Expected(message));
+    }
     pub fn merge(mut self, other: ParseError) -> ParseError {
         use std::cmp::Ordering;
         //Only keep the errors which occured after consuming the most amount of data
