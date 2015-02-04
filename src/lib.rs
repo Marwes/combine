@@ -117,7 +117,9 @@ pub use combinator::{
 };
 
 macro_rules! static_fn {
-    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { { fn temp($($arg: $arg_ty),*) -> $ret { $body } temp } }
+    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
+        fn temp($($arg: $arg_ty),*) -> $ret { $body } temp as fn (_) -> _
+    } }
 }
 
 ///Module containing the primitive types which is used to create and compose more advanced parsers
@@ -236,7 +238,7 @@ r"
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-                errors: vec![Error::Unexpected(','), Error::Message("Expected digit".into_cow())]
+                errors: vec![Error::Unexpected(','), Error::Expected("digit".into_cow())]
         };
         assert_eq!(result, Err(err));
     }
