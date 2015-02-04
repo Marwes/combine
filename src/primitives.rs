@@ -145,7 +145,47 @@ impl ParseError {
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
+
+        //First print the token that we did not expect
+        //There should really just be one unexpected message at this point though we print them
+        //all to be safe
+        let unexpected = self.errors.iter()
+            .filter(|e| match **e { Error::Unexpected(_) => true, _ => false } );
+        for error in unexpected {
+            try!(writeln!(f, "{}", error));
+        }
+
+        //Then we print out all the things that were expected in a comma separated list
+        //'Expected 'a', 'expression' or 'let'
+        let expected_count = self.errors.iter()
+            .filter(|e| match **e { Error::Expected(_) => true, _ => false } )
+            .count();
+        let mut i = 0;
         for error in self.errors.iter() {
+            match *error {
+                Error::Expected(ref message) => {
+                    i += 1;
+                    if i == 1 {
+                        try!(write!(f, "Expected"));
+                    }
+                    else if i == expected_count {//Last expected message to be written
+                        try!(write!(f, " or"));
+                    }
+                    else {
+                        try!(write!(f, ","));
+                    }
+                    try!(write!(f, " '{}'", message));
+                }
+                _ => ()
+            }
+        }
+        if expected_count != 0 {
+            try!(writeln!(f, ""));
+        }
+        //If there are any generic messages we print them out last
+        let messages = self.errors.iter()
+            .filter(|e| match **e { Error::Message(_) => true, _ => false } );
+        for error in messages {
             try!(writeln!(f, "{}", error));
         }
         Ok(())

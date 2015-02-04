@@ -139,6 +139,7 @@ mod tests {
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item=char> {
         let (s, input) = try!(many1::<String, _>(digit())
+            .expected("integer")
             .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
@@ -203,15 +204,19 @@ r"
         Times(Box<Expr>, Box<Expr>),
     }
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-        let word = many1(satisfy(|c| c.is_alphabetic()));
+        let word = many1(satisfy(|c| c.is_alphabetic()))
+            .expected("identifier");
         let integer = integer as fn (_) -> _;
-        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')));
+        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')))
+            .expected("[");
+        let paren_expr = between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _)
+            .expected("(");
         let spaces = spaces();
         spaces.clone().with(
                 word.map(Expr::Id)
                 .or(integer.map(Expr::Int))
                 .or(array.map(Expr::Array))
-                .or(between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _))
+                .or(paren_expr)
             ).skip(spaces)
             .parse_state(input)
     }
@@ -238,9 +243,32 @@ r"
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-                errors: vec![Error::Unexpected(','), Error::Expected("digit".into_cow())]
+                errors: vec![
+                    Error::Unexpected(','),
+                    Error::Expected("identifier".into_cow()),
+                    Error::Expected("integer".into_cow()),
+                    Error::Expected("[".into_cow()),
+                    Error::Expected("(".into_cow()),
+                ]
         };
         assert_eq!(result, Err(err));
+    }
+
+    #[test]
+    fn expression_error_message() {
+        let input =
+r"
+,123
+";
+        let result = (expr as fn (_) -> _)
+            .parse(input);
+        let m = format!("{}", result.unwrap_err());
+let expected =
+r"Parse error at line: 2, column: 1
+Unexpected character ','
+Expected 'identifier', 'integer', '[' or '('
+";
+        assert_eq!(m, expected);
     }
 
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
