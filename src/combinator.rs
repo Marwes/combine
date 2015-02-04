@@ -66,17 +66,18 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        if self.0.len() == 0 { // err: slice empty of parsers
-            return Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+        if self.0.is_empty() {
+            let err_msg = Error::Message("parser choice no matches".to_string());
+            return Err(Consumed::Empty(ParseError::new(input.position.clone(), err_msg)))
         }
-        for i in range(0, self.0.len()) {
-            match self.0[i].clone().parse_state(input.clone()) {
+        for p in self.0.iter() {
+            match p.clone().parse_state(input.clone()) {
                 Err(_) => {},
                 ok => return ok,
             }
         }
-        // err: no parsers matched
-        Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+        let err_msg = Error::Message("parser choice no matches".to_string());
+        Err(Consumed::Empty(ParseError::new(input.position.clone(), err_msg)))
     }
 }
 
@@ -89,24 +90,13 @@ pub fn choice_slice<'a, P>(ps: &'a [P]) -> ChoiceSlice<'a, P>
 pub struct ChoiceVec<P>(Vec<P>)
     where P: Parser;
 
-/* The body of parse_state is exactly the same text as ChoiceSlice's parse_state */
 impl <I, O, P> Parser for ChoiceVec<P>
     where I: Stream
         , P: Parser<Input=I, Output=O> + Clone {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        if self.0.len() == 0 { // err: slice empty of parsers
-            return Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
-        }
-        for i in range(0, self.0.len()) {
-            match self.0[i].clone().parse_state(input.clone()) {
-                Err(_) => {},
-                ok => return ok,
-            }
-        }
-        // err: no parsers matched
-        Err(Consumed::Empty(ParseError { position: input.position.clone(), errors: vec![] }))
+        choice_slice(&*self.0).parse_state(input)
     }
 }
 
