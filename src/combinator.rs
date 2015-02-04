@@ -62,22 +62,39 @@ pub struct ChoiceSlice<'a, P>(&'a [P])
 
 impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     where I: Stream
-        , P: Parser<Input=I, Output=O> + Clone +  'a {
+        , P: Parser<Input=I, Output=O> + Clone + 'a {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        if self.0.is_empty() {
-            let err_msg = Error::Message("parser choice no matches".to_string());
-            return Err(Consumed::Empty(ParseError::new(input.position.clone(), err_msg)))
-        }
+        // Separate the kind of errors
+        let mut res_err: Result<ParseError, ParseError> = {
+            // Default error
+            let pos = input.position.clone();
+            let err_msg =  Error::Message("parser choice is empty".to_string());
+            Ok(ParseError::new(pos, err_msg))
+        };
+        let mut no_err_yet = true;
         for p in self.0.iter() {
             match p.clone().parse_state(input.clone()) {
-                Err(_) => {},
-                ok => return ok,
+                Err(Consumed::Consumed(err)) => {
+                    res_err = Err(err);
+                },
+                Err(Consumed::Empty(err)) => {
+                    if no_err_yet {
+                        // Replace default error
+                        res_err = Ok(err);
+                    } else {
+                        res_err = res_err.map(|prev_err| prev_err.merge(err));
+                    }
+                },
+                ok@Ok(_) => return ok,
             }
+            no_err_yet = false; 
         }
-        let err_msg = Error::Message("parser choice no matches".to_string());
-        Err(Consumed::Empty(ParseError::new(input.position.clone(), err_msg)))
+        Err(match res_err {
+            Err(err) => Consumed::Consumed(err),
+            Ok(err) => Consumed::Empty(err)
+        })
     }
 }
 
