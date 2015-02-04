@@ -399,6 +399,53 @@ pub fn chainl1<'a, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
 }
 
 #[derive(Clone)]
+pub struct Chainr1<P, Op>(P, Op);
+impl <'a, I, O, P, Op> Parser for Chainr1<P, Op>
+    where I: Stream
+        , P: Parser<Input=I, Output=O>
+        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        let (mut l, mut input) = try!(self.0.parse_state(input));
+        loop {
+            let was_empty = input.is_empty();
+            let rest = input.clone().into_inner();
+            let mut op = match self.1.parse_state(rest) {
+                Ok((x, rest)) => {
+                    input = if was_empty { rest } else { rest.as_consumed() };
+                    x
+                }
+                Err(err@Consumed::Consumed(_)) => return Err(err),
+                Err(Consumed::Empty(_)) => break
+            };
+            let was_empty = was_empty && input.is_empty();
+            let rest = input.clone().into_inner();
+            match self.parse_state(rest) {
+                Ok((r, rest)) => {
+                    l = op(l, r);
+                    input = if was_empty { rest } else { rest.as_consumed() };
+                }
+                Err(err@Consumed::Consumed(_)) => return Err(err),
+                Err(_) => break
+            }
+            
+
+        }
+        Ok((l, input))
+    }
+}
+
+///Parses `p` one or more times separated by `op`
+///The value returned is the one produced by the right associative application of `op`
+pub fn chainr1<'a, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
+    where P: Parser
+        , Op: Parser<Input=<P as Parser>::Input, Output=Box<FnMut(<P as Parser>::Output, <P as Parser>::Output) -> <P as Parser>::Output + 'a>> {
+    Chainr1(parser, op)
+}
+
+#[derive(Clone)]
 pub struct Try<P>(P);
 impl <I, O, P> Parser for Try<P>
     where I: Stream
@@ -647,3 +694,18 @@ pub trait ParserExt : Parser + Sized {
 }
 
 impl <P: Parser> ParserExt for P { }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use primitives::Parser;
+    use char::{digit, string};
+    use std::num::Int;
+
+    #[test]
+    fn chainr1_test() {
+        let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
+        let mut parser = chainr1(number, string("^").map(|_| Box::new(|l:i32, r:i32| l.pow(r as usize)) as Box<FnMut(_, _) -> _>));
+        assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
+    }
+}
