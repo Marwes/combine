@@ -29,35 +29,23 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        // Separate the kind of errors
-        let mut res_err: Result<ParseError, ParseError> = {
-            // Default error
-            let pos = input.position.clone();
-            let err_msg =  Error::Message("parser choice is empty".into_cow());
-            Ok(ParseError::new(pos, err_msg))
-        };
-        let mut no_err_yet = true;
+        let mut empty_err = None;
         for p in self.0.iter() {
             match p.clone().parse_state(input.clone()) {
-                Err(Consumed::Consumed(err)) => {
-                    res_err = Err(err);
-                },
+                consumed_err@Err(Consumed::Consumed(_)) => return consumed_err,
                 Err(Consumed::Empty(err)) => {
-                    if no_err_yet {
-                        // Replace default error
-                        res_err = Ok(err);
-                    } else {
-                        res_err = res_err.map(|prev_err| prev_err.merge(err));
-                    }
+                    empty_err = match empty_err {
+                        None => Some(err),
+                        Some(prev_err) => Some(prev_err.merge(err)),
+                    };
                 },
                 ok@Ok(_) => return ok,
             }
-            no_err_yet = false; 
         }
-        Err(match res_err {
-            Err(err) => Consumed::Consumed(err),
-            Ok(err) => Consumed::Empty(err)
-        })
+        Err(Consumed::Empty(match empty_err {
+            None => ParseError::new(input.position.clone(), Error::Message("parser choice is empty".into_cow())),
+            Some(err) => err,
+        }))
     }
 }
 
