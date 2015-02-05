@@ -165,7 +165,8 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
         , <P as Parser>::Output: ::std::fmt::Display {
     fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
         unexpected(format!("{}", t))
-    } NotFollowedBy(try(parser).then(f as fn (_) -> _)
+    }
+    NotFollowedBy(try(parser).then(f as fn (_) -> _)
                  .or(value(())))
 }
 
