@@ -19,6 +19,58 @@ macro_rules! impl_parser {
 }
 }
 
+pub struct ChoiceSlice<'a, P>(&'a mut [P])
+    where P: Parser + 'a;
+
+impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> + 'a {
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        let mut empty_err = None;
+        for p in self.0.iter_mut() {
+            match p.parse_state(input.clone()) {
+                consumed_err@Err(Consumed::Consumed(_)) => return consumed_err,
+                Err(Consumed::Empty(err)) => {
+                    empty_err = match empty_err {
+                        None => Some(err),
+                        Some(prev_err) => Some(prev_err.merge(err)),
+                    };
+                },
+                ok@Ok(_) => return ok,
+            }
+        }
+        Err(Consumed::Empty(match empty_err {
+            None => ParseError::new(input.position.clone(), Error::Message("parser choice is empty".into_cow())),
+            Some(err) => err,
+        }))
+    }
+}
+
+pub fn choice_slice<'a, P>(ps: &'a mut [P]) -> ChoiceSlice<'a, P>
+    where P: Parser + 'a {
+    ChoiceSlice(ps)
+}
+
+pub struct ChoiceVec<P>(Vec<P>)
+    where P: Parser;
+
+impl <I, O, P> Parser for ChoiceVec<P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> {
+    type Input = I;
+    type Output = O;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
+        choice_slice(self.0.as_mut_slice()).parse_state(input)
+    }
+}
+
+pub fn choice_vec<P>(ps: Vec<P>) -> ChoiceVec<P>
+    where P: Parser {
+    ChoiceVec(ps)
+}
+
 #[derive(Clone)]
 pub struct Unexpected<I>(CowString<'static>);
 impl <I> Parser for Unexpected<I>
