@@ -391,4 +391,23 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
+
+    #[test]
+    fn choice_strings() {
+        let mut fruits = [
+            try(string("Apple")),
+            try(string("Banana")),
+            try(string("Cherry")),
+            try(string("Date")),
+            try(string("Fig")),
+            try(string("Grape")),
+        ];
+        let mut parser = choice_slice(fruits.as_mut_slice());
+        assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));
+        assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
+        assert_eq!(parser.parse("Cherry"), Ok(("Cherry", "")));
+        assert_eq!(parser.parse("DateABC"), Ok(("Date", "ABC")));
+        assert_eq!(parser.parse("Fig123"), Ok(("Fig", "123")));
+        assert_eq!(parser.parse("GrapeApple"), Ok(("Grape", "Apple")));
+    }
 }
