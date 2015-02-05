@@ -19,19 +19,18 @@ macro_rules! impl_parser {
 }
 }
 
-#[derive(Clone)]
-pub struct ChoiceSlice<'a, P>(&'a [P])
+pub struct ChoiceSlice<'a, P>(&'a mut [P])
     where P: Parser + 'a;
 
 impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     where I: Stream
-        , P: Parser<Input=I, Output=O> + Clone + 'a {
+        , P: Parser<Input=I, Output=O> + 'a {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         let mut empty_err = None;
-        for p in self.0.iter() {
-            match p.clone().parse_state(input.clone()) {
+        for p in self.0.iter_mut() {
+            match p.parse_state(input.clone()) {
                 consumed_err@Err(Consumed::Consumed(_)) => return consumed_err,
                 Err(Consumed::Empty(err)) => {
                     empty_err = match empty_err {
@@ -49,22 +48,21 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     }
 }
 
-pub fn choice_slice<'a, P>(ps: &'a [P]) -> ChoiceSlice<'a, P>
+pub fn choice_slice<'a, P>(ps: &'a mut [P]) -> ChoiceSlice<'a, P>
     where P: Parser + 'a {
     ChoiceSlice(ps)
 }
 
-#[derive(Clone)]
 pub struct ChoiceVec<P>(Vec<P>)
     where P: Parser;
 
 impl <I, O, P> Parser for ChoiceVec<P>
     where I: Stream
-        , P: Parser<Input=I, Output=O> + Clone {
+        , P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        choice_slice(&*self.0).parse_state(input)
+        choice_slice(self.0.as_mut_slice()).parse_state(input)
     }
 }
 
