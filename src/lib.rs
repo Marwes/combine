@@ -274,9 +274,9 @@ Expected 'identifier', 'integer', '[' or '('
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
 
         let mul = satisfy(|c| c == '*')
-            .map(|_| Box::new(|&mut:l, r| Expr::Times(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
+            .map(|_| Box::new(|&:l, r| Expr::Times(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
         let add = satisfy(|c| c == '+')
-            .map(|_| Box::new(|&mut:l, r| Expr::Plus(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
+            .map(|_| Box::new(|&:l, r| Expr::Plus(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
         let factor = chainl1(expr as fn (_) -> _, mul);
         chainl1(factor, add)
             .parse_state(input)
