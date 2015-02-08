@@ -165,23 +165,22 @@ impl <I> Parser for String<I>
     where I: Stream<Item=char> {
     type Input = I;
     type Output = &'static str;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<&'static str, I> {
+    fn parse_state(&mut self, mut input: State<I>) -> ParseResult<&'static str, I> {
         let start = input.position;
-        let mut input = Consumed::Empty(input);
+        let mut consumed = false;
         for c in self.0.chars() {
-            match input.combine(|input| input.uncons_char()) {
+            match input.uncons_char() {
                 Ok((other, rest)) => {
                     if c != other {
                         let error = ParseError::new(start, Error::Expected(self.0.into_cow()));
-                        return Err(rest.map(|_| error))
+                        return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
                     }
+                    consumed = true;
                     input = rest;
                 }
-                Err(error) => {
-                    return Err(error.map(move |mut error| {
-                        error.position = start;
-                        error
-                    }))
+                Err(mut error) => {
+                    error.position = start;
+                    return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
                 }
             }
         }
@@ -209,8 +208,8 @@ pub fn string<I>(s: &'static str) -> String<I>
 
 #[cfg(test)]
 mod tests {
-    use super::space;
-    use primitives::{Error, Parser};
+    use super::*;
+    use primitives::{Error, Parser, SourcePosition};
     use std::borrow::IntoCow;
 
     #[test]
@@ -220,5 +219,12 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().errors, vec![Error::Message("End of input".into_cow()), Error::Expected("whitespace".into_cow())]);
 
+    }
+
+    #[test]
+    fn string_consumed() {
+        let result = string("a").parse("b");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
     }
 }
