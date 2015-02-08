@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{Expected, many, Many, Map, ParserExt, With};
+use combinator::{Expected, Many, skip_many, SkipMany, Map, ParserExt, With};
 use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
@@ -77,11 +77,11 @@ pub fn space<I>() -> Space<I>
     Space(satisfy(CharExt::is_whitespace as fn (char) -> bool)
         .expected("whitespace"))
 }
-impl_char_parser! { Spaces(), Expected<Many<Vec<()>, Map<Space<I>, fn (char)>>> }
+impl_char_parser! { Spaces(), Expected<SkipMany<Space<I>>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
-    Spaces(many(space().map(static_fn!((_, char) -> () { () })))
+    Spaces(skip_many(space())
           .expected("whitespaces"))
 }
 
