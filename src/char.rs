@@ -176,15 +176,17 @@ impl <I> Parser for String<I>
                         return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
                     }
                     consumed = true;
-                    input = rest;
+                    input = rest.into_inner();
                 }
-                Err(mut error) => {
-                    error.position = start;
-                    return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
+                Err(error) => {
+                    return error.combine(|mut error| {
+                        error.position = start;
+                        Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
+                    })
                 }
             }
         }
-        Ok((self.0, input))
+        Ok((self.0, if consumed { Consumed::Consumed(input) } else { Consumed::Empty(input) }))
     }
 }
 
