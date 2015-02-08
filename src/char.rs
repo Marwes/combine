@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
-use combinator::{Expected, Many, skip_many, SkipMany, Map, ParserExt, With};
+use combinator::{Expected, skip_many, SkipMany, ParserExt, With};
 use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
@@ -160,32 +160,32 @@ pub fn hex_digit<I>() -> HexDigit<I>
 
 
 #[derive(Clone)]
-pub struct StringP<'a, I> { s: &'a str }
-impl <'a, I> Parser for StringP<'a, I>
+pub struct String<I>(&'static str);
+impl <I> Parser for String<I>
     where I: Stream<Item=char> {
     type Input = I;
-    type Output = &'a str;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<&'a str, I> {
+    type Output = &'static str;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<&'static str, I> {
         let start = input.position;
         let mut input = Consumed::Empty(input);
-        for (i, c) in self.s.chars().enumerate() {
+        for c in self.0.chars() {
             match input.combine(|input| input.uncons_char()) {
                 Ok((other, rest)) => {
                     if c != other {
-                        let error = ParseError::new(start, Error::Expected(self.s.to_string().into_cow()));
-                        return Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) });
+                        let error = ParseError::new(start, Error::Expected(self.0.into_cow()));
+                        return Err(rest.map(|_| error))
                     }
                     input = rest;
                 }
                 Err(error) => {
-                    return error.combine(move |mut error| {
+                    return Err(error.map(move |mut error| {
                         error.position = start;
-                        Err(if i == 0 { Consumed::Empty(error) } else { Consumed::Consumed(error) })
-                    })
+                        error
+                    }))
                 }
             }
         }
-        Ok((self.s, input))
+        Ok((self.0, input))
     }
 }
 
@@ -201,9 +201,9 @@ impl <'a, I> Parser for StringP<'a, I>
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
-pub fn string<I>(s: &str) -> StringP<I>
+pub fn string<I>(s: &'static str) -> String<I>
     where I: Stream<Item=char> {
-    StringP { s: s }
+    String(s)
 }
 
 
