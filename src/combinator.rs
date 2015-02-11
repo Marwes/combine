@@ -249,6 +249,17 @@ impl <F, P> Parser for Many1<F, P>
 }
 
 impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (<P as Parser>::Output)>>, fn (Vec<()>)> }
+///Parses `p` zero or more times ignoring the result
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = skip_many(digit())
+///     .parse("A");
+/// assert_eq!(result, Ok(((), "A")));
+/// # }
+/// ```
 pub fn skip_many<P>(p: P) -> SkipMany<P>
     where P: Parser {
     fn ignore<T>(_: T) {  }
@@ -256,6 +267,17 @@ pub fn skip_many<P>(p: P) -> SkipMany<P>
 }
 
 impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (<P as Parser>::Output)>>, fn (Vec<()>)> }
+///Parses `p` one or more times ignoring the result
+///
+/// ```
+/// # extern crate "parser-combinators" as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = skip_many1(digit())
+///     .parse("123A");
+/// assert_eq!(result, Ok(((), "A")));
+/// # }
+/// ```
 pub fn skip_many1<P>(p: P) -> SkipMany1<P>
     where P: Parser {
     fn ignore<T>(_: T) {  }

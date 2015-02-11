@@ -110,6 +110,8 @@ pub use combinator::{
     many1,
     optional,
     sep_by,
+    skip_many,
+    skip_many1,
     try,
     value,
     unexpected,
