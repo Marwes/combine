@@ -1,9 +1,12 @@
-#![feature(core, unicode, path, test)]
+#![feature(unicode, path, test, io, fs)]
 extern crate "parser-combinators" as pc;
 extern crate test;
 
 use std::collections::HashMap;
 use std::num::Float;
+use std::io::Read;
+use std::fs::File;
+use std::path::Path;
 
 use pc::primitives::{Parser, State, ParseResult};
 use pc::combinator::{between, many, many1, optional, sep_by, With, ParserExt};
@@ -164,10 +167,9 @@ r#"
 
 #[bench]
 fn bench_json(bencher: &mut ::test::Bencher) {
-    use std::old_io::File;
-    use std::old_path::Path;
-    let data = File::open(&Path::new("benches/data.json"))
-        .and_then(|mut file| file.read_to_string())
+    let mut data = String::new();
+    File::open(&Path::new(&"benches/data.json"))
+        .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     let mut parser = json_value as fn (_) -> _;
     match parser.parse(&data) {
@@ -179,25 +181,4 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         let result = parser.parse(&data);
         ::test::black_box(result)
     });
-}
-
-fn main() {
-    use std::old_io::File;
-    use std::old_path::Path;
-    use std::time::duration::Duration;
-    let data = File::open(&Path::new("benches/data.json"))
-        .and_then(|mut file| file.read_to_string())
-        .unwrap();
-
-    let d = Duration::span(|| {
-        for _ in 0i32..1000 {
-            let mut parser = json_value as fn (_) -> _;
-            match parser.parse(&data) {
-                Ok((Value::Array(_), "\r\n")) => (),
-                Ok(x) => { println!("{:?}", x); assert!(false); }
-                Err(err) => { println!("{}", err); assert!(false); }
-            }
-        }
-    });
-    println!("{} ns", d.num_nanoseconds().unwrap() / 1000);
 }

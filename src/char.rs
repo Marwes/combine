@@ -1,11 +1,12 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
 use combinator::{Expected, skip_many, SkipMany, ParserExt, With};
+use std::marker::PhantomData;
 use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
     #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type)
+    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<I>)
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
     impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
@@ -25,7 +26,7 @@ pub fn any_char<I>(input: State<I>) -> ParseResult<char, I>
 }
 
 #[derive(Clone)]
-pub struct Satisfy<I, Pred> { pred: Pred }
+pub struct Satisfy<I, Pred> { pred: Pred, _marker: PhantomData<I> }
 
 impl <I, Pred> Parser for Satisfy<I, Pred>
     where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
@@ -59,7 +60,7 @@ impl <I, Pred> Parser for Satisfy<I, Pred>
 /// ```
 pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
     where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
-    Satisfy { pred: pred }
+    Satisfy { pred: pred, _marker: PhantomData }
 }
 
 impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -67,7 +68,7 @@ impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item=char> {
     Digit(satisfy(static_fn!((c, char) -> bool { c.is_digit(10) }))
-         .expected("digit"))
+         .expected("digit"), PhantomData)
 }
 
 impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -75,14 +76,14 @@ impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn space<I>() -> Space<I>
     where I: Stream<Item=char> {
     Space(satisfy(CharExt::is_whitespace as fn (char) -> bool)
-        .expected("whitespace"))
+        .expected("whitespace"), PhantomData)
 }
 impl_char_parser! { Spaces(), Expected<SkipMany<Space<I>>> }
 ///Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item=char> {
     Spaces(skip_many(space())
-          .expected("whitespaces"))
+          .expected("whitespaces"), PhantomData)
 }
 
 impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -90,7 +91,7 @@ impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn newline<I>() -> NewLine<I>
     where I: Stream<Item=char> {
     NewLine(satisfy(static_fn!((ch, char) -> bool { ch == '\n' }))
-           .expected("lf newline"))
+           .expected("lf newline"), PhantomData)
 }
 
 impl_char_parser! { CrLf(), Expected<With<Satisfy<I, fn (char) -> bool>, NewLine<I>>> }
@@ -99,7 +100,7 @@ pub fn crlf<I>() -> CrLf<I>
     where I: Stream<Item=char> {
     CrLf(satisfy(static_fn!((ch, char) -> bool { ch == '\r' }))
         .with(newline())
-        .expected("crlf newline"))
+        .expected("crlf newline"), PhantomData)
 }
 
 impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -107,7 +108,7 @@ impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item=char> {
     Tab(satisfy(static_fn!((ch, char) -> bool { ch == '\t' }))
-       .expected("tab"))
+       .expected("tab"), PhantomData)
 }
 
 impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -115,7 +116,7 @@ impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item=char> {
     Upper(satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()}))
-         .expected("uppercase letter"))
+         .expected("uppercase letter"), PhantomData)
 }
 
 impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -123,7 +124,7 @@ impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item=char> {
     Lower(satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() }))
-         .expected("lowercase letter"))
+         .expected("lowercase letter"), PhantomData)
 }
 
 impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -131,7 +132,7 @@ impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item=char> {
     AlphaNum(satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() }))
-            .expected("letter or digit"))
+            .expected("letter or digit"), PhantomData)
 }
 
 impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -139,7 +140,7 @@ impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item=char> {
     Letter(satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() }))
-          .expected("letter"))
+          .expected("letter"), PhantomData)
 }
 
 impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -147,7 +148,7 @@ impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn oct_digit<I>() -> OctDigit<I>
     where I: Stream<Item=char> {
     OctDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) }))
-            .expected("octal digit"))
+            .expected("octal digit"), PhantomData)
 }
 
 impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
@@ -155,12 +156,12 @@ impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item=char> {
     HexDigit(satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) }))
-            .expected("hexadecimal digit"))
+            .expected("hexadecimal digit"), PhantomData)
 }
 
 
 #[derive(Clone)]
-pub struct String<I>(&'static str);
+pub struct String<I>(&'static str, PhantomData<I>);
 impl <I> Parser for String<I>
     where I: Stream<Item=char> {
     type Input = I;
@@ -204,7 +205,7 @@ impl <I> Parser for String<I>
 /// ```
 pub fn string<I>(s: &'static str) -> String<I>
     where I: Stream<Item=char> {
-    String(s)
+    String(s, PhantomData)
 }
 
 

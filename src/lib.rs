@@ -1,6 +1,6 @@
 #![unstable]
-#![feature(core, collections, unicode)]
-#![cfg_attr(test, feature(test))]
+#![feature(collections, unicode)]
+#![cfg_attr(test, feature(core, test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!

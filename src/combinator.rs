@@ -1,6 +1,6 @@
 use std::iter::FromIterator;
-use std::string::CowString;
-use std::borrow::IntoCow;
+use std::borrow::{Cow, IntoCow};
+use std::marker::PhantomData;
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
 macro_rules! impl_parser {
@@ -72,7 +72,7 @@ pub fn choice_vec<P>(ps: Vec<P>) -> ChoiceVec<P>
 }
 
 #[derive(Clone)]
-pub struct Unexpected<I>(CowString<'static>);
+pub struct Unexpected<I>(Cow<'static, str>, PhantomData<I>);
 impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
@@ -98,12 +98,12 @@ impl <I> Parser for Unexpected<I>
 /// ```
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
     where I: Stream
-        , S: IntoCow<'static, String, str> {
-    Unexpected(message.into_cow())
+        , S: IntoCow<'static, str> {
+    Unexpected(message.into_cow(), PhantomData)
 }
 
 #[derive(Clone)]
-pub struct Value<I, T>(T);
+pub struct Value<I, T>(T, PhantomData<I>);
 impl <I, T> Parser for Value<I, T>
     where I: Stream
         , T: Clone {
@@ -128,7 +128,7 @@ impl <I, T> Parser for Value<I, T>
 pub fn value<I, T>(v: T) -> Value<I, T>
     where I: Stream
         , T: Clone {
-    Value(v)
+    Value(v, PhantomData)
 }
 
 impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, fn(<P as Parser>::Output) -> Unexpected<<P as Parser>::Input>>, Value<<P as Parser>::Input, ()>> }
@@ -195,7 +195,7 @@ impl <P: Parser> Iterator for Iter<P> {
 }
 
 #[derive(Clone)]
-pub struct Many<F, P>(P)
+pub struct Many<F, P>(P, PhantomData<F>)
     where P: Parser;
 impl <F, P> Parser for Many<F, P>
     where P: Parser, F: FromIterator<<P as Parser>::Output> {
@@ -225,12 +225,12 @@ impl <F, P> Parser for Many<F, P>
 /// ```
 pub fn many<F, P>(p: P) -> Many<F, P>
     where P: Parser, F: FromIterator<<P as Parser>::Output> {
-    Many(p)
+    Many(p, PhantomData)
 }
 
 
 #[derive(Clone)]
-pub struct Many1<F, P>(P);
+pub struct Many1<F, P>(P, PhantomData<F>);
 impl <F, P> Parser for Many1<F, P>
     where F: FromIterator<<P as Parser>::Output>
         , P: Parser {
@@ -302,13 +302,14 @@ pub fn skip_many1<P>(p: P) -> SkipMany1<P>
 pub fn many1<F, P>(p: P) -> Many1<F, P>
     where F: FromIterator<<P as Parser>::Output>
         , P: Parser {
-    Many1(p)
+    Many1(p, PhantomData)
 }
 
 #[derive(Clone)]
 pub struct SepBy<F, P, S> {
     parser: P,
-    separator: S
+    separator: S,
+    _marker: PhantomData<F>
 }
 impl <F, P, S> Parser for SepBy<F, P, S>
     where F: FromIterator<<P as Parser>::Output>
@@ -361,7 +362,7 @@ pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
     where F: FromIterator<<P as Parser>::Output>
         , P: Parser
         , S: Parser<Input=<P as Parser>::Input> {
-    SepBy { parser: parser, separator: separator }
+    SepBy { parser: parser, separator: separator, _marker: PhantomData }
 }
 
 
@@ -373,9 +374,14 @@ impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, O, F>(pub F)
+pub struct FnParser<I, O, F>(F, PhantomData<(I, O)>);
+
+///Constructs a parser out of a function
+pub fn parser<I, O, F>(f: F) -> FnParser<I, O, F>
     where I: Stream
-        , F: FnMut(State<I>) -> ParseResult<O, I>;
+        , F: FnMut(State<I>) -> ParseResult<O, I> {
+    FnParser(f, PhantomData)
+}
 
 impl <I, O, F> Parser for FnParser<I, O, F>
     where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
@@ -682,7 +688,7 @@ impl <P, N, F> Parser for Then<P, F>
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(P, CowString<'static>);
+pub struct Expected<P>(P, Cow<'static, str>);
 impl <P> Parser for Expected<P>
     where P: Parser {
 
@@ -776,7 +782,7 @@ pub trait ParserExt : Parser + Sized {
     ///Parses with `self` and if it fails without consuming any input any expected errors are replaced by
     ///`msg`. `msg` is then used in error messages as "Expected `msg`".
     fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: IntoCow<'static, String, str> {
+        where S: IntoCow<'static, str> {
         Expected(self, msg.into_cow())
     }
 }

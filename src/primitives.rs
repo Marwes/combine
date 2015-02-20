@@ -1,6 +1,6 @@
 use std::fmt;
-use std::borrow::IntoCow;
-use std::string::CowString;
+use std::borrow::{Cow, IntoCow};
+
 
 
 ///Struct which containing the current position
@@ -31,9 +31,9 @@ pub enum Error {
     ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
     ///Error indicating that the parser expected something else
-    Expected(CowString<'static>),
+    Expected(Cow<'static, str>),
     ///Generic message
-    Message(CowString<'static>)
+    Message(Cow<'static, str>)
 }
 
 ///Enum used to indicate if a stream has had any elements consumed
@@ -112,7 +112,7 @@ impl ParseError {
         ParseError { position: position, errors: vec![error] }
     }
     pub fn add_message<S>(&mut self, message: S)
-        where S: IntoCow<'static, String, str> {
+        where S: IntoCow<'static, str> {
         self.add_error(Error::Message(message.into_cow()));
     }
     pub fn add_error(&mut self, message: Error) {
@@ -121,7 +121,7 @@ impl ParseError {
             self.errors.push(message);
         }
     }
-    pub fn set_expected(&mut self, message: CowString<'static>) {
+    pub fn set_expected(&mut self, message: Cow<'static, str>) {
         //Remove all other expected messages
         self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
         self.errors.push(Error::Expected(message));
