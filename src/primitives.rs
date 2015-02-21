@@ -1,7 +1,6 @@
 use std::fmt;
 use std::borrow::{Cow, IntoCow};
-
-
+use std::error::Error as StdError;
 
 ///Struct which containing the current position
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -140,6 +139,10 @@ impl ParseError {
             }
         }
     }
+}
+
+impl StdError for ParseError {
+    fn description(&self) -> &str { "parse error" }
 }
 
 impl fmt::Display for ParseError {
