@@ -366,7 +366,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     }
     #[test]
     fn chainl1_error_consume() {
-        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|&:l, _| l) as Box<FnMut(_, _) -> _>));
+        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|l, _| l) as Box<FnMut(_, _) -> _>));
         assert!(p.parse("abc,ab").is_err());
     }
 

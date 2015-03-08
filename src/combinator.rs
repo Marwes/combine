@@ -799,7 +799,7 @@ mod tests {
     #[test]
     fn chainr1_test() {
         let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
-        let mut parser = chainr1(number, string("^").map(|_| Box::new(|l:i32, r:i32| l.pow(r as usize)) as Box<FnMut(_, _) -> _>));
+        let mut parser = chainr1(number, string("^").map(|_| Box::new(|l:i32, r:i32| l.pow(r as u32)) as Box<FnMut(_, _) -> _>));
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
 }
