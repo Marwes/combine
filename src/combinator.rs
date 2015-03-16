@@ -614,7 +614,7 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Message<P>(P, String) where P: Parser;
+pub struct Message<P>(P, Cow<'static, str>) where P: Parser;
 impl <I, P> Parser for Message<P>
     where I: Stream, P: Parser<Input=I> {
 
@@ -775,8 +775,9 @@ pub trait ParserExt : Parser + Sized {
     }
 
     ///Parses with `self` and if it fails, adds the message `msg` to the error
-    fn message(self, msg: String) -> Message<Self> {
-        Message(self, msg)
+    fn message<S>(self, msg: S) -> Message<Self>
+        where S: IntoCow<'static, str> {
+        Message(self, msg.into_cow())
     }
 
     ///Parses with `self` and if it fails without consuming any input any expected errors are replaced by
