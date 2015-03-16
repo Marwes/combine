@@ -44,7 +44,7 @@
 //!
 //!```
 //! extern crate "parser-combinators" as parser_combinators;
-//! use parser_combinators::{between, spaces, many1, sep_by, satisfy, Parser, ParserExt,
+//! use parser_combinators::{between, spaces, many1, parser, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
 //! use parser_combinators::primitives::{State, Stream};
 //!
@@ -56,7 +56,7 @@
 //! fn expr<I>(input: State<I>) -> ParseResult<Expr, I>
 //!     where I: Stream<Item=char> {
 //!     let word = many1(satisfy(|c| c.is_alphabetic()));
-//!     let comma_list = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','));
+//!     let comma_list = sep_by(parser(expr), satisfy(|c| c == ','));
 //!     let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), comma_list);
 //!     let spaces = spaces();
 //!     spaces.clone().with(
@@ -66,7 +66,7 @@
 //! }
 //! 
 //! fn main() {
-//!     let result = (expr as fn (_) -> _)
+//!     let result = parser(expr)
 //!         .parse("[[], hello, [world]]");
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
@@ -109,6 +109,7 @@ pub use combinator::{
     many,
     many1,
     optional,
+    parser,
     sep_by,
     skip_many,
     skip_many1,

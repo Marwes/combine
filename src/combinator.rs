@@ -374,16 +374,43 @@ impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, O, F>(F, PhantomData<(I, O)>);
+pub struct FnParser<I, F>(F, PhantomData<fn (I)>);
 
-///Constructs a parser out of a function
-pub fn parser<I, O, F>(f: F) -> FnParser<I, O, F>
+///Wraps a function, turning it into a parser
+///Mainly needed to turn closures into parsers as function types can be casted to function pointers
+///to make them usable as a parser
+///
+/// ```
+/// extern crate "parser-combinators" as pc;
+/// use pc::*;
+/// use pc::primitives::{Consumed, Error};
+/// use std::borrow::IntoCow;
+/// # fn main() {
+/// let mut even_digit = parser(|input| {
+///     let position = input.position;
+///     let (char_digit, input) = try!(digit().parse_state(input));
+///     let d = (char_digit as i32) - ('0' as i32);
+///     if d % 2 == 0 {
+///         Ok((d, input))
+///     }
+///     else {
+///         //Return an empty error since we only tested the first token of the stream
+///         Err(Consumed::Empty(ParseError::new(position, Error::Expected("even number".into_cow()))))
+///     }
+/// });
+/// let result = even_digit
+///     .parse("8")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(8));
+/// # }
+/// ```
+pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
     where I: Stream
         , F: FnMut(State<I>) -> ParseResult<O, I> {
     FnParser(f, PhantomData)
 }
 
-impl <I, O, F> Parser for FnParser<I, O, F>
+impl <I, O, F> Parser for FnParser<I, F>
     where I: Stream, F: FnMut(State<I>) -> ParseResult<O, I> {
     type Input = I;
     type Output = O;
