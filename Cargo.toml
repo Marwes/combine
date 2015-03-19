@@ -1,13 +1,13 @@
 [package]
 
 name = "parser-combinators"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Markus Westerlind <marwes91@gmail.com>"]
 
 description = "Parser combinators based on the Haskell library parsec"
 
 repository = "https://github.com/Marwes/parser-combinators"
-documentation = "http://marwes.github.io/parser-combinators/doc/parser-combinators/index.html"
+documentation = "https://marwes.github.io/parser-combinators/parser-combinators/index.html"
 
 keywords = ["parser"]
 

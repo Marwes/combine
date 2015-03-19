@@ -7,6 +7,6 @@ The library is still unstable but if you end up trying it I welcome any feedback
 
 [![Build Status](https://travis-ci.org/Marwes/parser-combinators.svg)](https://travis-ci.org/Marwes/parser-combinators)
 
-[Documentation and examples](http://marwes.github.io/parser-combinators/doc/parser-combinators/index.html)
+[Documentation and examples](https://marwes.github.io/parser-combinators/parser-combinators/index.html)
 
 [crates.io](https://crates.io/crates/parser-combinators)
