@@ -120,7 +120,7 @@ pub fn upper<I>() -> Upper<I>
 }
 
 impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses an uppercase letter
+///Parses an lowercase letter
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item=char> {
     Lower(satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() }))
