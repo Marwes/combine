@@ -15,5 +15,5 @@ license = "MIT"
 
 [lib]
 
-name = "parser-combinators"
+name = "parser_combinators"
 path = "src/lib.rs"

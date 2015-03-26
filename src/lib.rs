@@ -1,6 +1,6 @@
 #![unstable]
-#![feature(core, collections)]
-#![cfg_attr(test, feature(test))]
+#![feature(into_cow)]
+#![cfg_attr(test, feature(core, test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
@@ -13,7 +13,7 @@
 //!# Examples:
 //!
 //!```
-//! extern crate "parser-combinators" as parser_combinators;
+//! extern crate parser_combinators as parser_combinators;
 //! use parser_combinators::{spaces, many1, sep_by, digit, satisfy, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
@@ -43,7 +43,7 @@
 //!`fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
 //!```
-//! extern crate "parser-combinators" as parser_combinators;
+//! extern crate parser_combinators as parser_combinators;
 //! use parser_combinators::{between, spaces, many1, parser, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
 //! use parser_combinators::primitives::{State, Stream};

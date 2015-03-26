@@ -276,8 +276,8 @@ impl <I: Iterator + Clone> Stream for I {
 impl <'a> Stream for &'a str {
     type Item = char;
     fn uncons(self) -> Result<(char, &'a str), ()> {
-        match self.slice_shift_char() {
-            Some(x) => Ok(x),
+        match self.char_indices().next() {
+            Some((offset, c)) => Ok((c, &self[offset + c.len_utf8()..])),
             None => Err(())
         }
     }

@@ -49,7 +49,7 @@ impl <I, Pred> Parser for Satisfy<I, Pred>
 ///Parses a character and succeeds depending on the result of `pred`
 ///
 /// ```
-/// # extern crate "parser-combinators" as pc;
+/// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = satisfy(|c| c == '!')
@@ -194,7 +194,7 @@ impl <I> Parser for String<I>
 ///Parses the string `s`
 ///
 /// ```
-/// # extern crate "parser-combinators" as pc;
+/// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = string("rust")
