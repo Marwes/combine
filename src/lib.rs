@@ -123,7 +123,9 @@ pub use combinator::{
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
-        fn temp($($arg: $arg_ty),*) -> $ret { $body } temp as fn (_) -> _
+        fn temp($($arg: $arg_ty),*) -> $ret { $body }
+        let temp: fn (_) -> _ = temp;
+        temp
     } }
 }
 
@@ -155,18 +157,18 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        let result = (integer as fn(_) -> _).parse("123");
+        let result = parser(integer).parse("123");
         assert_eq!(result, Ok((123i64, "")));
     }
     #[test]
     fn list() {
-        let mut p = sep_by(integer as fn(_) -> _, satisfy(|c| c == ','));
+        let mut p = sep_by(parser(integer), satisfy(|c| c == ','));
         let result = p.parse("123,4,56");
-        assert_eq!(result, Ok((vec![123, 4, 56], "")));
+        assert_eq!(result, Ok((vec![123i64, 4, 56], "")));
     }
     #[test]
     fn iterator() {
-        let result = (integer as fn(_) -> _).parse("123".chars())
+        let result = parser(integer).parse("123".chars())
             .map(|(i, mut input)| (i, input.next()));
         assert_eq!(result, Ok((123i64, None)));
     }
@@ -190,7 +192,7 @@ r"
 123
 ";
         let result = spaces()
-            .with(integer as fn(_) -> _)
+            .with(parser(integer))
             .skip(spaces())
             .parse_state(State::new(source));
         let state = Consumed::Consumed(State {
@@ -211,10 +213,10 @@ r"
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
         let word = many1(satisfy(|c| c.is_alphabetic()))
             .expected("identifier");
-        let integer = integer as fn (_) -> _;
-        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(expr as fn (_) -> _, satisfy(|c| c == ',')))
+        let integer = parser(integer);
+        let array = between(satisfy(|c| c == '['), satisfy(|c| c == ']'), sep_by(parser(expr), satisfy(|c| c == ',')))
             .expected("[");
-        let paren_expr = between(satisfy(|c| c == '('), satisfy(|c| c == ')'), term as fn (_) -> _)
+        let paren_expr = between(satisfy(|c| c == '('), satisfy(|c| c == ')'), parser(term))
             .expected("(");
         let spaces = spaces();
         spaces.clone().with(
@@ -228,7 +230,7 @@ r"
 
     #[test]
     fn expression() {
-        let result = sep_by(expr as fn (_) -> _, satisfy(|c| c == ','))
+        let result = sep_by(parser(expr), satisfy(|c| c == ','))
             .parse("int, 100, [[], 123]");
         let exprs = vec![
               Expr::Id("int".to_string())
@@ -244,7 +246,7 @@ r"
 r"
 ,123
 ";
-        let result = (expr as fn (_) -> _)
+        let result = parser(expr)
             .parse(input);
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
@@ -265,7 +267,7 @@ r"
 r"
 ,123
 ";
-        let result = (expr as fn (_) -> _)
+        let result = parser(expr)
             .parse(input);
         let m = format!("{}", result.unwrap_err());
 let expected =
@@ -279,10 +281,10 @@ Expected 'identifier', 'integer', '[' or '('
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
 
         let mul = satisfy(|c| c == '*')
-            .map(|_| Box::new(|l, r| Expr::Times(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
+            .map(|_| { let f: Box<FnMut(_, _) -> _> = Box::new(|l, r| Expr::Times(Box::new(l), Box::new(r))); f });
         let add = satisfy(|c| c == '+')
-            .map(|_| Box::new(|l, r| Expr::Plus(Box::new(l), Box::new(r))) as Box<FnMut(_, _) -> _>);
-        let factor = chainl1(expr as fn (_) -> _, mul);
+            .map(|_| { let f: Box<FnMut(_, _) -> _> = Box::new(|l, r| Expr::Plus(Box::new(l), Box::new(r))); f });
+        let factor = chainl1(parser(expr), mul);
         chainl1(factor, add)
             .parse_state(input)
     }
@@ -293,7 +295,7 @@ Expected 'identifier', 'integer', '[' or '('
 r"
 1 * 2 + 3 * test
 ";
-        let (result, _) = (term as fn (_) -> _)
+        let (result, _) = parser(term)
             .parse(input)
             .unwrap();
 
@@ -318,7 +320,7 @@ r"
     }
     #[test]
     fn error_position() {
-        let mut p = string("let").skip(follow as fn (_) -> _).map(|x| x.to_string())
+        let mut p = string("let").skip(parser(follow)).map(|x| x.to_string())
             .or(many1(satisfy(|c| c.is_digit(10))));
         match p.parse("le123") {
             Ok(_) => assert!(false),
@@ -337,12 +339,12 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     #[bench]
     fn bench_expression(bench: &mut ::test::Bencher) {
 
-        let result = (term as fn (_) -> _)
+        let result = parser(term)
             .parse(LONG_EXPR);
         assert!(result.is_ok()); 
         assert_eq!(result.unwrap().1, "");
         bench.iter(|| {
-            let result = (term as fn (_) -> _)
+            let result = parser(term)
                 .parse(LONG_EXPR);
             let _ = ::test::black_box(result);
         })
@@ -367,7 +369,10 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     }
     #[test]
     fn chainl1_error_consume() {
-        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| Box::new(|l, _| l) as Box<FnMut(_, _) -> _>));
+        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| {
+            let f: Box<FnMut(_, _) -> _> = Box::new(|l, _| l);
+            f
+        }));
         assert!(p.parse("abc,ab").is_err());
     }
 
@@ -390,7 +395,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
     #[test]
     fn unsized_parser() {
-        let mut parser = Box::new(digit()) as Box<Parser<Input=&str, Output=char>>;
+        let mut parser: Box<Parser<Input=&str, Output=char>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }

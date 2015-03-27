@@ -153,7 +153,8 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
     fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
         unexpected(format!("{}", t))
     }
-    NotFollowedBy(try(parser).then(f as fn (_) -> _)
+    let f : fn (P::Output) -> Unexpected<P::Input> = f;
+    NotFollowedBy(try(parser).then(f)
                  .or(value(())))
 }
 
@@ -264,7 +265,9 @@ impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (<P as Parser>::Output)>
 pub fn skip_many<P>(p: P) -> SkipMany<P>
     where P: Parser {
     fn ignore<T>(_: T) {  }
-    SkipMany(many(p.map(ignore as fn (_))).map(ignore as fn (_)))
+    let ignore1: fn (P::Output) = ignore;
+    let ignore2: fn (Vec<()>) = ignore;
+    SkipMany(many(p.map(ignore1)).map(ignore2))
 }
 
 impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (<P as Parser>::Output)>>, fn (Vec<()>)> }
@@ -282,7 +285,9 @@ impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (<P as Parser>::Output
 pub fn skip_many1<P>(p: P) -> SkipMany1<P>
     where P: Parser {
     fn ignore<T>(_: T) {  }
-    SkipMany1(many1(p.map(ignore as fn (_))).map(ignore as fn (_)))
+    let ignore1: fn (P::Output) = ignore;
+    let ignore2: fn (Vec<()>) = ignore;
+    SkipMany1(many1(p.map(ignore1)).map(ignore2))
 }
 
 ///Parses `p` one or more times returning a collection with the values from `p`.
@@ -829,7 +834,8 @@ mod tests {
     #[test]
     fn chainr1_test() {
         let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
-        let mut parser = chainr1(number, string("^").map(|_| Box::new(|l:i32, r:i32| l.pow(r as u32)) as Box<FnMut(_, _) -> _>));
+        let pow = string("^").map(|_| { let f: Box<FnMut(_, _) -> _> = Box::new(|l:i32, r:i32| l.pow(r as u32)); f });
+        let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
 }

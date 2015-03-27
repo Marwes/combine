@@ -75,7 +75,8 @@ impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses whitespace
 pub fn space<I>() -> Space<I>
     where I: Stream<Item=char> {
-    Space(satisfy(char::is_whitespace as fn (char) -> bool)
+    let f: fn (char) -> bool = char::is_whitespace;
+    Space(satisfy(f)
         .expected("whitespace"), PhantomData)
 }
 impl_char_parser! { Spaces(), Expected<SkipMany<Space<I>>> }
