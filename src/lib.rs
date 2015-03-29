@@ -1,5 +1,5 @@
 #![unstable]
-#![feature(into_cow)]
+#![feature(collections, into_cow, slice_patterns)]
 #![cfg_attr(test, feature(core, test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
