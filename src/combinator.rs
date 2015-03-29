@@ -62,7 +62,7 @@ impl <I, O, P> Parser for ChoiceVec<P>
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        choice_slice(self.0.as_mut_slice()).parse_state(input)
+        choice_slice(&mut self.0[..]).parse_state(input)
     }
 }
 

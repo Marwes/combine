@@ -286,9 +286,11 @@ impl <'a> Stream for &'a str {
 impl <'a, T> Stream for &'a [T] {
     type Item = &'a T;
     fn uncons(self) -> Result<(&'a T, &'a [T]), ()> {
-        match self {
-            [ref x, rest..] => Ok((x, rest)),
-            [] => Err(())
+        if self.len() > 0 {
+            Ok((&self[0], &self[1..]))
+        }
+        else {
+            Err(())
         }
     }
 }

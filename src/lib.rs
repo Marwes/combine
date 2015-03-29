@@ -410,7 +410,7 @@ r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
             try(string("Fig")),
             try(string("Grape")),
         ];
-        let mut parser = choice_slice(fruits.as_mut_slice());
+        let mut parser = choice_slice(&mut fruits[..]);
         assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));
         assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
         assert_eq!(parser.parse("Cherry"), Ok(("Cherry", "")));
