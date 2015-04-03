@@ -263,16 +263,6 @@ pub trait Stream : Clone {
     fn uncons(self) -> Result<(Self::Item, Self), ()>;
 }
 
-impl <I: Iterator + Clone> Stream for I {
-    type Item = <I as Iterator>::Item;
-    fn uncons(mut self) -> Result<(I::Item, Self), ()> {
-        match self.next() {
-            Some(x) => Ok((x, self)),
-            None => Err(())
-        }
-    }
-}
-
 impl <'a> Stream for &'a str {
     type Item = char;
     fn uncons(self) -> Result<(char, &'a str), ()> {
@@ -291,6 +281,27 @@ impl <'a, T> Stream for &'a [T] {
         }
         else {
             Err(())
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct IteratorStream<I>(I)
+    where I: Iterator + Clone;
+
+
+///Converts an `Iterator` into a stream.
+pub fn from_iter<I>(iter: I) -> IteratorStream<I>
+    where I: Iterator + Clone {
+    IteratorStream(iter)
+}
+
+impl <I: Iterator + Clone> Stream for IteratorStream<I> {
+    type Item = <I as Iterator>::Item;
+    fn uncons(mut self) -> Result<(I::Item, Self), ()> {
+        match self.0.next() {
+            Some(x) => Ok((x, self)),
+            None => Err(())
         }
     }
 }

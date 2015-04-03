@@ -1,6 +1,5 @@
-#![unstable]
-#![feature(collections, into_cow, slice_patterns)]
-#![cfg_attr(test, feature(core, test))]
+#![feature(into_cow)]
+#![cfg_attr(test, feature(test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
@@ -81,7 +80,7 @@
 extern crate test;
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseResult, ParseError};
+pub use primitives::{Parser, ParseResult, ParseError, from_iter};
 #[doc(inline)]
 pub use char::{
     any_char,
@@ -168,9 +167,9 @@ mod tests {
     }
     #[test]
     fn iterator() {
-        let result = parser(integer).parse("123".chars())
-            .map(|(i, mut input)| (i, input.next()));
-        assert_eq!(result, Ok((123i64, None)));
+        let result = parser(integer).parse(from_iter("123".chars()))
+            .map(|(i, input)| (i, input.uncons().err()));
+        assert_eq!(result, Ok((123i64, Some(()))));
     }
     #[test]
     fn field() {

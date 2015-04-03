@@ -829,7 +829,6 @@ mod tests {
     use super::*;
     use primitives::Parser;
     use char::{digit, string};
-    use std::num::Int;
 
     #[test]
     fn chainr1_test() {
