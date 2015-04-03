@@ -1,5 +1,5 @@
 use std::fmt;
-use std::borrow::{Cow, IntoCow};
+use std::borrow::Cow;
 use std::error::Error as StdError;
 
 ///Struct which containing the current position
@@ -111,8 +111,8 @@ impl ParseError {
         ParseError { position: position, errors: vec![error] }
     }
     pub fn add_message<S>(&mut self, message: S)
-        where S: IntoCow<'static, str> {
-        self.add_error(Error::Message(message.into_cow()));
+        where S: Into<Cow<'static, str>> {
+        self.add_error(Error::Message(message.into()));
     }
     pub fn add_error(&mut self, message: Error) {
         //Don't add duplicate errors
@@ -237,7 +237,7 @@ impl <I: Stream> State<I> {
                 f(&mut position, &c);
                 Ok((c, Consumed::Consumed(State { position: position, input: input })))
             }
-            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into_cow()))))
+            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into()))))
         }
     }
 }

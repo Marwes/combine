@@ -1,4 +1,3 @@
-#![feature(into_cow)]
 #![cfg_attr(test, feature(test))]
 
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
@@ -139,7 +138,6 @@ pub mod char;
 mod tests {
     use super::*;
     use super::primitives::{SourcePosition, State, Stream, Error, Consumed};
-    use std::borrow::IntoCow;
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
@@ -251,10 +249,10 @@ r"
             position: SourcePosition { line: 2, column: 1 },
                 errors: vec![
                     Error::Unexpected(','),
-                    Error::Expected("identifier".into_cow()),
-                    Error::Expected("integer".into_cow()),
-                    Error::Expected("[".into_cow()),
-                    Error::Expected("(".into_cow()),
+                    Error::Expected("identifier".into()),
+                    Error::Expected("integer".into()),
+                    Error::Expected("[".into()),
+                    Error::Expected("(".into()),
                 ]
         };
         assert_eq!(result, Err(err));

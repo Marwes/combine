@@ -1,5 +1,5 @@
 use std::iter::FromIterator;
-use std::borrow::{Cow, IntoCow};
+use std::borrow::Cow;
 use std::marker::PhantomData;
 use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
@@ -42,7 +42,7 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
             }
         }
         Err(Consumed::Empty(match empty_err {
-            None => ParseError::new(input.position.clone(), Error::Message("parser choice is empty".into_cow())),
+            None => ParseError::new(input.position.clone(), Error::Message("parser choice is empty".into())),
             Some(err) => err,
         }))
     }
@@ -85,22 +85,20 @@ impl <I> Parser for Unexpected<I>
 ///Never consumes any input.
 ///
 /// ```
-/// #![feature(into_cow)]
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # use pc::primitives::Error;
-/// # use std::borrow::IntoCow;
 /// # fn main() {
 /// let result = unexpected("token")
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".into_cow()));
+/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".into()));
 /// # }
 /// ```
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
     where I: Stream
-        , S: IntoCow<'static, str> {
-    Unexpected(message.into_cow(), PhantomData)
+        , S: Into<Cow<'static, str>> {
+    Unexpected(message.into(), PhantomData)
 }
 
 #[derive(Clone)]
@@ -387,11 +385,9 @@ pub struct FnParser<I, F>(F, PhantomData<fn (I)>);
 ///to make them usable as a parser
 ///
 /// ```
-/// #![feature(into_cow)]
 /// extern crate parser_combinators as pc;
 /// use pc::*;
 /// use pc::primitives::{Consumed, Error};
-/// use std::borrow::IntoCow;
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     let position = input.position;
@@ -402,7 +398,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn (I)>);
 ///     }
 ///     else {
 ///         //Return an empty error since we only tested the first token of the stream
-///         Err(Consumed::Empty(ParseError::new(position, Error::Expected("even number".into_cow()))))
+///         Err(Consumed::Empty(ParseError::new(position, Error::Expected(From::from("even number")))))
 ///     }
 /// });
 /// let result = even_digit
@@ -810,15 +806,15 @@ pub trait ParserExt : Parser + Sized {
 
     ///Parses with `self` and if it fails, adds the message `msg` to the error
     fn message<S>(self, msg: S) -> Message<Self>
-        where S: IntoCow<'static, str> {
-        Message(self, msg.into_cow())
+        where S: Into<Cow<'static, str>> {
+        Message(self, msg.into())
     }
 
     ///Parses with `self` and if it fails without consuming any input any expected errors are replaced by
     ///`msg`. `msg` is then used in error messages as "Expected `msg`".
     fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: IntoCow<'static, str> {
-        Expected(self, msg.into_cow())
+        where S: Into<Cow<'static, str>> {
+        Expected(self, msg.into())
     }
 }
 

@@ -1,7 +1,6 @@
 use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
 use combinator::{Expected, skip_many, SkipMany, ParserExt, With};
 use std::marker::PhantomData;
-use std::borrow::IntoCow;
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
@@ -174,7 +173,7 @@ impl <I> Parser for String<I>
             match input.uncons_char() {
                 Ok((other, rest)) => {
                     if c != other {
-                        let error = ParseError::new(start, Error::Expected(self.0.into_cow()));
+                        let error = ParseError::new(start, Error::Expected(self.0.into()));
                         return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
                     }
                     consumed = true;
@@ -214,14 +213,13 @@ pub fn string<I>(s: &'static str) -> String<I>
 mod tests {
     use super::*;
     use primitives::{Error, Parser, SourcePosition};
-    use std::borrow::IntoCow;
 
     #[test]
     fn space_error() {
         let result = space()
             .parse("");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().errors, vec![Error::Message("End of input".into_cow()), Error::Expected("whitespace".into_cow())]);
+        assert_eq!(result.unwrap_err().errors, vec![Error::Message("End of input".into()), Error::Expected("whitespace".into())]);
 
     }
 
