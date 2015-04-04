@@ -1,5 +1,3 @@
-#![cfg_attr(test, feature(test))]
-
 //!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
 //!A parser in this library can be described as a function which takes some input and if it
@@ -74,9 +72,6 @@
 //!     assert_eq!(result, Ok((expr, "")));
 //! }
 //!```
-
-#[cfg(test)]
-extern crate test;
 
 #[doc(inline)]
 pub use primitives::{Parser, ParseResult, ParseError, from_iter};
@@ -322,28 +317,6 @@ r"
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
         }
-    }
-
-static LONG_EXPR: &'static str =
-r"(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-* (a + 2 * ((476128368 + i * (((3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-* (a + 2 * ((476128368 + i * ((476128368 + 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42 + 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42 +
-(3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-* (a + 2 * ((476128368 + i * (((3 * 4) + 2 * 4 * test + 4 * aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-* (a + 2 * ((476128368 + i * ((476128368 + 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42
-+ 21476)+ 21476)) + 21476)) * 2123 * 214 + (476128368 + 21476) * hello + 42";
-    #[bench]
-    fn bench_expression(bench: &mut ::test::Bencher) {
-
-        let result = parser(term)
-            .parse(LONG_EXPR);
-        assert!(result.is_ok()); 
-        assert_eq!(result.unwrap().1, "");
-        bench.iter(|| {
-            let result = parser(term)
-                .parse(LONG_EXPR);
-            let _ = ::test::black_box(result);
-        })
     }
 
     #[test]

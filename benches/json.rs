@@ -1,15 +1,14 @@
-#![feature(unicode, path, test, io, fs)]
-extern crate "parser-combinators" as pc;
+#![feature(test)]
+extern crate parser_combinators as pc;
 extern crate test;
 
 use std::collections::HashMap;
-use std::num::Float;
 use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
 use pc::primitives::{Parser, State, ParseResult};
-use pc::combinator::{between, many, many1, optional, sep_by, With, ParserExt};
+use pc::combinator::{between, many, many1, optional, parser, sep_by, With, ParserExt};
 use pc::char::{digit, satisfy, spaces, Spaces, string};
 
 #[derive(PartialEq, Debug)]
@@ -40,7 +39,7 @@ fn integer(input: State<&str>) -> ParseResult<i64, &str> {
 
 fn number(input: State<&str>) -> ParseResult<f64, &str> {
     let i = satisfy(|c| c == '0').map(|_| 0.0)
-             .or((integer as fn (_) -> _).map(|x| x as f64));
+             .or(parser(integer).map(|x| x as f64));
     let fractional = many(digit())
         .map(|digits: String| {
             let mut magnitude = 1.0;
@@ -54,7 +53,7 @@ fn number(input: State<&str>) -> ParseResult<f64, &str> {
         });
 
     let exp = satisfy(|c| c == 'e' || c == 'E')
-        .with(optional(string("-")).and(integer as fn (_) -> _));
+        .with(optional(string("-")).and(parser(integer)));
     optional(string("-"))
         .and(i)
         .map(|(sign, n)| if sign.is_some() { -n } else { n })
@@ -65,7 +64,7 @@ fn number(input: State<&str>) -> ParseResult<f64, &str> {
             match exp_option {
                 Some((sign, e)) => {
                     let e = if sign.is_some() { -e } else { e };
-                    n * 10.0.powi(e as i32)
+                    n * 10.0f64.powi(e as i32)
                 }
                 None => n
             }
@@ -93,13 +92,13 @@ fn json_char(input: State<&str>) -> ParseResult<char, &str> {
         .parse_state(input)
 }
 fn json_string(input: State<&str>) -> ParseResult<String, &str> {
-    between(string("\""), string("\""), many(json_char as fn (_) -> _))
+    between(string("\""), string("\""), many(parser(json_char)))
         .parse_state(input)
 }
 fn object(input: State<&str>) -> ParseResult<Value, &str> {
-    let field = lex(json_string as fn (_) -> _)
+    let field = lex(parser(json_string))
         .skip(lex(string(":")))
-        .and(lex(json_value as fn (_) -> _));
+        .and(lex(parser(json_value)));
     let fields = sep_by(field, string(","));
     between(string("{"), lex(string("}")), fields)
         .map(Value::Object)
@@ -108,7 +107,7 @@ fn object(input: State<&str>) -> ParseResult<Value, &str> {
 
 
 fn json_value(input: State<&str>) -> ParseResult<Value, &str> {
-    let array = between(string("["), lex(string("]")), sep_by(json_value as fn (_) -> _, string(",")))
+    let array = between(string("["), lex(string("]")), sep_by(parser(json_value), string(",")))
         .map(Value::Array);
 
     //Wrap a few of the value parsers to workaround the slow compiletimes
@@ -119,10 +118,10 @@ fn json_value(input: State<&str>) -> ParseResult<Value, &str> {
             .parse_state(input)
     }
     lex(array
-        .or(object as fn (_) -> _)
-        .or((number as fn (_) -> _).map(Value::Number))
-        .or((json_string as fn (_) -> _).map(Value::String))
-        .or(rest as fn (_) -> _)
+        .or(parser(object))
+        .or(parser(number).map(Value::Number))
+        .or(parser(json_string).map(Value::String))
+        .or(parser(rest))
     )
         .parse_state(input)
 }
@@ -143,7 +142,7 @@ r#"
     "false"  : false,
     "null" : null
 }"#;
-    let result = (json_value as fn (_) -> _)
+    let result = parser(json_value)
         .parse(input);
     let expected = Object(vec![
         ("array", Array(vec![Number(1.0), String("".to_string())])),
@@ -171,8 +170,8 @@ fn bench_json(bencher: &mut ::test::Bencher) {
     File::open(&Path::new(&"benches/data.json"))
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
-    let mut parser = json_value as fn (_) -> _;
-    match parser.parse(&data) {
+    let mut parser = parser(json_value);
+    match parser.parse(&data[..]) {
         Ok((Value::Array(_), "\r\n")) => (),
         Ok(x) => { println!("{:?}", x); assert!(false); }
         Err(err) => { println!("{}", err); assert!(false); }
