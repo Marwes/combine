@@ -19,17 +19,17 @@ macro_rules! impl_parser {
 }
 }
 
-pub struct ChoiceSlice<'a, P>(&'a mut [P])
-    where P: Parser + 'a;
+pub struct Choice<S, P>(S, PhantomData<P>);
 
-impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
+impl <I, O, S, P> Parser for Choice<S, P>
     where I: Stream
-        , P: Parser<Input=I, Output=O> + 'a {
+        , S: AsMut<[P]>
+        , P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         let mut empty_err = None;
-        for p in self.0.iter_mut() {
+        for p in AsMut::as_mut(&mut self.0) {
             match p.parse_state(input.clone()) {
                 consumed_err@Err(Consumed::Consumed(_)) => return consumed_err,
                 Err(Consumed::Empty(err)) => {
@@ -48,27 +48,10 @@ impl <'a, I, O, P> Parser for ChoiceSlice<'a, P>
     }
 }
 
-pub fn choice_slice<'a, P>(ps: &'a mut [P]) -> ChoiceSlice<'a, P>
-    where P: Parser + 'a {
-    ChoiceSlice(ps)
-}
-
-pub struct ChoiceVec<P>(Vec<P>)
-    where P: Parser;
-
-impl <I, O, P> Parser for ChoiceVec<P>
-    where I: Stream
-        , P: Parser<Input=I, Output=O> {
-    type Input = I;
-    type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
-        choice_slice(&mut self.0[..]).parse_state(input)
-    }
-}
-
-pub fn choice_vec<P>(ps: Vec<P>) -> ChoiceVec<P>
-    where P: Parser {
-    ChoiceVec(ps)
+pub fn choice<S, P>(ps: S) -> Choice<S, P>
+    where S: AsMut<[P]>
+        , P: Parser {
+    Choice(ps, PhantomData)
 }
 
 #[derive(Clone)]
