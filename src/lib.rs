@@ -1,12 +1,28 @@
-//!This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
+//! This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
-//!A parser in this library can be described as a function which takes some input and if it
-//!is succesful, returns a value together with the remaining input.
-//!A parser combinator is a function which takes one or more parsers and returns a new parser.
-//!For instance the `many` parser can be used to convert a parser for single digits into one that
-//!parses multiple digits.
+//! A parser in this library can be described as a function which takes some input and if it
+//! is succesful, returns a value together with the remaining input.
+//! A parser combinator is a function which takes one or more parsers and returns a new parser.
+//! For instance the `many` parser can be used to convert a parser for single digits into one that
+//! parses multiple digits.
 //!
-//!# Examples:
+//!# Overview
+//!
+//! This library is currently split into three modules.
+//!
+//! * `primitives` contains the `Parser` trait as well as various structs dealing with input
+//! streams and errors.
+//!
+//! * `combinator` contains the before mentioned parser combinators and thus contains the main
+//! building blocks for creating any sort of more complex parsers. It consists of free functions as
+//! well as a the `ParserExt` trait which provides a few functions which are more naturally used
+//! through method calls.
+//!
+//! * `char` is the last module. It provides parsers specifically working with streams of
+//! characters. As a few examples it has parsers for accepting digits, letters or whitespace.
+//!
+//!
+//!# Examples
 //!
 //!```
 //! extern crate parser_combinators as parser_combinators;
@@ -29,14 +45,14 @@
 //! }
 //!```
 //!
-//!If we need a parser that is mutually recursive we can define a free function which internally
-//!can in turn be used as a parser (Note that we need to explicitly cast the function, this should
-//!not be necessary once changes in rustc to make orphan checking less restrictive gets implemented)
+//! If we need a parser that is mutually recursive we can define a free function which internally 
+//! can in turn be used as a parser (Note that we need to explicitly cast the function, this should
+//! not be necessary once changes in rustc to make orphan checking less restrictive gets implemented)
 //!
-//!`expr` is written fully general here which may not be necessary in a specific implementation
-//!The `Stream` trait is predefined to work with array slices, string slices and iterators
-//!meaning that in this case it could be defined as
-//!`fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
+//! `expr` is written fully general here which may not be necessary in a specific implementation
+//! The `Stream` trait is predefined to work with array slices, string slices and iterators
+//! meaning that in this case it could be defined as
+//! `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
 //!```
 //! extern crate parser_combinators as parser_combinators;
