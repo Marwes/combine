@@ -48,6 +48,20 @@ impl <I, O, S, P> Parser for Choice<S, P>
     }
 }
 
+/// Takes an array of parsers and tries them each in turn.
+/// Fails if all parsers fails or when a parsers fails with a consumed state.
+///
+/// ```
+/// # extern crate parser_combinators as pc;
+/// # use pc::*;
+/// # use pc::primitives::Error;
+/// # fn main() {
+/// let mut parser = choice([string("Apple"), string("Banana"), string("Orange")]);
+/// assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
+/// assert_eq!(parser.parse("Orangexx"), Ok(("Orange", "xx")));
+/// assert!(parser.parse("Appl").is_err());
+/// # }
+/// ```
 pub fn choice<S, P>(ps: S) -> Choice<S, P>
     where S: AsMut<[P]>
         , P: Parser {
