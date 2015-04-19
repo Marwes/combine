@@ -8,8 +8,8 @@ use std::fs::File;
 use std::path::Path;
 
 use pc::primitives::{Parser, State, ParseResult};
-use pc::combinator::{between, many, many1, optional, parser, sep_by, With, ParserExt};
-use pc::char::{digit, satisfy, spaces, Spaces, string};
+use pc::combinator::{between, many, many1, optional, parser, sep_by, unexpected, value, With, ParserExt};
+use pc::char::{any_char, digit, satisfy, spaces, Spaces, string};
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -73,23 +73,25 @@ fn number(input: State<&str>) -> ParseResult<f64, &str> {
 }
 
 fn json_char(input: State<&str>) -> ParseResult<char, &str> {
-    let back_slash_char = string("\\")
-        .with(satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some()).map(|c| {
-            match c {
-                '"' => '"',
-                '\\' => '\\',
-                '/' => '/',
-                'b' => '\u{0008}',
-                'f' => '\u{000c}',
-                'n' => '\n',
-                'r' => '\r',
-                't' => '\t',
-                c => c//Should never happen
-            }
-        }));
-    satisfy(|c| "\"\\".chars().find(|x| *x == c).is_none())
-        .or(back_slash_char)
-        .parse_state(input)
+    let (c, input) = try!(parser(any_char).parse_state(input));
+    let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some()).map(|c| {
+        match c {
+            '"' => '"',
+            '\\' => '\\',
+            '/' => '/',
+            'b' => '\u{0008}',
+            'f' => '\u{000c}',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            c => c//Should never happen
+        }
+    });
+    match c {
+        '\\' => input.combine(|input| back_slash_char.parse_state(input)),
+        '"'  => unexpected("\"").parse_state(input.into_inner()).map(|_| unreachable!()),
+        _    => Ok((c, input))
+    }
 }
 fn json_string(input: State<&str>) -> ParseResult<String, &str> {
     between(string("\""), string("\""), many(parser(json_char)))
@@ -117,10 +119,10 @@ fn json_value(input: State<&str>) -> ParseResult<Value, &str> {
             .or(string("null").map(|_| Value::Null))
             .parse_state(input)
     }
-    lex(array
+    lex(parser(json_string).map(Value::String)
         .or(parser(object))
+        .or(array)
         .or(parser(number).map(Value::Number))
-        .or(parser(json_string).map(Value::String))
         .or(parser(rest))
     )
         .parse_state(input)
