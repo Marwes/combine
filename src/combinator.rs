@@ -733,6 +733,25 @@ impl <P> Parser for Expected<P>
     }
 }
 
+pub struct AndThen<P, F>(P, F);
+impl <P, F, O, E> Parser for AndThen<P, F>
+    where P: Parser
+        , F: FnMut(P::Output) -> Result<O, E>
+        , E: Into<Error> {
+
+    type Input = <P as Parser>::Input;
+    type Output = O;
+    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<O, <Self as Parser>::Input> {
+        self.0.parse_state(input)
+            .and_then(|(o, input)|
+                match (self.1)(o) {
+                    Ok(o) => Ok((o, input)),
+                    Err(err) => Err(input.map(move |input| ParseError::new(input.position, err.into())))
+                }
+            )
+    }
+}
+
 ///Extension trait which provides functions that are more conveniently used through method calls
 pub trait ParserExt : Parser + Sized {
 
@@ -812,6 +831,25 @@ pub trait ParserExt : Parser + Sized {
     fn expected<S>(self, msg: S) -> Expected<Self>
         where S: Into<Cow<'static, str>> {
         Expected(self, msg.into())
+    }
+
+    ///Parses with `self` and applies `f` on the result if `self` parses successfully
+    ///`f` may optionally fail with an error which is automatically converted to a `ParseError`
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let result = many1(digit())
+    ///     .and_then(|s: String| s.parse::<i32>())
+    ///     .parse("1234");
+    /// assert_eq!(result, Ok((1234, "")));
+    /// # }
+    /// ```
+    fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
+        where F: FnMut(Self::Output) -> Result<O, E>
+            , E: Into<Error> {
+        AndThen(self, f)
     }
 }
 
