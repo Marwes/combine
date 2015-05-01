@@ -217,6 +217,8 @@ r"
         Plus(Box<Expr>, Box<Expr>),
         Times(Box<Expr>, Box<Expr>),
     }
+
+    #[allow(unconditional_recursion)]
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
         let word = many1(satisfy(|c| c.is_alphabetic()))
             .expected("identifier");

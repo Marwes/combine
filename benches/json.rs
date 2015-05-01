@@ -8,7 +8,7 @@ use std::fs::File;
 use std::path::Path;
 
 use pc::primitives::{Parser, State, ParseResult};
-use pc::combinator::{between, many, many1, optional, parser, sep_by, unexpected, value, With, ParserExt};
+use pc::combinator::{between, many, many1, optional, parser, sep_by, unexpected, With, ParserExt};
 use pc::char::{any_char, digit, satisfy, spaces, Spaces, string};
 
 #[derive(PartialEq, Debug)]
@@ -107,7 +107,7 @@ fn object(input: State<&str>) -> ParseResult<Value, &str> {
         .parse_state(input)
 }
 
-
+#[allow(unconditional_recursion)]
 fn json_value(input: State<&str>) -> ParseResult<Value, &str> {
     let array = between(string("["), lex(string("]")), sep_by(parser(json_value), string(",")))
         .map(Value::Array);
