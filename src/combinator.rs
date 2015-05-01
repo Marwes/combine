@@ -738,6 +738,18 @@ pub trait ParserExt : Parser + Sized {
 
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .with(satisfy(|c| c == 'i'))
+    ///     .parse("9i")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok('i'));
+    /// # }
+    /// ```
     fn with<P2>(self, p: P2) -> With<Self, P2>
         where P2: Parser<Input=Self::Input> {
         With(self, p)
@@ -745,6 +757,18 @@ pub trait ParserExt : Parser + Sized {
 
     ///Discards the value of the `p` parser and returns the value of `self`
     ///Fails if any of the parsers fails
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .skip(satisfy(|c| c == 'i'))
+    ///     .parse("9i")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok('9'));
+    /// # }
+    /// ```
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
         where P2: Parser<Input=Self::Input> {
         Skip(self, p)
@@ -787,8 +811,28 @@ pub trait ParserExt : Parser + Sized {
         Or(self, p)
     }
 
-    ///Parses using `self` and then passes the value to `f` which returns the parser used to parse
+    ///Parses using `self` and then passes the value to `f` which returns a parser used to parse
     ///the rest of the input
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # use pc::primitives::{Consumed, Error};
+    /// # fn main() {
+    /// let result = digit()
+    ///     .then(|d| parser(move |input| {
+    ///         if d == '9' {
+    ///             Ok((9, Consumed::Empty(input)))
+    ///         }
+    ///         else {
+    ///             let err = ParseError::new(input.position, Error::Message("Not a nine".into()));
+    ///             Err((Consumed::Empty(err)))
+    ///         }
+    ///     }))
+    ///     .parse("9");
+    /// assert_eq!(result, Ok((9, "")));
+    /// # }
+    /// ```
     fn then<N, F>(self, f: F) -> Then<Self, F>
         where F: FnMut(Self::Output) -> N
             , N: Parser<Input=Self::Input> {
@@ -796,12 +840,38 @@ pub trait ParserExt : Parser + Sized {
     }
 
     ///Uses `f` to map over the parsed value
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .map(|c| c == '9')
+    ///     .parse("9")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok(true));
+    /// # }
+    /// ```
     fn map<F, B>(self, f: F) -> Map<Self, F>
         where F: FnMut(Self::Output) -> B {
         Map(self, f)
     }
 
     ///Parses with `self` and if it fails, adds the message `msg` to the error
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # use pc::primitives::Error;
+    /// # fn main() {
+    /// let result = satisfy(|c| c == '9')
+    ///     .message("Not a nine")
+    ///     .parse("8");
+    /// assert!(result.is_err());
+    /// assert!(result.unwrap_err().errors.iter()
+    ///     .find(|e| **e == Error::Message("Not a nine".into())).is_some());
+    /// # }
+    /// ```
     fn message<S>(self, msg: S) -> Message<Self>
         where S: Into<Cow<'static, str>> {
         Message(self, msg.into())
@@ -809,6 +879,20 @@ pub trait ParserExt : Parser + Sized {
 
     ///Parses with `self` and if it fails without consuming any input any expected errors are replaced by
     ///`msg`. `msg` is then used in error messages as "Expected `msg`".
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # use pc::primitives::Error;
+    /// # fn main() {
+    /// let result = satisfy(|c| c == '9')
+    ///     .expected("9")
+    ///     .parse("8");
+    /// assert!(result.is_err());
+    /// assert!(result.unwrap_err().errors.iter()
+    ///     .find(|e| **e == Error::Expected("9".into())).is_some());
+    /// # }
+    /// ```
     fn expected<S>(self, msg: S) -> Expected<Self>
         where S: Into<Cow<'static, str>> {
         Expected(self, msg.into())

@@ -2,7 +2,7 @@ use std::fmt;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 
-///Struct which containing the current position
+///Struct which represents the positions in the source file
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
     ///Current line of the input
@@ -35,7 +35,7 @@ pub enum Error {
     Message(Cow<'static, str>)
 }
 
-///Enum used to indicate if a stream has had any elements consumed
+///Enum used to indicate if a parser consumed any items of the stream it was given as an input
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum Consumed<T> {
     ///Constructor indicating that the parser has consumed elements
@@ -46,7 +46,7 @@ pub enum Consumed<T> {
 
 impl <T> Consumed<T> {
 
-    ///Returns true if the `self` is empty
+    ///Returns true if `self` is empty
     pub fn is_empty(&self) -> bool {
         match *self {
             Consumed::Empty(_) => true,
@@ -62,12 +62,12 @@ impl <T> Consumed<T> {
         }
     }
 
-    ///Converts the consumed state into the Consumed state
+    ///Converts `self` into the Consumed state
     pub fn as_consumed(self) -> Consumed<T> {
         Consumed::Consumed(self.into_inner())
     }
 
-    ///Converts the consumed state into the Empty state
+    ///Converts `self` into theEmpty state
     pub fn as_empty(self) -> Consumed<T> {
         Consumed::Empty(self.into_inner())
     }
@@ -82,6 +82,38 @@ impl <T> Consumed<T> {
     }
 
     ///Combines the Consumed flags from `self` and the result of `f`
+    ///
+    ///```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # use pc::primitives::State;
+    /// # fn main() {
+    /// //Parses a characther of string literal and handles the escaped characthers \\ and \" as \
+    /// //and " respectively
+    /// fn char(input: State<&str>) -> ParseResult<char, &str> {
+    ///     let (c, input) = try!(satisfy(|c| c != '"').parse_state(input));
+    ///     match c {
+    ///         //Since the `char` parser has already consumed some of the input `combine` is used
+    ///         //propagate the consumed state to the next part of the parser
+    ///         '\\' => input.combine(|input| {
+    ///             satisfy(|c| c == '"' || c == '\\')
+    ///                 .map(|c| {
+    ///                     match c {
+    ///                         '"' => '"',
+    ///                         '\\' => '\\',
+    ///                         c => c
+    ///                     }
+    ///                 })
+    ///                 .parse_state(input)
+    ///             }),
+    ///         _ => Ok((c, input))
+    ///     }
+    /// }
+    /// let result = many(parser(char))
+    ///     .parse(r#"abc\"\\"#);
+    /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
+    /// }
+    ///```
     pub fn combine<F, U, I>(self, f: F) -> ParseResult<U, I>
         where F: FnOnce(T) -> ParseResult<U, I> {
         match self {
@@ -250,7 +282,8 @@ impl <I: Stream<Item=char>> State<I> {
 
 }
 
-///A type alias over the specific `Result` type used to indicated parser success/failure.
+///A type alias over the specific `Result` type used by parsers to indicate wether they were
+///successful or not.
 ///`O` is the type that is output on success
 ///`I` is the specific stream type used in the parser
 pub type ParseResult<O, I> = Result<(O, Consumed<State<I>>), Consumed<ParseError>>;

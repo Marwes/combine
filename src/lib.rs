@@ -25,7 +25,7 @@
 //!# Examples
 //!
 //!```
-//! extern crate parser_combinators as parser_combinators;
+//! extern crate parser_combinators;
 //! use parser_combinators::{spaces, many1, sep_by, digit, satisfy, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
@@ -55,7 +55,7 @@
 //! `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
 //!```
-//! extern crate parser_combinators as parser_combinators;
+//! extern crate parser_combinators;
 //! use parser_combinators::{between, spaces, many1, parser, sep_by, satisfy, Parser, ParserExt,
 //! ParseResult};
 //! use parser_combinators::primitives::{State, Stream};
