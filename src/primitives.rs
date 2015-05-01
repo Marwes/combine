@@ -25,14 +25,33 @@ impl SourcePosition {
 }
 
 ///Enum used to store information about an error that has occured
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Debug)]
 pub enum Error {
     ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
     ///Error indicating that the parser expected something else
     Expected(Cow<'static, str>),
     ///Generic message
-    Message(Cow<'static, str>)
+    Message(Cow<'static, str>),
+    ///Variant for containing other types of errors
+    Other(Box<StdError>)
+}
+
+impl PartialEq for Error {
+    fn eq(&self, other: &Error) -> bool {
+        match (self, other) {
+            (&Error::Unexpected(l), &Error::Unexpected(r)) => l == r,
+            (&Error::Expected(ref l), &Error::Expected(ref r)) => l == r,
+            (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
+            _ => false
+        }
+    }
+}
+
+impl <E> From<E> for Error where E: StdError + 'static {
+    fn from(e: E) -> Error {
+        Error::Other(Box::new(e))
+    }
 }
 
 ///Enum used to indicate if a stream has had any elements consumed
@@ -98,7 +117,7 @@ impl <T> Consumed<T> {
 }
 ///Struct which hold information about an error that occured at a specific position.
 ///Can hold multiple instances of `Error` if more that one error occured at the position.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ParseError {
     ///The position where the error occured
     pub position: SourcePosition,
@@ -187,7 +206,7 @@ impl fmt::Display for ParseError {
         }
         //If there are any generic messages we print them out last
         let messages = self.errors.iter()
-            .filter(|e| match **e { Error::Message(_) => true, _ => false } );
+            .filter(|e| match **e { Error::Message(_) | Error::Other(_) => true, _ => false } );
         for error in messages {
             try!(writeln!(f, "{}", error));
         }
@@ -205,6 +224,7 @@ impl fmt::Display for Error {
             Error::Unexpected(c) => write!(f, "Unexpected character '{}'", c),
             Error::Expected(ref s) => write!(f, "Expected {}", s),
             Error::Message(ref msg) => write!(f, "{}", msg),
+            Error::Other(ref err) => err.fmt(f)
         }
     }
 }
