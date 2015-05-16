@@ -34,7 +34,7 @@ pub enum Error {
     ///Generic message
     Message(Cow<'static, str>),
     ///Variant for containing other types of errors
-    Other(Box<StdError>)
+    Other(Box<StdError+Send>)
 }
 
 impl PartialEq for Error {
@@ -48,7 +48,7 @@ impl PartialEq for Error {
     }
 }
 
-impl <E> From<E> for Error where E: StdError + 'static {
+impl <E> From<E> for Error where E: StdError + 'static + Send {
     fn from(e: E) -> Error {
         Error::Other(Box::new(e))
     }
