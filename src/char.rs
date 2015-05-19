@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
     #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<I>)
+    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
     impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
@@ -19,7 +19,7 @@ macro_rules! impl_char_parser {
 }
 
 #[derive(Clone)]
-pub struct AnyChar<I>(PhantomData<I>);
+pub struct AnyChar<I>(PhantomData<fn (I) -> I>);
 
 impl <I> Parser for AnyChar<I>
     where I: Stream<Item=char> {

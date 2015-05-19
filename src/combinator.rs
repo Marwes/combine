@@ -68,7 +68,7 @@ pub fn choice<S, P>(ps: S) -> Choice<S, P>
 }
 
 #[derive(Clone)]
-pub struct Unexpected<I>(Info, PhantomData<I>);
+pub struct Unexpected<I>(Info, PhantomData<fn (I) -> I>);
 impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
@@ -98,7 +98,7 @@ pub fn unexpected<I, S>(message: S) -> Unexpected<I>
 }
 
 #[derive(Clone)]
-pub struct Value<I, T>(T, PhantomData<I>);
+pub struct Value<I, T>(T, PhantomData<fn (I) -> I>);
 impl <I, T> Parser for Value<I, T>
     where I: Stream
         , T: Clone {
@@ -226,7 +226,7 @@ pub fn many<F, P>(p: P) -> Many<F, P>
 
 
 #[derive(Clone)]
-pub struct Many1<F, P>(P, PhantomData<F>);
+pub struct Many1<F, P>(P, PhantomData<fn () -> F>);
 impl <F, P> Parser for Many1<F, P>
     where F: FromIterator<<P as Parser>::Output>
         , P: Parser {
@@ -309,7 +309,7 @@ pub fn many1<F, P>(p: P) -> Many1<F, P>
 pub struct SepBy<F, P, S> {
     parser: P,
     separator: S,
-    _marker: PhantomData<F>
+    _marker: PhantomData<fn () -> F>
 }
 impl <F, P, S> Parser for SepBy<F, P, S>
     where F: FromIterator<<P as Parser>::Output>
@@ -374,7 +374,7 @@ impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, F>(F, PhantomData<fn (I)>);
+pub struct FnParser<I, F>(F, PhantomData<fn (I) -> I>);
 
 ///Wraps a function, turning it into a parser
 ///Mainly needed to turn closures into parsers as function types can be casted to function pointers
