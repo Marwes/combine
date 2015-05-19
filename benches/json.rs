@@ -9,7 +9,7 @@ use std::path::Path;
 
 use pc::primitives::{Parser, State, Stream, ParseResult};
 use pc::combinator::{between, many, many1, optional, parser, sep_by, unexpected, With, ParserExt};
-use pc::char::{any_char, digit, satisfy, spaces, Spaces, string};
+use pc::char::{any_char, char, digit, satisfy, spaces, Spaces, string};
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -43,7 +43,7 @@ impl <I> Json<I>
     }
 
     fn number(input: State<I>) -> ParseResult<f64, I> {
-        let i = satisfy(|c| c == '0').map(|_| 0.0)
+        let i = char('0').map(|_| 0.0)
                  .or(parser(Json::<I>::integer).map(|x| x as f64));
         let fractional = many(digit())
             .map(|digits: String| {
@@ -58,11 +58,11 @@ impl <I> Json<I>
             });
 
         let exp = satisfy(|c| c == 'e' || c == 'E')
-            .with(optional(string("-")).and(parser(Json::<I>::integer)));
-        optional(string("-"))
+            .with(optional(char('-')).and(parser(Json::<I>::integer)));
+        optional(char('-'))
             .and(i)
             .map(|(sign, n)| if sign.is_some() { -n } else { n })
-            .and(optional(string(".")).with(fractional))
+            .and(optional(char('.')).with(fractional))
             .map(|(x, y)| if x > 0.0 { x + y } else { x - y })
             .and(optional(exp))
             .map(|(n, exp_option)| {
@@ -99,15 +99,15 @@ impl <I> Json<I>
         }
     }
     fn string(input: State<I>) -> ParseResult<String, I> {
-        between(string("\""), string("\""), many(parser(Json::<I>::char)))
+        between(char('"'), char('"'), many(parser(Json::<I>::char)))
             .parse_state(input)
     }
     fn object(input: State<I>) -> ParseResult<Value, I> {
         let field = lex(parser(Json::<I>::string))
-            .skip(lex(string(":")))
+            .skip(lex(char(':')))
             .and(lex(parser(Json::<I>::value)));
-        let fields = sep_by(field, string(","));
-        between(string("{"), lex(string("}")), fields)
+        let fields = sep_by(field, char(','));
+        between(char('{'), lex(char('}')), fields)
             .map(Value::Object)
             .parse_state(input)
     }
@@ -115,7 +115,7 @@ impl <I> Json<I>
     #[allow(unconditional_recursion)]
     fn value(input: State<I>) -> ParseResult<Value, I>
         where I: Stream<Item=char> {
-        let array = between(string("["), lex(string("]")), sep_by(parser(Json::<I>::value), string(",")))
+        let array = between(char('['), lex(char(']')), sep_by(parser(Json::<I>::value), char(',')))
             .map(Value::Array);
 
         //Wrap a few of the value parsers to workaround the slow compiletimes

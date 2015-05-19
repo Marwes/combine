@@ -205,7 +205,10 @@ pub struct ParseError {
 
 impl ParseError {
     pub fn new(position: SourcePosition, error: Error) -> ParseError {
-        ParseError { position: position, errors: vec![error] }
+        ParseError::from_errors(position, vec![error])
+    }
+    pub fn from_errors(position: SourcePosition, errors: Vec<Error>) -> ParseError {
+        ParseError { position: position, errors: errors }
     }
     pub fn add_message<S>(&mut self, message: S)
         where S: Into<Info> {

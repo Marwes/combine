@@ -51,10 +51,9 @@ impl <I, Pred> Parser for Satisfy<I, Pred>
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = satisfy(|c| c == '!')
-///     .parse("!")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok('!'));
+/// let mut parser = satisfy(|c| c == '!' || c == '?');
+/// assert_eq!(parser.parse("!").map(|x| x.0), Ok('!'));
+/// assert_eq!(parser.parse("?").map(|x| x.0), Ok('?'));
 /// # }
 /// ```
 pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
@@ -75,9 +74,8 @@ impl <I> Parser for Char<I>
             Ok((c, s)) => {
                 if self.c == c { Ok((c, s)) }
                 else {
-                    let mut err = ParseError::new(input.position, Error::Unexpected(c));
-                    err.set_expected(self.c.into());
-                    Err(Consumed::Empty(err))
+                    let errors = vec![Error::Unexpected(c), Error::Expected(self.c.into())];
+                    Err(Consumed::Empty(ParseError::from_errors(input.position, errors)))
                 }
             }
             Err(err) => Err(err)

@@ -135,7 +135,7 @@ impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, fn(<P as Parser>::Output) -> U
 /// # use pc::*;
 /// # fn main() {
 /// let result = string("let")
-///     .skip(not_followed_by(satisfy(|c| c.is_alphanumeric())))
+///     .skip(not_followed_by(alpha_num()))
 ///     .parse("letx")
 ///     .map(|x| x.0);
 /// assert!(result.is_err());
@@ -352,7 +352,7 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = sep_by(digit(), satisfy(|c| c == ','))
+/// let result = sep_by(digit(), char(','))
 ///     .parse("1,2,3")
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
@@ -467,7 +467,7 @@ impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = between(string("["), string("]"), string("rust"))
+/// let result = between(char('['), char(']'), string("rust"))
 ///     .parse("[rust]")
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok("rust"));
@@ -766,7 +766,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
-    ///     .with(satisfy(|c| c == 'i'))
+    ///     .with(char('i'))
     ///     .parse("9i")
     ///     .map(|x| x.0);
     /// assert_eq!(result, Ok('i'));
@@ -785,7 +785,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
-    ///     .skip(satisfy(|c| c == 'i'))
+    ///     .skip(char('i'))
     ///     .parse("9i")
     ///     .map(|x| x.0);
     /// assert_eq!(result, Ok('9'));
@@ -805,7 +805,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
-    ///     .and(satisfy(|c| c == 'i'))
+    ///     .and(char('i'))
     ///     .parse("9i")
     ///     .map(|x| x.0);
     /// assert_eq!(result, Ok(('9', 'i')));
@@ -886,7 +886,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # use pc::primitives::Error;
     /// # fn main() {
-    /// let result = satisfy(|c| c == '9')
+    /// let result = char('9')
     ///     .message("Not a nine")
     ///     .parse("8");
     /// assert!(result.is_err());
@@ -907,7 +907,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # use pc::primitives::Error;
     /// # fn main() {
-    /// let result = satisfy(|c| c == '9')
+    /// let result = char('9')
     ///     .expected("9")
     ///     .parse("8");
     /// assert!(result.is_err());
@@ -946,12 +946,12 @@ impl <P: Parser> ParserExt for P { }
 mod tests {
     use super::*;
     use primitives::Parser;
-    use char::{digit, string};
+    use char::{char, digit};
 
     #[test]
     fn chainr1_test() {
         let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
-        let pow = string("^").map(|_| |l:i32, r:i32| l.pow(r as u32));
+        let pow = char('^').map(|_| |l:i32, r:i32| l.pow(r as u32));
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
