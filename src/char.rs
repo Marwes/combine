@@ -18,11 +18,34 @@ macro_rules! impl_char_parser {
 }
 }
 
-///Parses any character
-pub fn any_char<I>(input: State<I>) -> ParseResult<char, I>
+#[derive(Clone)]
+pub struct AnyChar<I>(PhantomData<I>);
+
+impl <I> Parser for AnyChar<I>
     where I: Stream<Item=char> {
-    input.uncons_char()
+    type Input = I;
+    type Output = char;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<char, I> {
+        input.uncons_char()
+    }
 }
+
+///Parses any character
+///
+/// ```
+/// # extern crate parser_combinators as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = any_char();
+/// assert_eq!(parser.parse("!").map(|x| x.0), Ok('!'));
+/// assert!(parser.parse("").is_err());
+/// # }
+/// ```
+pub fn any_char<I>() -> AnyChar<I>
+    where I: Stream<Item=char> {
+    AnyChar(PhantomData)
+}
+
 
 #[derive(Clone)]
 pub struct Satisfy<I, Pred> { pred: Pred, _marker: PhantomData<I> }

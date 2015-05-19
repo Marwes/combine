@@ -78,7 +78,7 @@ impl <I> Json<I>
     }
 
     fn char(input: State<I>) -> ParseResult<char, I> {
-        let (c, input) = try!(parser(any_char).parse_state(input));
+        let (c, input) = try!(any_char().parse_state(input));
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some()).map(|c| {
             match c {
                 '"' => '"',
