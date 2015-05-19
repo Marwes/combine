@@ -484,10 +484,11 @@ pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
 
 #[derive(Clone)]
 pub struct Chainl1<P, Op>(P, Op);
-impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
+impl <I, O, P, Op> Parser for Chainl1<P, Op>
     where I: Stream
         , P: Parser<Input=I, Output=O>
-        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+        , Op: Parser<Input=I>
+        , Op::Output: FnOnce(O, O) -> O {
 
     type Input = I;
     type Output = O;
@@ -497,7 +498,7 @@ impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
             let was_empty = input.is_empty();
             let rest = input.clone().into_inner();
             match (&mut self.1).and(&mut self.0).parse_state(rest) {
-                Ok(((mut op, r), rest)) => {
+                Ok(((op, r), rest)) => {
                     l = op(l, r);
                     input = if was_empty { rest } else { rest.as_consumed() };
                 }
@@ -513,18 +514,20 @@ impl <'a, I, O, P, Op> Parser for Chainl1<P, Op>
 
 ///Parses `p` 1 or more times separated by `op`
 ///The value returned is the one produced by the left associative application of `op`
-pub fn chainl1<'a, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
+pub fn chainl1<P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
     where P: Parser
-        , Op: Parser<Input=<P as Parser>::Input, Output=Box<FnMut(<P as Parser>::Output, <P as Parser>::Output) -> <P as Parser>::Output + 'a>> {
+        , Op: Parser<Input=P::Input>
+        , Op::Output: FnOnce(P::Output, P::Output) -> P::Output {
     Chainl1(parser, op)
 }
 
 #[derive(Clone)]
 pub struct Chainr1<P, Op>(P, Op);
-impl <'a, I, O, P, Op> Parser for Chainr1<P, Op>
+impl <I, O, P, Op> Parser for Chainr1<P, Op>
     where I: Stream
         , P: Parser<Input=I, Output=O>
-        , Op: Parser<Input=I, Output=Box<FnMut(O, O) -> O + 'a>> {
+        , Op: Parser<Input=I>
+        , Op::Output: FnOnce(O, O) -> O {
 
     type Input = I;
     type Output = O;
@@ -533,7 +536,7 @@ impl <'a, I, O, P, Op> Parser for Chainr1<P, Op>
         loop {
             let was_empty = input.is_empty();
             let rest = input.clone().into_inner();
-            let mut op = match self.1.parse_state(rest) {
+            let op = match self.1.parse_state(rest) {
                 Ok((x, rest)) => {
                     input = if was_empty { rest } else { rest.as_consumed() };
                     x
@@ -560,9 +563,10 @@ impl <'a, I, O, P, Op> Parser for Chainr1<P, Op>
 
 ///Parses `p` one or more times separated by `op`
 ///The value returned is the one produced by the right associative application of `op`
-pub fn chainr1<'a, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
+pub fn chainr1<P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
     where P: Parser
-        , Op: Parser<Input=<P as Parser>::Input, Output=Box<FnMut(<P as Parser>::Output, <P as Parser>::Output) -> <P as Parser>::Output + 'a>> {
+        , Op: Parser<Input=P::Input>
+        , Op::Output: FnOnce(P::Output, P::Output) -> P::Output {
     Chainr1(parser, op)
 }
 
@@ -948,7 +952,7 @@ mod tests {
     #[test]
     fn chainr1_test() {
         let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
-        let pow = string("^").map(|_| { let f: Box<FnMut(_, _) -> _> = Box::new(|l:i32, r:i32| l.pow(r as u32)); f });
+        let pow = string("^").map(|_| |l:i32, r:i32| l.pow(r as u32));
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }

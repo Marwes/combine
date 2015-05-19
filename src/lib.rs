@@ -290,9 +290,9 @@ Expected 'identifier', 'integer', '[' or '('
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
 
         let mul = satisfy(|c| c == '*')
-            .map(|_| { let f: Box<FnMut(_, _) -> _> = Box::new(|l, r| Expr::Times(Box::new(l), Box::new(r))); f });
+            .map(|_| |l, r| Expr::Times(Box::new(l), Box::new(r)));
         let add = satisfy(|c| c == '+')
-            .map(|_| { let f: Box<FnMut(_, _) -> _> = Box::new(|l, r| Expr::Plus(Box::new(l), Box::new(r))); f });
+            .map(|_| |l, r| Expr::Plus(Box::new(l), Box::new(r)));
         let factor = chainl1(parser(expr), mul);
         chainl1(factor, add)
             .parse_state(input)
@@ -356,10 +356,7 @@ r"
     }
     #[test]
     fn chainl1_error_consume() {
-        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| {
-            let f: Box<FnMut(_, _) -> _> = Box::new(|l, _| l);
-            f
-        }));
+        let mut p = chainl1(string("abc"), satisfy(|c| c == ',').map(|_| |l, _| l));
         assert!(p.parse("abc,ab").is_err());
     }
 
