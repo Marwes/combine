@@ -62,6 +62,46 @@ pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
     Satisfy { pred: pred, _marker: PhantomData }
 }
 
+#[derive(Clone)]
+pub struct Char<I> { c: char, _marker: PhantomData<I> }
+
+impl <I> Parser for Char<I>
+    where I: Stream<Item=char> {
+
+    type Input = I;
+    type Output = char;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<char, I> {
+        match input.clone().uncons_char() {
+            Ok((c, s)) => {
+                if self.c == c { Ok((c, s)) }
+                else {
+                    let mut err = ParseError::new(input.position, Error::Unexpected(c));
+                    err.set_expected(self.c.into());
+                    Err(Consumed::Empty(err))
+                }
+            }
+            Err(err) => Err(err)
+        }
+    }
+}
+
+///Parses a character and succeeds if the characther is equal to `c`
+///
+/// ```
+/// # extern crate parser_combinators as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = char('!')
+///     .parse("!")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok('!'));
+/// # }
+/// ```
+pub fn char<I>(c: char) -> Char<I>
+    where I: Stream<Item=char> {
+    Char { c: c, _marker: PhantomData }
+}
+
 impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
 ///Parses a digit from a stream containing characters
 pub fn digit<I>() -> Digit<I>

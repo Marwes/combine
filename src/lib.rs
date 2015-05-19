@@ -94,6 +94,7 @@ pub use primitives::{Parser, ParseResult, ParseError, from_iter};
 #[doc(inline)]
 pub use char::{
     any_char,
+    char,
     digit,
     space,
     spaces,
