@@ -1,5 +1,4 @@
 use std::fmt;
-use std::borrow::Cow;
 use std::error::Error as StdError;
 
 ///Struct which represents the positions in the source file
@@ -24,15 +23,62 @@ impl SourcePosition {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Info {
+    Token(char),
+    Owned(String),
+    Borrowed(&'static str)
+}
+
+impl PartialEq for Info {
+    fn eq(&self, other: &Info) -> bool {
+        match (self, other) {
+            (&Info::Token(l), &Info::Token(r)) => l == r,
+            (&Info::Owned(ref l), &Info::Owned(ref r)) => l == r,
+            (&Info::Borrowed(ref l), &Info::Owned(ref r)) => l == r,
+            (&Info::Owned(ref l), &Info::Borrowed(ref r)) => l == r,
+            (&Info::Borrowed(ref l), &Info::Borrowed(ref r)) => l == r,
+            _ => false
+        }
+    }
+}
+impl fmt::Display for Info {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Info::Token(c) => write!(f, "{}", c),
+            Info::Owned(ref s) => write!(f, "{}", s),
+            Info::Borrowed(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl From<char> for Info {
+    fn from(s: char) -> Info {
+        Info::Token(s)
+    }
+}
+
+impl From<String> for Info {
+    fn from(s: String) -> Info {
+        Info::Owned(s)
+    }
+}
+
+impl From<&'static str> for Info {
+    fn from(s: &'static str) -> Info {
+        Info::Borrowed(s)
+    }
+}
+
 ///Enum used to store information about an error that has occured
 #[derive(Debug)]
 pub enum Error {
     ///Error indicating an unexpected token has been encountered in the stream
     Unexpected(char),
     ///Error indicating that the parser expected something else
-    Expected(Cow<'static, str>),
+    Expected(Info),
     ///Generic message
-    Message(Cow<'static, str>),
+    Message(Info),
     ///Variant for containing other types of errors
     Other(Box<StdError+Send>)
 }
@@ -162,7 +208,7 @@ impl ParseError {
         ParseError { position: position, errors: vec![error] }
     }
     pub fn add_message<S>(&mut self, message: S)
-        where S: Into<Cow<'static, str>> {
+        where S: Into<Info> {
         self.add_error(Error::Message(message.into()));
     }
     pub fn add_error(&mut self, message: Error) {
@@ -171,7 +217,7 @@ impl ParseError {
             self.errors.push(message);
         }
     }
-    pub fn set_expected(&mut self, message: Cow<'static, str>) {
+    pub fn set_expected(&mut self, message: Info) {
         //Remove all other expected messages
         self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
         self.errors.push(Error::Expected(message));

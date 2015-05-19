@@ -1,7 +1,6 @@
 use std::iter::FromIterator;
-use std::borrow::Cow;
 use std::marker::PhantomData;
-use primitives::{Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
+use primitives::{Info, Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
 
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
@@ -69,7 +68,7 @@ pub fn choice<S, P>(ps: S) -> Choice<S, P>
 }
 
 #[derive(Clone)]
-pub struct Unexpected<I>(Cow<'static, str>, PhantomData<I>);
+pub struct Unexpected<I>(Info, PhantomData<I>);
 impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
@@ -94,7 +93,7 @@ impl <I> Parser for Unexpected<I>
 /// ```
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
     where I: Stream
-        , S: Into<Cow<'static, str>> {
+        , S: Into<Info> {
     Unexpected(message.into(), PhantomData)
 }
 
@@ -645,7 +644,7 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Message<P>(P, Cow<'static, str>) where P: Parser;
+pub struct Message<P>(P, Info) where P: Parser;
 impl <I, P> Parser for Message<P>
     where I: Stream, P: Parser<Input=I> {
 
@@ -719,7 +718,7 @@ impl <P, N, F> Parser for Then<P, F>
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(P, Cow<'static, str>);
+pub struct Expected<P>(P, Info);
 impl <P> Parser for Expected<P>
     where P: Parser {
 
@@ -896,7 +895,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn message<S>(self, msg: S) -> Message<Self>
-        where S: Into<Cow<'static, str>> {
+        where S: Into<Info> {
         Message(self, msg.into())
     }
 
@@ -917,7 +916,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: Into<Cow<'static, str>> {
+        where S: Into<Info> {
         Expected(self, msg.into())
     }
 
