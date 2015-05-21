@@ -10,3 +10,7 @@ The library is still unstable but if you end up trying it I welcome any feedback
 [Documentation and examples](https://marwes.github.io/parser-combinators/parser_combinators/index.html)
 
 [crates.io](https://crates.io/crates/parser-combinators)
+
+## Extra
+
+There is an additional crate which has parsers to lex and parse programming languages in [parser-combinators-language](https://github.com/Marwes/parser-combinators-language).
