@@ -234,7 +234,8 @@ impl <I> Parser for String<I>
             match input.uncons_char() {
                 Ok((other, rest)) => {
                     if c != other {
-                        let error = ParseError::new(start, Error::Expected(self.0.into()));
+                        let errors = vec![Error::Unexpected(other), Error::Expected(self.0.into())];
+                        let error = ParseError::from_errors(start, errors);
                         return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
                     }
                     consumed = true;
@@ -273,7 +274,7 @@ pub fn string<I>(s: &'static str) -> String<I>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, Parser, SourcePosition};
+    use primitives::{Error, ParseError, Parser, SourcePosition};
 
     #[test]
     fn space_error() {
@@ -289,5 +290,14 @@ mod tests {
         let result = string("a").parse("b");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
+    }
+
+    #[test]
+    fn string_error() {
+        let result = string("abc").parse("bc");
+        assert_eq!(result, Err(ParseError {
+            position: SourcePosition { line: 1, column: 1 },
+            errors: vec![Error::Unexpected('b'), Error::Expected("abc".into())]
+        }));
     }
 }
