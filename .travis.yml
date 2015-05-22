@@ -4,6 +4,7 @@ rust:
 - beta
 - stable
 after_success: |
+  [ $TRAVIS_RUST_VERSION = stable ] &&
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
   cargo doc &&
