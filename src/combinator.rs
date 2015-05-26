@@ -99,7 +99,8 @@ pub fn choice<S, P>(ps: S) -> Choice<S, P>
 }
 
 #[derive(Clone)]
-pub struct Unexpected<I>(Info, PhantomData<fn (I) -> I>);
+pub struct Unexpected<I>(Info<I::Item>, PhantomData<fn (I) -> I>)
+    where I: Stream;
 impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
@@ -124,7 +125,7 @@ impl <I> Parser for Unexpected<I>
 /// ```
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
     where I: Stream
-        , S: Into<Info> {
+        , S: Into<Info<I::Item>> {
     Unexpected(message.into(), PhantomData)
 }
 
@@ -677,7 +678,8 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Message<P>(P, Info) where P: Parser;
+pub struct Message<P>(P, Info<<P::Input as Stream>::Item>)
+    where P: Parser;
 impl <I, P> Parser for Message<P>
     where I: Stream, P: Parser<Input=I> {
 
@@ -751,7 +753,8 @@ impl <P, N, F> Parser for Then<P, F>
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(P, Info);
+pub struct Expected<P>(P, Info<<P::Input as Stream>::Item>)
+    where P: Parser;
 impl <P> Parser for Expected<P>
     where P: Parser {
 
@@ -773,7 +776,7 @@ pub struct AndThen<P, F>(P, F);
 impl <P, F, O, E> Parser for AndThen<P, F>
     where P: Parser
         , F: FnMut(P::Output) -> Result<O, E>
-        , E: Into<Error> {
+        , E: Into<Error<<P::Input as Stream>::Item>> {
 
     type Input = <P as Parser>::Input;
     type Output = O;
@@ -928,7 +931,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn message<S>(self, msg: S) -> Message<Self>
-        where S: Into<Info> {
+        where S: Into<Info<<Self::Input as Stream>::Item>> {
         Message(self, msg.into())
     }
 
@@ -949,7 +952,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: Into<Info> {
+        where S: Into<Info<<Self::Input as Stream>::Item>> {
         Expected(self, msg.into())
     }
 
@@ -968,7 +971,7 @@ pub trait ParserExt : Parser + Sized {
     /// ```
     fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
         where F: FnMut(Self::Output) -> Result<O, E>
-            , E: Into<Error> {
+            , E: Into<Error<<Self::Input as Stream>::Item>> {
         AndThen(self, f)
     }
 

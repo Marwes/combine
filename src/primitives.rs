@@ -38,16 +38,16 @@ impl fmt::Display for BytePosition {
 }
 
 #[derive(Clone, Debug)]
-pub enum Info {
-    Token(char),
+pub enum Info<T> {
+    Token(T),
     Owned(String),
     Borrowed(&'static str)
 }
 
-impl PartialEq for Info {
-    fn eq(&self, other: &Info) -> bool {
+impl <T: PartialEq> PartialEq for Info<T> {
+    fn eq(&self, other: &Info<T>) -> bool {
         match (self, other) {
-            (&Info::Token(l), &Info::Token(r)) => l == r,
+            (&Info::Token(ref l), &Info::Token(ref r)) => l == r,
             (&Info::Owned(ref l), &Info::Owned(ref r)) => l == r,
             (&Info::Borrowed(ref l), &Info::Owned(ref r)) => l == r,
             (&Info::Owned(ref l), &Info::Borrowed(ref r)) => l == r,
@@ -56,51 +56,51 @@ impl PartialEq for Info {
         }
     }
 }
-impl fmt::Display for Info {
+impl <T: fmt::Display> fmt::Display for Info<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Info::Token(c) => write!(f, "{}", c),
+            Info::Token(ref c) => write!(f, "{}", c),
             Info::Owned(ref s) => write!(f, "{}", s),
             Info::Borrowed(s) => write!(f, "{}", s),
         }
     }
 }
 
-impl From<char> for Info {
-    fn from(s: char) -> Info {
+impl <T: Positioner> From<T> for Info<T> {
+    fn from(s: T) -> Info<T> {
         Info::Token(s)
     }
 }
 
-impl From<String> for Info {
-    fn from(s: String) -> Info {
+impl <T> From<String> for Info<T> {
+    fn from(s: String) -> Info<T> {
         Info::Owned(s)
     }
 }
 
-impl From<&'static str> for Info {
-    fn from(s: &'static str) -> Info {
+impl <T> From<&'static str> for Info<T> {
+    fn from(s: &'static str) -> Info<T> {
         Info::Borrowed(s)
     }
 }
 
 ///Enum used to store information about an error that has occured
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<T> {
     ///Error indicating an unexpected token has been encountered in the stream
-    Unexpected(char),
+    Unexpected(T),
     ///Error indicating that the parser expected something else
-    Expected(Info),
+    Expected(Info<T>),
     ///Generic message
-    Message(Info),
+    Message(Info<T>),
     ///Variant for containing other types of errors
     Other(Box<StdError+Send>)
 }
 
-impl PartialEq for Error {
-    fn eq(&self, other: &Error) -> bool {
+impl <T: PartialEq> PartialEq for Error<T> {
+    fn eq(&self, other: &Error<T>) -> bool {
         match (self, other) {
-            (&Error::Unexpected(l), &Error::Unexpected(r)) => l == r,
+            (&Error::Unexpected(ref l), &Error::Unexpected(ref r)) => l == r,
             (&Error::Expected(ref l), &Error::Expected(ref r)) => l == r,
             (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
             _ => false
@@ -108,8 +108,8 @@ impl PartialEq for Error {
     }
 }
 
-impl <E> From<E> for Error where E: StdError + 'static + Send {
-    fn from(e: E) -> Error {
+impl <E, T> From<E> for Error<T> where E: StdError + 'static + Send {
+    fn from(e: E) -> Error<T> {
         Error::Other(Box::new(e))
     }
 }
@@ -215,27 +215,27 @@ pub struct ParseError<P: Positioner> {
     ///The position where the error occured
     pub position: P::Position,
     ///A vector containing specific information on what errors occured at `position`
-    pub errors: Vec<Error>
+    pub errors: Vec<Error<P>>
 }
 
 impl <P: Positioner> ParseError<P> {
-    pub fn new(position: P::Position, error: Error) -> ParseError<P> {
+    pub fn new(position: P::Position, error: Error<P>) -> ParseError<P> {
         ParseError::from_errors(position, vec![error])
     }
-    pub fn from_errors(position: P::Position, errors: Vec<Error>) -> ParseError<P> {
+    pub fn from_errors(position: P::Position, errors: Vec<Error<P>>) -> ParseError<P> {
         ParseError { position: position, errors: errors }
     }
     pub fn add_message<S>(&mut self, message: S)
-        where S: Into<Info> {
+        where S: Into<Info<P>> {
         self.add_error(Error::Message(message.into()));
     }
-    pub fn add_error(&mut self, message: Error) {
+    pub fn add_error(&mut self, message: Error<P>) {
         //Don't add duplicate errors
         if self.errors.iter().find(|msg| **msg == message).is_none() {
             self.errors.push(message);
         }
     }
-    pub fn set_expected(&mut self, message: Info) {
+    pub fn set_expected(&mut self, message: Info<P>) {
         //Remove all other expected messages
         self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
         self.errors.push(Error::Expected(message));
@@ -262,7 +262,7 @@ impl <P> StdError for ParseError<P>
     fn description(&self) -> &str { "parse error" }
 }
 
-impl <P: Positioner> fmt::Display for ParseError<P>
+impl <P: Positioner + fmt::Display> fmt::Display for ParseError<P>
     where P::Position: fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
@@ -317,10 +317,10 @@ impl fmt::Display for SourcePosition {
         write!(f, "line: {}, column: {}", self.line, self.column)
     }
 }
-impl fmt::Display for Error {
+impl <T: fmt::Display> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Unexpected(c) => write!(f, "Unexpected character '{}'", c),
+            Error::Unexpected(ref c) => write!(f, "Unexpected token '{}'", c),
             Error::Expected(ref s) => write!(f, "Expected {}", s),
             Error::Message(ref msg) => write!(f, "{}", msg),
             Error::Other(ref err) => err.fmt(f)
@@ -427,7 +427,7 @@ impl <I: Iterator + Clone> Stream for IteratorStream<I>
     }
 }
 
-pub trait Positioner {
+pub trait Positioner: Clone + PartialEq {
     type Position: Clone + Ord + fmt::Display + fmt::Debug;
     fn start() -> Self::Position;
     fn update(&self, position: &mut Self::Position);
