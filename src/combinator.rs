@@ -49,6 +49,88 @@ pub fn any<I>() -> Any<I>
     Any(PhantomData)
 }
 
+
+
+#[derive(Clone)]
+pub struct Satisfy<I, P> { predicate: P, _marker: PhantomData<I> }
+
+impl <I, P> Parser for Satisfy<I, P>
+    where I: Stream, P: FnMut(I::Item) -> bool {
+
+    type Input = I;
+    type Output = I::Item;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
+        match input.clone().uncons() {
+            Ok((c, s)) => {
+                if (self.predicate)(c.clone()) { Ok((c, s)) }
+                else {
+                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
+                }
+            }
+            Err(err) => Err(err)
+        }
+    }
+}
+
+///Parses a token and succeeds depending on the result of `predicate`
+///
+/// ```
+/// # extern crate parser_combinators as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = satisfy(|c| c == '!' || c == '?');
+/// assert_eq!(parser.parse("!").map(|x| x.0), Ok('!'));
+/// assert_eq!(parser.parse("?").map(|x| x.0), Ok('?'));
+/// # }
+/// ```
+pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
+    where I: Stream, P: FnMut(I::Item) -> bool {
+    Satisfy { predicate: predicate, _marker: PhantomData }
+}
+
+#[derive(Clone)]
+pub struct Token<I>
+    where I: Stream {
+    c: I::Item,
+    _marker: PhantomData<I>
+}
+
+impl <I> Parser for Token<I>
+    where I: Stream {
+
+    type Input = I;
+    type Output = I::Item;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
+        match input.clone().uncons() {
+            Ok((c, s)) => {
+                if self.c == c { Ok((c, s)) }
+                else {
+                    let errors = vec![Error::Unexpected(c), Error::Expected(self.c.clone().into())];
+                    Err(Consumed::Empty(ParseError::from_errors(input.position, errors)))
+                }
+            }
+            Err(err) => Err(err)
+        }
+    }
+}
+
+///Parses a character and succeeds if the characther is equal to `c`
+///
+/// ```
+/// # extern crate parser_combinators as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let result = token('!')
+///     .parse("!")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok('!'));
+/// # }
+/// ```
+pub fn token<I>(c: I::Item) -> Token<I>
+    where I: Stream {
+    Token { c: c, _marker: PhantomData }
+}
+
 pub struct Choice<S, P>(S, PhantomData<P>);
 
 impl <I, O, S, P> Parser for Choice<S, P>
@@ -386,7 +468,7 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = sep_by(digit(), char(','))
+/// let result = sep_by(digit(), token(','))
 ///     .parse("1,2,3")
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
@@ -501,7 +583,7 @@ impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = between(char('['), char(']'), string("rust"))
+/// let result = between(token('['), token(']'), string("rust"))
 ///     .parse("[rust]")
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok("rust"));
@@ -802,7 +884,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
-    ///     .with(char('i'))
+    ///     .with(token('i'))
     ///     .parse("9i")
     ///     .map(|x| x.0);
     /// assert_eq!(result, Ok('i'));
@@ -821,7 +903,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
-    ///     .skip(char('i'))
+    ///     .skip(token('i'))
     ///     .parse("9i")
     ///     .map(|x| x.0);
     /// assert_eq!(result, Ok('9'));
@@ -841,7 +923,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
-    ///     .and(char('i'))
+    ///     .and(token('i'))
     ///     .parse("9i")
     ///     .map(|x| x.0);
     /// assert_eq!(result, Ok(('9', 'i')));
@@ -922,7 +1004,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # use pc::primitives::Error;
     /// # fn main() {
-    /// let result = char('9')
+    /// let result = token('9')
     ///     .message("Not a nine")
     ///     .parse("8");
     /// assert!(result.is_err());
@@ -943,7 +1025,7 @@ pub trait ParserExt : Parser + Sized {
     /// # use pc::*;
     /// # use pc::primitives::Error;
     /// # fn main() {
-    /// let result = char('9')
+    /// let result = token('9')
     ///     .expected("9")
     ///     .parse("8");
     /// assert!(result.is_err());
@@ -1034,20 +1116,20 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 mod tests {
     use super::*;
     use primitives::Parser;
-    use char::{char, digit, letter};
+    use char::{digit, letter};
 
     #[test]
     fn chainr1_test() {
         fn pow(l: i32, r: i32) -> i32 { l.pow(r as u32) }
 
-        let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
-        let pow = char('^').map(|_| pow);
+        let number = digit::<&str>().map(|c| c.to_digit(10).unwrap() as i32);
+        let pow = token('^').map(|_| pow);
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
     #[test]
     fn tuple() {
-        let mut parser = (digit(), char(','), digit(), char(','), letter());
+        let mut parser = (digit(), token(','), digit(), token(','), letter());
         assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
     }
 }

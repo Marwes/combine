@@ -1,5 +1,5 @@
 use primitives::{Consumed, Parser, ParseError, Error, State, Stream};
-use combinator::{Expected, skip_many, SkipMany, ParserExt, With};
+use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, ParserExt, With};
 use std::marker::PhantomData;
 
 pub type ParseResult<O, I> = ::primitives::ParseResult<O, I, char>;
@@ -20,65 +20,6 @@ macro_rules! impl_char_parser {
 }
 }
 
-#[derive(Clone)]
-pub struct Satisfy<I, Pred> { pred: Pred, _marker: PhantomData<I> }
-
-impl <I, Pred> Parser for Satisfy<I, Pred>
-    where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
-
-    type Input = I;
-    type Output = char;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<char, I> {
-        match input.clone().uncons_char() {
-            Ok((c, s)) => {
-                if (self.pred)(c) { Ok((c, s)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-}
-
-///Parses a character and succeeds depending on the result of `pred`
-///
-/// ```
-/// # extern crate parser_combinators as pc;
-/// # use pc::*;
-/// # fn main() {
-/// let mut parser = satisfy(|c| c == '!' || c == '?');
-/// assert_eq!(parser.parse("!").map(|x| x.0), Ok('!'));
-/// assert_eq!(parser.parse("?").map(|x| x.0), Ok('?'));
-/// # }
-/// ```
-pub fn satisfy<I, Pred>(pred: Pred) -> Satisfy<I, Pred>
-    where I: Stream<Item=char>, Pred: FnMut(char) -> bool {
-    Satisfy { pred: pred, _marker: PhantomData }
-}
-
-#[derive(Clone)]
-pub struct Char<I> { c: char, _marker: PhantomData<I> }
-
-impl <I> Parser for Char<I>
-    where I: Stream<Item=char> {
-
-    type Input = I;
-    type Output = char;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<char, I> {
-        match input.clone().uncons_char() {
-            Ok((c, s)) => {
-                if self.c == c { Ok((c, s)) }
-                else {
-                    let errors = vec![Error::Unexpected(c), Error::Expected(self.c.into())];
-                    Err(Consumed::Empty(ParseError::from_errors(input.position, errors)))
-                }
-            }
-            Err(err) => Err(err)
-        }
-    }
-}
-
 ///Parses a character and succeeds if the characther is equal to `c`
 ///
 /// ```
@@ -91,9 +32,9 @@ impl <I> Parser for Char<I>
 /// assert_eq!(result, Ok('!'));
 /// # }
 /// ```
-pub fn char<I>(c: char) -> Char<I>
+pub fn char<I>(c: char) -> Token<I>
     where I: Stream<Item=char> {
-    Char { c: c, _marker: PhantomData }
+    token(c)
 }
 
 impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }

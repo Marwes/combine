@@ -116,7 +116,6 @@ pub use char::{
     hex_digit,
     oct_digit,
     string,
-    satisfy,
 
     ParseResult//use char::ParseResult for compatibility
 };
@@ -130,9 +129,11 @@ pub use combinator::{
     many1,
     optional,
     parser,
+    satisfy,
     sep_by,
     skip_many,
     skip_many1,
+    token,
     try,
     value,
     unexpected,
