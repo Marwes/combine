@@ -2,7 +2,7 @@ use std::fmt;
 use std::error::Error as StdError;
 use std::any::Any;
 
-///Struct which represents the positions in the source file
+///Struct which represents a position in a source file
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
     ///Current line of the input
@@ -21,6 +21,19 @@ impl SourcePosition {
             self.column = 1;
             self.line += 1;
         }
+    }
+}
+
+///Struct which represents a position in a byte stream
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BytePosition {
+    ///Current position
+    pub position: usize
+}
+
+impl fmt::Display for BytePosition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "position: {}", self.position)
     }
 }
 
@@ -437,6 +450,18 @@ impl Positioner for char {
     }
     fn update(&self, position: &mut SourcePosition) {
         position.update(self);
+    }
+}
+
+impl Positioner for u8 {
+    type Position = BytePosition;
+
+    fn start() -> BytePosition {
+        BytePosition { position: 0 }
+    }
+
+    fn update(&self, b: &mut BytePosition) {
+        b.position += 1;
     }
 }
 
