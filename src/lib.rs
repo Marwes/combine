@@ -102,7 +102,6 @@
 pub use primitives::{Parser, ParseError, from_iter};
 #[doc(inline)]
 pub use char::{
-    any_char,
     char,
     digit,
     space,
@@ -123,6 +122,7 @@ pub use char::{
 };
 #[doc(inline)]
 pub use combinator::{
+    any,
     between,
     chainl1,
     choice,

@@ -18,6 +18,37 @@ macro_rules! impl_parser {
 }
 }
 
+#[derive(Clone)]
+pub struct Any<I>(PhantomData<fn (I) -> I>);
+
+impl <I> Parser for Any<I>
+    where I: Stream {
+    type Input = I;
+    type Output = I::Item;
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
+        input.uncons()
+    }
+}
+
+///Parses any token
+///
+/// ```
+/// # extern crate parser_combinators as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let mut char_parser = any();
+/// assert_eq!(char_parser.parse("!").map(|x| x.0), Ok('!'));
+/// assert!(char_parser.parse("").is_err());
+/// let mut byte_parser = any();
+/// assert_eq!(byte_parser.parse(&b"!"[..]).map(|x| x.0), Ok(&b'!'));
+/// assert!(byte_parser.parse(&b""[..]).is_err());
+/// # }
+/// ```
+pub fn any<I>() -> Any<I>
+    where I: Stream {
+    Any(PhantomData)
+}
+
 pub struct Choice<S, P>(S, PhantomData<P>);
 
 impl <I, O, S, P> Parser for Choice<S, P>
