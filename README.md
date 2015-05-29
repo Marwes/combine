@@ -5,7 +5,7 @@ A parser combinators is, broadly speaking, a function which takes several parser
 
 The library is still unstable but if you end up trying it I welcome any feedback from your experience with it.
 
-[![Build Status](https://travis-ci.org/Marwes/parser-combinators.svg)](https://travis-ci.org/Marwes/parser-combinators)
+[![Build Status](https://travis-ci.org/Marwes/parser-combinators.svg?branch=master)](https://travis-ci.org/Marwes/parser-combinators)
 
 [Documentation and examples](https://marwes.github.io/parser-combinators/parser_combinators/index.html)
 
