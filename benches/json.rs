@@ -103,9 +103,8 @@ impl <I> Json<I>
             .parse_state(input)
     }
     fn object(input: State<I>) -> ParseResult<Value, I> {
-        let field = lex(parser(Json::<I>::string))
-            .skip(lex(char(':')))
-            .and(lex(parser(Json::<I>::value)));
+        let field = (lex(parser(Json::<I>::string)), lex(char(':')), lex(parser(Json::<I>::value)))
+            .map(|t| (t.0, t.1);
         let fields = sep_by(field, char(','));
         between(char('{'), lex(char('}')), fields)
             .map(Value::Object)
@@ -115,7 +114,7 @@ impl <I> Json<I>
     #[allow(unconditional_recursion)]
     fn value(input: State<I>) -> ParseResult<Value, I>
         where I: Stream<Item=char> {
-        let array = between(char('['), lex(char(']')), sep_by(parser(Json::<I>::value), char(',')))
+        let array = between(lex(char('[')), lex(char(']')), sep_by(parser(Json::<I>::value), char(',')))
             .map(Value::Array);
 
         //Wrap a few of the value parsers to workaround the slow compiletimes

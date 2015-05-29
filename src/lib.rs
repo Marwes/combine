@@ -1,4 +1,4 @@
-//! This crate contains parser combinators based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
+//! This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
 //!
 //! A parser in this library can be described as a function which takes some input and if it
 //! is succesful, returns a value together with the remaining input.
@@ -10,7 +10,7 @@
 //!
 //! This library is currently split into three modules.
 //!
-//! * `primitives` contains the `Parser` trait as well as various structs handling input
+//! * `primitives` contains the `Parser` trait as well as various structs dealing with input
 //! streams and errors.
 //!
 //! * `combinator` contains the before mentioned parser combinators and thus contains the main
@@ -26,26 +26,15 @@
 //!
 //!```
 //! extern crate parser_combinators;
-//! use parser_combinators::{
-//!     spaces, many1, sep_by, digit, char,//Import the parsers we need
-//!     Parser,//and the `Parser` trait to give us access tot the `parse` method
-//!     ParserExt,//`ParserExt` lets us call a few combinators as methods on any parser,
-//!               //such as `skip`, `and`, `with` among others
-//!     ParseError//The standard error type for parsers
-//! };
+//! use parser_combinators::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
 //!     let input = "1234, 45,78";
-//!     let integer = spaces()//Skip any preceding whitespace
-//!         //.with is used to apply two parsers in sequence while only keeping the result of the
-//!         //second one
-//!         .with(many1(digit())
-//!         //Transform the `String` gained from `many1(digit())` into a number by calling
-//!         //the `std::str::parse` on it
-//!         .map(|string: String| string.parse::<i32>().unwrap()));
-//!
-//!     //Parse integers separated by commas, skipping any whitespace preceding the commas
-//!     let mut integer_list = sep_by(integer, spaces().and(char(',')));
+//!     let spaces = spaces();
+//!     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
+//!         .with(many1(digit()).map(|string: String| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
+//!     //Parse integers separated by commas, skipping whitespace
+//!     let mut integer_list = sep_by(integer, spaces.skip(char(',')));
 //! 
 //!     //Call parse with the input to execute the parser
 //!     let result: Result<(Vec<i32>, &str), ParseError> = integer_list.parse(input);
@@ -56,13 +45,13 @@
 //! }
 //!```
 //!
-//! If we need a parser that is mutually recursive we can define a free function which acts as a
-//! parser. Any type implementing the trait `FnMut(State<I>) -> ParseResult<O, I>` can be turned
-//! into a parser by calling `parser` on it.
+//! If we need a parser that is mutually recursive we can define a free function which internally 
+//! can in turn be used as a parser (Note that we need to explicitly cast the function, this should
+//! not be necessary once changes in rustc to make orphan checking less restrictive gets implemented)
 //!
-//! `expr` is written to take any type of `Stream`.
-//! The `Stream` trait is predefined to work with `&[T]`, `&str` and any type implementing
-//! `Iterator + Clone`, meaning that in this case where we only parse a `&str`
+//! `expr` is written fully general here which may not be necessary in a specific implementation
+//! The `Stream` trait is predefined to work with array slices, string slices and iterators
+//! meaning that in this case it could be defined as
 //! `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
 //!```
@@ -75,25 +64,35 @@
 //! enum Expr {
 //!     Id(String),
 //!     Array(Vec<Expr>),
+//!     Pair(Box<Expr>, Box<Expr>)
 //! }
+//!
 //! fn expr<I>(input: State<I>) -> ParseResult<Expr, I>
 //!     where I: Stream<Item=char> {
 //!     let word = many1(letter());
-//!     let comma_list = sep_by(parser(expr), char(','));
-//!     let array = between(char('['), char(']'), comma_list);
-//!     spaces().with(
-//!             word.map(Expr::Id)
-//!             .or(array.map(Expr::Array))
-//!         ).parse_state(input)
+//!     //Creates a parser which parses a char and skips any trailing whitespace
+//!     let lex_char = |c| char(c).skip(spaces());
+//!     let comma_list = sep_by(parser(expr::<I>), lex_char(','));
+//!     let array = between(lex_char('['), lex_char(']'), comma_list);
+//!     //We can use tuples to run several parsers in sequence
+//!     //The resulting type is a tuple containing each parsers output
+//!     let pair = (lex_char('('), parser(expr::<I>), lex_char(','), parser(expr::<I>), lex_char(')'))
+//!         .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
+//!     word.map(Expr::Id)
+//!         .or(array.map(Expr::Array))
+//!         .or(pair)
+//!         .skip(spaces())
+//!         .parse_state(input)
 //! }
 //! 
 //! fn main() {
 //!     let result = parser(expr)
-//!         .parse("[[], hello, [world]]");
+//!         .parse("[[], (hello, world), [rust]]");
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
-//!         , Expr::Id("hello".to_string())
-//!         , Expr::Array(vec![Expr::Id("world".to_string())])
+//!         , Expr::Pair(Box::new(Expr::Id("hello".to_string())),
+//!                      Box::new(Expr::Id("world".to_string())))
+//!         , Expr::Array(vec![Expr::Id("rust".to_string())])
 //!     ]);
 //!     assert_eq!(result, Ok((expr, "")));
 //! }
@@ -194,11 +193,8 @@ mod tests {
     fn field() {
         let word = || many(alpha_num());
         let spaces = spaces();
-        let c_decl = word()
-            .skip(spaces.clone())
-            .skip(char(':'))
-            .skip(spaces)
-            .and(word())
+        let c_decl = (word(), spaces.clone(), char(':'), spaces, word())
+            .map(|t| (t.0, t.4))
             .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
@@ -208,9 +204,8 @@ mod tests {
 r"
 123
 ";
-        let result = spaces()
-            .with(parser(integer))
-            .skip(spaces())
+        let result = (spaces(), parser(integer), spaces())
+            .map(|t| t.1)
             .parse_state(State::new(source));
         let state = Consumed::Consumed(State {
             position: SourcePosition { line: 3, column: 1 },
@@ -298,12 +293,11 @@ Expected 'identifier', 'integer', '[' or '('
     }
 
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
-        fn times(l: Expr, r: Expr) -> Expr { Expr::Times(Box::new(l), Box::new(r)) }
-        fn plus(l: Expr, r: Expr) -> Expr { Expr::Plus(Box::new(l), Box::new(r)) }
+
         let mul = char('*')
-            .map(|_| times);
+            .map(|_| |l, r| Expr::Times(Box::new(l), Box::new(r)));
         let add = char('+')
-            .map(|_| plus);
+            .map(|_| |l, r| Expr::Plus(Box::new(l), Box::new(r)));
         let factor = chainl1(parser(expr), mul);
         chainl1(factor, add)
             .parse_state(input)
@@ -367,8 +361,7 @@ r"
     }
     #[test]
     fn chainl1_error_consume() {
-        fn first<T, U>(t: T, _: U) -> T { t }
-        let mut p = chainl1(string("abc"), char(',').map(|_| first));
+        let mut p = chainl1(string("abc"), char(',').map(|_| |l, _| l));
         assert!(p.parse("abc,ab").is_err());
     }
 

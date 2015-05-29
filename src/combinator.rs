@@ -968,11 +968,39 @@ pub trait ParserExt : Parser + Sized {
 
 impl <P: Parser> ParserExt for P { }
 
+macro_rules! tuple_parser {
+    ($($id: ident),+) => {
+        impl <Input: Stream, $($id: Parser<Input=Input>),+> Parser for ($($id),+) {
+            type Input = Input;
+            type Output = ($($id::Output),+);
+            #[allow(non_snake_case)]
+            fn parse_state(&mut self, input: State<Input>) -> ParseResult<($($id::Output),+), Input> {
+                let ($(ref mut $id),+) = *self;
+                let input = Consumed::Empty(input);
+                $(let ($id, input) = try!(input.combine(|input| $id.parse_state(input)));)+
+                Ok((($($id),+), input))
+            }
+        }
+    }
+}
+
+tuple_parser!(A, B);
+tuple_parser!(A, B, C);
+tuple_parser!(A, B, C, D);
+tuple_parser!(A, B, C, D, E);
+tuple_parser!(A, B, C, D, E, F);
+tuple_parser!(A, B, C, D, E, F, G);
+tuple_parser!(A, B, C, D, E, F, G, H);
+tuple_parser!(A, B, C, D, E, F, G, H, I);
+tuple_parser!(A, B, C, D, E, F, G, H, I, J);
+tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
+tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use primitives::Parser;
-    use char::{char, digit};
+    use char::{char, digit, letter};
 
     #[test]
     fn chainr1_test() {
@@ -982,5 +1010,10 @@ mod tests {
         let pow = char('^').map(|_| pow);
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
+    }
+    #[test]
+    fn tuple() {
+        let mut parser = (digit(), char(','), digit(), char(','), letter());
+        assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
     }
 }
