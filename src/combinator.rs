@@ -950,8 +950,10 @@ mod tests {
 
     #[test]
     fn chainr1_test() {
+        fn pow(l: i32, r: i32) -> i32 { l.pow(r as u32) }
+
         let number = digit().map(|c| c.to_digit(10).unwrap() as i32);
-        let pow = char('^').map(|_| |l:i32, r:i32| l.pow(r as u32));
+        let pow = char('^').map(|_| pow);
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }

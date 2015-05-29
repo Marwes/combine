@@ -288,11 +288,12 @@ Expected 'identifier', 'integer', '[' or '('
     }
 
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
-
+        fn times(l: Expr, r: Expr) -> Expr { Expr::Times(Box::new(l), Box::new(r)) }
+        fn plus(l: Expr, r: Expr) -> Expr { Expr::Plus(Box::new(l), Box::new(r)) }
         let mul = char('*')
-            .map(|_| |l, r| Expr::Times(Box::new(l), Box::new(r)));
+            .map(|_| times);
         let add = char('+')
-            .map(|_| |l, r| Expr::Plus(Box::new(l), Box::new(r)));
+            .map(|_| plus);
         let factor = chainl1(parser(expr), mul);
         chainl1(factor, add)
             .parse_state(input)
@@ -356,7 +357,8 @@ r"
     }
     #[test]
     fn chainl1_error_consume() {
-        let mut p = chainl1(string("abc"), char(',').map(|_| |l, _| l));
+        fn first<T, U>(t: T, _: U) -> T { t }
+        let mut p = chainl1(string("abc"), char(',').map(|_| first));
         assert!(p.parse("abc,ab").is_err());
     }
 
