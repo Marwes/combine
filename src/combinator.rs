@@ -152,7 +152,7 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
                  .or(value(())))
 }
 
-struct Iter<P: Parser> {
+pub struct Iter<P: Parser> {
     parser: P,
     input: Consumed<State<P::Input>>,
     error: Option<Consumed<ParseError>>
@@ -162,10 +162,12 @@ impl <P: Parser> Iter<P> {
     fn new(parser: P, input: State<P::Input>) -> Iter<P> {
         Iter { parser: parser, input: Consumed::Empty(input), error: None }
     }
-    fn into_result<O>(self, result: O) -> ParseResult<O, P::Input> {
+    ///Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
+    ///without any errors which consumed data.
+    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
         match self.error {
             Some(err@Consumed::Consumed(_)) => Err(err),
-            _ => Ok((result, self.input))
+            _ => Ok((value, self.input))
         }
     }
 }
@@ -198,7 +200,7 @@ impl <F, P> Parser for Many<F, P>
     type Input = <P as Parser>::Input;
     type Output = F;
     fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input> {
-        let mut iter = Iter::new(&mut self.0, input);
+        let mut iter = (&mut self.0).iter(input);
         let result = iter.by_ref().collect();
         iter.into_result(result)
     }
@@ -937,6 +939,30 @@ pub trait ParserExt : Parser + Sized {
         where F: FnMut(Self::Output) -> Result<O, E>
             , E: Into<Error> {
         AndThen(self, f)
+    }
+
+    ///Creates an iterator from a parser and a state. Can be used as an alternative to `many` when
+    ///collecting directly into a `FromIterator` type is not desirable
+    ///
+    /// ```
+    /// # extern crate parser_combinators as pc;
+    /// # use pc::*;
+    /// # fn main() {
+    /// let mut buffer = String::new();
+    /// let number = parser(|input| {
+    ///     buffer.clear();
+    ///     let mut iter = digit().iter(input);
+    ///     buffer.extend(&mut iter);
+    ///     let i = buffer.parse::<i32>().unwrap();
+    ///     iter.into_result(i)
+    /// });
+    /// let result = sep_by(number, char(','))
+    ///     .parse("123,45,6");
+    /// assert_eq!(result, Ok((vec![123, 45, 6], "")));
+    /// # }
+    /// ```
+    fn iter(self, input: State<Self::Input>) -> Iter<Self> {
+        Iter::new(self, input)
     }
 }
 
