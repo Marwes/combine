@@ -324,7 +324,7 @@ r"
 
 
     fn follow(input: State<&str>) -> ParseResult<(), &str> {
-        match input.clone().uncons_char() {
+        match input.clone().uncons() {
             Ok((c, _)) => {
                 if c.is_alphanumeric() {
                     Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))

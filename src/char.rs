@@ -145,7 +145,7 @@ impl <I> Parser for String<I>
         let start = input.position;
         let mut consumed = false;
         for c in self.0.chars() {
-            match input.uncons_char() {
+            match input.uncons() {
                 Ok((other, rest)) => {
                     if c != other {
                         let errors = vec![Error::Unexpected(other), Error::Expected(self.0.into())];

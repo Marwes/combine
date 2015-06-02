@@ -10,19 +10,6 @@ pub struct SourcePosition {
     ///Current column of the input
     pub column: i32
 }
-impl SourcePosition {
-    fn start() -> SourcePosition {
-        SourcePosition { line: 1, column: 1 }
-    }
-
-    fn update(&mut self, c: &char) {
-        self.column += 1;
-        if *c == '\n' {
-            self.column = 1;
-            self.line += 1;
-        }
-    }
-}
 
 ///Struct which represents a position in a byte stream
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -360,13 +347,6 @@ impl <I: Stream> State<I> {
         }
     }
 }
-impl <I: Stream<Item=char>> State<I> {
-    ///Specialized uncons function for character streams which updates the position
-    ///with no further action needed
-    pub fn uncons_char(self) -> ParseResult<I::Item, I, I::Item> {
-        self.uncons()
-    }
-}
 
 ///A type alias over the specific `Result` type used by parsers to indicate wether they were
 ///successful or not.
@@ -446,10 +426,14 @@ impl <'a, T> Positioner for &'a T
 impl Positioner for char {
     type Position = SourcePosition;
     fn start() -> SourcePosition {
-        SourcePosition::start()
+        SourcePosition { line: 1, column: 1 }
     }
     fn update(&self, position: &mut SourcePosition) {
-        position.update(self);
+        position.column += 1;
+        if *self == '\n' {
+            position.column = 1;
+            position.line += 1;
+        }
     }
 }
 
