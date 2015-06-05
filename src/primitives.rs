@@ -352,6 +352,8 @@ impl <I: Stream> State<I> {
 ///successful or not.
 ///`O` is the type that is output on success
 ///`I` is the specific stream type used in the parser
+///`T` is the item type of `I`, this parameter will be removed once type declarations are allowed
+///to have trait bounds
 pub type ParseResult<O, I, T> = Result<(O, Consumed<State<I>>), Consumed<ParseError<T>>>;
 
 ///A stream is a sequence of items that can be extracted one by one
@@ -407,9 +409,14 @@ impl <I: Iterator + Clone> Stream for IteratorStream<I>
     }
 }
 
+///`Positioner` represents the operations needed to update a position given an item from the stream
+///When implementing stream for custom token type this must be implemented for that token to allow
+///the position to be updated
 pub trait Positioner: Clone + PartialEq {
     type Position: Clone + Ord + fmt::Display + fmt::Debug;
+    ///Creates a start position
     fn start() -> Self::Position;
+    ///Updates the position given that `self` has been taken from the stream
     fn update(&self, position: &mut Self::Position);
 }
 impl <'a, T> Positioner for &'a T
