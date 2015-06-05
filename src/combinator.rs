@@ -90,13 +90,15 @@ pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
 
 #[derive(Clone)]
 pub struct Token<I>
-    where I: Stream {
+    where I: Stream
+        , I::Item: PartialEq {
     c: I::Item,
     _marker: PhantomData<I>
 }
 
 impl <I> Parser for Token<I>
-    where I: Stream {
+    where I: Stream
+        , I::Item: PartialEq {
 
     type Input = I;
     type Output = I::Item;
@@ -127,7 +129,8 @@ impl <I> Parser for Token<I>
 /// # }
 /// ```
 pub fn token<I>(c: I::Item) -> Token<I>
-    where I: Stream {
+    where I: Stream
+        , I::Item: PartialEq {
     Token { c: c, _marker: PhantomData }
 }
 

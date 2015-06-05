@@ -318,7 +318,7 @@ impl <T: fmt::Display> fmt::Display for Error<T> {
 ///The `State<I>` struct keeps track of the current position in the stream `I`
 #[derive(Clone, PartialEq, Debug)]
 pub struct State<I>
-    where I: Stream, <<I as Stream>::Item as Positioner>::Position: Clone + PartialEq + fmt::Debug {
+    where I: Stream {
     pub position: <<I as Stream>::Item as Positioner>::Position,
     pub input: I
 }
@@ -413,7 +413,7 @@ impl <I: Iterator + Clone> Stream for IteratorStream<I>
 ///When implementing stream for custom token type this must be implemented for that token to allow
 ///the position to be updated
 pub trait Positioner: Clone + PartialEq {
-    type Position: Clone + Ord + fmt::Display + fmt::Debug;
+    type Position: Clone + Ord + fmt::Debug;
     ///Creates a start position
     fn start() -> Self::Position;
     ///Updates the position given that `self` has been taken from the stream
