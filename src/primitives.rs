@@ -24,6 +24,10 @@ impl fmt::Display for BytePosition {
     }
 }
 
+///Enum holding error information
+///As there is implementations of `From` for `T: Positioner`, `String` and `&'static str` the
+///constructor need not be used directly as calling `msg.into()` should turn a message into the
+///correct `Info` variant
 #[derive(Clone, Debug)]
 pub enum Info<T> {
     Token(T),
@@ -387,6 +391,8 @@ impl <'a, T> Stream for &'a [T]
     }
 }
 
+///Wrapper around iterators which allows them to be treated as a stream.
+///Returned by `from_iter`.
 #[derive(Clone, Debug)]
 pub struct IteratorStream<I>(I)
     where I: Iterator + Clone;
