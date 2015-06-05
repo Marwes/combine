@@ -104,7 +104,7 @@ impl <I> Json<I>
     }
     fn object(input: State<I>) -> ParseResult<Value, I> {
         let field = (lex(parser(Json::<I>::string)), lex(char(':')), lex(parser(Json::<I>::value)))
-            .map(|t| (t.0, t.1);
+            .map(|t| (t.0, t.2));
         let fields = sep_by(field, char(','));
         between(char('{'), lex(char('}')), fields)
             .map(Value::Object)
