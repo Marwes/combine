@@ -37,7 +37,7 @@
 //!     let mut integer_list = sep_by(integer, spaces.skip(char(',')));
 //! 
 //!     //Call parse with the input to execute the parser
-//!     let result: Result<(Vec<i32>, &str), ParseError> = integer_list.parse(input);
+//!     let result: Result<(Vec<i32>, &str), ParseError<char>> = integer_list.parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -99,10 +99,9 @@
 //!```
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseResult, ParseError, from_iter};
+pub use primitives::{Parser, ParseError, from_iter};
 #[doc(inline)]
 pub use char::{
-    any_char,
     char,
     digit,
     space,
@@ -117,10 +116,12 @@ pub use char::{
     hex_digit,
     oct_digit,
     string,
-    satisfy,
+
+    ParseResult//use char::ParseResult for compatibility
 };
 #[doc(inline)]
 pub use combinator::{
+    any,
     between,
     chainl1,
     choice,
@@ -128,9 +129,11 @@ pub use combinator::{
     many1,
     optional,
     parser,
+    satisfy,
     sep_by,
     skip_many,
     skip_many1,
+    token,
     try,
     value,
     unexpected,
@@ -286,7 +289,7 @@ r"
         let m = format!("{}", result.unwrap_err());
 let expected =
 r"Parse error at line: 2, column: 1
-Unexpected character ','
+Unexpected token ','
 Expected 'identifier', 'integer', '[' or '('
 ";
         assert_eq!(m, expected);
@@ -321,7 +324,7 @@ r"
 
 
     fn follow(input: State<&str>) -> ParseResult<(), &str> {
-        match input.clone().uncons_char() {
+        match input.clone().uncons() {
             Ok((c, _)) => {
                 if c.is_alphanumeric() {
                     Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))

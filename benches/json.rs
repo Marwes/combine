@@ -7,9 +7,9 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{Parser, State, Stream, ParseResult};
-use pc::combinator::{between, many, many1, optional, parser, sep_by, unexpected, With, ParserExt};
-use pc::char::{any_char, char, digit, satisfy, spaces, Spaces, string};
+use pc::primitives::{Parser, State, Stream};
+use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, unexpected, With, ParserExt};
+use pc::char::{char, digit, spaces, Spaces, string, ParseResult};
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -78,7 +78,7 @@ impl <I> Json<I>
     }
 
     fn char(input: State<I>) -> ParseResult<char, I> {
-        let (c, input) = try!(any_char().parse_state(input));
+        let (c, input) = try!(any().parse_state(input));
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some()).map(|c| {
             match c {
                 '"' => '"',
@@ -104,7 +104,7 @@ impl <I> Json<I>
     }
     fn object(input: State<I>) -> ParseResult<Value, I> {
         let field = (lex(parser(Json::<I>::string)), lex(char(':')), lex(parser(Json::<I>::value)))
-            .map(|t| (t.0, t.1);
+            .map(|t| (t.0, t.2));
         let fields = sep_by(field, char(','));
         between(char('{'), lex(char('}')), fields)
             .map(Value::Object)
