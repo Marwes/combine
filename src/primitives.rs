@@ -248,8 +248,8 @@ impl <P: Positioner> ParseError<P> {
 }
 
 impl <P> StdError for ParseError<P>
-    where P: fmt::Display + fmt::Debug + Positioner + Any
-        , P::Position: fmt::Display + fmt::Debug + Positioner + Any {
+    where P: Positioner + fmt::Display + fmt::Debug + Any
+        , P::Position: fmt::Display + fmt::Debug + Any {
     fn description(&self) -> &str { "parse error" }
 }
 
@@ -320,11 +320,19 @@ impl <T: fmt::Display> fmt::Display for Error<T> {
 }
 
 ///The `State<I>` struct keeps track of the current position in the stream `I`
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq)]
 pub struct State<I>
     where I: Stream {
-    pub position: <<I as Stream>::Item as Positioner>::Position,
+    pub position: <I::Item as Positioner>::Position,
     pub input: I
+}
+
+impl <I> fmt::Debug for State<I>
+    where I: Stream + fmt::Debug
+        , <I::Item as Positioner>::Position: fmt::Debug {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "State {{ position: {:?}, input: {:?} }}", self.position, self.input)
+    }
 }
 
 impl <I: Stream> State<I> {
@@ -419,7 +427,7 @@ impl <I: Iterator + Clone> Stream for IteratorStream<I>
 ///When implementing stream for custom token type this must be implemented for that token to allow
 ///the position to be updated
 pub trait Positioner: Clone + PartialEq {
-    type Position: Clone + Ord + fmt::Debug;
+    type Position: Clone + Ord;
     ///Creates a start position
     fn start() -> Self::Position;
     ///Updates the position given that `self` has been taken from the stream

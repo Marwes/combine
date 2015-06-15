@@ -412,4 +412,26 @@ r"
         assert_eq!(parser.parse("Fig123"), Ok(("Fig", "123")));
         assert_eq!(parser.parse("GrapeApple"), Ok(("Grape", "Apple")));
     }
+
+    #[test]
+    fn std_error() {
+        use std::fmt;
+        use std::error::Error as StdError;
+        #[derive(Debug)]
+        struct Error;
+        impl fmt::Display for Error {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "error")
+            }
+        }
+        impl StdError for Error {
+            fn description(&self) -> &str { "error" }
+        }
+        let result: Result<((), _), _> = string("abc")
+            .and_then(|_| Err(Error))
+            .parse("abc");
+        assert!(result.is_err());
+        //Test that ParseError can be coerced to a StdError
+        let _ = result.map_err(|err| { let err: Box<StdError> = Box::new(err); err });
+    }
 }
