@@ -7,8 +7,8 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{Parser, State, Stream};
-use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, unexpected, Expected, FnParser, Skip, ParserExt};
+use pc::primitives::{from_iter, Consumed, Parser, ParseError, State, Stream};
+use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, Expected, FnParser, Skip, ParserExt};
 use pc::char::{char, digit, spaces, Spaces, string, ParseResult};
 
 #[derive(PartialEq, Debug)]
@@ -109,7 +109,7 @@ impl <I> Json<I>
         });
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_state(input)),
-            '"'  => unexpected("\"").parse_state(input.into_inner()).map(|_| unreachable!()),
+            '"'  => Err(Consumed::Empty(ParseError::from_errors(input.into_inner().position, Vec::new()))),
             _    => Ok((c, input))
         }
     }
@@ -197,13 +197,14 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     let mut parser = Json::value();
-    match parser.parse(&data[..]) {
-        Ok((Value::Array(_), "")) => (),
-        Ok(x) => { println!("{:?}", x); assert!(false); }
+    let stream = from_iter(data.chars());
+    match parser.parse(stream.clone()) {
+        Ok((Value::Array(_), _)) => (),
+        Ok(_) => assert!(false),
         Err(err) => { println!("{}", err); assert!(false); }
     }
     bencher.iter(|| {
-        let result = parser.parse(&data);
+        let result = parser.parse(stream.clone());
         ::test::black_box(result)
     });
 }
