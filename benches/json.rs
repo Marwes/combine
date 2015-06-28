@@ -8,7 +8,7 @@ use std::fs::File;
 use std::path::Path;
 
 use pc::primitives::{Parser, State, Stream};
-use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, unexpected, With, ParserExt};
+use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, unexpected, Expected, FnParser, Skip, ParserExt};
 use pc::char::{char, digit, spaces, Spaces, string, ParseResult};
 
 #[derive(PartialEq, Debug)]
@@ -21,19 +21,28 @@ enum Value {
     Array(Vec<Value>)
 }
 
-fn lex<'a, P>(p: P) -> With<Spaces<P::Input>, P>
+fn lex<'a, P>(p: P) -> Skip<P, Spaces<P::Input>>
     where P: Parser
         , P::Input: Stream<Item=char> {
-    spaces().with(p)
+    p.skip(spaces())
 }
 struct Json<I>(::std::marker::PhantomData<fn (I) -> I>);
+
+type JsonParser<O, I> = Expected<FnParser<I, fn (State<I>) -> ParseResult<O, I>>>;
+
+fn fn_parser<O, I>(f: fn(State<I>) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
+    where I: Stream<Item=char> {
+    parser(f).expected(err)
+}
 
 impl <I> Json<I>
     where I: Stream<Item=char> {
 
-    fn integer(input: State<I>) -> ParseResult<i64, I> {
-        let (s, input) = try!(many1::<String, _>(digit())
-            .expected("integer")
+    fn integer() -> JsonParser<i64, I> {
+        fn_parser(Json::<I>::integer_, "integer")
+    }
+    fn integer_(input: State<I>) -> ParseResult<i64, I> {
+        let (s, input) = try!(lex(many1::<String, _>(digit()))
             .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
@@ -42,9 +51,12 @@ impl <I> Json<I>
         Ok((n, input))
     }
 
-    fn number(input: State<I>) -> ParseResult<f64, I> {
+    fn number() -> JsonParser<f64, I> {
+        fn_parser(Json::<I>::number_, "number")
+    }
+    fn number_(input: State<I>) -> ParseResult<f64, I> {
         let i = char('0').map(|_| 0.0)
-                 .or(parser(Json::<I>::integer).map(|x| x as f64));
+                 .or(Json::<I>::integer().map(|x| x as f64));
         let fractional = many(digit())
             .map(|digits: String| {
                 let mut magnitude = 1.0;
@@ -58,8 +70,8 @@ impl <I> Json<I>
             });
 
         let exp = satisfy(|c| c == 'e' || c == 'E')
-            .with(optional(char('-')).and(parser(Json::<I>::integer)));
-        optional(char('-'))
+            .with(optional(char('-')).and(Json::<I>::integer()));
+        lex(optional(char('-'))
             .and(i)
             .map(|(sign, n)| if sign.is_some() { -n } else { n })
             .and(optional(char('.')).with(fractional))
@@ -73,11 +85,14 @@ impl <I> Json<I>
                     }
                     None => n
                 }
-            })
+            }))
         .parse_state(input)
     }
 
-    fn char(input: State<I>) -> ParseResult<char, I> {
+    fn char() -> JsonParser<char, I> {
+        fn_parser(Json::<I>::char_, "char")
+    }
+    fn char_(input: State<I>) -> ParseResult<char, I> {
         let (c, input) = try!(any().parse_state(input));
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some()).map(|c| {
             match c {
@@ -98,42 +113,43 @@ impl <I> Json<I>
             _    => Ok((c, input))
         }
     }
-    fn string(input: State<I>) -> ParseResult<String, I> {
-        between(char('"'), char('"'), many(parser(Json::<I>::char)))
+    fn string() -> JsonParser<String, I> {
+        fn_parser(Json::<I>::string_, "string")
+    }
+    fn string_(input: State<I>) -> ParseResult<String, I> {
+        between(char('"'), lex(char('"')), many(Json::<I>::char()))
             .parse_state(input)
     }
-    fn object(input: State<I>) -> ParseResult<Value, I> {
-        let field = (lex(parser(Json::<I>::string)), lex(char(':')), lex(parser(Json::<I>::value)))
+
+    fn object() -> JsonParser<Value, I> {
+        fn_parser(Json::<I>::object_, "object")
+    }
+    fn object_(input: State<I>) -> ParseResult<Value, I> {
+        let field = (Json::<I>::string(), lex(char(':')), Json::<I>::value())
             .map(|t| (t.0, t.2));
-        let fields = sep_by(field, char(','));
-        between(char('{'), lex(char('}')), fields)
+        let fields = sep_by(field, lex(char(',')));
+        between(lex(char('{')), lex(char('}')), fields)
             .map(Value::Object)
             .parse_state(input)
     }
 
+    fn value() -> FnParser<I, fn (State<I>) -> ParseResult<Value, I>> {
+        parser({ let f: fn (_) -> _ = Json::<I>::value_; f })
+    }
     #[allow(unconditional_recursion)]
-    fn value(input: State<I>) -> ParseResult<Value, I>
-        where I: Stream<Item=char> {
-        let array = between(lex(char('[')), lex(char(']')), sep_by(parser(Json::<I>::value), char(',')))
+    fn value_(input: State<I>) -> ParseResult<Value, I> {
+        let array = between(lex(char('[')), lex(char(']')), sep_by(Json::<I>::value(), lex(char(','))))
             .map(Value::Array);
 
-        //Wrap a few of the value parsers to workaround the slow compiletimes
-        fn rest<I>(input: State<I>) -> ParseResult<Value, I>
-            where I: Stream<Item=char> {
-            string("false").map(|_| Value::Bool(false))
-                .or(string("true").map(|_| Value::Bool(true)))
-                .or(string("null").map(|_| Value::Null))
-                .parse_state(input)
-        }
-        lex(parser(Json::<I>::string).map(Value::String)
-            .or(parser(Json::<I>::object))
+        Json::<I>::string().map(Value::String)
+            .or(Json::<I>::object())
             .or(array)
-            .or(parser(Json::<I>::number).map(Value::Number))
-            .or(parser(rest))
-        )
+            .or(Json::<I>::number().map(Value::Number))
+            .or(lex(string("false").map(|_| Value::Bool(false))
+                .or(string("true").map(|_| Value::Bool(true)))
+                .or(string("null").map(|_| Value::Null))))
             .parse_state(input)
     }
-
 }
 
 #[test]
@@ -152,7 +168,7 @@ r#"
     "false"  : false,
     "null" : null
 }"#;
-    let result = parser(Json::value)
+    let result = Json::value()
         .parse(input);
     let expected = Object(vec![
         ("array", Array(vec![Number(1.0), String("".to_string())])),
@@ -180,9 +196,9 @@ fn bench_json(bencher: &mut ::test::Bencher) {
     File::open(&Path::new(&"benches/data.json"))
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
-    let mut parser = parser(Json::value);
+    let mut parser = Json::value();
     match parser.parse(&data[..]) {
-        Ok((Value::Array(_), "\r\n")) => (),
+        Ok((Value::Array(_), "")) => (),
         Ok(x) => { println!("{:?}", x); assert!(false); }
         Err(err) => { println!("{}", err); assert!(false); }
     }
