@@ -895,6 +895,20 @@ impl <P> Parser for Expected<P>
         self.0.parse_lazy(input)
     }
     fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        let start = errors.errors.len();
+        self.0.add_error(errors);
+        //Replace all expected errors that where added from the previous add_error
+        //with this expected error
+        let mut i = 0;
+        errors.errors.retain(|e| {
+            if i < start {
+                i += 1;
+                true
+            }
+            else {
+                match *e { Error::Expected(_) => false, _ => true }
+            }
+        });
         errors.add_error(Error::Expected(self.1.clone()));
     }
 }
@@ -1166,7 +1180,7 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use primitives::{Error, ParseError, Positioner, Parser};
     use char::{digit, letter};
 
     #[test]
@@ -1178,9 +1192,25 @@ mod tests {
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
+    
     #[test]
     fn tuple() {
         let mut parser = (digit(), token(','), digit(), token(','), letter());
         assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
+    }
+
+    ///The expected combinator should retain only errors that are not `Expected`
+    #[test]
+    fn expected_retain_errors() {
+        let mut parser = digit()
+            .message("message")
+            .expected("N/A")
+            .expected("my expected digit");
+        assert_eq!(parser.parse("a"), Err(ParseError {
+            position: char::start(),
+            errors: vec![Error::Unexpected('a'.into()),
+                         Error::Message("message".into()),
+                         Error::Expected("my expected digit".into())]
+        }));
     }
 }
