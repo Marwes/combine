@@ -43,7 +43,7 @@ impl <I> Json<I>
     }
     fn integer_(input: State<I>) -> ParseResult<i64, I> {
         let (s, input) = try!(lex(many1::<String, _>(digit()))
-            .parse_state(input));
+            .parse_lazy(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -86,14 +86,14 @@ impl <I> Json<I>
                     None => n
                 }
             }))
-        .parse_state(input)
+        .parse_lazy(input)
     }
 
     fn char() -> JsonParser<char, I> {
         fn_parser(Json::<I>::char_, "char")
     }
     fn char_(input: State<I>) -> ParseResult<char, I> {
-        let (c, input) = try!(any().parse_state(input));
+        let (c, input) = try!(any().parse_lazy(input));
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some()).map(|c| {
             match c {
                 '"' => '"',
@@ -118,7 +118,7 @@ impl <I> Json<I>
     }
     fn string_(input: State<I>) -> ParseResult<String, I> {
         between(char('"'), lex(char('"')), many(Json::<I>::char()))
-            .parse_state(input)
+            .parse_lazy(input)
     }
 
     fn object() -> JsonParser<Value, I> {
@@ -130,7 +130,7 @@ impl <I> Json<I>
         let fields = sep_by(field, lex(char(',')));
         between(lex(char('{')), lex(char('}')), fields)
             .map(Value::Object)
-            .parse_state(input)
+            .parse_lazy(input)
     }
 
     fn value() -> FnParser<I, fn (State<I>) -> ParseResult<Value, I>> {
@@ -148,8 +148,9 @@ impl <I> Json<I>
             .or(lex(string("false").map(|_| Value::Bool(false))
                 .or(string("true").map(|_| Value::Bool(true)))
                 .or(string("null").map(|_| Value::Null))))
-            .parse_state(input)
+            .parse_lazy(input)
     }
+
 }
 
 #[test]
@@ -197,14 +198,14 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     let mut parser = Json::value();
-    let stream = from_iter(data.chars());
-    match parser.parse(stream.clone()) {
+    let text = from_iter(data.chars());
+    match parser.parse(text.clone()) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => { println!("{}", err); assert!(false); }
     }
     bencher.iter(|| {
-        let result = parser.parse(stream.clone());
+        let result = parser.parse(text.clone());
         ::test::black_box(result)
     });
 }

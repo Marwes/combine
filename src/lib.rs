@@ -269,8 +269,8 @@ r"
             position: SourcePosition { line: 2, column: 1 },
                 errors: vec![
                     Error::Unexpected(','),
-                    Error::Expected("identifier".into()),
                     Error::Expected("integer".into()),
+                    Error::Expected("identifier".into()),
                     Error::Expected("[".into()),
                     Error::Expected("(".into()),
                 ]
@@ -290,7 +290,7 @@ r"
 let expected =
 r"Parse error at line: 2, column: 1
 Unexpected token ','
-Expected 'identifier', 'integer', '[' or '('
+Expected 'integer', 'identifier', '[' or '('
 ";
         assert_eq!(m, expected);
     }

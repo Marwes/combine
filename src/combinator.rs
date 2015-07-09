@@ -1,6 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Info, Parser, ParseResult, ParseError, Stream, State, Error, Consumed};
+use primitives::{Info, Parser, ParseResult, ParseError, Positioner, Stream, State, Error, Consumed};
 
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
@@ -14,6 +14,12 @@ macro_rules! impl_parser {
         fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
             self.0.parse_state(input)
         }
+        fn parse_lazy(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
+            self.0.parse_lazy(input)
+        }
+        fn add_error(&mut self, error: &mut ParseError<<Self::Input as Stream>::Item>) {
+            self.0.add_error(error)
+        }
     }
 }
 }
@@ -25,7 +31,7 @@ impl <I> Parser for Any<I>
     where I: Stream {
     type Input = I;
     type Output = I::Item;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
         input.uncons()
     }
 }
@@ -54,21 +60,28 @@ pub fn any<I>() -> Any<I>
 #[derive(Clone)]
 pub struct Satisfy<I, P> { predicate: P, _marker: PhantomData<I> }
 
+fn satisfy_impl<I, P, F>(input: State<I>, predicate: &mut P, f: F) -> ParseResult<I::Item, I, I::Item>
+    where I: Stream
+        , P: FnMut(I::Item) -> bool
+        , F: FnOnce(<I::Item as Positioner>::Position, I::Item) -> ParseError<I::Item> {
+    match input.input.clone().uncons() {
+        Ok((c, s)) => {
+            if (predicate)(c.clone()) { input.update(c, s) }
+            else {
+                Err(Consumed::Empty(f(input.position, c)))
+            }
+        }
+        Err(()) => input.end_of_input()
+    }
+}
+
 impl <I, P> Parser for Satisfy<I, P>
     where I: Stream, P: FnMut(I::Item) -> bool {
 
     type Input = I;
     type Output = I::Item;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
-        match input.clone().uncons() {
-            Ok((c, s)) => {
-                if (self.predicate)(c.clone()) { Ok((c, s)) }
-                else {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
-                }
-            }
-            Err(err) => Err(err)
-        }
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
+        satisfy_impl(input, &mut self.predicate, |pos, _| ParseError::empty(pos))
     }
 }
 
@@ -102,17 +115,11 @@ impl <I> Parser for Token<I>
 
     type Input = I;
     type Output = I::Item;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
-        match input.clone().uncons() {
-            Ok((c, s)) => {
-                if self.c == c { Ok((c, s)) }
-                else {
-                    let errors = vec![Error::Unexpected(c), Error::Expected(self.c.clone().into())];
-                    Err(Consumed::Empty(ParseError::from_errors(input.position, errors)))
-                }
-            }
-            Err(err) => Err(err)
-        }
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<I::Item, I, I::Item> {
+        satisfy_impl(input, &mut |c| c == self.c, |pos, _| ParseError::empty(pos))
+    }
+    fn add_error(&mut self, error: &mut ParseError<<Self::Input as Stream>::Item>) {
+        error.errors.push(Error::Expected(self.c.clone().into()));
     }
 }
 
@@ -142,10 +149,10 @@ impl <I, O, S, P> Parser for Choice<S, P>
         , P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         let mut empty_err = None;
         for p in AsMut::as_mut(&mut self.0) {
-            match p.parse_state(input.clone()) {
+            match p.parse_lazy(input.clone()) {
                 consumed_err@Err(Consumed::Consumed(_)) => return consumed_err,
                 Err(Consumed::Empty(err)) => {
                     empty_err = match empty_err {
@@ -160,6 +167,11 @@ impl <I, O, S, P> Parser for Choice<S, P>
             None => ParseError::new(input.position.clone(), Error::Message("parser choice is empty".into())),
             Some(err) => err,
         }))
+    }
+    fn add_error(&mut self, error: &mut ParseError<<Self::Input as Stream>::Item>) {
+        for p in self.0.as_mut() {
+            p.add_error(error);
+        }
     }
 }
 
@@ -190,8 +202,11 @@ impl <I> Parser for Unexpected<I>
     where I : Stream {
     type Input = I;
     type Output = ();
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<(), I, I::Item> {
-        Err(Consumed::Empty(ParseError::new(input.position, Error::Message(self.0.clone()))))
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<(), I, I::Item> {
+        Err(Consumed::Empty(ParseError::empty(input.position)))
+    }
+    fn add_error(&mut self, error: &mut ParseError<<Self::Input as Stream>::Item>) {
+        error.errors.push(Error::Message(self.0.clone()));
     }
 }
 ///Always fails with `message` as the error.
@@ -205,7 +220,7 @@ impl <I> Parser for Unexpected<I>
 /// let result = unexpected("token")
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert_eq!(result.err().unwrap().errors[0], Error::Message("token".into()));
+/// assert!(result.err().unwrap().errors.iter().any(|m| *m == Error::Message("token".into())));
 /// # }
 /// ```
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
@@ -221,7 +236,7 @@ impl <I, T> Parser for Value<I, T>
         , T: Clone {
     type Input = I;
     type Output = T;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<T, I, I::Item> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<T, I, I::Item> {
         Ok((self.0.clone(), Consumed::Empty(input)))
     }
 }
@@ -271,20 +286,22 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
 
 pub struct Iter<P: Parser> {
     parser: P,
-    input: Consumed<State<P::Input>>,
-    error: Option<Consumed<ParseError<<P::Input as Stream>::Item>>>
+    input: State<P::Input>,
+    error: Option<Consumed<ParseError<<P::Input as Stream>::Item>>>,
+    consumed: bool,
 }
 
 impl <P: Parser> Iter<P> {
     fn new(parser: P, input: State<P::Input>) -> Iter<P> {
-        Iter { parser: parser, input: Consumed::Empty(input), error: None }
+        Iter { parser: parser, input: input, error: None, consumed: false }
     }
     ///Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     ///without any errors which consumed data.
     pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input, <P::Input as Stream>::Item> {
         match self.error {
             Some(err@Consumed::Consumed(_)) => Err(err),
-            _ => Ok((value, self.input))
+            _ => if self.consumed { Ok((value, Consumed::Consumed(self.input))) }
+                 else { Ok((value, Consumed::Empty(self.input))) }
         }
     }
 }
@@ -295,10 +312,10 @@ impl <P: Parser> Iterator for Iter<P> {
         if self.error.is_some() {
             return None;
         }
-        let was_empty = self.input.is_empty();
-        match self.parser.parse_state(self.input.clone().into_inner()) {
+        match self.parser.parse_lazy(self.input.clone()) {
             Ok((value, rest)) => {
-                self.input = if was_empty { rest } else { rest.as_consumed() };
+                self.consumed = self.consumed || !rest.is_empty();
+                self.input = rest.into_inner();
                 Some(value)
             }
             Err(err) => {
@@ -351,8 +368,8 @@ impl <F, P> Parser for Many1<F, P>
         , P: Parser {
     type Input = <P as Parser>::Input;
     type Output = F;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
-        let (first, input) = try!(self.0.parse_state(input));
+    fn parse_lazy(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
+        let (first, input) = try!(self.0.parse_lazy(input));
 		input.combine(move |input| {
 	        let mut iter = Iter::new(&mut self.0, input);
 	        let result = Some(first).into_iter()
@@ -360,6 +377,9 @@ impl <F, P> Parser for Many1<F, P>
 	            .collect();
 	        iter.into_result(result)
 		})
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -437,10 +457,10 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 
     type Input = <P as Parser>::Input;
     type Output = F;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
+    fn parse_lazy(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<F, <P as Parser>::Input, <Self::Input as Stream>::Item> {
         let mut input = Consumed::Empty(input);
         let first;
-        match input.clone().combine(|input| self.parser.parse_state(input)) {
+        match input.clone().combine(|input| self.parser.parse_lazy(input)) {
             Ok((x, rest)) => {
                 input = rest;
                 first = x
@@ -459,6 +479,9 @@ impl <F, P, S> Parser for SepBy<F, P, S>
         	iter.into_result(result)
         }));
         Ok((result, input))
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.parser.add_error(errors)
     }
 }
 
@@ -552,7 +575,7 @@ impl <P> Parser for Optional<P>
     where P: Parser {
     type Input = <P as Parser>::Input;
     type Output = Option<<P as Parser>::Output>;
-    fn parse_state(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input, <Self::Input as Stream>::Item> {
+    fn parse_lazy(&mut self, input: State<<P as Parser>::Input>) -> ParseResult<Option<<P as Parser>::Output>, <P as Parser>::Input, <Self::Input as Stream>::Item> {
         match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
             Err(err@Consumed::Consumed(_)) => return Err(err),
@@ -610,23 +633,24 @@ impl <I, O, P, Op> Parser for Chainl1<P, Op>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
-        let (mut l, mut input) = try!(self.0.parse_state(input));
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+        let (mut l, mut input) = try!(self.0.parse_lazy(input));
         loop {
             let was_empty = input.is_empty();
             let rest = input.clone().into_inner();
-            match (&mut self.1).and(&mut self.0).parse_state(rest) {
+            match (&mut self.1).and(&mut self.0).parse_lazy(rest) {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
                     input = if was_empty { rest } else { rest.as_consumed() };
                 }
                 Err(err@Consumed::Consumed(_)) => return Err(err),
-                Err(_) => break
+                Err(Consumed::Empty(_)) => break
             }
-            
-
         }
         Ok((l, input))
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -649,12 +673,12 @@ impl <I, O, P, Op> Parser for Chainr1<P, Op>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
-        let (mut l, mut input) = try!(self.0.parse_state(input));
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+        let (mut l, mut input) = try!(self.0.parse_lazy(input));
         loop {
             let was_empty = input.is_empty();
             let rest = input.clone().into_inner();
-            let op = match self.1.parse_state(rest) {
+            let op = match self.1.parse_lazy(rest) {
                 Ok((x, rest)) => {
                     input = if was_empty { rest } else { rest.as_consumed() };
                     x
@@ -664,18 +688,21 @@ impl <I, O, P, Op> Parser for Chainr1<P, Op>
             };
             let was_empty = was_empty && input.is_empty();
             let rest = input.clone().into_inner();
-            match self.parse_state(rest) {
+            match self.parse_lazy(rest) {
                 Ok((r, rest)) => {
                     l = op(l, r);
                     input = if was_empty { rest } else { rest.as_consumed() };
                 }
                 Err(err@Consumed::Consumed(_)) => return Err(err),
-                Err(_) => break
+                Err(Consumed::Empty(_)) => break
             }
             
 
         }
         Ok((l, input))
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -696,9 +723,12 @@ impl <I, O, P> Parser for Try<P>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         self.0.parse_state(input)
             .map_err(Consumed::as_empty)
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -727,12 +757,15 @@ impl <I, A, B, P1, P2> Parser for And<P1, P2>
 
     type Input = I;
     type Output = (A, B);
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<(A, B), I, I::Item> {
-        let (a, rest) = try!(self.0.parse_state(input));
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<(A, B), I, I::Item> {
+        let (a, rest) = try!(self.0.parse_lazy(input));
         rest.combine(move |rest| {
             let (b, rest) = try!(self.1.parse_state(rest));
             Ok(((a, b), rest))
         })
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -743,9 +776,12 @@ impl <I, P1, P2> Parser for With<P1, P2>
 
     type Input = I;
     type Output = <P2 as Parser>::Output;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
-        let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse_state(input));
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
+        let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse_lazy(input));
         Ok((b, rest))
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -756,9 +792,12 @@ impl <I, P1, P2> Parser for Skip<P1, P2>
 
     type Input = I;
     type Output = <P1 as Parser>::Output;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
-        let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse_state(input));
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
+        let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse_lazy(input));
         Ok((a, rest))
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -770,15 +809,12 @@ impl <I, P> Parser for Message<P>
 
     type Input = I;
     type Output = <P as Parser>::Output;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
-        match self.0.parse_state(input.clone()) {
-            Ok(x) => Ok(x),
-            Err(err@Consumed::Consumed(_)) => Err(err),
-            Err(Consumed::Empty(mut err)) => {
-                err.add_message(self.1.clone());
-                Err(Consumed::Empty(err))
-            }
-        }
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<<Self as Parser>::Output, I, I::Item> {
+        self.0.parse_lazy(input.clone())
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors);
+        errors.add_message(self.1.clone());
     }
 }
 
@@ -789,18 +825,22 @@ impl <I, O, P1, P2> Parser for Or<P1, P2>
 
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
-        match self.0.parse_state(input.clone()) {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+        match self.0.parse_lazy(input.clone()) {
             Ok(x) => Ok(x),
             Err(err@Consumed::Consumed(_)) => Err(err),
             Err(Consumed::Empty(error1)) => {
-                match self.1.parse_state(input) {
+                match self.1.parse_lazy(input) {
                     Ok(x) => Ok(x),
                     Err(err@Consumed::Consumed(_)) => Err(err),
                     Err(Consumed::Empty(error2)) => Err(Consumed::Empty(error1.merge(error2)))
                 }
             }
         }
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors);
+        self.1.add_error(errors);
     }
 }
 
@@ -811,11 +851,14 @@ impl <I, A, B, P, F> Parser for Map<P, F>
 
     type Input = I;
     type Output = B;
-    fn parse_state(&mut self, input: State<I>) -> ParseResult<B, I, I::Item> {
-        match self.0.parse_state(input.clone()) {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<B, I, I::Item> {
+        match self.0.parse_lazy(input) {
             Ok((x, input)) => Ok(((self.1)(x), input)),
             Err(err) => Err(err)
         }
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors);
     }
 }
 
@@ -828,12 +871,15 @@ impl <P, N, F> Parser for Then<P, F>
 
     type Input = <N as Parser>::Input;
     type Output = <N as Parser>::Output;
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
-        let (value, input) = try!(self.0.parse_state(input));
+    fn parse_lazy(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
+        let (value, input) = try!(self.0.parse_lazy(input));
         input.combine(move |input| {
             let mut next = (self.1)(value);
             next.parse_state(input)
         })
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors);
     }
 }
 
@@ -845,15 +891,25 @@ impl <P> Parser for Expected<P>
 
     type Input = <P as Parser>::Input;
     type Output = <P as Parser>::Output;
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
-        match self.0.parse_state(input) {
-            Ok(x) => Ok(x),
-            Err(err@Consumed::Consumed(_)) => Err(err),
-            Err(Consumed::Empty(mut err)) => {
-                err.set_expected(self.1.clone());
-                Err(Consumed::Empty(err))
+    fn parse_lazy(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
+        self.0.parse_lazy(input)
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        let start = errors.errors.len();
+        self.0.add_error(errors);
+        //Replace all expected errors that where added from the previous add_error
+        //with this expected error
+        let mut i = 0;
+        errors.errors.retain(|e| {
+            if i < start {
+                i += 1;
+                true
             }
-        }
+            else {
+                match *e { Error::Expected(_) => false, _ => true }
+            }
+        });
+        errors.add_error(Error::Expected(self.1.clone()));
     }
 }
 
@@ -865,14 +921,17 @@ impl <P, F, O, E> Parser for AndThen<P, F>
 
     type Input = <P as Parser>::Input;
     type Output = O;
-    fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<O, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
-        self.0.parse_state(input)
+    fn parse_lazy(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<O, <Self as Parser>::Input, <Self::Input as Stream>::Item> {
+        self.0.parse_lazy(input)
             .and_then(|(o, input)|
                 match (self.1)(o) {
                     Ok(o) => Ok((o, input)),
                     Err(err) => Err(input.map(move |input| ParseError::new(input.position, err.into())))
                 }
             )
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        self.0.add_error(errors);
     }
 }
 
@@ -1088,16 +1147,19 @@ pub trait ParserExt : Parser + Sized {
 impl <P: Parser> ParserExt for P { }
 
 macro_rules! tuple_parser {
-    ($($id: ident),+) => {
-        impl <Input: Stream, $($id: Parser<Input=Input>),+> Parser for ($($id),+) {
+    ($h: ident, $($id: ident),+) => {
+        impl <Input: Stream, $h: Parser<Input=Input>, $($id: Parser<Input=Input>),+> Parser for ($h, $($id),+) {
             type Input = Input;
-            type Output = ($($id::Output),+);
+            type Output = ($h::Output, $($id::Output),+);
             #[allow(non_snake_case)]
-            fn parse_state(&mut self, input: State<Input>) -> ParseResult<($($id::Output),+), Input, Input::Item> {
-                let ($(ref mut $id),+) = *self;
-                let input = Consumed::Empty(input);
+            fn parse_state(&mut self, input: State<Input>) -> ParseResult<($h::Output, $($id::Output),+), Input, Input::Item> {
+                let (ref mut $h, $(ref mut $id),+) = *self;
+                let ($h, input) = try!($h.parse_lazy(input));
                 $(let ($id, input) = try!(input.combine(|input| $id.parse_state(input)));)+
-                Ok((($($id),+), input))
+                Ok((($h, $($id),+), input))
+            }
+            fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+                self.0.add_error(errors);
             }
         }
     }
@@ -1118,7 +1180,7 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use primitives::{Error, ParseError, Positioner, Parser};
     use char::{digit, letter};
 
     #[test]
@@ -1130,9 +1192,25 @@ mod tests {
         let mut parser = chainr1(number, pow);
         assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
+    
     #[test]
     fn tuple() {
         let mut parser = (digit(), token(','), digit(), token(','), letter());
         assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
+    }
+
+    ///The expected combinator should retain only errors that are not `Expected`
+    #[test]
+    fn expected_retain_errors() {
+        let mut parser = digit()
+            .message("message")
+            .expected("N/A")
+            .expected("my expected digit");
+        assert_eq!(parser.parse("a"), Err(ParseError {
+            position: char::start(),
+            errors: vec![Error::Unexpected('a'.into()),
+                         Error::Message("message".into()),
+                         Error::Expected("my expected digit".into())]
+        }));
     }
 }

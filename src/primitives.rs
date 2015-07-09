@@ -213,6 +213,9 @@ impl <P: Positioner> ParseError<P> {
     pub fn new(position: P::Position, error: Error<P>) -> ParseError<P> {
         ParseError::from_errors(position, vec![error])
     }
+    pub fn empty(position: P::Position) -> ParseError<P> {
+        ParseError::from_errors(position, vec![])
+    }
     pub fn from_errors(position: P::Position, errors: Vec<Error<P>>) -> ParseError<P> {
         ParseError { position: position, errors: errors }
     }
@@ -358,6 +361,14 @@ impl <I: Stream> State<I> {
             Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into()))))
         }
     }
+    pub fn update(mut self, i: I::Item, rest: I) -> ParseResult<I::Item, I, I::Item> {
+        i.update(&mut self.position);
+        self.input = rest;
+        Ok((i, Consumed::Consumed(self)))
+    }
+    pub fn end_of_input(self) -> ParseResult<I::Item, I, I::Item> {
+        Err(Consumed::Empty(ParseError::new(self.position, Error::Message("End of input".into()))))
+    }
 }
 
 ///A type alias over the specific `Result` type used by parsers to indicate wether they were
@@ -472,6 +483,10 @@ impl Positioner for u8 {
 
 ///By implementing the `Parser` trait a type says that it can be used to parse an input stream into
 ///the type `Output`.
+///
+///All methods have a default implementation but there needs to be at least an implementation of
+///`parse_state` or`parse_lazy`. If `parse_ok` is implemented an implementation of `add_error` is
+///also recommended to improve error reporting.
 pub trait Parser {
     ///A type implementing the `Stream` trait which is the specific type
     ///that is parsed.
@@ -489,14 +504,40 @@ pub trait Parser {
     }
     ///Parses using the state `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item>;
+    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item> {
+        let mut result = self.parse_lazy(input.clone());
+        if let Err(Consumed::Empty(ref mut error)) = result {
+            if let Ok((t, _)) = input.input.uncons() {
+                error.add_error(Error::Unexpected(t.into()));
+            }
+            self.add_error(error);
+        }
+        result
+    }
+
+    ///Specialized version of parse_state where the parser does not need to add an error to the
+    ///`ParseError` when it does not consume any input before encountering the error.
+    ///Instead the error can be added later through the `add_error` method
+    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item> {
+        self.parse_state(input)
+    }
+
+    ///Adds the first error that would normally be returned by this parser if it failed
+    fn add_error(&mut self, _error: &mut ParseError<<Self::Input as Stream>::Item>) {
+    }
 }
 impl <'a, I, O, P: ?Sized> Parser for &'a mut P 
     where I: Stream, P: Parser<Input=I, Output=O> {
     type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
-        (*self).parse_state(input)
+        (**self).parse_state(input)
+    }
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+        (**self).parse_lazy(input)
+    }
+    fn add_error(&mut self, error: &mut ParseError<<Self::Input as Stream>::Item>) {
+        (**self).add_error(error)
     }
 }
 impl <I, O, P: ?Sized> Parser for Box<P> 
@@ -505,5 +546,11 @@ impl <I, O, P: ?Sized> Parser for Box<P>
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
         (**self).parse_state(input)
+    }
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I, I::Item> {
+        (**self).parse_lazy(input)
+    }
+    fn add_error(&mut self, error: &mut ParseError<<Self::Input as Stream>::Item>) {
+        (**self).add_error(error)
     }
 }

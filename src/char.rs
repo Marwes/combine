@@ -13,8 +13,11 @@ macro_rules! impl_char_parser {
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
-        fn parse_state(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
-            self.0.parse_state(input)
+        fn parse_lazy(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
+            self.0.parse_lazy(input)
+        }
+        fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+            self.0.add_error(errors)
         }
     }
 }
@@ -141,16 +144,20 @@ impl <I> Parser for String<I>
     where I: Stream<Item=char> {
     type Input = I;
     type Output = &'static str;
-    fn parse_state(&mut self, mut input: State<I>) -> ParseResult<&'static str, I> {
+    fn parse_lazy(&mut self, mut input: State<I>) -> ParseResult<&'static str, I> {
         let start = input.position;
         let mut consumed = false;
         for c in self.0.chars() {
             match input.uncons() {
                 Ok((other, rest)) => {
                     if c != other {
-                        let errors = vec![Error::Unexpected(other), Error::Expected(self.0.into())];
-                        let error = ParseError::from_errors(start, errors);
-                        return Err(if consumed { Consumed::Consumed(error) } else { Consumed::Empty(error) })
+                        return Err(if consumed {
+                            let errors = vec![Error::Unexpected(other), Error::Expected(self.0.into())];
+                            let error = ParseError::from_errors(start, errors);
+                            Consumed::Consumed(error)
+                        } else {
+                            Consumed::Empty(ParseError::empty(start))
+                        })
                     }
                     consumed = true;
                     input = rest.into_inner();
@@ -164,6 +171,9 @@ impl <I> Parser for String<I>
             }
         }
         Ok((self.0, if consumed { Consumed::Consumed(input) } else { Consumed::Empty(input) }))
+    }
+    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        errors.add_error(Error::Expected(self.0.into()));
     }
 }
 
