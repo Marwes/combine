@@ -1152,7 +1152,7 @@ macro_rules! tuple_parser {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
             #[allow(non_snake_case)]
-            fn parse_state(&mut self, input: State<Input>) -> ParseResult<($h::Output, $($id::Output),+), Input, Input::Item> {
+            fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<($h::Output, $($id::Output),+), Input, Input::Item> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
                 let ($h, input) = try!($h.parse_lazy(input));
                 $(let ($id, input) = try!(input.combine(|input| $id.parse_state(input)));)+
@@ -1211,6 +1211,17 @@ mod tests {
             errors: vec![Error::Unexpected('a'.into()),
                          Error::Message("message".into()),
                          Error::Expected("my expected digit".into())]
+        }));
+    }
+    #[test]
+    fn tuple_parse_error() {
+        let mut parser = (digit(), digit());
+        let result = parser.parse("a");
+        assert_eq!(result, Err(ParseError {
+            position: char::start(),
+            errors: vec![
+                Error::Unexpected('a'.into()),
+                Error::Expected("digit".into())]
         }));
     }
 }
