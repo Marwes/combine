@@ -1,6 +1,6 @@
 # parser-combinators [![Build Status](https://travis-ci.org/Marwes/parser-combinators.svg?branch=master)](https://travis-ci.org/Marwes/parser-combinators)
 
-An implementation of (LL(1)) parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec).
+An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahed using the [try](https://marwes.github.io/parser-combinators/parser_combinators/fn.try.html) combinator.
 
 A parser combinators is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](https://marwes.github.io/parser-combinators/parser_combinators/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times.
 
