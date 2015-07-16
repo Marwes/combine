@@ -344,6 +344,10 @@ r"
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
         }
+        match p.parse("let1") {
+            Ok(_) => assert!(false),
+            Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 4 })
+        }
     }
 
     #[test]

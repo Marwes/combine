@@ -187,6 +187,7 @@ impl <I, O, S, P> Parser for Choice<S, P>
 /// assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
 /// assert_eq!(parser.parse("Orangexx"), Ok(("Orange", "xx")));
 /// assert!(parser.parse("Appl").is_err());
+/// assert!(parser.parse("Pear").is_err());
 /// # }
 /// ```
 pub fn choice<S, P>(ps: S) -> Choice<S, P>
@@ -494,10 +495,11 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = sep_by(digit(), token(','))
-///     .parse("1,2,3")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(vec!['1', '2', '3']));
+/// let mut parser = sep_by(digit(), token(','));
+/// let result_ok = parser.parse("1,2,3");
+/// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
+/// let result_ok2 = parser.parse("");
+/// assert_eq!(result_ok2, Ok((vec![], "")));
 /// # }
 /// ```
 pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
@@ -590,10 +592,11 @@ impl <P> Parser for Optional<P>
 /// # extern crate parser_combinators as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = optional(digit())
-///     .parse("a")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(None));
+/// let mut parser = optional(digit());
+/// let result1 = parser.parse("a");
+/// assert_eq!(result1, Ok((None, "a")));
+/// let result2 = parser.parse("1");
+/// assert_eq!(result2, Ok((Some('1'), "")));
 /// # }
 /// ```
 pub fn optional<P>(parser: P) -> Optional<P>
@@ -743,6 +746,8 @@ impl <I, O, P> Parser for Try<P>
 ///     .or(string("lex"));
 /// let result = p.parse("lex").map(|x| x.0);
 /// assert_eq!(result, Ok("lex"));
+/// let result = p.parse("aet").map(|x| x.0);
+/// assert!(result.is_err());
 /// # }
 /// ```
 pub fn try<P>(p : P) -> Try<P>
@@ -1107,10 +1112,12 @@ pub trait ParserExt : Parser + Sized {
     /// # extern crate parser_combinators as pc;
     /// # use pc::*;
     /// # fn main() {
-    /// let result = many1(digit())
-    ///     .and_then(|s: String| s.parse::<i32>())
-    ///     .parse("1234");
+    /// let mut parser = many1(digit())
+    ///     .and_then(|s: String| s.parse::<i32>());
+    /// let result = parser.parse("1234");
     /// assert_eq!(result, Ok((1234, "")));
+    /// let err = parser.parse("abc");
+    /// assert!(err.is_err());
     /// # }
     /// ```
     fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
@@ -1183,6 +1190,18 @@ mod tests {
     use primitives::{Error, ParseError, Positioner, Parser};
     use char::{digit, letter};
 
+    #[test]
+    fn choice_empty() {
+        let mut parser = choice::<&mut [Token<&str>], Token<&str>>(&mut []);
+        let result_err = parser.parse("a");
+        assert!(result_err.is_err());
+    }
+    #[test]
+    fn sep_by_consumed_error() {
+        let mut parser2 = sep_by((letter(), letter()), token(','));
+        let result_err: Result<(Vec<(char, char)>, &str), ParseError<char>> = parser2.parse("a,bc");
+        assert!(result_err.is_err());
+    }
     #[test]
     fn chainr1_test() {
         fn pow(l: i32, r: i32) -> i32 { l.pow(r as u32) }
