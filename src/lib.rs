@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn iterator() {
         let result = parser(integer).parse(from_iter("123".chars()))
-            .map(|(i, input)| (i, input.uncons().err()));
+            .map(|(i, input)| (i, input.uncons().err().map(|_| ())));
         assert_eq!(result, Ok((123i64, Some(()))));
     }
     #[test]

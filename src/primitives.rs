@@ -105,6 +105,12 @@ impl <E, T> From<E> for Error<T> where E: StdError + 'static + Send {
     }
 }
 
+impl <T> Error<T> {
+    pub fn end_of_input() -> Error<T> {
+        Error::Message("End of input".into())
+    }
+}
+
 ///Enum used to indicate if a parser consumed any items of the stream it was given as an input
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum Consumed<T> {
@@ -210,30 +216,41 @@ pub struct ParseError<P: Positioner> {
 }
 
 impl <P: Positioner> ParseError<P> {
+    
     pub fn new(position: P::Position, error: Error<P>) -> ParseError<P> {
         ParseError::from_errors(position, vec![error])
     }
+
     pub fn empty(position: P::Position) -> ParseError<P> {
         ParseError::from_errors(position, vec![])
     }
+
     pub fn from_errors(position: P::Position, errors: Vec<Error<P>>) -> ParseError<P> {
         ParseError { position: position, errors: errors }
     }
+
+    pub fn end_of_input(position: P::Position) -> ParseError<P> {
+        ParseError::from_errors(position, vec![Error::end_of_input()])
+    }
+
     pub fn add_message<S>(&mut self, message: S)
         where S: Into<Info<P>> {
         self.add_error(Error::Message(message.into()));
     }
+
     pub fn add_error(&mut self, message: Error<P>) {
         //Don't add duplicate errors
         if self.errors.iter().find(|msg| **msg == message).is_none() {
             self.errors.push(message);
         }
     }
+
     pub fn set_expected(&mut self, message: Info<P>) {
         //Remove all other expected messages
         self.errors.retain(|e| match *e { Error::Expected(_) => false, _ => true });
         self.errors.push(Error::Expected(message));
     }
+
     pub fn merge(mut self, other: ParseError<P>) -> ParseError<P> {
         use std::cmp::Ordering;
         //Only keep the errors which occured after consuming the most amount of data
@@ -358,16 +375,13 @@ impl <I: Stream> State<I> {
                 c.update(&mut position);
                 Ok((c, Consumed::Consumed(State { position: position, input: input })))
             }
-            Err(()) => Err(Consumed::Empty(ParseError::new(position, Error::Message("End of input".into()))))
+            Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
         }
     }
     pub fn update(mut self, i: I::Item, rest: I) -> ParseResult<I::Item, I, I::Item> {
         i.update(&mut self.position);
         self.input = rest;
         Ok((i, Consumed::Consumed(self)))
-    }
-    pub fn end_of_input(self) -> ParseResult<I::Item, I, I::Item> {
-        Err(Consumed::Empty(ParseError::new(self.position, Error::Message("End of input".into()))))
     }
 }
 
@@ -384,15 +398,15 @@ pub trait Stream : Clone {
     type Item: Positioner;
     ///Takes a stream and removes its first item, yielding the item and the rest of the elements
     ///Returns `Err` when no more elements could be retrieved
-    fn uncons(self) -> Result<(Self::Item, Self), ()>;
+    fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item>>;
 }
 
 impl <'a> Stream for &'a str {
     type Item = char;
-    fn uncons(self) -> Result<(char, &'a str), ()> {
+    fn uncons(self) -> Result<(char, &'a str), Error<char>> {
         match self.chars().next() {
             Some(c) => Ok((c, &self[c.len_utf8()..])),
-            None => Err(())
+            None => Err(Error::end_of_input())
         }
     }
 }
@@ -400,12 +414,12 @@ impl <'a> Stream for &'a str {
 impl <'a, T> Stream for &'a [T]
     where T: Positioner {
     type Item = &'a T;
-    fn uncons(self) -> Result<(&'a T, &'a [T]), ()> {
+    fn uncons(self) -> Result<(&'a T, &'a [T]), Error<&'a T>> {
         if self.len() > 0 {
             Ok((&self[0], &self[1..]))
         }
         else {
-            Err(())
+            Err(Error::end_of_input())
         }
     }
 }
@@ -426,10 +440,10 @@ pub fn from_iter<I>(iter: I) -> IteratorStream<I>
 impl <I: Iterator + Clone> Stream for IteratorStream<I>
     where I::Item: Positioner {
     type Item = <I as Iterator>::Item;
-    fn uncons(mut self) -> Result<(I::Item, Self), ()> {
+    fn uncons(mut self) -> Result<(I::Item, Self), Error<I::Item>> {
         match self.0.next() {
             Some(x) => Ok((x, self)),
-            None => Err(())
+            None => Err(Error::end_of_input())
         }
     }
 }

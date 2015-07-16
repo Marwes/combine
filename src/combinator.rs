@@ -71,7 +71,7 @@ fn satisfy_impl<I, P, F>(input: State<I>, predicate: &mut P, f: F) -> ParseResul
                 Err(Consumed::Empty(f(input.position, c)))
             }
         }
-        Err(()) => input.end_of_input()
+        Err(err) => Err(Consumed::Empty(ParseError::new(input.position, err)))
     }
 }
 
