@@ -160,7 +160,7 @@ impl <T> Consumed<T> {
     ///Combines the Consumed flags from `self` and the result of `f`
     ///
     ///```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// //Parses a characther of string literal and handles the escaped characthers \\ and \" as \

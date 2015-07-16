@@ -25,8 +25,8 @@
 //!# Examples
 //!
 //!```
-//! extern crate parser_combinators;
-//! use parser_combinators::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
+//! extern crate combine;
+//! use combine::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
 //!     let input = "1234, 45,78";
@@ -55,10 +55,10 @@
 //! `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
 //!```
-//! extern crate parser_combinators;
-//! use parser_combinators::{between, char, letter, spaces, many1, parser, sep_by, Parser, ParserExt,
+//! extern crate combine;
+//! use combine::{between, char, letter, spaces, many1, parser, sep_by, Parser, ParserExt,
 //! ParseResult};
-//! use parser_combinators::primitives::{State, Stream};
+//! use combine::primitives::{State, Stream};
 //!
 //! #[derive(Debug, PartialEq)]
 //! enum Expr {
