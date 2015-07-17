@@ -9,7 +9,7 @@ description = "Parser combinators based on the Haskell library parsec"
 repository = "https://github.com/Marwes/parser-combinators"
 documentation = "https://marwes.github.io/parser-combinators/parser_combinators/index.html"
 
-keywords = ["parser"]
+keywords = ["parser", "combinators", "ll"]
 
 license = "MIT"
 
