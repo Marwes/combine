@@ -35,7 +35,7 @@ Here is a list containing most of the breaking changes in older versions of pars
 * `Stream::uncons` changed its signature to allow it to return errors. Return `Error::end_of_input()` instead of `()` if you implemented `Stream`.
 
 ### 0.6.0
-* Addition of `Parser::parse_ok`, should not break anything but I can't say for certain.
+* Addition of `Parser::parse_lazy`, should not break anything but I can't say for certain.
 
 ### 0.5.0
 * `any_char` -> `any`, `uncons_char` -> `uncons`
