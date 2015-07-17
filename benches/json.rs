@@ -1,5 +1,5 @@
 #![feature(test)]
-extern crate parser_combinators as pc;
+extern crate combine as pc;
 extern crate test;
 
 use std::collections::HashMap;

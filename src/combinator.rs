@@ -39,7 +39,7 @@ impl <I> Parser for Any<I>
 ///Parses any token
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let mut char_parser = any();
@@ -88,7 +88,7 @@ impl <I, P> Parser for Satisfy<I, P>
 ///Parses a token and succeeds depending on the result of `predicate`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let mut parser = satisfy(|c| c == '!' || c == '?');
@@ -126,7 +126,7 @@ impl <I> Parser for Token<I>
 ///Parses a character and succeeds if the characther is equal to `c`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = token('!')
@@ -179,7 +179,7 @@ impl <I, O, S, P> Parser for Choice<S, P>
 /// Fails if all parsers fails or when a parsers fails with a consumed state.
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # use pc::primitives::Error;
 /// # fn main() {
@@ -214,7 +214,7 @@ impl <I> Parser for Unexpected<I>
 ///Never consumes any input.
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # use pc::primitives::Error;
 /// # fn main() {
@@ -244,7 +244,7 @@ impl <I, T> Parser for Value<I, T>
 ///Always returns the value `v` without consuming any input.
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = value(42)
@@ -264,7 +264,7 @@ impl_parser! { NotFollowedBy(P,), Or<Then<Try<P>, fn(<P as Parser>::Output) -> U
 ///Never consumes any input.
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = string("let")
@@ -347,7 +347,7 @@ impl <F, P> Parser for Many<F, P>
 ///calling many, `many::<Vec<_>, _>(...)`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = many(digit())
@@ -388,7 +388,7 @@ impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (<P as Parser>::Output)>
 ///Parses `p` zero or more times ignoring the result
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = skip_many(digit())
@@ -408,7 +408,7 @@ impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (<P as Parser>::Output
 ///Parses `p` one or more times ignoring the result
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = skip_many1(digit())
@@ -431,7 +431,7 @@ pub fn skip_many1<P>(p: P) -> SkipMany1<P>
 ///
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = many1::<Vec<_>, _>(digit())
@@ -492,7 +492,7 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 ///calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let mut parser = sep_by(digit(), token(','));
@@ -525,7 +525,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn (I) -> I>);
 ///to make them usable as a parser
 ///
 /// ```
-/// extern crate parser_combinators as pc;
+/// extern crate combine as pc;
 /// use pc::*;
 /// use pc::primitives::{Consumed, Error};
 /// # fn main() {
@@ -589,7 +589,7 @@ impl <P> Parser for Optional<P>
 ///Returns `Some(value)` and `None` on parse failure (always succeeds)
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let mut parser = optional(digit());
@@ -609,7 +609,7 @@ impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 ///Returns the value of `parser`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = between(token('['), token(']'), string("rust"))
@@ -739,7 +739,7 @@ impl <I, O, P> Parser for Try<P>
 ///if `p` returns an error after consuming input
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let mut p = try(string("let"))
@@ -947,7 +947,7 @@ pub trait ParserExt : Parser + Sized {
     ///Fails if any of the parsers fails
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
@@ -966,7 +966,7 @@ pub trait ParserExt : Parser + Sized {
     ///Fails if any of the parsers fails
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
@@ -986,7 +986,7 @@ pub trait ParserExt : Parser + Sized {
     ///Returns a tuple with both values on success
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
@@ -1003,7 +1003,7 @@ pub trait ParserExt : Parser + Sized {
     ///Tries to parse using `self` and if it fails returns the result of parsing `p`
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit().map(|_| "")
@@ -1022,7 +1022,7 @@ pub trait ParserExt : Parser + Sized {
     ///the rest of the input
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # use pc::primitives::{Consumed, Error};
     /// # fn main() {
@@ -1049,7 +1049,7 @@ pub trait ParserExt : Parser + Sized {
     ///Uses `f` to map over the parsed value
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let result = digit()
@@ -1067,7 +1067,7 @@ pub trait ParserExt : Parser + Sized {
     ///Parses with `self` and if it fails, adds the message `msg` to the error
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # use pc::primitives::Error;
     /// # fn main() {
@@ -1088,7 +1088,7 @@ pub trait ParserExt : Parser + Sized {
     ///`msg`. `msg` is then used in error messages as "Expected `msg`".
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # use pc::primitives::Error;
     /// # fn main() {
@@ -1109,7 +1109,7 @@ pub trait ParserExt : Parser + Sized {
     ///`f` may optionally fail with an error which is automatically converted to a `ParseError`
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let mut parser = many1(digit())
@@ -1130,7 +1130,7 @@ pub trait ParserExt : Parser + Sized {
     ///collecting directly into a `FromIterator` type is not desirable
     ///
     /// ```
-    /// # extern crate parser_combinators as pc;
+    /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
     /// let mut buffer = String::new();

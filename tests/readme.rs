@@ -1,7 +1,7 @@
 
-extern crate parser_combinators;
-use parser_combinators::{many, Parser};
-use parser_combinators::char::letter;
+extern crate combine;
+use combine::{many, Parser};
+use combine::char::letter;
 
 #[test]
 fn readme() {

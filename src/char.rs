@@ -26,7 +26,7 @@ macro_rules! impl_char_parser {
 ///Parses a character and succeeds if the characther is equal to `c`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = char('!')
@@ -180,7 +180,7 @@ impl <I> Parser for String<I>
 ///Parses the string `s`
 ///
 /// ```
-/// # extern crate parser_combinators as pc;
+/// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
 /// let result = string("rust")
