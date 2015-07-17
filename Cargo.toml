@@ -1,13 +1,15 @@
 [package]
 
 name = "parser-combinators"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Markus Westerlind <marwes91@gmail.com>"]
 
-description = "Parser combinators based on the Haskell library parsec"
+description = "Parser combinators based on the Haskell library parsec. This library has been renamed to combine. See https://crates.io/crates/combine for more recent versions"
 
 repository = "https://github.com/Marwes/parser-combinators"
 documentation = "https://marwes.github.io/parser-combinators/parser_combinators/index.html"
+
+readme = "README.md"
 
 keywords = ["parser", "combinators", "ll"]
 
