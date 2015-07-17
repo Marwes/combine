@@ -99,7 +99,7 @@
 //!```
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseError, from_iter};
+pub use primitives::{Parser, ParseError, State, from_iter};
 #[doc(inline)]
 pub use char::{
     char,
