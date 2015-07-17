@@ -1,4 +1,5 @@
-# combine (Previously parser-combinators) [![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine)
+# combine [![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine)
+(Previously parser-combinators)
 
 An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahed using the [try](https://marwes.github.io/combine/combine/fn.try.html) combinator.
 
@@ -29,7 +30,7 @@ There is an additional crate which has parsers to lex and parse programming lang
 
 ## Breaking changes
 
-Here is a list containing most of the breaking changes in older versions of parser-combinators.
+Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
 ### 0.7.0
 * `Stream::uncons` changed its signature to allow it to return errors. Return `Error::end_of_input()` instead of `()` if you implemented `Stream`.
