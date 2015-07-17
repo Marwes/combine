@@ -162,7 +162,6 @@ impl <T> Consumed<T> {
     ///```
     /// # extern crate parser_combinators as pc;
     /// # use pc::*;
-    /// # use pc::primitives::State;
     /// # fn main() {
     /// //Parses a characther of string literal and handles the escaped characthers \\ and \" as \
     /// //and " respectively

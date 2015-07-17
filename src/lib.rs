@@ -160,7 +160,7 @@ pub mod char;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::primitives::{SourcePosition, State, Stream, Error, Consumed};
+    use super::primitives::{SourcePosition, Stream, Error, Consumed};
     
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
