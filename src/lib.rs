@@ -124,6 +124,7 @@ pub use combinator::{
     any,
     between,
     chainl1,
+    chainr1,
     choice,
     many,
     many1,

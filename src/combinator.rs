@@ -659,6 +659,17 @@ impl <I, O, P, Op> Parser for Chainl1<P, Op>
 
 ///Parses `p` 1 or more times separated by `op`
 ///The value returned is the one produced by the left associative application of `op`
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let number = digit().map(|c: char| c.to_digit(10).unwrap());
+/// let sub = token('-').map(|_| |l: u32, r: u32| l - r);
+/// let mut parser = chainl1(number, sub);
+///     assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
+/// }
+/// ```
 pub fn chainl1<P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
     where P: Parser
         , Op: Parser<Input=P::Input>
@@ -711,6 +722,17 @@ impl <I, O, P, Op> Parser for Chainr1<P, Op>
 
 ///Parses `p` one or more times separated by `op`
 ///The value returned is the one produced by the right associative application of `op`
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let number = digit().map(|c: char| c.to_digit(10).unwrap());
+/// let pow = token('^').map(|_| |l: u32, r: u32| l.pow(r));
+/// let mut parser = chainr1(number, pow);
+///     assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
+/// }
+/// ```
 pub fn chainr1<P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
     where P: Parser
         , Op: Parser<Input=P::Input>
@@ -1201,15 +1223,6 @@ mod tests {
         let mut parser2 = sep_by((letter(), letter()), token(','));
         let result_err: Result<(Vec<(char, char)>, &str), ParseError<char>> = parser2.parse("a,bc");
         assert!(result_err.is_err());
-    }
-    #[test]
-    fn chainr1_test() {
-        fn pow(l: i32, r: i32) -> i32 { l.pow(r as u32) }
-
-        let number = digit::<&str>().map(|c| c.to_digit(10).unwrap() as i32);
-        let pow = token('^').map(|_| pow);
-        let mut parser = chainr1(number, pow);
-        assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
     }
     
     #[test]
