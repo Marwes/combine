@@ -141,6 +141,7 @@ pub fn token<I>(c: I::Item) -> Token<I>
     Token { c: c, _marker: PhantomData }
 }
 
+#[derive(Clone)]
 pub struct Choice<S, P>(S, PhantomData<P>);
 
 impl <I, O, S, P> Parser for Choice<S, P>
@@ -940,6 +941,7 @@ impl <P> Parser for Expected<P>
     }
 }
 
+#[derive(Clone)]
 pub struct AndThen<P, F>(P, F);
 impl <P, F, O, E> Parser for AndThen<P, F>
     where P: Parser
