@@ -18,6 +18,8 @@ let result = many(letter()).parse("hello world");
 assert_eq!(result, Ok(("hello".to_string(), " world")));
 ```
 
+More examples can be found in the examples and benches folders.
+
 ## Links
 
 [Documentation and examples](https://marwes.github.io/combine/combine/index.html)
