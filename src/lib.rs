@@ -37,7 +37,7 @@
 //!     let mut integer_list = sep_by(integer, spaces.skip(char(',')));
 //! 
 //!     //Call parse with the input to execute the parser
-//!     let result: Result<(Vec<i32>, &str), ParseError<char>> = integer_list.parse(input);
+//!     let result: Result<(Vec<i32>, &str), ParseError<&str>> = integer_list.parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -56,9 +56,8 @@
 //!
 //!```
 //! extern crate combine;
-//! use combine::{between, char, letter, spaces, many1, parser, sep_by, Parser, ParserExt,
-//! ParseResult};
-//! use combine::primitives::{State, Stream};
+//! use combine::{between, char, letter, spaces, many1, parser, sep_by, Parser, ParserExt};
+//! use combine::primitives::{State, Stream, ParseResult};
 //!
 //! #[derive(Debug, PartialEq)]
 //! enum Expr {
@@ -99,7 +98,7 @@
 //!```
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseError, State, from_iter};
+pub use primitives::{Parser, ParseError, ParseResult, State, from_iter};
 #[doc(inline)]
 pub use char::{
     char,
@@ -116,8 +115,6 @@ pub use char::{
     hex_digit,
     oct_digit,
     string,
-
-    ParseResult//use char::ParseResult for compatibility
 };
 #[doc(inline)]
 pub use combinator::{
@@ -432,7 +429,7 @@ r"
         impl StdError for Error {
             fn description(&self) -> &str { "error" }
         }
-        let result: Result<((), _), _> = string("abc")
+        let result: Result<((), _), ParseError<&str>> = string("abc")
             .and_then(|_| Err(Error))
             .parse("abc");
         assert!(result.is_err());

@@ -7,9 +7,9 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{from_iter, Consumed, Parser, ParseError, State, Stream};
+use pc::primitives::{from_iter, Consumed, Parser, ParseError, ParseResult, State, Stream};
 use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, Expected, FnParser, Skip, ParserExt};
-use pc::char::{char, digit, spaces, Spaces, string, ParseResult};
+use pc::char::{char, digit, spaces, Spaces, string};
 
 #[derive(PartialEq, Debug)]
 enum Value {

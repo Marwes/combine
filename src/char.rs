@@ -1,8 +1,6 @@
-use primitives::{Consumed, Parser, ParseError, Error, State, Stream};
+use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, ParserExt, With};
 use std::marker::PhantomData;
-
-pub type ParseResult<O, I> = ::primitives::ParseResult<O, I, char>;
 
 macro_rules! impl_char_parser {
     ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
@@ -16,7 +14,7 @@ macro_rules! impl_char_parser {
         fn parse_lazy(&mut self, input: State<<Self as Parser>::Input>) -> ParseResult<<Self as Parser>::Output, <Self as Parser>::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+        fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
             self.0.add_error(errors)
         }
     }
@@ -172,7 +170,7 @@ impl <I> Parser for String<I>
         }
         Ok((self.0, if consumed { Consumed::Consumed(input) } else { Consumed::Empty(input) }))
     }
-    fn add_error(&mut self, errors: &mut ParseError<<Self::Input as Stream>::Item>) {
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         errors.add_error(Error::Expected(self.0.into()));
     }
 }
