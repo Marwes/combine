@@ -34,6 +34,10 @@ There is an additional crate which has parsers to lex and parse programming lang
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
+### 1.0.0-beta.2
+* `Info<T>` and `Error<T>` has had their signatures changed to `Info<T, R>` and `Error<T, R>`. `Info` has a new variant which is specified by `R` and defines the type for range errors. `ParseError<T: Positioner>` has been changed to `ParseError<S: Stream>` (S is the stream type of the parser).
+* If you were using `ParseResult` from primitives you should no longer specify the item type of the stream.
+
 ### 0.7.0
 * `Stream::uncons` changed its signature to allow it to return errors. Return `Error::end_of_input()` instead of `()` if you implemented `Stream`.
 
