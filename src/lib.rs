@@ -266,7 +266,7 @@ r"
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
                 errors: vec![
-                    Error::Unexpected(','),
+                    Error::Unexpected(','.into()),
                     Error::Expected("integer".into()),
                     Error::Expected("identifier".into()),
                     Error::Expected("[".into()),
@@ -325,7 +325,8 @@ r"
         match input.clone().uncons() {
             Ok((c, _)) => {
                 if c.is_alphanumeric() {
-                    Err(Consumed::Empty(ParseError::new(input.position, Error::Unexpected(c))))
+                    let e = Error::Unexpected(c.into());
+                    Err(Consumed::Empty(ParseError::new(input.position, e)))
                 }
                 else {
                     Ok(((), Consumed::Empty(input)))

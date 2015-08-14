@@ -150,7 +150,10 @@ impl <I> Parser for String<I>
                 Ok((other, rest)) => {
                     if c != other {
                         return Err(if consumed {
-                            let errors = vec![Error::Unexpected(other), Error::Expected(self.0.into())];
+                            let errors = vec![
+                                Error::Unexpected(other.into()),
+                                Error::Expected(self.0.into())
+                            ];
                             let error = ParseError::from_errors(start, errors);
                             Consumed::Consumed(error)
                         } else {
@@ -219,7 +222,7 @@ mod tests {
         let result = string("abc").parse("bc");
         assert_eq!(result, Err(ParseError {
             position: SourcePosition { line: 1, column: 1 },
-            errors: vec![Error::Unexpected('b'), Error::Expected("abc".into())]
+            errors: vec![Error::Unexpected('b'.into()), Error::Expected("abc".into())]
         }));
     }
 }

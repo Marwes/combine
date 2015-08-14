@@ -60,6 +60,11 @@ impl <T: fmt::Display, R: fmt::Display> fmt::Display for Info<T, R> {
     }
 }
 
+impl <R> From<char> for Info<char, R> {
+    fn from(s: char) -> Info<char, R> {
+        Info::Token(s)
+    }
+}
 impl <T, R> From<String> for Info<T, R> {
     fn from(s: String) -> Info<T, R> {
         Info::Owned(s)
@@ -76,7 +81,7 @@ impl <T, R> From<&'static str> for Info<T, R> {
 #[derive(Debug)]
 pub enum Error<T, R> {
     ///Error indicating an unexpected token has been encountered in the stream
-    Unexpected(T),
+    Unexpected(Info<T, R>),
     ///Error indicating that the parser expected something else
     Expected(Info<T, R>),
     ///Generic message
@@ -567,7 +572,7 @@ pub trait Parser {
         let mut result = self.parse_lazy(input.clone());
         if let Err(Consumed::Empty(ref mut error)) = result {
             if let Ok((t, _)) = input.input.uncons() {
-                error.add_error(Error::Unexpected(t.into()));
+                error.add_error(Error::Unexpected(Info::Token(t)));
             }
             self.add_error(error);
         }

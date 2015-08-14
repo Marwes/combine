@@ -208,7 +208,7 @@ impl <I> Parser for Unexpected<I>
         Err(Consumed::Empty(ParseError::empty(input.position)))
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
-        error.errors.push(Error::Message(self.0.clone()));
+        error.errors.push(Error::Unexpected(self.0.clone()));
     }
 }
 ///Always fails with `message` as the error.
@@ -222,7 +222,7 @@ impl <I> Parser for Unexpected<I>
 /// let result = unexpected("token")
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert!(result.err().unwrap().errors.iter().any(|m| *m == Error::Message("token".into())));
+/// assert!(result.err().unwrap().errors.iter().any(|m| *m == Error::Unexpected("token".into())));
 /// # }
 /// ```
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
