@@ -210,7 +210,7 @@ pub struct ParseError<P: Stream> {
     pub errors: Vec<Error<P::Item, P::Range>>
 }
 
-impl <P: Positioner, S: Stream<Item=P>> ParseError<S> {
+impl <P: Positioner + Clone, S: Stream<Item=P>> ParseError<S> {
     
     pub fn new(position: P::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
         ParseError::from_errors(position, vec![error])
@@ -262,36 +262,37 @@ impl <P: Positioner, S: Stream<Item=P>> ParseError<S> {
     }
 }
 
-impl <S, P> StdError for ParseError<S>
-    where S: Stream<Item=P>
+impl <S> StdError for ParseError<S>
+    where S: Stream
         , S::Range: fmt::Display + fmt::Debug + Any
-        , P: Positioner + fmt::Display + fmt::Debug + Any
-        , P::Position: fmt::Display + fmt::Debug + Any {
+        , S::Item: fmt::Display + fmt::Debug + Any
+        , <S::Item as Positioner>::Position: fmt::Display + fmt::Debug + Any {
     fn description(&self) -> &str { "parse error" }
 }
 
-impl <P: Positioner + PartialEq, S> PartialEq for ParseError<S>
-    where S: Stream<Item=P>
-        , P::Position: fmt::Debug {
+impl <S> PartialEq for ParseError<S>
+    where S: Stream
+        , <S::Item as Positioner>::Position: PartialEq {
     fn eq(&self, other: &ParseError<S>) -> bool {
         self.position == other.position && self.errors == other.errors
     }
 }
 
-impl <P: Positioner + fmt::Debug, S> fmt::Debug for ParseError<S>
-    where S: Stream<Item=P>
+impl <S> fmt::Debug for ParseError<S>
+    where S: Stream
         , S::Range: fmt::Debug
-        , P::Position: fmt::Debug {
+        , S::Item: fmt::Debug
+        , <S::Item as Positioner>::Position: fmt::Debug {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ParseError {{ position: {:?}, errors: {:?} }}", self.position, self.errors)
     }
 }
 
-impl <P, S> fmt::Display for ParseError<S>
-    where S: Stream<Item=P>
+impl <S> fmt::Display for ParseError<S>
+    where S: Stream
+        , S::Item: fmt::Display
         , S::Range: fmt::Display
-        , P: Positioner + fmt::Display
-        , P::Position: fmt::Display {
+        , <S::Item as Positioner>::Position: fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
 
