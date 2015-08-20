@@ -1,6 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Info, Parser, ParseResult, ParseError, Positioner, Stream, State, Error, Consumed};
+use primitives::{Info, Parser, ParseResult, ParseError, Positioner, Stream, RangeStream, State, Error, Consumed};
 
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
@@ -111,7 +111,7 @@ pub struct Token<I>
 
 impl <I> Parser for Token<I>
     where I: Stream
-        , I::Item: PartialEq {
+        , I::Item: PartialEq + Clone {
 
     type Input = I;
     type Output = I::Item;
@@ -1390,6 +1390,161 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 
+
+pub struct Range<I>(I)
+    where I: RangeStream + PartialEq;
+impl <I, E> Parser for Range<I>
+    where I: RangeStream<Item=E, Range=I> + PartialEq + Positioner<Position=E::Position>
+        , E: Positioner + Clone {
+
+    type Input = I;
+    type Output = I;
+
+    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+        let State { mut position, input, .. } = input;
+        match input.uncons_range(self.0.len()) {
+            Ok((other, rest)) => {
+                if other == self.0 {
+                    self.0.update(&mut position);
+                    Ok((other, Consumed::Consumed(State { position: position, input: rest })))
+                }
+                else {
+                    Err(Consumed::Empty(ParseError::empty(position)))
+                }
+            }
+            Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
+        }
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        //TODO Add unexpected message?
+        errors.add_error(Error::Expected(Info::Range(self.0.clone())));
+    }
+}
+
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::combinator::range;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = range("hello");
+/// let result = parser.parse("hello world");
+/// assert_eq!(result, Ok(("hello", " world")));
+/// let result = parser.parse("hel world");
+/// assert!(result.is_err());
+/// # }
+/// ```
+pub fn range<I, E>(i: I) -> Range<I>
+    where I: RangeStream<Item=E, Range=I> + PartialEq + Positioner<Position=E::Position>
+        , E: Positioner + Clone {
+    Range(i)
+}
+
+pub struct Take<I>(usize, PhantomData<fn (I) -> I>);
+impl <I, E> Parser for Take<I>
+    where I: RangeStream<Item=E>
+        , E: Positioner<Position=I::Position> + Clone {
+
+    type Input = I;
+    type Output = I;
+
+    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+        input.uncons_range(self.0)
+    }
+}
+
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::combinator::take;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = take(4);
+/// let result = parser.parse("123abc");
+/// assert_eq!(result, Ok(("123a", "bc")));
+/// let result = parser.parse("abc");
+/// assert!(result.is_err());
+/// # }
+/// ```
+pub fn take<I>(n: usize) -> Take<I>
+    where I: RangeStream {
+    Take(n, PhantomData)
+}
+
+pub struct TakeWhile<I, F>(F, PhantomData<fn (I) -> I>);
+impl <I, E, F> Parser for TakeWhile<I, F>
+    where I: RangeStream<Item=E>
+        , E: Positioner<Position=I::Position> + Clone
+        , F: FnMut(I::Item) -> bool {
+
+    type Input = I;
+    type Output = I;
+
+    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+        input.uncons_while(&mut self.0)
+    }
+}
+
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::combinator::take_while;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = take_while(|c: char| c.is_digit(10));
+/// let result = parser.parse("123abc");
+/// assert_eq!(result, Ok(("123", "abc")));
+/// let result = parser.parse("abc");
+/// assert_eq!(result, Ok(("", "abc")));
+/// # }
+/// ```
+pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
+    where I: RangeStream
+        , F: FnMut(I::Item) -> bool {
+    TakeWhile(f, PhantomData)
+}
+
+pub struct TakeWhile1<I, F>(F, PhantomData<fn (I) -> I>);
+impl <I, F> Parser for TakeWhile1<I, F>
+    where I: RangeStream
+        , F: FnMut(I::Item) -> bool {
+
+    type Input = I;
+    type Output = I;
+
+    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+        input.uncons_while(&mut self.0)
+            .and_then(|(v, input)| {
+                match input {
+                    Consumed::Consumed(_) => Ok((v, input)),
+                    Consumed::Empty(input) => {
+                        let error = match input.input.uncons() {
+                            Ok((t, _)) => Error::Unexpected(Info::Token(t)),
+                            Err(err) => err
+                        };
+                        Err(Consumed::Empty(ParseError::new(input.position, error)))
+                    }
+                }
+            })
+    }
+}
+
+
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::combinator::take_while1;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = take_while1(|c: char| c.is_digit(10));
+/// let result = parser.parse("123abc");
+/// assert_eq!(result, Ok(("123", "abc")));
+/// let result = parser.parse("abc");
+/// assert!(result.is_err());
+/// # }
+/// ```
+pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
+    where I: RangeStream
+        , F: FnMut(I::Item) -> bool {
+    TakeWhile1(f, PhantomData)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1439,5 +1594,11 @@ mod tests {
                 Error::Unexpected('a'.into()),
                 Error::Expected("digit".into())]
         }));
+    }
+
+    #[test]
+    fn take_while_test() {
+        let result = take_while(|c: char| c.is_digit(10)).parse("123abc");
+        assert_eq!(result, Ok(("123", "abc")));
     }
 }

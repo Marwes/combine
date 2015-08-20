@@ -419,6 +419,53 @@ impl <I: Stream> State<I> {
     }
 }
 
+impl <I, E> State<I>
+    where I: RangeStream<Item=E> + Positioner<Position=E::Position>
+        , E: Positioner + Clone {
+    pub fn uncons_range(self, size: usize) -> ParseResult<I, I> {
+        let State { mut position, input, .. } = self;
+        let result = input.uncons_range(size);
+        match result {
+            Ok((value, input)) => {
+                value.update(&mut position);
+                let state = State { position: position, input: input };
+                let state = if value.len() == 0 {
+                    Consumed::Empty(state)
+                }
+                else {
+                    Consumed::Consumed(state)
+                };
+                Ok((value, state))
+            }
+            Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
+        }
+    }
+}
+
+impl <I: RangeStream> State<I> {
+    pub fn uncons_while<F>(self, mut f: F) -> ParseResult<I, I>
+        where F: FnMut(I::Item) -> bool {
+        let State { mut position, input, .. } = self;
+        let result = input.uncons_while(|t| {
+            if f(t.clone()) { t.update(&mut position); true }
+            else { false }
+        });
+        match result {
+            Ok((value, input)) => {
+                let state = State { position: position, input: input };
+                let state = if value.len() == 0 {
+                    Consumed::Empty(state)
+                }
+                else {
+                    Consumed::Consumed(state)
+                };
+                Ok((value, state))
+            }
+            Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
+        }
+    }
+}
+
 ///A type alias over the specific `Result` type used by parsers to indicate wether they were
 ///successful or not.
 ///`O` is the type that is output on success
@@ -436,6 +483,58 @@ pub trait Stream : Clone {
     ///Takes a stream and removes its first item, yielding the item and the rest of the elements
     ///Returns `Err` if no element could be retrieved
     fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item, Self::Range>>;
+}
+
+pub trait RangeStream: Stream + Positioner {
+    fn uncons_range(self, size: usize) -> Result<(Self, Self), Error<Self::Item, Self::Range>>;
+
+    fn uncons_while<F>(self, f: F) -> Result<(Self, Self), Error<Self::Item, Self::Range>>
+        where F: FnMut(Self::Item) -> bool;
+    fn len(&self) -> usize;
+}
+
+impl <'a> RangeStream for &'a str {
+    fn uncons_while<F>(self, mut f: F) -> Result<(&'a str, &'a str), Error<char, &'a str>>
+        where F: FnMut(Self::Item) -> bool {
+        let len = self.chars()
+            .take_while(|c| f(*c))
+            .fold(0, |len, c| len + c.len_utf8());
+        Ok((&self[..len], &self[len..]))
+    }
+    fn uncons_range(self, size: usize) -> Result<(&'a str, &'a str), Error<char, &'a str>> {
+        if size < self.len() {
+            Ok((&self[0..size], &self[size..]))
+        }
+        else {
+            Err(Error::end_of_input())
+        }
+    }
+    fn len(&self) -> usize {
+        str::len(self)
+    }
+}
+
+impl <'a, T> RangeStream for &'a [T]
+where T: Positioner + Copy {
+    fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
+        if size < self.len() {
+            Ok((&self[0..size], &self[size..]))
+        }
+        else {
+            Err(Error::end_of_input())
+        }
+    }
+    fn uncons_while<F>(self, mut f: F) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>>
+        where F: FnMut(Self::Item) -> bool {
+        let len = self.iter()
+            .take_while(|c| f(**c))
+            .count();
+        Ok((&self[..len], &self[len..]))
+    }
+
+    fn len(&self) -> usize {
+        <[T]>::len(self)
+    }
 }
 
 impl <'a> Stream for &'a str {
