@@ -1,11 +1,9 @@
-# combine [![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine)
-(Previously parser-combinators)
+# combine
+[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Coverage Status](https://coveralls.io/repos/Marwes/parser-combinators/badge.svg?branch=master&service=github)](https://coveralls.io/github/Marwes/parser-combinators?branch=master) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahed using the [try](https://marwes.github.io/combine/combine/fn.try.html) combinator.
+(Previously named parser-combinators)
 
-A parser combinators is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](https://marwes.github.io/combine/combine/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times.
-
-The library is mostly stable but a few parts of the internals may still change. If you end up trying it I welcome any feedback from your experience with it.
+An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahed using the [try  combinator](https://marwes.github.io/combine/combine/fn.try.html).
 
 ##Example
 
@@ -18,7 +16,10 @@ let result = many(letter()).parse("hello world");
 assert_eq!(result, Ok(("hello".to_string(), " world")));
 ```
 
-More examples can be found in the examples and benches folders.
+Larger examples can be found in the [examples][examples] and [benches][benches] folders.
+
+[benches]:https://github.com/Marwes/combine/tree/master/benches
+[examples]:https://github.com/Marwes/combine/tree/master/examples
 
 ## Links
 
@@ -26,9 +27,19 @@ More examples can be found in the examples and benches folders.
 
 [crates.io](https://crates.io/crates/combine)
 
+## About
+
+A parser combinator is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](https://marwes.github.io/combine/combine/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times. Thanks to the modularity that parser combinators gives it is possible to define parsers for a wide range of tasks without needing to implement the low level plumbing while still having the full power of Rust when you need it. 
+
+The library is almost stable but a few parts of the internals may still change before 1.0. After that the library will adhere to [semantic versioning](http://semver.org).
+
+If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a dat by opening an issue or sending an email. I am also testing gitter for smaller questions.
+
 ## Extra
 
 There is an additional crate which has parsers to lex and parse programming languages in [combine-language](https://github.com/Marwes/combine-language).
+
+You can find older versions of combine (parser-combinators) [here](https://crates.io/crates/parser-combinators).
 
 ## Breaking changes
 
