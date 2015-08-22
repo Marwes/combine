@@ -207,7 +207,7 @@ impl <T> Consumed<T> {
     }
 }
 ///Struct which hold information about an error that occured at a specific position.
-///Can hold multiple instances of `Error` if more that one error occured at the position.
+///Can hold multiple instances of `Error` if more that one error occured in the same position.
 pub struct ParseError<P: Stream> {
     ///The position where the error occured
     pub position: <P::Item as Positioner>::Position,
@@ -366,7 +366,9 @@ impl <T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 #[derive(Clone, PartialEq)]
 pub struct State<I>
     where I: Stream {
+    ///The current position
     pub position: <I::Item as Positioner>::Position,
+    ///The input stream used when items are requested
     pub input: I
 }
 
@@ -379,12 +381,11 @@ impl <I> fmt::Debug for State<I>
 }
 
 impl <I: Stream> State<I> {
+
+    ///Creates a new `State<I>` from an input stream. Initializes the position to
+    ///`Positioner::start()`
     pub fn new(input: I) -> State<I> {
         State { position: <I::Item as Positioner>::start(), input: input }
-    }
-
-    pub fn as_empty(&self) -> State<I> {
-        State { position: self.position.clone(), input: self.input.clone() }
     }
 
     ///`uncons` is the most general way of extracting and item from a stream
@@ -401,10 +402,13 @@ impl <I: Stream> State<I> {
             Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
         }
     }
-    pub fn update(mut self, i: I::Item, rest: I) -> ParseResult<I::Item, I> {
-        i.update(&mut self.position);
+
+    ///Updates the `position` and `input` to be as if `item` was removed and `rest` is
+    ///the remaining input
+    pub fn update(mut self, item: I::Item, rest: I) -> ParseResult<I::Item, I> {
+        item.update(&mut self.position);
         self.input = rest;
-        Ok((i, Consumed::Consumed(self)))
+        Ok((item, Consumed::Consumed(self)))
     }
 }
 
@@ -412,16 +416,18 @@ impl <I: Stream> State<I> {
 ///successful or not.
 ///`O` is the type that is output on success
 ///`I` is the specific stream type used in the parser
-///`T` is the item type of `I`, this parameter will be removed once type declarations are allowed
-///to have trait bounds
 pub type ParseResult<O, I> = Result<(O, Consumed<State<I>>), Consumed<ParseError<I>>>;
 
 ///A stream is a sequence of items that can be extracted one by one
 pub trait Stream : Clone {
+    ///The type of items which is yielded from this stream
     type Item: Positioner + Clone;
+    ///The type of a range of items yielded from this stream.
+    ///Types which do not a have a way of yielding ranges of items should just use the
+    ///Self::Item for this type
     type Range: Positioner + Clone;
     ///Takes a stream and removes its first item, yielding the item and the rest of the elements
-    ///Returns `Err` when no more elements could be retrieved
+    ///Returns `Err` if no element could be retrieved
     fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item, Self::Range>>;
 }
 
@@ -475,10 +481,9 @@ impl <I: Iterator + Clone> Stream for IteratorStream<I>
     }
 }
 
-///`Positioner` represents the operations needed to update a position given an item from the stream
-///When implementing stream for custom token type this must be implemented for that token to allow
-///the position to be updated
+///Trait for updating the position for types which can be yielded from a `Stream`.
 pub trait Positioner: PartialEq {
+    ///The type which keeps track of the position.
     type Position: Clone + Ord;
     ///Creates a start position
     fn start() -> Self::Position;
@@ -552,10 +557,10 @@ impl Positioner for u8 {
 ///`parse_state` or`parse_lazy`. If `parse_ok` is implemented an implementation of `add_error` is
 ///also recommended to improve error reporting.
 pub trait Parser {
-    ///A type implementing the `Stream` trait which is the specific type
-    ///that is parsed.
+    ///The type which is take as input for the parser. The type must implement the `Stream` trait
+    ///which allows the parser to read item from the type.
     type Input: Stream;
-    ///The type which is returned when the parsing is successful.
+    ///The type which is returned if the parser is successful.
     type Output;
 
     ///Entrypoint of the parser
@@ -566,6 +571,7 @@ pub trait Parser {
             Err(error) => Err(error.into_inner())
         }
     }
+
     ///Parses using the state `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
     fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
