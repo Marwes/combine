@@ -561,7 +561,7 @@ impl Positioner for u8 {
 ///the type `Output`.
 ///
 ///All methods have a default implementation but there needs to be at least an implementation of
-///`parse_state` or`parse_lazy`. If `parse_ok` is implemented an implementation of `add_error` is
+///`parse_state` or`parse_lazy`. If `parse_lazy` is implemented an implementation of `add_error` is
 ///also recommended to improve error reporting.
 pub trait Parser {
     ///The type which is take as input for the parser. The type must implement the `Stream` trait
