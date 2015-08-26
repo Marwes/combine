@@ -159,6 +159,13 @@ impl <T> Consumed<T> {
         }
     }
 
+    pub fn merge(&self, current: Consumed<T>) -> Consumed<T> {
+        match *self {
+            Consumed::Empty(_) => current,
+            Consumed::Consumed(_) => current.as_consumed()
+        }
+    }
+
     ///Combines the Consumed flags from `self` and the result of `f`
     ///
     ///```
@@ -492,21 +499,21 @@ pub trait Positioner: PartialEq {
 }
 impl <'a, T: ?Sized> Positioner for &'a T
     where T: Positioner {
-    type Position = <T as Positioner>::Position;
-    fn start() -> <T as Positioner>::Position {
-        <T as Positioner>::start()
+    type Position = T::Position;
+    fn start() -> T::Position {
+        T::start()
     }
-    fn update(&self, position: &mut <T as Positioner>::Position) {
+    fn update(&self, position: &mut T::Position) {
         (*self).update(position)
     }
 }
 impl <T> Positioner for [T]
     where T: Positioner {
-    type Position = <T as Positioner>::Position;
-    fn start() -> <T as Positioner>::Position {
-        <T as Positioner>::start()
+    type Position = T::Position;
+    fn start() -> T::Position {
+        T::start()
     }
-    fn update(&self, position: &mut <T as Positioner>::Position) {
+    fn update(&self, position: &mut T::Position) {
         for t in self {
             t.update(position);
         }
