@@ -41,6 +41,16 @@ There is an additional crate which has parsers to lex and parse programming lang
 
 You can find older versions of combine (parser-combinators) [here](https://crates.io/crates/parser-combinators).
 
+## Contributing
+
+The easiest way to contribute is to just open an issue about any problems you encounter using combine but if you are intersted in adding something to the library here is a list of some of the easier things to work on to get started.
+
+* __Add additional parsers__ There is a list of parsers which aren't implemented [here][add parsers] but if you have a suggestion for another parser just leave a suggestion on the issue itself.
+* __Add additional examples__ More examples for using combine will always be useful!
+* __Add and improve the docs__ Not the fanciest of work but one cannot overstate the importance of good documentation.
+
+[add parsers]: https://github.com/Marwes/combine/issues/2
+
 ## Breaking changes
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
