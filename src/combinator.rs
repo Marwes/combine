@@ -46,7 +46,7 @@ impl <I> Parser for Any<I>
 /// assert_eq!(char_parser.parse("!").map(|x| x.0), Ok('!'));
 /// assert!(char_parser.parse("").is_err());
 /// let mut byte_parser = any();
-/// assert_eq!(byte_parser.parse(&b"!"[..]).map(|x| x.0), Ok(&b'!'));
+/// assert_eq!(byte_parser.parse(&b"!"[..]).map(|x| x.0), Ok(b'!'));
 /// assert!(byte_parser.parse(&b""[..]).is_err());
 /// # }
 /// ```

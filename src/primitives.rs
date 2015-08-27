@@ -450,12 +450,36 @@ impl <'a> Stream for &'a str {
 }
 
 impl <'a, T> Stream for &'a [T]
-    where T: Positioner {
+    where T: Positioner + Copy {
+    type Item = T;
+    type Range = &'a [T];
+    fn uncons(self) -> Result<(T, &'a [T]), Error<T, &'a [T]>> {
+        if self.len() > 0 {
+            Ok((self[0], &self[1..]))
+        }
+        else {
+            Err(Error::end_of_input())
+        }
+    }
+}
+
+///Newtype for constructing a stream from a slice where the items in the slice are not copyable
+#[derive(Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct SliceStream<'a, T: 'a>(pub &'a [T]);
+
+impl <'a, T> Clone for SliceStream<'a, T> {
+    fn clone(&self) -> SliceStream<'a, T> {
+        SliceStream(self.0)
+    }
+}
+
+impl <'a, T> Stream for SliceStream<'a, T>
+    where T: Positioner + 'a {
     type Item = &'a T;
     type Range = &'a [T];
-    fn uncons(self) -> Result<(&'a T, &'a [T]), Error<&'a T, &'a [T]>> {
-        if self.len() > 0 {
-            Ok((&self[0], &self[1..]))
+    fn uncons(self) -> Result<(&'a T, SliceStream<'a, T>), Error<&'a T, &'a [T]>> {
+        if self.0.len() > 0 {
+            Ok((&self.0[0], SliceStream(&self.0[1..])))
         }
         else {
             Err(Error::end_of_input())
@@ -519,6 +543,20 @@ impl <T> Positioner for [T]
         }
     }
 }
+
+impl <'a, T> Positioner for SliceStream<'a, T>
+    where T: Positioner + 'a {
+    type Position = T::Position;
+    fn start() -> T::Position {
+        T::start()
+    }
+    fn update(&self, position: &mut T::Position) {
+        for t in self.0 {
+            t.update(position);
+        }
+    }
+}
+
 impl Positioner for str {
     type Position = SourcePosition;
     fn start() -> SourcePosition {
