@@ -456,23 +456,13 @@ impl <F, P, S> Parser for SepBy<F, P, S>
 
     type Input = P::Input;
     type Output = F;
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
-        let (first, rest) = match self.parser.parse_lazy(input.clone()) {
-            Ok(tuple) => tuple,
-            Err(err@Consumed::Consumed(_)) => return Err(err),
-            Err(Consumed::Empty(_)) => return Ok((None.into_iter().collect(), Consumed::Empty(input)))
-        };
 
-        rest.combine(move |input| {
-            let rest = (&mut self.separator)
-                .with(&mut self.parser);
-	        let mut iter = Iter::new(rest, input);
-	        let result = Some(first).into_iter()
-	            .chain(iter.by_ref())
-	            .collect();
-        	iter.into_result(result)
-        })
+    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+        sep_by1(&mut self.parser, &mut self.separator)
+            .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
+            .parse_lazy(input)
     }
+
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.parser.add_error(errors)
     }
@@ -499,6 +489,69 @@ pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
         , P: Parser
         , S: Parser<Input=P::Input> {
     SepBy { parser: parser, separator: separator, _marker: PhantomData }
+}
+
+#[derive(Clone)]
+pub struct SepBy1<F, P, S> {
+    parser: P,
+    separator: S,
+    _marker: PhantomData<fn () -> F>
+}
+impl <F, P, S> Parser for SepBy1<F, P, S>
+    where F: FromIterator<P::Output>
+        , P: Parser
+        , S: Parser<Input=P::Input> {
+
+    type Input = P::Input;
+    type Output = F;
+
+    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+        let (first, rest) = try!(self.parser.parse_lazy(input.clone()));
+
+        rest.combine(move |input| {
+            let rest = (&mut self.separator)
+                .with(&mut self.parser);
+	        let mut iter = Iter::new(rest, input);
+	        let result = Some(first).into_iter()
+	            .chain(iter.by_ref())
+	            .collect();
+        	iter.into_result(result)
+        })
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        self.parser.add_error(errors)
+    }
+}
+
+///Parses `parser` one or more time separated by `separator`, returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::*;
+/// # use pc::primitives::{Error, Positioner};
+/// # fn main() {
+/// let mut parser = sep_by1(digit(), token(','));
+/// let result_ok = parser.parse("1,2,3");
+/// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
+/// let result_err = parser.parse("");
+/// assert_eq!(result_err, Err(ParseError {
+///     position: <char as Positioner>::start(),
+///     errors: vec![
+///         Error::Message("End of input".into()),
+///         Error::Expected("digit".into())
+///     ]
+/// }));
+/// # }
+/// ```
+pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
+    where F: FromIterator<P::Output>
+        , P: Parser
+        , S: Parser<Input=P::Input> {
+    SepBy1 { parser: parser, separator: separator, _marker: PhantomData }
 }
 
 impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {

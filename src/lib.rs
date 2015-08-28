@@ -129,6 +129,7 @@ pub use combinator::{
     parser,
     satisfy,
     sep_by,
+    sep_by1,
     skip_many,
     skip_many1,
     token,
