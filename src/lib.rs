@@ -130,6 +130,8 @@ pub use combinator::{
     satisfy,
     sep_by,
     sep_by1,
+    sep_end_by,
+    sep_end_by1,
     skip_many,
     skip_many1,
     token,

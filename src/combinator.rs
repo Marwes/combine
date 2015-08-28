@@ -554,6 +554,122 @@ pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
     SepBy1 { parser: parser, separator: separator, _marker: PhantomData }
 }
 
+#[derive(Clone)]
+pub struct SepEndBy<F, P, S> {
+    parser: P,
+    separator: S,
+    _marker: PhantomData<fn () -> F>
+}
+
+impl <F, P, S> Parser for SepEndBy<F, P, S>
+    where F: FromIterator<P::Output>
+        , P: Parser
+        , S: Parser<Input=P::Input> {
+
+    type Input = P::Input;
+    type Output = F;
+
+    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+        sep_end_by1(&mut self.parser, &mut self.separator)
+            .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
+            .parse_lazy(input)
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        self.parser.add_error(errors)
+    }
+}
+
+///Parses `parser` zero or more time separated by `separator`, returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::*;
+/// # fn main() {
+/// let mut parser = sep_end_by(digit(), token(';'));
+/// let result_ok = parser.parse("1;2;3;");
+/// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
+/// let result_ok2 = parser.parse("1;2;3");
+/// assert_eq!(result_ok2, Ok((vec!['1', '2', '3'], "")));
+/// # }
+/// ```
+pub fn sep_end_by<F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
+    where F: FromIterator<P::Output>
+        , P: Parser
+        , S: Parser<Input=P::Input> {
+    SepEndBy { parser: parser, separator: separator, _marker: PhantomData }
+}
+
+#[derive(Clone)]
+pub struct SepEndBy1<F, P, S> {
+    parser: P,
+    separator: S,
+    _marker: PhantomData<fn () -> F>
+}
+
+impl <F, P, S> Parser for SepEndBy1<F, P, S>
+    where F: FromIterator<P::Output>
+        , P: Parser
+        , S: Parser<Input=P::Input> {
+
+    type Input = P::Input;
+    type Output = F;
+
+    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+        let (first, input) = try!(self.parser.parse_lazy(input.clone()));
+
+        input.combine(|input| {
+            let rest = (&mut self.separator)
+                .with(optional(&mut self.parser));
+	        let mut iter = Iter::new(rest, input);
+            //`iter` yields Option<P::Output>, by using flat map we make sure that we stop
+            //iterating once a None element is received, i.e `self.parser` did not parse
+            //successfully
+	        let result = Some(first).into_iter()
+	            .chain(iter.by_ref().flat_map(|x| x))
+	            .collect();
+        	iter.into_result(result)
+        })
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        self.parser.add_error(errors)
+    }
+}
+
+///Parses `parser` one or more time separated by `separator`, returning a collection with the values from `p`.
+///If the returned collection cannot be inferred type annotations must be supplied, either by
+///annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+///calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::*;
+/// # use pc::primitives::{Error, Positioner};
+/// # fn main() {
+/// let mut parser = sep_end_by1(digit(), token(';'));
+/// let result_ok = parser.parse("1;2;3;");
+/// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
+/// let result_err = parser.parse("");
+/// assert_eq!(result_err, Err(ParseError {
+///     position: <char as Positioner>::start(),
+///     errors: vec![
+///         Error::Message("End of input".into()),
+///         Error::Expected("digit".into())
+///     ]
+/// }));
+/// # }
+/// ```
+pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
+    where F: FromIterator<P::Output>
+        , P: Parser
+        , S: Parser<Input=P::Input> {
+    SepEndBy1 { parser: parser, separator: separator, _marker: PhantomData }
+}
+
 impl <'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
