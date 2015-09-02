@@ -290,7 +290,7 @@ r"
         let m = format!("{}", result.unwrap_err());
 let expected =
 r"Parse error at line: 2, column: 1
-Unexpected token ','
+Unexpected ','
 Expected 'integer', 'identifier', '[' or '('
 ";
         assert_eq!(m, expected);

@@ -206,7 +206,7 @@ mod tests {
         let result = space()
             .parse("");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().errors, vec![Error::Message("End of input".into()), Error::Expected("whitespace".into())]);
+        assert_eq!(result.unwrap_err().errors, vec![Error::end_of_input(), Error::Expected("whitespace".into())]);
 
     }
 

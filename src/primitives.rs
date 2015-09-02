@@ -109,7 +109,7 @@ impl <E, T, R> From<E> for Error<T, R> where E: StdError + 'static + Send {
 
 impl <T, R> Error<T, R> {
     pub fn end_of_input() -> Error<T, R> {
-        Error::Message("End of input".into())
+        Error::Unexpected("end of input".into())
     }
 }
 
@@ -361,7 +361,7 @@ impl fmt::Display for SourcePosition {
 impl <T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Unexpected(ref c) => write!(f, "Unexpected token '{}'", c),
+            Error::Unexpected(ref c) => write!(f, "Unexpected '{}'", c),
             Error::Expected(ref s) => write!(f, "Expected {}", s),
             Error::Message(ref msg) => write!(f, "{}", msg),
             Error::Other(ref err) => err.fmt(f)

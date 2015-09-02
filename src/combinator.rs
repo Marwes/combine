@@ -541,7 +541,7 @@ impl <F, P, S> Parser for SepBy1<F, P, S>
 /// assert_eq!(result_err, Err(ParseError {
 ///     position: <char as Positioner>::start(),
 ///     errors: vec![
-///         Error::Message("End of input".into()),
+///         Error::end_of_input(),
 ///         Error::Expected("digit".into())
 ///     ]
 /// }));
@@ -657,7 +657,7 @@ impl <F, P, S> Parser for SepEndBy1<F, P, S>
 /// assert_eq!(result_err, Err(ParseError {
 ///     position: <char as Positioner>::start(),
 ///     errors: vec![
-///         Error::Message("End of input".into()),
+///         Error::end_of_input(),
 ///         Error::Expected("digit".into())
 ///     ]
 /// }));
