@@ -118,7 +118,8 @@ where I: Stream<Item=char> {
         .parse_state(input)
 }
 
-fn main() {
+#[test]
+fn test() {
     //A parser for 
     let result = parser(date_time).parse("2015-08-02T18:54:42+02");
     let d = DateTime {
