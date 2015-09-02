@@ -990,9 +990,20 @@ impl <I, P> Parser for Message<P>
 
     type Input = I;
     type Output = P::Output;
+
+    fn parse_state(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
+        //The message should always be added even if some input was consumed before failing
+        self.0.parse_state(input.clone())
+            .map_err(|errors| errors.map(|mut errors| {
+                errors.add_message(self.1.clone());
+                errors
+            }))
+    }
+
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         self.0.parse_lazy(input.clone())
     }
+
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
         errors.add_message(self.1.clone());
@@ -1072,9 +1083,21 @@ impl <P> Parser for Expected<P>
 
     type Input = P::Input;
     type Output = P::Output;
+
+    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+        //add_error is only called on unconsumed inputs but we want this expected message to always
+        //replace the ones always present in the ParseError
+        self.0.parse_state(input)
+            .map_err(|errors| errors.map(|mut errors| {
+                errors.set_expected(self.1.clone());
+                errors
+            }))
+    }
+
     fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
         self.0.parse_lazy(input)
     }
+
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         let start = errors.errors.len();
         self.0.add_error(errors);
