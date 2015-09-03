@@ -55,6 +55,9 @@ The easiest way to contribute is to just open an issue about any problems you en
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
+### 1.0.0
+* `&[T]` streams has had the `Item` type changed from `&T` to `T` and requires a `T: Copy` bound.
+
 ### 1.0.0-beta.3
 * `Error::Unexpected` holds an `Info<T, R>` instead of just a T to make it consitent with the other variants.
 
