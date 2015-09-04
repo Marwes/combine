@@ -16,10 +16,10 @@ let result = many(letter()).parse("hello world");
 assert_eq!(result, Ok(("hello".to_string(), " world")));
 ```
 
-Larger examples can be found in the [examples][examples] and [benches][benches] folders.
+Larger examples can be found in the [tests][tests] and [benches][benches] folders.
 
+[tests]:https://github.com/Marwes/combine/tree/master/tests
 [benches]:https://github.com/Marwes/combine/tree/master/benches
-[examples]:https://github.com/Marwes/combine/tree/master/examples
 
 ## Links
 
