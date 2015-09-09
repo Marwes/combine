@@ -513,8 +513,20 @@ impl <'a> RangeStream for &'a str {
         Ok((&self[..len], &self[len..]))
     }
     fn uncons_range(self, size: usize) -> Result<(&'a str, &'a str), Error<char, &'a str>> {
+        fn is_char_boundary(s: &str, index: usize) -> bool {
+            if index == s.len() { return true; }
+            match s.as_bytes().get(index) {
+                None => false,
+                Some(&b) => b < 128 || b >= 192,
+            }
+        }
         if size < self.len() {
-            Ok((&self[0..size], &self[size..]))
+            if is_char_boundary(self, size) {
+                Ok((&self[0..size], &self[size..]))
+            }
+            else {
+                Err(Error::Message("uncons_range on non character boundary".into()))
+            }
         }
         else {
             Err(Error::end_of_input())

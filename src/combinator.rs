@@ -1601,4 +1601,11 @@ mod tests {
         let result = take_while(|c: char| c.is_digit(10)).parse("123abc");
         assert_eq!(result, Ok(("123", "abc")));
     }
+
+    #[test]
+    fn range_string_no_char_boundary_error() {
+        let mut parser = range("hello");
+        let result = parser.parse("hell\u{00EE} world");
+        assert!(result.is_err());
+    }
 }
