@@ -419,6 +419,7 @@ impl <I: Stream> State<I> {
     }
 }
 
+#[cfg(feature = "range_stream")]
 impl <I, E> State<I>
     where I: RangeStream<Item=E> + Positioner<Position=E::Position>
         , E: Positioner + Clone {
@@ -445,6 +446,7 @@ impl <I, E> State<I>
     }
 }
 
+#[cfg(feature = "range_stream")]
 impl <I: RangeStream> State<I> {
 
     ///Removes items from the input while `predicate` returns `true`.
@@ -490,6 +492,7 @@ pub trait Stream : Clone {
     fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item, Self::Range>>;
 }
 
+#[cfg(feature = "range_stream")]
 pub trait RangeStream: Stream + Positioner {
     ///Takes `size` elements from the stream
     ///Fails if the length of the stream is less than `size`.
@@ -504,6 +507,7 @@ pub trait RangeStream: Stream + Positioner {
     fn len(&self) -> usize;
 }
 
+#[cfg(feature = "range_stream")]
 impl <'a> RangeStream for &'a str {
     fn uncons_while<F>(self, mut f: F) -> Result<(&'a str, &'a str), Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool {
@@ -537,6 +541,7 @@ impl <'a> RangeStream for &'a str {
     }
 }
 
+#[cfg(feature = "range_stream")]
 impl <'a, T> RangeStream for &'a [T]
 where T: Positioner + Copy {
     fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {

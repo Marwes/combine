@@ -1,6 +1,8 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Info, Parser, ParseResult, ParseError, Positioner, Stream, RangeStream, State, Error, Consumed};
+use primitives::{Info, Parser, ParseResult, ParseError, Positioner, Stream, State, Error, Consumed};
+#[cfg(feature = "range_stream")]
+use primitives::RangeStream;
 
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
@@ -1391,8 +1393,10 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 
 
+#[cfg(feature = "range_stream")]
 pub struct Range<I>(I)
     where I: RangeStream + PartialEq;
+#[cfg(feature = "range_stream")]
 impl <I, E> Parser for Range<I>
     where I: RangeStream<Item=E, Range=I> + PartialEq + Positioner<Position=E::Position>
         , E: Positioner + Clone {
@@ -1433,13 +1437,16 @@ impl <I, E> Parser for Range<I>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[cfg(feature = "range_stream")]
 pub fn range<I, E>(i: I) -> Range<I>
     where I: RangeStream<Item=E, Range=I> + PartialEq + Positioner<Position=E::Position>
         , E: Positioner + Clone {
     Range(i)
 }
 
+#[cfg(feature = "range_stream")]
 pub struct Take<I>(usize, PhantomData<fn (I) -> I>);
+#[cfg(feature = "range_stream")]
 impl <I, E> Parser for Take<I>
     where I: RangeStream<Item=E>
         , E: Positioner<Position=I::Position> + Clone {
@@ -1464,12 +1471,15 @@ impl <I, E> Parser for Take<I>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[cfg(feature = "range_stream")]
 pub fn take<I>(n: usize) -> Take<I>
     where I: RangeStream {
     Take(n, PhantomData)
 }
 
+#[cfg(feature = "range_stream")]
 pub struct TakeWhile<I, F>(F, PhantomData<fn (I) -> I>);
+#[cfg(feature = "range_stream")]
 impl <I, E, F> Parser for TakeWhile<I, F>
     where I: RangeStream<Item=E>
         , E: Positioner<Position=I::Position> + Clone
@@ -1495,13 +1505,16 @@ impl <I, E, F> Parser for TakeWhile<I, F>
 /// assert_eq!(result, Ok(("", "abc")));
 /// # }
 /// ```
+#[cfg(feature = "range_stream")]
 pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
     where I: RangeStream
         , F: FnMut(I::Item) -> bool {
     TakeWhile(f, PhantomData)
 }
 
+#[cfg(feature = "range_stream")]
 pub struct TakeWhile1<I, F>(F, PhantomData<fn (I) -> I>);
+#[cfg(feature = "range_stream")]
 impl <I, F> Parser for TakeWhile1<I, F>
     where I: RangeStream
         , F: FnMut(I::Item) -> bool {
@@ -1539,6 +1552,7 @@ impl <I, F> Parser for TakeWhile1<I, F>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[cfg(feature = "range_stream")]
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
     where I: RangeStream
         , F: FnMut(I::Item) -> bool {
@@ -1584,6 +1598,7 @@ mod tests {
                          Error::Expected("my expected digit".into())]
         }));
     }
+
     #[test]
     fn tuple_parse_error() {
         let mut parser = (digit(), digit());
@@ -1596,12 +1611,14 @@ mod tests {
         }));
     }
 
+    #[cfg(feature = "range_stream")]
     #[test]
     fn take_while_test() {
         let result = take_while(|c: char| c.is_digit(10)).parse("123abc");
         assert_eq!(result, Ok(("123", "abc")));
     }
 
+    #[cfg(feature = "range_stream")]
     #[test]
     fn range_string_no_char_boundary_error() {
         let mut parser = range("hello");
