@@ -17,12 +17,12 @@ before_script:
 script:
 - |
   cargo build &&
-  cargo test &&
-  travis-cargo --only nightly bench &&
+  cargo test --features range_stream &&
+  travis-cargo --only nightly bench -- --features range_stream &&
   travis-cargo --only stable doc
 after_success:
 - travis-cargo --only stable doc-upload
-- travis-cargo coveralls --no-sudo
+- travis-cargo coveralls --no-sudo -- --features range_stream
 env:
   global:
   - TRAVIS_CARGO_NIGHTLY_FEATURE=""
