@@ -419,6 +419,60 @@ impl <I: Stream> State<I> {
     }
 }
 
+#[cfg(feature = "range_stream")]
+impl <I, E> State<I>
+    where I: RangeStream<Item=E> + Positioner<Position=E::Position>
+        , E: Positioner + Clone {
+    
+    ///Removes `size` items from the input returning them as a range.
+    ///Fails if there are fewer items than `size`
+    pub fn uncons_range(self, size: usize) -> ParseResult<I, I> {
+        let State { mut position, input, .. } = self;
+        let result = input.uncons_range(size);
+        match result {
+            Ok((value, input)) => {
+                value.update(&mut position);
+                let state = State { position: position, input: input };
+                let state = if value.len() == 0 {
+                    Consumed::Empty(state)
+                }
+                else {
+                    Consumed::Consumed(state)
+                };
+                Ok((value, state))
+            }
+            Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
+        }
+    }
+}
+
+#[cfg(feature = "range_stream")]
+impl <I: RangeStream> State<I> {
+
+    ///Removes items from the input while `predicate` returns `true`.
+    pub fn uncons_while<F>(self, mut predicate: F) -> ParseResult<I, I>
+        where F: FnMut(I::Item) -> bool {
+        let State { mut position, input, .. } = self;
+        let result = input.uncons_while(|t| {
+            if predicate(t.clone()) { t.update(&mut position); true }
+            else { false }
+        });
+        match result {
+            Ok((value, input)) => {
+                let state = State { position: position, input: input };
+                let state = if value.len() == 0 {
+                    Consumed::Empty(state)
+                }
+                else {
+                    Consumed::Consumed(state)
+                };
+                Ok((value, state))
+            }
+            Err(err) => Err(Consumed::Empty(ParseError::new(position, err)))
+        }
+    }
+}
+
 ///A type alias over the specific `Result` type used by parsers to indicate wether they were
 ///successful or not.
 ///`O` is the type that is output on success
@@ -436,6 +490,79 @@ pub trait Stream : Clone {
     ///Takes a stream and removes its first item, yielding the item and the rest of the elements
     ///Returns `Err` if no element could be retrieved
     fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item, Self::Range>>;
+}
+
+#[cfg(feature = "range_stream")]
+pub trait RangeStream: Stream + Positioner {
+    ///Takes `size` elements from the stream
+    ///Fails if the length of the stream is less than `size`.
+    fn uncons_range(self, size: usize) -> Result<(Self, Self), Error<Self::Item, Self::Range>>;
+
+    ///Takes items from stream, testing each one with `predicate`
+    ///returns the range of items which passed `predicate`
+    fn uncons_while<F>(self, f: F) -> Result<(Self, Self), Error<Self::Item, Self::Range>>
+        where F: FnMut(Self::Item) -> bool;
+    ///Returns the remaining length of `self`.
+    ///The returned length need not be the same as the number of items left in the stream
+    fn len(&self) -> usize;
+}
+
+#[cfg(feature = "range_stream")]
+impl <'a> RangeStream for &'a str {
+    fn uncons_while<F>(self, mut f: F) -> Result<(&'a str, &'a str), Error<char, &'a str>>
+        where F: FnMut(Self::Item) -> bool {
+        let len = self.chars()
+            .take_while(|c| f(*c))
+            .fold(0, |len, c| len + c.len_utf8());
+        Ok((&self[..len], &self[len..]))
+    }
+    fn uncons_range(self, size: usize) -> Result<(&'a str, &'a str), Error<char, &'a str>> {
+        fn is_char_boundary(s: &str, index: usize) -> bool {
+            if index == s.len() { return true; }
+            match s.as_bytes().get(index) {
+                None => false,
+                Some(&b) => b < 128 || b >= 192,
+            }
+        }
+        if size < self.len() {
+            if is_char_boundary(self, size) {
+                Ok((&self[0..size], &self[size..]))
+            }
+            else {
+                Err(Error::Message("uncons_range on non character boundary".into()))
+            }
+        }
+        else {
+            Err(Error::end_of_input())
+        }
+    }
+    fn len(&self) -> usize {
+        str::len(self)
+    }
+}
+
+#[cfg(feature = "range_stream")]
+impl <'a, T> RangeStream for &'a [T]
+where T: Positioner + Copy {
+    fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
+        if size < self.len() {
+            Ok((&self[0..size], &self[size..]))
+        }
+        else {
+            Err(Error::end_of_input())
+        }
+    }
+    fn uncons_while<F>(self, mut f: F) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>>
+        where F: FnMut(Self::Item) -> bool {
+        let len = self.iter()
+            .take_while(|c| f(**c))
+            .count();
+        Ok((&self[..len], &self[len..]))
+    }
+
+    fn len(&self) -> usize {
+        <[T]>::len(self)
+    }
 }
 
 impl <'a> Stream for &'a str {

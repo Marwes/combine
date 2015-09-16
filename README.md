@@ -3,7 +3,7 @@
 
 (Previously named parser-combinators)
 
-An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahed using the [try  combinator](https://marwes.github.io/combine/combine/fn.try.html).
+An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahead using the [try  combinator](https://marwes.github.io/combine/combine/fn.try.html).
 
 ##Example
 
@@ -33,7 +33,13 @@ A parser combinator is, broadly speaking, a function which takes several parsers
 
 The library adheres to [semantic versioning](http://semver.org).
 
-If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a dat by opening an issue or sending an email. I am also testing gitter for smaller questions.
+If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a day by opening an issue or sending an email. I am also testing gitter for smaller questions.
+
+## Experimental additions
+
+Though `combine` is stable now that does not mean it is done. To make it as easy as possible to opt-in to these upcoming changes cargo features is used. If you include one or more of these features in your project you may experience breaking changes between versions. As these changes are unstable I really appreciate any and all feedback on these to help make the additions the best they can be.
+
+* __range_stream__ Adds parsers for zero copy parsing through the use of the `RangeStream` trait.
 
 ## Extra
 
@@ -43,7 +49,7 @@ You can find older versions of combine (parser-combinators) [here](https://crate
 
 ## Contributing
 
-The easiest way to contribute is to just open an issue about any problems you encounter using combine but if you are intersted in adding something to the library here is a list of some of the easier things to work on to get started.
+The easiest way to contribute is to just open an issue about any problems you encounter using combine but if you are interested in adding something to the library here is a list of some of the easier things to work on to get started.
 
 * __Add additional parsers__ There is a list of parsers which aren't implemented [here][add parsers] but if you have a suggestion for another parser just leave a suggestion on the issue itself.
 * __Add additional examples__ More examples for using combine will always be useful!
@@ -59,7 +65,7 @@ Here is a list containing most of the breaking changes in older versions of comb
 * `&[T]` streams has had the `Item` type changed from `&T` to `T` and requires a `T: Copy` bound.
 
 ### 1.0.0-beta.3
-* `Error::Unexpected` holds an `Info<T, R>` instead of just a T to make it consitent with the other variants.
+* `Error::Unexpected` holds an `Info<T, R>` instead of just a T to make it consistent with the other variants.
 
 ### 1.0.0-beta.2
 * `Info<T>` and `Error<T>` has had their signatures changed to `Info<T, R>` and `Error<T, R>`. `Info` has a new variant which is specified by `R` and defines the type for range errors. `ParseError<T: Positioner>` has been changed to `ParseError<S: Stream>` (S is the stream type of the parser).
