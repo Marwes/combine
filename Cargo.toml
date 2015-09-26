@@ -24,3 +24,6 @@ path = "src/lib.rs"
 # Using a feature in combine is considered to be unstable (does not adhere to semver) if you use one or more features
 # then you have been warned that you may experience breaking changes between any release
 range_stream = []
+buffered_stream = []
+# Feature to be passed as `cargo test --features test` making sure that all tests are run
+test = ["range_stream", "buffered_stream"]

@@ -1,7 +1,9 @@
 use std::fmt;
 use std::error::Error as StdError;
 use std::any::Any;
+#[cfg(feature = "buffered_stream")]
 use std::cell::UnsafeCell;
+#[cfg(feature = "buffered_stream")]
 use std::collections::VecDeque;
 
 ///Struct which represents a position in a source file
@@ -799,32 +801,36 @@ impl <I, O, P: ?Sized> Parser for Box<P>
     }
 }
 
+#[cfg(feature = "buffered_stream")]
 pub struct BufferedStream<'a, I>
-    where I: Iterator + 'a
-        , I::Item: 'a {
+    where I: Iterator + 'a {
     offset: usize,
     buffer: &'a SharedBufferedStream<I>
 }
 
+#[cfg(feature = "buffered_stream")]
 impl <'a, I> Clone for BufferedStream<'a, I>
-    where I: Iterator + 'a
-        , I::Item: 'a {
+    where I: Iterator + 'a {
     fn clone(&self) -> BufferedStream<'a, I> {
         BufferedStream { offset: self.offset, buffer: self.buffer }
     }
 }
 
+#[cfg(feature = "buffered_stream")]
 pub struct SharedBufferedStream<I>
     where I: Iterator {
     buffer: UnsafeCell<BufferedStreamInner<I>>
 }
-pub struct BufferedStreamInner<I>
+
+#[cfg(feature = "buffered_stream")]
+struct BufferedStreamInner<I>
     where I: Iterator {
     offset: usize,
     iter: I,
     buffer: VecDeque<I::Item>
 }
 
+#[cfg(feature = "buffered_stream")]
 impl <I> BufferedStreamInner<I>
     where I: Iterator
         , I::Item: Clone {
@@ -853,6 +859,7 @@ impl <I> BufferedStreamInner<I>
     }
 }
 
+#[cfg(feature = "buffered_stream")]
 impl <I> SharedBufferedStream<I>
     where I: Iterator
         , I::Item: Clone {
@@ -865,6 +872,8 @@ impl <I> SharedBufferedStream<I>
         }
     }
 }
+
+#[cfg(feature = "buffered_stream")]
 impl <'a, I> BufferedStream<'a, I>
     where I: Iterator {
     pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
@@ -878,6 +887,7 @@ impl <'a, I> BufferedStream<'a, I>
     }
 }
 
+#[cfg(feature = "buffered_stream")]
 impl <'a, I> Stream for BufferedStream<'a, I>
     where I: Iterator + 'a
         , I::Item: Positioner + Clone + 'a {
