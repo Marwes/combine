@@ -625,6 +625,27 @@ impl <'a, T> Stream for SliceStream<'a, T>
     }
 }
 
+#[cfg(feature = "range_stream")]
+impl <'a, T> RangeStream for SliceStream<'a, T>
+where T: Positioner + 'a {
+    fn uncons_range(self, size: usize) -> Result<(&'a [T], SliceStream<'a, T>), Error<&'a T, &'a [T]>> {
+        if size < self.0.len() {
+            Ok((&self.0[0..size], SliceStream(&self.0[size..])))
+        }
+        else {
+            Err(Error::end_of_input())
+        }
+    }
+
+    fn uncons_while<F>(self, mut f: F) -> Result<(&'a [T], SliceStream<'a, T>), Error<&'a T, &'a [T]>>
+        where F: FnMut(Self::Item) -> bool {
+        let len = self.0.iter()
+            .take_while(|c| f(*c))
+            .count();
+        Ok((&self.0[..len], SliceStream(&self.0[len..])))
+    }
+}
+
 ///Wrapper around iterators which allows them to be treated as a stream.
 ///Returned by `from_iter`.
 #[derive(Clone, Debug)]
