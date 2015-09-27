@@ -1394,17 +1394,19 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 
 
 #[cfg(feature = "range_stream")]
-pub struct Range<I>(I)
-    where I: RangeStream + PartialEq;
+pub struct Range<I>(I::Range)
+    where I: RangeStream;
 #[cfg(feature = "range_stream")]
 impl <I, E> Parser for Range<I>
-    where I: RangeStream<Item=E, Range=I> + PartialEq + Positioner<Position=E::Position>
+    where I: RangeStream<Item=E>
+        , I::Range: Positioner<Position=E::Position> + PartialEq + ::primitives::Range
         , E: Positioner + Clone {
 
     type Input = I;
-    type Output = I;
+    type Output = I::Range;
 
     fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+        use primitives::Range;
         let State { mut position, input, .. } = input;
         match input.uncons_range(self.0.len()) {
             Ok((other, rest)) => {
@@ -1438,8 +1440,9 @@ impl <I, E> Parser for Range<I>
 /// # }
 /// ```
 #[cfg(feature = "range_stream")]
-pub fn range<I, E>(i: I) -> Range<I>
-    where I: RangeStream<Item=E, Range=I> + PartialEq + Positioner<Position=E::Position>
+pub fn range<I, E>(i: I::Range) -> Range<I>
+    where I: RangeStream<Item=E>
+        , I::Range: Positioner<Position=E::Position> + PartialEq + ::primitives::Range
         , E: Positioner + Clone {
     Range(i)
 }
@@ -1449,10 +1452,11 @@ pub struct Take<I>(usize, PhantomData<fn (I) -> I>);
 #[cfg(feature = "range_stream")]
 impl <I, E> Parser for Take<I>
     where I: RangeStream<Item=E>
-        , E: Positioner<Position=I::Position> + Clone {
+        , I::Range: ::primitives::Range + Positioner<Position=E::Position>
+        , E: Positioner + Clone {
 
     type Input = I;
-    type Output = I;
+    type Output = I::Range;
 
     fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
         input.uncons_range(self.0)
@@ -1473,7 +1477,8 @@ impl <I, E> Parser for Take<I>
 /// ```
 #[cfg(feature = "range_stream")]
 pub fn take<I>(n: usize) -> Take<I>
-    where I: RangeStream {
+    where I: RangeStream
+        , I::Range: ::primitives::Range {
     Take(n, PhantomData)
 }
 
@@ -1482,11 +1487,12 @@ pub struct TakeWhile<I, F>(F, PhantomData<fn (I) -> I>);
 #[cfg(feature = "range_stream")]
 impl <I, E, F> Parser for TakeWhile<I, F>
     where I: RangeStream<Item=E>
-        , E: Positioner<Position=I::Position> + Clone
+        , I::Range: ::primitives::Range + Positioner<Position=E::Position>
+        , E: Positioner +  Clone
         , F: FnMut(I::Item) -> bool {
 
     type Input = I;
-    type Output = I;
+    type Output = I::Range;
 
     fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
         input.uncons_while(&mut self.0)
@@ -1517,10 +1523,11 @@ pub struct TakeWhile1<I, F>(F, PhantomData<fn (I) -> I>);
 #[cfg(feature = "range_stream")]
 impl <I, F> Parser for TakeWhile1<I, F>
     where I: RangeStream
+        , I::Range: ::primitives::Range
         , F: FnMut(I::Item) -> bool {
 
     type Input = I;
-    type Output = I;
+    type Output = I::Range;
 
     fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
         input.uncons_while(&mut self.0)
@@ -1555,6 +1562,7 @@ impl <I, F> Parser for TakeWhile1<I, F>
 #[cfg(feature = "range_stream")]
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
     where I: RangeStream
+        , I::Range: ::primitives::Range
         , F: FnMut(I::Item) -> bool {
     TakeWhile1(f, PhantomData)
 }

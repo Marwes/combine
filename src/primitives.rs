@@ -421,12 +421,13 @@ impl <I: Stream> State<I> {
 
 #[cfg(feature = "range_stream")]
 impl <I, E> State<I>
-    where I: RangeStream<Item=E> + Positioner<Position=E::Position>
+    where I: RangeStream<Item=E>
+        , I::Range: Range + Positioner<Position=E::Position>
         , E: Positioner + Clone {
     
     ///Removes `size` items from the input returning them as a range.
     ///Fails if there are fewer items than `size`
-    pub fn uncons_range(self, size: usize) -> ParseResult<I, I> {
+    pub fn uncons_range(self, size: usize) -> ParseResult<I::Range, I> {
         let State { mut position, input, .. } = self;
         let result = input.uncons_range(size);
         match result {
@@ -447,10 +448,12 @@ impl <I, E> State<I>
 }
 
 #[cfg(feature = "range_stream")]
-impl <I: RangeStream> State<I> {
+impl <I> State<I>
+where I: RangeStream
+    , I::Range: Range {
 
     ///Removes items from the input while `predicate` returns `true`.
-    pub fn uncons_while<F>(self, mut predicate: F) -> ParseResult<I, I>
+    pub fn uncons_while<F>(self, mut predicate: F) -> ParseResult<I::Range, I>
         where F: FnMut(I::Item) -> bool {
         let State { mut position, input, .. } = self;
         let result = input.uncons_while(|t| {
@@ -496,12 +499,15 @@ pub trait Stream : Clone {
 pub trait RangeStream: Stream + Positioner {
     ///Takes `size` elements from the stream
     ///Fails if the length of the stream is less than `size`.
-    fn uncons_range(self, size: usize) -> Result<(Self, Self), Error<Self::Item, Self::Range>>;
+    fn uncons_range(self, size: usize) -> Result<(Self::Range, Self), Error<Self::Item, Self::Range>>;
 
     ///Takes items from stream, testing each one with `predicate`
     ///returns the range of items which passed `predicate`
-    fn uncons_while<F>(self, f: F) -> Result<(Self, Self), Error<Self::Item, Self::Range>>
+    fn uncons_while<F>(self, f: F) -> Result<(Self::Range, Self), Error<Self::Item, Self::Range>>
         where F: FnMut(Self::Item) -> bool;
+}
+
+pub trait Range {
     ///Returns the remaining length of `self`.
     ///The returned length need not be the same as the number of items left in the stream
     fn len(&self) -> usize;
@@ -536,8 +542,17 @@ impl <'a> RangeStream for &'a str {
             Err(Error::end_of_input())
         }
     }
+}
+
+impl <'a> Range for &'a str {
     fn len(&self) -> usize {
         str::len(self)
+    }
+}
+
+impl <'a, T> Range for &'a [T] {
+    fn len(&self) -> usize {
+        <[T]>::len(self)
     }
 }
 
@@ -558,10 +573,6 @@ where T: Positioner + Copy {
             .take_while(|c| f(**c))
             .count();
         Ok((&self[..len], &self[len..]))
-    }
-
-    fn len(&self) -> usize {
-        <[T]>::len(self)
     }
 }
 
