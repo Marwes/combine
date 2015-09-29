@@ -29,7 +29,6 @@
 //! use combine::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
-//!     let input = "1234, 45,78";
 //!     let spaces = spaces();
 //!     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
 //!         .with(many1(digit()).map(|string: String| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
@@ -37,6 +36,7 @@
 //!     let mut integer_list = sep_by(integer, spaces.skip(char(',')));
 //! 
 //!     //Call parse with the input to execute the parser
+//!     let input = "1234, 45,78";
 //!     let result: Result<(Vec<i32>, &str), ParseError<&str>> = integer_list.parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
