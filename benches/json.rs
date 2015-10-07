@@ -7,8 +7,8 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{from_iter, Consumed, Parser, ParseError, ParseResult, State, Stream};
-use pc::combinator::{any, between, many, many1, optional, parser, satisfy, sep_by, Expected, FnParser, Skip, ParserExt};
+use pc::primitives::{from_iter, Consumed, Parser, ParseError, ParseResult, State, Stream, BufferedStream};
+use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by, Expected, FnParser, Skip, ParserExt};
 use pc::char::{char, digit, spaces, Spaces, string};
 
 #[derive(PartialEq, Debug)]
@@ -138,16 +138,18 @@ impl <I> Json<I>
     }
     #[allow(unconditional_recursion)]
     fn value_(input: State<I>) -> ParseResult<Value, I> {
-        let array = between(lex(char('[')), lex(char(']')), sep_by(Json::<I>::value(), lex(char(','))))
+        let mut array = between(lex(char('[')), lex(char(']')), sep_by(Json::<I>::value(), lex(char(','))))
             .map(Value::Array);
 
-        Json::<I>::string().map(Value::String)
-            .or(Json::<I>::object())
-            .or(array)
-            .or(Json::<I>::number().map(Value::Number))
-            .or(lex(string("false").map(|_| Value::Bool(false))
-                .or(string("true").map(|_| Value::Bool(true)))
-                .or(string("null").map(|_| Value::Null))))
+        choice::<[&mut Parser<Input=I, Output=Value>; 7], _>([
+            &mut Json::<I>::string().map(Value::String),
+            &mut Json::<I>::object(),
+            &mut array,
+            &mut Json::<I>::number().map(Value::Number),
+            &mut lex(string("false").map(|_| Value::Bool(false))),
+            &mut lex(string("true").map(|_| Value::Bool(true))),
+            &mut lex(string("null").map(|_| Value::Null))
+            ])
             .parse_lazy(input)
     }
 
@@ -207,5 +209,22 @@ fn bench_json(bencher: &mut ::test::Bencher) {
     bencher.iter(|| {
         let result = parser.parse(text.clone());
         ::test::black_box(result)
+    });
+}
+
+#[bench]
+fn bench_buffered_json(bencher: &mut ::test::Bencher) {
+    let mut data = String::new();
+    File::open(&Path::new(&"benches/data.json"))
+        .and_then(|mut file| file.read_to_string(&mut data))
+        .unwrap();
+    bencher.iter(|| {
+        let buffer = BufferedStream::new(data.chars(), 1);
+        let mut parser = Json::value();
+        match parser.parse(buffer.as_stream()) {
+            Ok((Value::Array(v), _)) => { ::test::black_box(v); }
+            Ok(_) => assert!(false),
+            Err(err) => { println!("{}", err); assert!(false); }
+        }
     });
 }
