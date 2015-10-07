@@ -803,14 +803,16 @@ impl <I, O, P: ?Sized> Parser for Box<P>
 
 #[cfg(feature = "buffered_stream")]
 pub struct BufferedStream<'a, I>
-    where I: Iterator + 'a {
+    where I: Iterator + 'a
+        , I::Item: 'a {
     offset: usize,
     buffer: &'a SharedBufferedStream<I>
 }
 
 #[cfg(feature = "buffered_stream")]
 impl <'a, I> Clone for BufferedStream<'a, I>
-    where I: Iterator + 'a {
+    where I: Iterator + 'a
+        , I::Item: 'a {
     fn clone(&self) -> BufferedStream<'a, I> {
         BufferedStream { offset: self.offset, buffer: self.buffer }
     }
