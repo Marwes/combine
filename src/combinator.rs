@@ -1394,6 +1394,63 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 
+pub struct EnvParser<E, I, T>
+where I: Stream {
+    env: E,
+    parser: fn (E, State<I>) -> ParseResult<T, I>
+}
+
+impl <E, I, O> Parser for EnvParser<E, I, O>
+where E: Clone
+    , I: Stream {
+    type Input = I;
+    type Output = O;
+
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
+        (self.parser)(self.env.clone(), input)
+    }
+}
+
+/// Constructs a parser out of an environment and a function which needs the given environment to
+/// do the parsing. This is commonly useful to allow multiple parsers to share some environment
+/// while still allowing the parsers to be written in separate functions.
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use std::collections::HashMap;
+/// # use pc::primitives::Stream;
+/// # use pc::*;
+/// # fn main() {
+///     struct Interner(HashMap<String, u32>);
+///     impl Interner {
+///         fn string<I>(&self, input: State<I>) -> ParseResult<u32, I>
+///             where I: Stream<Item=char>
+///         {
+///             many(letter())
+///                 .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
+///                 .parse_state(input)
+///         }
+///     }
+///
+///     let mut map = HashMap::new();
+///     map.insert("hello".into(), 1);
+///     map.insert("test".into(), 2);
+///
+///     let env = Interner(map);
+///     let mut parser = env_parser(&env, Interner::string);
+///
+///     let result = parser.parse("hello");
+///     assert_eq!(result, Ok((1, "")));
+///
+///     let result = parser.parse("world");
+///     assert_eq!(result, Ok((0, "")));
+/// # }
+/// ```
+pub fn env_parser<E, I, O>(env: E, parser: fn (E, State<I>) -> ParseResult<O, I>) -> EnvParser<E, I, O>
+    where E: Clone
+        , I: Stream {
+    EnvParser { env: env, parser: parser }
+}
 
 #[cfg(feature = "range_stream")]
 pub struct Range<I>(I::Range)

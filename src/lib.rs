@@ -150,6 +150,7 @@ pub use combinator::{
     chainl1,
     chainr1,
     choice,
+    env_parser,
     many,
     many1,
     optional,
