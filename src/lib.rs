@@ -4,23 +4,24 @@
 //! is succesful, returns a value together with the remaining input.
 //! A parser combinator is a function which takes one or more parsers and returns a new parser.
 //! For instance the `many` parser can be used to convert a parser for single digits into one that
-//! parses multiple digits.
+//! parses multiple digits. By modeling parsers in this way it becomes simple to compose complex
+//! parsers in an almost declarative way.
 //!
 //!# Overview
 //!
-//! This library is currently split into three modules.
-//!
-//! * `primitives` contains the `Parser` trait as well as various structs dealing with input
-//! streams and errors.
+//! This library currently contains three modules.
 //!
 //! * `combinator` contains the before mentioned parser combinators and thus contains the main
-//! building blocks for creating any sort of more complex parsers. It consists of free functions as
-//! well as a the `ParserExt` trait which provides a few functions which are more naturally used
-//! through method calls.
+//! building blocks for creating any sort of complex parsers. It consists of free functions `such`
+//! as `many` and `satisfy` as well as a the `ParserExt` trait which provides a few functions such
+//! as `or` which are more natural to use method calls.
 //!
-//! * `char` is the last module. It provides parsers specifically working with streams of
-//! characters. As a few examples it has parsers for accepting digits, letters or whitespace.
+//! * `char` provides parsers specifically working with streams of characters.
+//! As a few examples it has parsers for accepting digits, letters or whitespace.
 //!
+//! * `primitives` contains the `Parser` and `Stream` traits which are the core abstractions in combine
+//! as well as various structs dealing with input streams and errors. You usually only need to use
+//! this module if you want more control over parsing and input streams.
 //!
 //!# Examples
 //!
@@ -29,11 +30,11 @@
 //! use combine::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
 //! 
 //! fn main() {
-//!     let spaces = spaces();
-//!     let integer = spaces.clone()//Parse spaces first and use the with method to only keep the result of the next parser
+//!     let integer = spaces()//Parse spaces first and use the with method to only keep the result of the next parser
 //!         .with(many1(digit()).map(|string: String| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
+//!
 //!     //Parse integers separated by commas, skipping whitespace
-//!     let mut integer_list = sep_by(integer, spaces.skip(char(',')));
+//!     let mut integer_list = sep_by(integer, spaces().skip(char(',')));
 //! 
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
@@ -46,13 +47,11 @@
 //!```
 //!
 //! If we need a parser that is mutually recursive we can define a free function which internally 
-//! can in turn be used as a parser (Note that we need to explicitly cast the function, this should
-//! not be necessary once changes in rustc to make orphan checking less restrictive gets implemented)
-//!
-//! `expr` is written fully general here which may not be necessary in a specific implementation
-//! The `Stream` trait is predefined to work with array slices, string slices and iterators
-//! meaning that in this case it could be defined as
-//! `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
+//! can in turn be used as a parser by using the `parser` function which turns a function with the
+//! correct signature into a parser. In this case we define `expr` to work on any type of `Stream`
+//! which is combine's way of abstracting over different data sources such as array slices, string
+//! slices, iterators etc. If instead you would only need to parse string already in memory you
+//! could define `expr` as `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
 //!```
 //! extern crate combine;
@@ -67,16 +66,21 @@
 //! }
 //!
 //! fn expr<I>(input: State<I>) -> ParseResult<Expr, I>
-//!     where I: Stream<Item=char> {
+//!     where I: Stream<Item=char>
+//! {
 //!     let word = many1(letter());
+//!
 //!     //Creates a parser which parses a char and skips any trailing whitespace
 //!     let lex_char = |c| char(c).skip(spaces());
+//!
 //!     let comma_list = sep_by(parser(expr::<I>), lex_char(','));
 //!     let array = between(lex_char('['), lex_char(']'), comma_list);
+//!
 //!     //We can use tuples to run several parsers in sequence
 //!     //The resulting type is a tuple containing each parsers output
 //!     let pair = (lex_char('('), parser(expr::<I>), lex_char(','), parser(expr::<I>), lex_char(')'))
 //!         .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
+//!
 //!     word.map(Expr::Id)
 //!         .or(array.map(Expr::Array))
 //!         .or(pair)
