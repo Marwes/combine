@@ -178,8 +178,8 @@ impl <I, O, S, P> Parser for Choice<S, P>
     }
 }
 
-/// Takes an array of parsers and tries them each in turn.
-/// Fails if all parsers fails or when a parsers fails with a consumed state.
+/// Takes an array of parsers and tries to apply them each in order.
+/// Fails if all parsers fails or if an applied parser fails after consuming input.
 ///
 /// ```
 /// # extern crate combine as pc;
@@ -1202,17 +1202,19 @@ pub trait ParserExt : Parser + Sized {
         where P2: Parser<Input=Self::Input> {
         And(self, p)
     }
-    ///Tries to parse using `self` and if it fails returns the result of parsing `p`
+    /// Returns a parser which first parses using `self`. If `self` fails without consuming any
+    /// input it then continues by trying to parse using `p`
     ///
     /// ```
     /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
-    /// let result = digit().map(|_| "")
-    ///     .or(string("let"))
-    ///     .parse("let")
-    ///     .map(|x| x.0);
-    /// assert_eq!(result, Ok("let"));
+    /// let mut parser = string("let")
+    ///     .or(digit().map(|_| "digit"))
+    ///     .or(string("led"));
+    /// assert_eq!(parser.parse("let"), Ok(("let", "")));
+    /// assert_eq!(parser.parse("1"), Ok(("digit", "")));
+    /// assert!(parser.parse("led").is_err());
     /// # }
     /// ```
     fn or<P2>(self, p: P2) -> Or<Self, P2>
