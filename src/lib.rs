@@ -9,6 +9,29 @@
 //!
 //!# Overview
 //!
+//! `combine` limits itself to creating [LL(1) parsers](https://en.wikipedia.org/wiki/LL_parser)
+//! (it is possible to opt-in to LL(k) parsing using the `try` combinator) which makes the
+//! parsers easy to reason about in both function and performance while sacrificing
+//! some generality. In addition to you being able to reason better about the parsers you
+//! construct `combine` the library also takes the knowledge of being an LL parser and uses it to
+//! automatically construct good error messages.
+//!
+//! ```rust
+//! extern crate combine;
+//! use combine::{digit, letter, Parser, ParserExt};
+//! 
+//! fn main() {
+//!     if let Err(err) = digit().or(letter()).parse("|") {
+//!         println!("{}", err);
+//!         // The println! call above prints
+//!         //
+//!         // Parse error at line: 1, column: 1
+//!         // Unexpected '|'
+//!         // Expected 'digit' or 'letter'
+//!     }
+//! }
+//! ```
+//!
 //! This library currently contains three modules.
 //!
 //! * `combinator` contains the before mentioned parser combinators and thus contains the main
