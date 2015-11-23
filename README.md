@@ -63,7 +63,7 @@ The easiest way to contribute is to just open an issue about any problems you en
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
 ### 1.0.0
-* `&[T]` streams has had the `Item` type changed from `&T` to `T` and requires a `T: Copy` bound.
+* `&[T]` streams has had the `Item` type changed from `&T` to `T` and requires a `T: Copy` bound. If you need the old behavior you can wrap the `&[T]` in the `SliceStream` newtype i.e `parser.parse(SliceStream(slice))`.
 
 ### 1.0.0-beta.3
 * `Error::Unexpected` holds an `Info<T, R>` instead of just a T to make it consistent with the other variants.
