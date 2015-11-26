@@ -1,4 +1,5 @@
-//! This crate contains parser combinators, roughly based on the Haskell library [parsec](http://hackage.haskell.org/package/parsec).
+//! This crate contains parser combinators, roughly based on the Haskell library
+//! [parsec](http://hackage.haskell.org/package/parsec).
 //!
 //! A parser in this library can be described as a function which takes some input and if it
 //! is succesful, returns a value together with the remaining input.
@@ -7,7 +8,7 @@
 //! parses multiple digits. By modeling parsers in this way it becomes simple to compose complex
 //! parsers in an almost declarative way.
 //!
-//!# Overview
+//! # Overview
 //!
 //! `combine` limits itself to creating [LL(1) parsers](https://en.wikipedia.org/wiki/LL_parser)
 //! (it is possible to opt-in to LL(k) parsing using the `try` combinator) which makes the
@@ -19,7 +20,7 @@
 //! ```rust
 //! extern crate combine;
 //! use combine::{digit, letter, Parser, ParserExt};
-//! 
+//!
 //! fn main() {
 //!     if let Err(err) = digit().or(letter()).parse("|") {
 //!         println!("{}", err);
@@ -42,23 +43,25 @@
 //! * `char` provides parsers specifically working with streams of characters.
 //! As a few examples it has parsers for accepting digits, letters or whitespace.
 //!
-//! * `primitives` contains the `Parser` and `Stream` traits which are the core abstractions in combine
-//! as well as various structs dealing with input streams and errors. You usually only need to use
-//! this module if you want more control over parsing and input streams.
+//! * `primitives` contains the `Parser` and `Stream` traits which are the core abstractions in
+//! combine as well as various structs dealing with input streams and errors. You usually only need
+//! to use this module if you want more control over parsing and input streams.
 //!
-//!# Examples
+//! # Examples
 //!
-//!```
+//! ```
 //! extern crate combine;
 //! use combine::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
-//! 
+//!
 //! fn main() {
-//!     let integer = spaces()//Parse spaces first and use the with method to only keep the result of the next parser
-//!         .with(many1(digit()).map(|string: String| string.parse::<i32>().unwrap()));//parse a string of digits into an i32
+//!     //Parse spaces first and use the with method to only keep the result of the next parser
+//!     let integer = spaces()
+//!         //parse a string of digits into an i32
+//!         .with(many1(digit()).map(|string: String| string.parse::<i32>().unwrap()));
 //!
 //!     //Parse integers separated by commas, skipping whitespace
 //!     let mut integer_list = sep_by(integer, spaces().skip(char(',')));
-//! 
+//!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
 //!     let result: Result<(Vec<i32>, &str), ParseError<&str>> = integer_list.parse(input);
@@ -67,16 +70,16 @@
 //!         Err(err) => println!("{}", err)
 //!     }
 //! }
-//!```
+//! ```
 //!
-//! If we need a parser that is mutually recursive we can define a free function which internally 
+//! If we need a parser that is mutually recursive we can define a free function which internally
 //! can in turn be used as a parser by using the `parser` function which turns a function with the
 //! correct signature into a parser. In this case we define `expr` to work on any type of `Stream`
 //! which is combine's way of abstracting over different data sources such as array slices, string
 //! slices, iterators etc. If instead you would only need to parse string already in memory you
 //! could define `expr` as `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
 //!
-//!```
+//! ```
 //! extern crate combine;
 //! use combine::{between, char, letter, spaces, many1, parser, sep_by, Parser, ParserExt};
 //! use combine::primitives::{State, Stream, ParseResult};
@@ -101,8 +104,12 @@
 //!
 //!     //We can use tuples to run several parsers in sequence
 //!     //The resulting type is a tuple containing each parsers output
-//!     let pair = (lex_char('('), parser(expr::<I>), lex_char(','), parser(expr::<I>), lex_char(')'))
-//!         .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
+//!     let pair = (lex_char('('),
+//!                 parser(expr::<I>),
+//!                 lex_char(','),
+//!                 parser(expr::<I>),
+//!                 lex_char(')'))
+//!                    .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
 //!
 //!     word.map(Expr::Id)
 //!         .or(array.map(Expr::Array))
@@ -110,7 +117,7 @@
 //!         .skip(spaces())
 //!         .parse_state(input)
 //! }
-//! 
+//!
 //! fn main() {
 //!     let result = parser(expr)
 //!         .parse("[[], (hello, world), [rust]]");
@@ -122,54 +129,17 @@
 //!     ]);
 //!     assert_eq!(result, Ok((expr, "")));
 //! }
-//!```
+//! ```
 
 #[doc(inline)]
 pub use primitives::{Parser, ParseError, ParseResult, State, from_iter};
 #[doc(inline)]
-pub use char::{
-    char,
-    digit,
-    space,
-    spaces,
-    newline,
-    crlf,
-    tab,
-    upper,
-    lower,
-    letter,
-    alpha_num,
-    hex_digit,
-    oct_digit,
-    string,
-};
+pub use char::{char, digit, space, spaces, newline, crlf, tab, upper, lower, letter, alpha_num,
+               hex_digit, oct_digit, string};
 #[doc(inline)]
-pub use combinator::{
-    any,
-    between,
-    chainl1,
-    chainr1,
-    choice,
-    env_parser,
-    many,
-    many1,
-    optional,
-    parser,
-    satisfy,
-    sep_by,
-    sep_by1,
-    sep_end_by,
-    sep_end_by1,
-    skip_many,
-    skip_many1,
-    token,
-    try,
-    value,
-    unexpected,
-    not_followed_by,
-
-    ParserExt
-};
+pub use combinator::{any, between, chainl1, chainr1, choice, env_parser, many, many1, optional,
+                     parser, satisfy, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_many,
+                     skip_many1, token, try, value, unexpected, not_followed_by, ParserExt};
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
@@ -179,24 +149,25 @@ macro_rules! static_fn {
     } }
 }
 
-///Module containing the primitive types which is used to create and compose more advanced parsers
+/// Module containing the primitive types which is used to create and compose more advanced parsers
 pub mod primitives;
-///Module containing all specific parsers
+/// Module containing all specific parsers
 pub mod combinator;
-///Module containg parsers specialized on character streams
+/// Module containg parsers specialized on character streams
 pub mod char;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use super::primitives::{SourcePosition, Stream, Error, Consumed};
-    
+
 
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
-        where I: Stream<Item=char> {
+        where I: Stream<Item = char>
+    {
         let (s, input) = try!(many1::<String, _>(digit())
-            .expected("integer")
-            .parse_state(input));
+                                  .expected("integer")
+                                  .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -217,8 +188,9 @@ mod tests {
     }
     #[test]
     fn iterator() {
-        let result = parser(integer).parse(from_iter("123".chars()))
-            .map(|(i, input)| (i, input.uncons().err().map(|_| ())));
+        let result = parser(integer)
+                         .parse(from_iter("123".chars()))
+                         .map(|(i, input)| (i, input.uncons().err().map(|_| ())));
         assert_eq!(result, Ok((123i64, Some(()))));
     }
     #[test]
@@ -226,22 +198,24 @@ mod tests {
         let word = || many(alpha_num());
         let spaces = spaces();
         let c_decl = (word(), spaces.clone(), char(':'), spaces, word())
-            .map(|t| (t.0, t.4))
-            .parse("x: int");
+                         .map(|t| (t.0, t.4))
+                         .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
     fn source_position() {
-        let source =
-r"
+        let source = r"
 123
 ";
         let result = (spaces(), parser(integer), spaces())
-            .map(|t| t.1)
-            .parse_state(State::new(source));
+                         .map(|t| t.1)
+                         .parse_state(State::new(source));
         let state = Consumed::Consumed(State {
-            position: SourcePosition { line: 3, column: 1 },
-            input: ""
+            position: SourcePosition {
+                line: 3,
+                column: 1,
+            },
+            input: "",
         });
         assert_eq!(result, Ok((123i64, state)));
     }
@@ -257,67 +231,59 @@ r"
 
     #[allow(unconditional_recursion)]
     fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
-        let word = many1(letter())
-            .expected("identifier");
+        let word = many1(letter()).expected("identifier");
         let integer = parser(integer);
-        let array = between(char('['), char(']'), sep_by(parser(expr), char(',')))
-            .expected("[");
-        let paren_expr = between(char('('), char(')'), parser(term))
-            .expected("(");
+        let array = between(char('['), char(']'), sep_by(parser(expr), char(','))).expected("[");
+        let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
         let spaces = spaces();
-        spaces.clone().with(
-                word.map(Expr::Id)
-                .or(integer.map(Expr::Int))
-                .or(array.map(Expr::Array))
-                .or(paren_expr)
-            ).skip(spaces)
-            .parse_state(input)
+        spaces.clone()
+              .with(word.map(Expr::Id)
+                        .or(integer.map(Expr::Int))
+                        .or(array.map(Expr::Array))
+                        .or(paren_expr))
+              .skip(spaces)
+              .parse_state(input)
     }
 
     #[test]
     fn expression() {
-        let result = sep_by(parser(expr), char(','))
-            .parse("int, 100, [[], 123]");
-        let exprs = vec![
-              Expr::Id("int".to_string())
-            , Expr::Int(100)
-            , Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)])
-        ];
+        let result = sep_by(parser(expr), char(',')).parse("int, 100, [[], 123]");
+        let exprs = vec![Expr::Id("int".to_string()),
+                         Expr::Int(100),
+                         Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)])];
         assert_eq!(result, Ok((exprs, "")));
     }
 
     #[test]
     fn expression_error() {
-        let input =
-r"
+        let input = r"
 ,123
 ";
-        let result = parser(expr)
-            .parse(input);
+        let result = parser(expr).parse(input);
         let err = ParseError {
-            position: SourcePosition { line: 2, column: 1 },
-                errors: vec![
+            position: SourcePosition {
+                line: 2,
+                column: 1,
+            },
+            errors: vec![
                     Error::Unexpected(','.into()),
                     Error::Expected("integer".into()),
                     Error::Expected("identifier".into()),
                     Error::Expected("[".into()),
                     Error::Expected("(".into()),
-                ]
+                ],
         };
         assert_eq!(result, Err(err));
     }
 
     #[test]
     fn expression_error_message() {
-        let input =
-r"
+        let input = r"
 ,123
 ";
-        let result = parser(expr)
-            .parse(input);
+        let result = parser(expr).parse(input);
         let m = format!("{}", result.unwrap_err());
-let expected =
-r"Parse error at line: 2, column: 1
+        let expected = r"Parse error at line: 2, column: 1
 Unexpected ','
 Expected 'integer', 'identifier', '[' or '('
 ";
@@ -325,29 +291,30 @@ Expected 'integer', 'identifier', '[' or '('
     }
 
     fn term(input: State<&str>) -> ParseResult<Expr, &str> {
-        fn times(l: Expr, r: Expr) -> Expr { Expr::Times(Box::new(l), Box::new(r)) }
-        fn plus(l: Expr, r: Expr) -> Expr { Expr::Plus(Box::new(l), Box::new(r)) }
-        let mul = char('*')
-            .map(|_| times);
-        let add = char('+')
-            .map(|_| plus);
+        fn times(l: Expr, r: Expr) -> Expr {
+            Expr::Times(Box::new(l), Box::new(r))
+        }
+        fn plus(l: Expr, r: Expr) -> Expr {
+            Expr::Plus(Box::new(l), Box::new(r))
+        }
+        let mul = char('*').map(|_| times);
+        let add = char('+').map(|_| plus);
         let factor = chainl1(parser(expr), mul);
-        chainl1(factor, add)
-            .parse_state(input)
+        chainl1(factor, add).parse_state(input)
     }
 
     #[test]
     fn operators() {
-        let input =
-r"
+        let input = r"
 1 * 2 + 3 * test
 ";
         let (result, _) = parser(term)
-            .parse(input)
-            .unwrap();
+                              .parse(input)
+                              .unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
-        let e2 = Expr::Times(Box::new(Expr::Int(3)), Box::new(Expr::Id("test".to_string())));
+        let e2 = Expr::Times(Box::new(Expr::Int(3)),
+                             Box::new(Expr::Id("test".to_string())));
         assert_eq!(result, Expr::Plus(Box::new(e1), Box::new(e2)));
     }
 
@@ -358,25 +325,38 @@ r"
                 if c.is_alphanumeric() {
                     let e = Error::Unexpected(c.into());
                     Err(Consumed::Empty(ParseError::new(input.position, e)))
-                }
-                else {
+                } else {
                     Ok(((), Consumed::Empty(input)))
                 }
             }
-            Err(_) => Ok(((), Consumed::Empty(input)))
+            Err(_) => Ok(((), Consumed::Empty(input))),
         }
     }
     #[test]
     fn error_position() {
-        let mut p = string("let").skip(parser(follow)).map(|x| x.to_string())
-            .or(many1(digit()));
+        let mut p = string("let")
+                        .skip(parser(follow))
+                        .map(|x| x.to_string())
+                        .or(many1(digit()));
         match p.parse("le123") {
             Ok(_) => assert!(false),
-            Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 })
+            Err(err) => {
+                assert_eq!(err.position,
+                           SourcePosition {
+                               line: 1,
+                               column: 1,
+                           })
+            }
         }
         match p.parse("let1") {
             Ok(_) => assert!(false),
-            Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 4 })
+            Err(err) => {
+                assert_eq!(err.position,
+                           SourcePosition {
+                               line: 1,
+                               column: 4,
+                           })
+            }
         }
     }
 
@@ -384,22 +364,32 @@ r"
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
         let err = p.parse("ab,abc")
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
-        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
+                   .map(|x| format!("{:?}", x))
+                   .unwrap_err();
+        assert_eq!(err.position,
+                   SourcePosition {
+                       line: 1,
+                       column: 1,
+                   });
     }
 
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
         let err = p.parse("ab")
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
-        assert_eq!(err.position, SourcePosition { line: 1, column: 1});
+                   .map(|x| format!("{:?}", x))
+                   .unwrap_err();
+        assert_eq!(err.position,
+                   SourcePosition {
+                       line: 1,
+                       column: 1,
+                   });
     }
     #[test]
     fn chainl1_error_consume() {
-        fn first<T, U>(t: T, _: U) -> T { t }
+        fn first<T, U>(t: T, _: U) -> T {
+            t
+        }
         let mut p = chainl1(string("abc"), char(',').map(|_| first));
         assert!(p.parse("abc,ab").is_err());
     }
@@ -409,35 +399,35 @@ r"
         let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
         let result = p.parse("[1][2][]");
         assert!(result.is_err(), format!("{:?}", result));
-        let error = result
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
-        assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
+        let error = result.map(|x| format!("{:?}", x))
+                          .unwrap_err();
+        assert_eq!(error.position,
+                   SourcePosition {
+                       line: 1,
+                       column: 8,
+                   });
     }
 
     #[test]
     fn infinite_recursion_in_box_parser() {
-        let _: Result<(Vec<_>, _), _> = (many(Box::new(digit())))
-            .parse("1");
+        let _: Result<(Vec<_>, _), _> = (many(Box::new(digit()))).parse("1");
     }
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<Input=&str, Output=char>> = Box::new(digit());
+        let mut parser: Box<Parser<Input = &str, Output = char>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
 
     #[test]
     fn choice_strings() {
-        let mut fruits = [
-            try(string("Apple")),
-            try(string("Banana")),
-            try(string("Cherry")),
-            try(string("Date")),
-            try(string("Fig")),
-            try(string("Grape")),
-        ];
+        let mut fruits = [try(string("Apple")),
+                          try(string("Banana")),
+                          try(string("Cherry")),
+                          try(string("Date")),
+                          try(string("Fig")),
+                          try(string("Grape"))];
         let mut parser = choice(&mut fruits);
         assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));
         assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
@@ -459,13 +449,18 @@ r"
             }
         }
         impl StdError for Error {
-            fn description(&self) -> &str { "error" }
+            fn description(&self) -> &str {
+                "error"
+            }
         }
         let result: Result<((), _), ParseError<&str>> = string("abc")
-            .and_then(|_| Err(Error))
-            .parse("abc");
+                                                            .and_then(|_| Err(Error))
+                                                            .parse("abc");
         assert!(result.is_err());
-        //Test that ParseError can be coerced to a StdError
-        let _ = result.map_err(|err| { let err: Box<StdError> = Box::new(err); err });
+        // Test that ParseError can be coerced to a StdError
+        let _ = result.map_err(|err| {
+            let err: Box<StdError> = Box::new(err);
+            err
+        });
     }
 }
