@@ -1509,6 +1509,7 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 
+#[derive(Copy, Clone)]
 pub struct EnvParser<E, I, T>
     where I: Stream
 {
