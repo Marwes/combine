@@ -1007,6 +1007,46 @@ pub fn try<P>(p: P) -> Try<P>
 }
 
 #[derive(Clone)]
+pub struct LookAhead<P>(P);
+
+impl <I, O, P> Parser for LookAhead<P>
+    where I: Stream
+        , P: Parser<Input=I, Output=O> {
+
+    type Input = I;
+    type Output = O;
+
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
+        self.0.parse_lazy(input.clone()).map(|(o, _input)| (o, Consumed::Empty(input)))
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        self.0.add_error(errors);
+    }
+}
+
+///look_ahead acts as p but doesn't consume input on success.
+///
+/// ```
+/// # extern crate combine as pc;
+/// # use pc::*;
+/// # fn main() {
+//        let mut p = look_ahead(string("test"));
+//
+//        let result = p.parse("test str");
+//        assert_eq!(result, Ok(("test", "test str")));
+//
+//        let result = p.parse("aet");
+//        assert!(result.is_err());
+/// # }
+/// ```
+pub fn look_ahead<P>(p: P) -> LookAhead<P>
+    where P: Parser
+{
+    LookAhead(p)
+}
+
+#[derive(Clone)]
 pub struct And<P1, P2>(P1, P2);
 impl<I, P1, P2> Parser for And<P1, P2>
     where I: Stream,
