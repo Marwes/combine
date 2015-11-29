@@ -1025,19 +1025,19 @@ impl <I, O, P> Parser for LookAhead<P>
     }
 }
 
-///look_ahead acts as `p`, however doesn't consume input
+///look_ahead acts as p but doesn't consume input on success.
 ///
 /// ```
 /// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
-///       let mut p = look_ahead(string("test")).with(string("test str"));
-///
-///       let result = p.parse("test str").map(|x| x.0);
-///       assert_eq!(result, Ok("test str"));
-///
-///       let result = p.parse("aet").map(|x| x.0);
-///       assert!(result.is_err());
+//        let mut p = look_ahead(string("test"));
+//
+//        let result = p.parse("test str");
+//        assert_eq!(result, Ok(("test", "test str")));
+//
+//        let result = p.parse("aet");
+//        assert!(result.is_err());
 /// # }
 /// ```
 pub fn look_ahead<P>(p: P) -> LookAhead<P>
