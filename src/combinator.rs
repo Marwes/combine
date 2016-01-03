@@ -202,7 +202,7 @@ impl<I, O, S, P> Parser for Choice<S, P>
 }
 
 /// Takes an array of parsers and tries to apply them each in order.
-/// Fails if all parsers fails or if an applied parser fails after consuming input.
+/// Fails if all parsers fails or if an applied parser consumes input before failing.
 ///
 /// ```
 /// # extern crate combine as pc;
@@ -214,6 +214,14 @@ impl<I, O, S, P> Parser for Choice<S, P>
 /// assert_eq!(parser.parse("Orangexx"), Ok(("Orange", "xx")));
 /// assert!(parser.parse("Appl").is_err());
 /// assert!(parser.parse("Pear").is_err());
+///
+/// let mut parser2 = choice([string("one"), string("two"), string("three")]);
+/// // Fails as the parser for "two" consumes the first 't' before failing
+/// assert!(parser2.parse("three").is_err());
+/// 
+/// // Use 'try' to make failing parsers always act as if they have not consumed any input
+/// let mut parser3 = choice([try(string("one")), try(string("two")), try(string("three"))]);
+/// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
 pub fn choice<S, P>(ps: S) -> Choice<S, P>
@@ -1345,8 +1353,9 @@ pub trait ParserExt : Parser + Sized {
     {
         And(self, p)
     }
-    /// Returns a parser which first parses using `self`. If `self` fails without consuming any
-    /// input it then continues by trying to parse using `p`
+
+    /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming any
+    /// input it tries to consume the same input using `p`.
     ///
     /// ```
     /// # extern crate combine as pc;
@@ -1358,6 +1367,14 @@ pub trait ParserExt : Parser + Sized {
     /// assert_eq!(parser.parse("let"), Ok(("let", "")));
     /// assert_eq!(parser.parse("1"), Ok(("digit", "")));
     /// assert!(parser.parse("led").is_err());
+    ///
+    /// let mut parser2 = string("two").or(string("three"));
+    /// // Fails as the parser for "two" consumes the first 't' before failing
+    /// assert!(parser2.parse("three").is_err());
+    /// 
+    /// // Use 'try' to make failing parsers always act as if they have not consumed any input
+    /// let mut parser3 = try(string("two")).or(try(string("three")));
+    /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
     /// # }
     /// ```
     fn or<P2>(self, p: P2) -> Or<Self, P2>
