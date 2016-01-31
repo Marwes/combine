@@ -22,7 +22,7 @@ macro_rules! impl_char_parser {
 }
 }
 
-///Parses a character and succeeds if the characther is equal to `c`
+///Parses a character and succeeds if the character is equal to `c`
 ///
 /// ```
 /// # extern crate combine as pc;
