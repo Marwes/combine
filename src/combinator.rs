@@ -140,7 +140,7 @@ impl<I> Parser for Token<I>
     }
 }
 
-///Parses a character and succeeds if the characther is equal to `c`
+///Parses a character and succeeds if the character is equal to `c`
 ///
 /// ```
 /// # extern crate combine as pc;
@@ -1334,7 +1334,7 @@ pub trait ParserExt : Parser + Sized {
     }
 
     ///Parses with `self` followed by `p`
-    ///Succeds if both parsers succed, otherwise fails
+    ///Succeeds if both parsers succeed, otherwise fails
     ///Returns a tuple with both values on success
     ///
     /// ```

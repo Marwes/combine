@@ -177,7 +177,7 @@ impl<T> Consumed<T> {
     /// # extern crate combine as pc;
     /// # use pc::*;
     /// # fn main() {
-    /// //Parses a characther of string literal and handles the escaped characthers \\ and \" as \
+    /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
     /// fn char(input: State<&str>) -> ParseResult<char, &str> {
     ///     let (c, input) = try!(satisfy(|c| c != '"').parse_state(input));
