@@ -1334,7 +1334,7 @@ pub trait ParserExt : Parser + Sized {
     }
 
     ///Parses with `self` followed by `p`
-    ///Succeds if both parsers succed, otherwise fails
+    ///Succeeds if both parsers succeed, otherwise fails
     ///Returns a tuple with both values on success
     ///
     /// ```
