@@ -23,15 +23,15 @@ enum Value {
     Array(Vec<Value>),
 }
 
-fn lex<'a, P>(p: P) -> Skip<P, Spaces<P::Input>>
-    where P: Parser,
-          P::Input: Stream<Item = char>
+fn lex<'a, I, P>(p: P) -> Skip<P, Spaces<I>>
+    where P: Parser<I>,
+          I: Stream<Item = char>
 {
     p.skip(spaces())
 }
 struct Json<I>(::std::marker::PhantomData<fn(I) -> I>);
 
-type JsonParser<O, I> = Expected<FnParser<I, fn(State<I>) -> ParseResult<O, I>>>;
+type JsonParser<O, I> = Expected<I, FnParser<fn(State<I>) -> ParseResult<O, I>>>;
 
 fn fn_parser<O, I>(f: fn(State<I>) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
     where I: Stream<Item = char>
@@ -45,7 +45,7 @@ impl<I> Json<I> where I: Stream<Item = char>
         fn_parser(Json::<I>::integer_, "integer")
     }
     fn integer_(input: State<I>) -> ParseResult<i64, I> {
-        let (s, input) = try!(lex(many1::<String, _>(digit())).parse_lazy(input));
+        let (s, input) = try!(lex(many1::<String, _, _>(digit())).parse_lazy(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -153,7 +153,7 @@ impl<I> Json<I> where I: Stream<Item = char>
             .parse_lazy(input)
     }
 
-    fn value() -> FnParser<I, fn(State<I>) -> ParseResult<Value, I>> {
+    fn value() -> FnParser<fn(State<I>) -> ParseResult<Value, I>> {
         parser({
             let f: fn(_) -> _ = Json::<I>::value_;
             f
@@ -166,14 +166,20 @@ impl<I> Json<I> where I: Stream<Item = char>
                                 sep_by(Json::<I>::value(), lex(char(','))))
                             .map(Value::Array);
 
-        choice::<[&mut Parser<Input = I, Output = Value>; 7],
-                 _>([&mut Json::<I>::string().map(Value::String),
-                     &mut Json::<I>::object(),
-                     &mut array,
-                     &mut Json::<I>::number().map(Value::Number),
-                     &mut lex(string("false").map(|_| Value::Bool(false))),
-                     &mut lex(string("true").map(|_| Value::Bool(true))),
-                     &mut lex(string("null").map(|_| Value::Null))])
+        choice::<[&mut Parser<I, Output = Value>; 7], _, _>([&mut Json::<I>::string()
+                                                                      .map(Value::String),
+                                                             &mut Json::<I>::object(),
+                                                             &mut array,
+                                                             &mut Json::<I>::number()
+                                                                      .map(Value::Number),
+                                                             &mut lex(string("false").map(|_| {
+                                                                 Value::Bool(false)
+                                                             })),
+                                                             &mut lex(string("true").map(|_| {
+                                                                 Value::Bool(true)
+                                                             })),
+                                                             &mut lex(string("null")
+                                                                          .map(|_| Value::Null))])
             .parse_lazy(input)
     }
 }

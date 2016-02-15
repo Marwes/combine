@@ -7,21 +7,19 @@ use primitives::RangeStream;
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
     #[derive(Clone)]
-    pub struct $name<$first $(,$ty_var)*>($inner_type)
-        where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
-    impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
-        where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
-        type Input = <$first as Parser>::Input;
-        type Output = <$inner_type as Parser>::Output;
+    pub struct $name<$first $(,$ty_var)*>($inner_type);
+    impl <Input, $first, $($ty_var),*> Parser<Input> for $name<$first $(,$ty_var)*>
+        where Input: Stream, $first: Parser<Input> $(, $ty_var : Parser<Input>)* {
+        type Output = <$inner_type as Parser<Input>>::Output;
         fn parse_state(&mut self,
-                       input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+                       input: State<Input>) -> ParseResult<Self::Output, Input> {
             self.0.parse_state(input)
         }
         fn parse_lazy(&mut self,
-                      input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+                      input: State<Input>) -> ParseResult<Self::Output, Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        fn add_error(&mut self, error: &mut ParseError<Input>) {
             self.0.add_error(error)
         }
     }
@@ -29,11 +27,10 @@ macro_rules! impl_parser {
 }
 
 #[derive(Clone)]
-pub struct Any<I>(PhantomData<fn(I) -> I>);
+pub struct Any<T>(PhantomData<fn() -> T>);
 
-impl<I> Parser for Any<I> where I: Stream
+impl<I> Parser<I> for Any<I::Item> where I: Stream
 {
-    type Input = I;
     type Output = I::Item;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<I::Item, I> {
         input.uncons()
@@ -54,9 +51,7 @@ impl<I> Parser for Any<I> where I: Stream
 /// assert!(byte_parser.parse(&b""[..]).is_err());
 /// # }
 /// ```
-pub fn any<I>() -> Any<I>
-    where I: Stream
-{
+pub fn any<T>() -> Any<T> {
     Any(PhantomData)
 }
 
@@ -65,7 +60,7 @@ pub fn any<I>() -> Any<I>
 #[derive(Clone)]
 pub struct Satisfy<I, P> {
     predicate: P,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<fn(I) -> I>,
 }
 
 fn satisfy_impl<I, P, F>(input: State<I>, predicate: &mut P, f: F) -> ParseResult<I::Item, I>
@@ -85,11 +80,10 @@ fn satisfy_impl<I, P, F>(input: State<I>, predicate: &mut P, f: F) -> ParseResul
     }
 }
 
-impl<I, P> Parser for Satisfy<I, P>
+impl<I, P> Parser<I> for Satisfy<I, P>
     where I: Stream,
           P: FnMut(I::Item) -> bool
 {
-    type Input = I;
     type Output = I::Item;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<I::Item, I> {
         satisfy_impl(input, &mut self.predicate, |pos, _| ParseError::empty(pos))
@@ -108,8 +102,8 @@ impl<I, P> Parser for Satisfy<I, P>
 /// # }
 /// ```
 pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
-    where I: Stream,
-          P: FnMut(I::Item) -> bool
+    where P: FnMut(I::Item) -> bool,
+          I: Stream
 {
     Satisfy {
         predicate: predicate,
@@ -119,23 +113,20 @@ pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
 
 #[derive(Clone)]
 pub struct Token<I>
-    where I: Stream,
-          I::Item: PartialEq
+    where I: Stream
 {
     c: I::Item,
-    _marker: PhantomData<I>,
 }
 
-impl<I> Parser for Token<I>
+impl<I> Parser<I> for Token<I>
     where I: Stream,
           I::Item: PartialEq + Clone
 {
-    type Input = I;
     type Output = I::Item;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<I::Item, I> {
         satisfy_impl(input, &mut |c| c == self.c, |pos, _| ParseError::empty(pos))
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut ParseError<I>) {
         error.errors.push(Error::Expected(Info::Token(self.c.clone())));
     }
 }
@@ -156,21 +147,17 @@ pub fn token<I>(c: I::Item) -> Token<I>
     where I: Stream,
           I::Item: PartialEq
 {
-    Token {
-        c: c,
-        _marker: PhantomData,
-    }
+    Token { c: c }
 }
 
 #[derive(Clone)]
 pub struct Choice<S, P>(S, PhantomData<P>);
 
-impl<I, O, S, P> Parser for Choice<S, P>
+impl<I, O, S, P> Parser<I> for Choice<S, P>
     where I: Stream,
           S: AsMut<[P]>,
-          P: Parser<Input = I, Output = O>
+          P: Parser<I, Output = O>
 {
-    type Input = I;
     type Output = O;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
         let mut empty_err = None;
@@ -194,7 +181,7 @@ impl<I, O, S, P> Parser for Choice<S, P>
             Some(err) => err,
         }))
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut ParseError<I>) {
         for p in self.0.as_mut() {
             p.add_error(error);
         }
@@ -224,23 +211,23 @@ impl<I, O, S, P> Parser for Choice<S, P>
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
-pub fn choice<S, P>(ps: S) -> Choice<S, P>
+pub fn choice<S, P, I>(ps: S) -> Choice<S, P>
     where S: AsMut<[P]>,
-          P: Parser
+          P: Parser<I>,
+          I: Stream
 {
     Choice(ps, PhantomData)
 }
 
 #[derive(Clone)]
 pub struct Unexpected<I>(Info<I::Item, I::Range>, PhantomData<fn(I) -> I>) where I: Stream;
-impl<I> Parser for Unexpected<I> where I: Stream
+impl<I> Parser<I> for Unexpected<I> where I: Stream
 {
-    type Input = I;
     type Output = ();
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<(), I> {
         Err(Consumed::Empty(ParseError::empty(input.position)))
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut ParseError<I>) {
         error.errors.push(Error::Unexpected(self.0.clone()));
     }
 }
@@ -266,12 +253,11 @@ pub fn unexpected<I, S>(message: S) -> Unexpected<I>
 }
 
 #[derive(Clone)]
-pub struct Value<I, T>(T, PhantomData<fn(I) -> I>);
-impl<I, T> Parser for Value<I, T>
+pub struct Value<T>(T);
+impl<I, T> Parser<I> for Value<T>
     where I: Stream,
           T: Clone
 {
-    type Input = I;
     type Output = T;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<T, I> {
         Ok((self.0.clone(), Consumed::Empty(input)))
@@ -289,16 +275,32 @@ impl<I, T> Parser for Value<I, T>
 /// assert_eq!(result, Ok(42));
 /// # }
 /// ```
-pub fn value<I, T>(v: T) -> Value<I, T>
-    where I: Stream,
-          T: Clone
+pub fn value<T>(v: T) -> Value<T>
+    where T: Clone
 {
-    Value(v, PhantomData)
+    Value(v)
 }
 
-impl_parser! { NotFollowedBy(P,),
-               Or<Then<Try<P>, fn(P::Output) -> Unexpected<P::Input>>, Value<P::Input, ()>>
+#[derive(Clone)]
+pub struct NotFollowedBy<P>(P);
+impl<Input, P> Parser<Input> for NotFollowedBy<P>
+    where P: Parser<Input>,
+          P::Output: ::std::fmt::Display,
+          Input: Stream
+{
+    type Output = ();
+    fn parse_state(&mut self, input: State<Input>) -> ParseResult<(), Input> {
+        fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
+            unexpected(format!("{}", t))
+        }
+        let f: fn(P::Output) -> Unexpected<Input> = f;
+        try(&mut self.0)
+            .then(f)
+            .or(value(()))
+            .parse_state(input)
+    }
 }
+
 
 ///Succeeds only if `parser` fails.
 ///Never consumes any input.
@@ -314,27 +316,28 @@ impl_parser! { NotFollowedBy(P,),
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
-    where P: Parser,
-          P::Output: ::std::fmt::Display
+pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
+    where P: Parser<Input>,
+          P::Output: ::std::fmt::Display,
+          Input: Stream
 {
-    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
-        unexpected(format!("{}", t))
-    }
-    let f: fn(P::Output) -> Unexpected<P::Input> = f;
-    NotFollowedBy(try(parser)
-                      .then(f)
-                      .or(value(())))
+    NotFollowedBy(parser)
 }
 
-pub struct Iter<P: Parser> {
+pub struct Iter<Input, P>
+    where Input: Stream,
+          P: Parser<Input>
+{
     parser: P,
-    input: Consumed<State<P::Input>>,
-    error: Option<Consumed<ParseError<P::Input>>>,
+    input: Consumed<State<Input>>,
+    error: Option<Consumed<ParseError<Input>>>,
 }
 
-impl<P: Parser> Iter<P> {
-    fn new(parser: P, input: State<P::Input>) -> Iter<P> {
+impl<Input, P> Iter<Input, P>
+    where Input: Stream,
+          P: Parser<Input>
+{
+    fn new(parser: P, input: State<Input>) -> Iter<Input, P> {
         Iter {
             parser: parser,
             input: Consumed::Empty(input),
@@ -343,7 +346,7 @@ impl<P: Parser> Iter<P> {
     }
     ///Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     ///without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
+    pub fn into_result<O>(self, value: O) -> ParseResult<O, Input> {
         match self.error {
             Some(err@Consumed::Consumed(_)) => Err(err),
             _ => Ok((value, self.input)),
@@ -351,7 +354,7 @@ impl<P: Parser> Iter<P> {
     }
 }
 
-impl<P: Parser> Iterator for Iter<P> {
+impl<I: Stream, P: Parser<I>> Iterator for Iter<I, P> {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
         if self.error.is_some() {
@@ -371,14 +374,14 @@ impl<P: Parser> Iterator for Iter<P> {
 }
 
 #[derive(Clone)]
-pub struct Many<F, P>(P, PhantomData<F>) where P: Parser;
-impl<F, P> Parser for Many<F, P>
-    where P: Parser,
-          F: FromIterator<P::Output>
+pub struct Many<F, P>(P, PhantomData<F>);
+impl<Input, F, P> Parser<Input> for Many<F, P>
+    where P: Parser<Input>,
+          F: FromIterator<P::Output>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = F;
-    fn parse_state(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+    fn parse_state(&mut self, input: State<Input>) -> ParseResult<F, Input> {
         let mut iter = (&mut self.0).iter(input);
         let result = iter.by_ref().collect();
         iter.into_result(result)
@@ -400,9 +403,10 @@ impl<F, P> Parser for Many<F, P>
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
 /// # }
 /// ```
-pub fn many<F, P>(p: P) -> Many<F, P>
-    where P: Parser,
-          F: FromIterator<P::Output>
+pub fn many<F, I, P>(p: P) -> Many<F, P>
+    where P: Parser<I>,
+          F: FromIterator<P::Output>,
+          I: Stream
 {
     Many(p, PhantomData)
 }
@@ -410,13 +414,13 @@ pub fn many<F, P>(p: P) -> Many<F, P>
 
 #[derive(Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
-impl<F, P> Parser for Many1<F, P>
+impl<Input, F, P> Parser<Input> for Many1<F, P>
     where F: FromIterator<P::Output>,
-          P: Parser
+          P: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = F;
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<F, Input> {
         let (first, input) = try!(self.0.parse_lazy(input));
         input.combine(move |input| {
             let mut iter = Iter::new(&mut self.0, input);
@@ -427,12 +431,43 @@ impl<F, P> Parser for Many1<F, P>
             iter.into_result(result)
         })
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.0.add_error(errors)
     }
 }
 
-impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<()>)> }
+#[derive(Clone)]
+pub struct SkipMany<P>(P);
+impl<Input, P> Parser<Input> for SkipMany<P>
+    where P: Parser<Input>,
+          Input: Stream
+{
+    type Output = ();
+    fn parse_state(&mut self, input: State<Input>) -> ParseResult<(), Input> {
+        fn ignore<T>(_: T) {}
+        let ignore1: fn(P::Output) = ignore;
+        let ignore2: fn(Vec<()>) = ignore;
+        many((&mut self.0).map(ignore1))
+            .map(ignore2)
+            .parse_state(input)
+    }
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<(), Input> {
+        fn ignore<T>(_: T) {}
+        let ignore1: fn(P::Output) = ignore;
+        let ignore2: fn(Vec<()>) = ignore;
+        many((&mut self.0).map(ignore1))
+            .map(ignore2)
+            .parse_lazy(input)
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
+        fn ignore<T>(_: T) {}
+        let ignore1: fn(P::Output) = ignore;
+        let ignore2: fn(Vec<()>) = ignore;
+        many((&mut self.0).map(ignore1))
+            .map(ignore2)
+            .add_error(errors)
+    }
+}
 ///Parses `p` zero or more times ignoring the result
 ///
 /// ```
@@ -444,16 +479,45 @@ impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<(
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
-pub fn skip_many<P>(p: P) -> SkipMany<P>
-    where P: Parser
+pub fn skip_many<I, P>(p: P) -> SkipMany<P>
+    where P: Parser<I>,
+          I: Stream
 {
-    fn ignore<T>(_: T) {}
-    let ignore1: fn(P::Output) = ignore;
-    let ignore2: fn(Vec<()>) = ignore;
-    SkipMany(many(p.map(ignore1)).map(ignore2))
+    SkipMany(p)
 }
 
-impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<()>)> }
+#[derive(Clone)]
+pub struct SkipMany1<P>(P);
+impl<Input, P> Parser<Input> for SkipMany1<P>
+    where P: Parser<Input>,
+          Input: Stream
+{
+    type Output = ();
+    fn parse_state(&mut self, input: State<Input>) -> ParseResult<(), Input> {
+        fn ignore<T>(_: T) {}
+        let ignore1: fn(P::Output) = ignore;
+        let ignore2: fn(Vec<()>) = ignore;
+        many1((&mut self.0).map(ignore1))
+            .map(ignore2)
+            .parse_state(input)
+    }
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<(), Input> {
+        fn ignore<T>(_: T) {}
+        let ignore1: fn(P::Output) = ignore;
+        let ignore2: fn(Vec<()>) = ignore;
+        many1((&mut self.0).map(ignore1))
+            .map(ignore2)
+            .parse_lazy(input)
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
+        fn ignore<T>(_: T) {}
+        let ignore1: fn(P::Output) = ignore;
+        let ignore2: fn(Vec<()>) = ignore;
+        many1((&mut self.0).map(ignore1))
+            .map(ignore2)
+            .add_error(errors)
+    }
+}
 ///Parses `p` one or more times ignoring the result
 ///
 /// ```
@@ -465,13 +529,11 @@ impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
-pub fn skip_many1<P>(p: P) -> SkipMany1<P>
-    where P: Parser
+pub fn skip_many1<I, P>(p: P) -> SkipMany1<P>
+    where P: Parser<I>,
+          I: Stream
 {
-    fn ignore<T>(_: T) {}
-    let ignore1: fn(P::Output) = ignore;
-    let ignore2: fn(Vec<()>) = ignore;
-    SkipMany1(many1(p.map(ignore1)).map(ignore2))
+    SkipMany1(p)
 }
 
 ///Parses `p` one or more times returning a collection with the values from `p`.
@@ -484,14 +546,15 @@ pub fn skip_many1<P>(p: P) -> SkipMany1<P>
 /// # extern crate combine as pc;
 /// # use pc::*;
 /// # fn main() {
-/// let result = many1::<Vec<_>, _>(digit())
+/// let result = many1::<Vec<_>, _, _>(digit())
 ///     .parse("A123");
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn many1<F, P>(p: P) -> Many1<F, P>
+pub fn many1<F, I, P>(p: P) -> Many1<F, P>
     where F: FromIterator<P::Output>,
-          P: Parser
+          P: Parser<I>,
+          I: Stream
 {
     Many1(p, PhantomData)
 }
@@ -502,21 +565,21 @@ pub struct SepBy<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P, S> Parser for SepBy<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepBy<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<Input>,
+          S: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<F, Input> {
         sep_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
             .parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.parser.add_error(errors)
     }
 }
@@ -537,10 +600,11 @@ impl<F, P, S> Parser for SepBy<F, P, S>
 /// assert_eq!(result_ok2, Ok((vec![], "")));
 /// # }
 /// ```
-pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
+pub fn sep_by<F, I, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<I>,
+          S: Parser<I>,
+          I: Stream
 {
     SepBy {
         parser: parser,
@@ -555,15 +619,15 @@ pub struct SepBy1<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P, S> Parser for SepBy1<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepBy1<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<Input>,
+          S: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<F, Input> {
         let (first, rest) = try!(self.parser.parse_lazy(input.clone()));
 
         rest.combine(move |input| {
@@ -577,7 +641,7 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
         })
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.parser.add_error(errors)
     }
 }
@@ -605,10 +669,11 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
 /// }));
 /// # }
 /// ```
-pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
+pub fn sep_by1<F, I, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<I>,
+          S: Parser<I>,
+          I: Stream
 {
     SepBy1 {
         parser: parser,
@@ -624,21 +689,21 @@ pub struct SepEndBy<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<F, P, S> Parser for SepEndBy<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepEndBy<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<Input>,
+          S: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<F, Input> {
         sep_end_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
             .parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.parser.add_error(errors)
     }
 }
@@ -659,10 +724,11 @@ impl<F, P, S> Parser for SepEndBy<F, P, S>
 /// assert_eq!(result_ok2, Ok((vec!['1', '2', '3'], "")));
 /// # }
 /// ```
-pub fn sep_end_by<F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
+pub fn sep_end_by<F, I, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<I>,
+          S: Parser<I>,
+          I: Stream
 {
     SepEndBy {
         parser: parser,
@@ -678,15 +744,15 @@ pub struct SepEndBy1<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<F, P, S> Parser for SepEndBy1<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepEndBy1<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<Input>,
+          S: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<F, Input> {
         let (first, input) = try!(self.parser.parse_lazy(input.clone()));
 
         input.combine(|input| {
@@ -703,7 +769,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
         })
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.parser.add_error(errors)
     }
 }
@@ -731,10 +797,11 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
 /// }));
 /// # }
 /// ```
-pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
+pub fn sep_end_by1<F, I, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
     where F: FromIterator<P::Output>,
-          P: Parser,
-          S: Parser<Input = P::Input>
+          P: Parser<I>,
+          S: Parser<I>,
+          I: Stream
 {
     SepEndBy1 {
         parser: parser,
@@ -743,15 +810,14 @@ pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
     }
 }
 
-impl<'a, I: Stream, O> Parser for FnMut(State<I>) -> ParseResult<O, I> + 'a {
-    type Input = I;
+impl<'a, I: Stream, O> Parser<I> for FnMut(State<I>) -> ParseResult<O, I> + 'a {
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         self(input)
     }
 }
 #[derive(Clone)]
-pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
+pub struct FnParser<F>(F);
 
 ///Wraps a function, turning it into a parser
 ///Mainly needed to turn closures into parsers as function types can be casted to function pointers
@@ -781,27 +847,25 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// assert_eq!(result, Ok(8));
 /// # }
 /// ```
-pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
+pub fn parser<I, O, F>(f: F) -> FnParser<F>
     where I: Stream,
           F: FnMut(State<I>) -> ParseResult<O, I>
 {
-    FnParser(f, PhantomData)
+    FnParser(f)
 }
 
-impl<I, O, F> Parser for FnParser<I, F>
+impl<I, O, F> Parser<I> for FnParser<F>
     where I: Stream,
           F: FnMut(State<I>) -> ParseResult<O, I>
 {
-    type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         (self.0)(input)
     }
 }
 
-impl<I, O> Parser for fn(State<I>) -> ParseResult<O, I> where I: Stream
+impl<I, O> Parser<I> for fn(State<I>) -> ParseResult<O, I> where I: Stream
 {
-    type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         self(input)
@@ -810,11 +874,12 @@ impl<I, O> Parser for fn(State<I>) -> ParseResult<O, I> where I: Stream
 
 #[derive(Clone)]
 pub struct Optional<P>(P);
-impl<P> Parser for Optional<P> where P: Parser
+impl<Input, P> Parser<Input> for Optional<P>
+    where P: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = Option<P::Output>;
-    fn parse_lazy(&mut self, input: State<P::Input>) -> ParseResult<Option<P::Output>, P::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<Option<P::Output>, Input> {
         match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)),
             Err(err@Consumed::Consumed(_)) => return Err(err),
@@ -836,8 +901,9 @@ impl<P> Parser for Optional<P> where P: Parser
 /// assert_eq!(result2, Ok((Some('1'), "")));
 /// # }
 /// ```
-pub fn optional<P>(parser: P) -> Optional<P>
-    where P: Parser
+pub fn optional<I, P>(parser: P) -> Optional<P>
+    where P: Parser<I>,
+          I: Stream
 {
     Optional(parser)
 }
@@ -858,22 +924,21 @@ impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// ```
 pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
     where I: Stream,
-          L: Parser<Input = I>,
-          R: Parser<Input = I>,
-          P: Parser<Input = I>
+          L: Parser<I>,
+          R: Parser<I>,
+          P: Parser<I>
 {
     Between(open.with(parser).skip(close))
 }
 
 #[derive(Clone)]
 pub struct Chainl1<P, Op>(P, Op);
-impl<I, P, Op> Parser for Chainl1<P, Op>
+impl<I, P, Op> Parser<I> for Chainl1<P, Op>
     where I: Stream,
-          P: Parser<Input = I>,
-          Op: Parser<Input = I>,
+          P: Parser<I>,
+          Op: Parser<I>,
           Op::Output: FnOnce(P::Output, P::Output) -> P::Output
 {
-    type Input = I;
     type Output = P::Output;
 
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<P::Output, I> {
@@ -891,7 +956,7 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
         Ok((l, input))
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors)
     }
 }
@@ -909,23 +974,23 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
 ///     assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
 /// }
 /// ```
-pub fn chainl1<P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
-    where P: Parser,
-          Op: Parser<Input = P::Input>,
-          Op::Output: FnOnce(P::Output, P::Output) -> P::Output
+pub fn chainl1<I, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
+    where P: Parser<I>,
+          Op: Parser<I>,
+          Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
+          I: Stream
 {
     Chainl1(parser, op)
 }
 
 #[derive(Clone)]
 pub struct Chainr1<P, Op>(P, Op);
-impl<I, P, Op> Parser for Chainr1<P, Op>
+impl<I, P, Op> Parser<I> for Chainr1<P, Op>
     where I: Stream,
-          P: Parser<Input = I>,
-          Op: Parser<Input = I>,
+          P: Parser<I>,
+          Op: Parser<I>,
           Op::Output: FnOnce(P::Output, P::Output) -> P::Output
 {
-    type Input = I;
     type Output = P::Output;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<P::Output, I> {
         let (mut l, mut input) = try!(self.0.parse_lazy(input));
@@ -949,7 +1014,7 @@ impl<I, P, Op> Parser for Chainr1<P, Op>
         }
         Ok((l, input))
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors)
     }
 }
@@ -967,28 +1032,28 @@ impl<I, P, Op> Parser for Chainr1<P, Op>
 ///     assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
 /// }
 /// ```
-pub fn chainr1<P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
-    where P: Parser,
-          Op: Parser<Input = P::Input>,
-          Op::Output: FnOnce(P::Output, P::Output) -> P::Output
+pub fn chainr1<I, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
+    where P: Parser<I>,
+          Op: Parser<I>,
+          Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
+          I: Stream
 {
     Chainr1(parser, op)
 }
 
 #[derive(Clone)]
 pub struct Try<P>(P);
-impl<I, O, P> Parser for Try<P>
+impl<I, O, P> Parser<I> for Try<P>
     where I: Stream,
-          P: Parser<Input = I, Output = O>
+          P: Parser<I, Output = O>
 {
-    type Input = I;
     type Output = O;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
         self.0
             .parse_state(input)
             .map_err(Consumed::as_empty)
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors)
     }
 }
@@ -1008,8 +1073,9 @@ impl<I, O, P> Parser for Try<P>
 /// assert!(result.is_err());
 /// # }
 /// ```
-pub fn try<P>(p: P) -> Try<P>
-    where P: Parser
+pub fn try<I, P>(p: P) -> Try<P>
+    where P: Parser<I>,
+          I: Stream
 {
     Try(p)
 }
@@ -1017,18 +1083,17 @@ pub fn try<P>(p: P) -> Try<P>
 #[derive(Clone)]
 pub struct LookAhead<P>(P);
 
-impl<I, O, P> Parser for LookAhead<P>
+impl<I, O, P> Parser<I> for LookAhead<P>
     where I: Stream,
-          P: Parser<Input = I, Output = O>
+          P: Parser<I, Output = O>
 {
-    type Input = I;
     type Output = O;
 
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
         self.0.parse_lazy(input.clone()).map(|(o, _input)| (o, Consumed::Empty(input)))
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors);
     }
 }
@@ -1048,20 +1113,20 @@ impl<I, O, P> Parser for LookAhead<P>
 //        assert!(result.is_err());
 /// # }
 /// ```
-pub fn look_ahead<P>(p: P) -> LookAhead<P>
-    where P: Parser
+pub fn look_ahead<I, P>(p: P) -> LookAhead<P>
+    where P: Parser<I>,
+          I: Stream
 {
     LookAhead(p)
 }
 
 #[derive(Clone)]
 pub struct And<P1, P2>(P1, P2);
-impl<I, P1, P2> Parser for And<P1, P2>
+impl<I, P1, P2> Parser<I> for And<P1, P2>
     where I: Stream,
-          P1: Parser<Input = I>,
-          P2: Parser<Input = I>
+          P1: Parser<I>,
+          P2: Parser<I>
 {
-    type Input = I;
     type Output = (P1::Output, P2::Output);
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<(P1::Output, P2::Output), I> {
         let (a, rest) = try!(self.0.parse_lazy(input));
@@ -1070,59 +1135,53 @@ impl<I, P1, P2> Parser for And<P1, P2>
             Ok(((a, b), rest))
         })
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors)
     }
 }
 
 #[derive(Clone)]
-pub struct With<P1, P2>(P1, P2)
-    where P1: Parser,
-          P2: Parser;
-impl<I, P1, P2> Parser for With<P1, P2>
+pub struct With<P1, P2>(P1, P2);
+impl<I, P1, P2> Parser<I> for With<P1, P2>
     where I: Stream,
-          P1: Parser<Input = I>,
-          P2: Parser<Input = I>
+          P1: Parser<I>,
+          P2: Parser<I>
 {
-    type Input = I;
     type Output = P2::Output;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse_lazy(input));
         Ok((b, rest))
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors)
     }
 }
 
 #[derive(Clone)]
-pub struct Skip<P1, P2>(P1, P2)
-    where P1: Parser,
-          P2: Parser;
-impl<I, P1, P2> Parser for Skip<P1, P2>
+pub struct Skip<P1, P2>(P1, P2);
+impl<I, P1, P2> Parser<I> for Skip<P1, P2>
     where I: Stream,
-          P1: Parser<Input = I>,
-          P2: Parser<Input = I>
+          P1: Parser<I>,
+          P2: Parser<I>
 {
-    type Input = I;
     type Output = P1::Output;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse_lazy(input));
         Ok((a, rest))
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors)
     }
 }
 
 #[derive(Clone)]
-pub struct Message<P>(P, Info<<P::Input as Stream>::Item, <P::Input as Stream>::Range>)
-    where P: Parser;
-impl<I, P> Parser for Message<P>
+pub struct Message<I, P>(P, Info<I::Item, I::Range>)
+    where P: Parser<I>,
+          I: Stream;
+impl<I, P> Parser<I> for Message<I, P>
     where I: Stream,
-          P: Parser<Input = I>
+          P: Parser<I>
 {
-    type Input = I;
     type Output = P::Output;
 
     fn parse_state(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
@@ -1141,22 +1200,19 @@ impl<I, P> Parser for Message<P>
         self.0.parse_lazy(input.clone())
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors);
         errors.add_message(self.1.clone());
     }
 }
 
 #[derive(Clone)]
-pub struct Or<P1, P2>(P1, P2)
-    where P1: Parser,
-          P2: Parser;
-impl<I, O, P1, P2> Parser for Or<P1, P2>
+pub struct Or<P1, P2>(P1, P2);
+impl<I, O, P1, P2> Parser<I> for Or<P1, P2>
     where I: Stream,
-          P1: Parser<Input = I, Output = O>,
-          P2: Parser<Input = I, Output = O>
+          P1: Parser<I, Output = O>,
+          P2: Parser<I, Output = O>
 {
-    type Input = I;
     type Output = O;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
         match self.0.parse_lazy(input.clone()) {
@@ -1171,7 +1227,7 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
             }
         }
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors);
         self.1.add_error(errors);
     }
@@ -1179,12 +1235,11 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
 
 #[derive(Clone)]
 pub struct Map<P, F>(P, F);
-impl<I, A, B, P, F> Parser for Map<P, F>
+impl<I, A, B, P, F> Parser<I> for Map<P, F>
     where I: Stream,
-          P: Parser<Input = I, Output = A>,
+          P: Parser<I, Output = A>,
           F: FnMut(A) -> B
 {
-    type Input = I;
     type Output = B;
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<B, I> {
         match self.0.parse_lazy(input) {
@@ -1192,41 +1247,43 @@ impl<I, A, B, P, F> Parser for Map<P, F>
             Err(err) => Err(err),
         }
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         self.0.add_error(errors);
     }
 }
 
 #[derive(Clone)]
 pub struct Then<P, F>(P, F);
-impl<P, N, F> Parser for Then<P, F>
+impl<Input, P, N, F> Parser<Input> for Then<P, F>
     where F: FnMut(P::Output) -> N,
-          P: Parser,
-          N: Parser<Input = P::Input>
+          P: Parser<Input>,
+          N: Parser<Input>,
+          Input: Stream
 {
-    type Input = N::Input;
     type Output = N::Output;
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<Self::Output, Input> {
         let (value, input) = try!(self.0.parse_lazy(input));
         input.combine(move |input| {
             let mut next = (self.1)(value);
             next.parse_state(input)
         })
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.0.add_error(errors);
     }
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(P, Info<<P::Input as Stream>::Item, <P::Input as Stream>::Range>)
-    where P: Parser;
-impl<P> Parser for Expected<P> where P: Parser
+pub struct Expected<I, P>(P, Info<I::Item, I::Range>)
+    where P: Parser<I>,
+          I: Stream;
+impl<Input, P> Parser<Input> for Expected<Input, P>
+    where P: Parser<Input>,
+          Input: Stream
 {
-    type Input = P::Input;
     type Output = P::Output;
 
-    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_state(&mut self, input: State<Input>) -> ParseResult<Self::Output, Input> {
         // add_error is only called on unconsumed inputs but we want this expected message to always
         // replace the ones always present in the ParseError
         self.0
@@ -1239,11 +1296,11 @@ impl<P> Parser for Expected<P> where P: Parser
             })
     }
 
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<Self::Output, Input> {
         self.0.parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         let start = errors.errors.len();
         self.0.add_error(errors);
         // Replace all expected errors that where added from the previous add_error
@@ -1266,14 +1323,14 @@ impl<P> Parser for Expected<P> where P: Parser
 
 #[derive(Clone)]
 pub struct AndThen<P, F>(P, F);
-impl<P, F, O, E> Parser for AndThen<P, F>
-    where P: Parser,
+impl<Input, P, F, O, E> Parser<Input> for AndThen<P, F>
+    where Input: Stream,
+          P: Parser<Input>,
           F: FnMut(P::Output) -> Result<O, E>,
-          E: Into<Error<<P::Input as Stream>::Item, <P::Input as Stream>::Range>>
+          E: Into<Error<Input::Item, Input::Range>>
 {
-    type Input = P::Input;
     type Output = O;
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<O, Self::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<O, Input> {
         self.0
             .parse_lazy(input)
             .and_then(|(o, input)| {
@@ -1285,13 +1342,13 @@ impl<P, F, O, E> Parser for AndThen<P, F>
                 }
             })
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<Input>) {
         self.0.add_error(errors);
     }
 }
 
 ///Extension trait which provides functions that are more conveniently used through method calls
-pub trait ParserExt : Parser + Sized {
+pub trait ParserExt<Input> : Parser<Input> + Sized where Input: Stream {
 
     ///Discards the value of the `self` parser and returns the value of `p`
     ///Fails if any of the parsers fails
@@ -1308,7 +1365,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn with<P2>(self, p: P2) -> With<Self, P2>
-        where P2: Parser<Input = Self::Input>
+        where P2: Parser<Input>
     {
         With(self, p)
     }
@@ -1328,7 +1385,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
-        where P2: Parser<Input = Self::Input>
+        where P2: Parser<Input>
     {
         Skip(self, p)
     }
@@ -1349,7 +1406,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn and<P2>(self, p: P2) -> And<Self, P2>
-        where P2: Parser<Input = Self::Input>
+        where P2: Parser<Input>
     {
         And(self, p)
     }
@@ -1378,7 +1435,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn or<P2>(self, p: P2) -> Or<Self, P2>
-        where P2: Parser<Input = Self::Input>
+        where P2: Parser<Input>
     {
         Or(self, p)
     }
@@ -1407,7 +1464,7 @@ pub trait ParserExt : Parser + Sized {
     /// ```
     fn then<N, F>(self, f: F) -> Then<Self, F>
         where F: FnMut(Self::Output) -> N,
-              N: Parser<Input = Self::Input>
+              N: Parser<Input>
     {
         Then(self, f)
     }
@@ -1451,8 +1508,8 @@ pub trait ParserExt : Parser + Sized {
     /// }));
     /// # }
     /// ```
-    fn message<S>(self, msg: S) -> Message<Self>
-        where S: Into<Info<<Self::Input as Stream>::Item, <Self::Input as Stream>::Range>>
+    fn message<S>(self, msg: S) -> Message<Input, Self>
+        where S: Into<Info<Input::Item, Input::Range>>
     {
         Message(self, msg.into())
     }
@@ -1474,8 +1531,8 @@ pub trait ParserExt : Parser + Sized {
     /// }));
     /// # }
     /// ```
-    fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: Into<Info<<Self::Input as Stream>::Item, <Self::Input as Stream>::Range>>
+    fn expected<S>(self, msg: S) -> Expected<Input, Self>
+        where S: Into<Info<Input::Item, Input::Range>>
     {
         Expected(self, msg.into())
     }
@@ -1497,7 +1554,7 @@ pub trait ParserExt : Parser + Sized {
     /// ```
     fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
         where F: FnMut(Self::Output) -> Result<O, E>,
-              E: Into<Error<<Self::Input as Stream>::Item, <Self::Input as Stream>::Range>>
+              E: Into<Error<<Input as Stream>::Item, <Input as Stream>::Range>>
     {
         AndThen(self, f)
     }
@@ -1522,21 +1579,20 @@ pub trait ParserExt : Parser + Sized {
     /// assert_eq!(result, Ok((vec![123, 45, 6], "")));
     /// # }
     /// ```
-    fn iter(self, input: State<Self::Input>) -> Iter<Self> {
+    fn iter(self, input: State<Input>) -> Iter<Input, Self> {
         Iter::new(self, input)
     }
 }
 
-impl<P: Parser> ParserExt for P {}
+impl<I: Stream, P: Parser<I>> ParserExt<I> for P {}
 
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
-        impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
+        impl <Input, $h:, $($id:),+> Parser<Input> for ($h, $($id),+)
             where Input: Stream,
-                  $h: Parser<Input=Input>,
-                  $($id: Parser<Input=Input>),+
+                  $h: Parser<Input>,
+                  $($id: Parser<Input>),+
         {
-            type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
             #[allow(non_snake_case)]
             fn parse_lazy(&mut self,
@@ -1547,7 +1603,7 @@ macro_rules! tuple_parser {
                 $(let ($id, input) = try!(input.combine(|input| $id.parse_state(input)));)+
                 Ok((($h, $($id),+), input))
             }
-            fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+            fn add_error(&mut self, errors: &mut ParseError<Input>) {
                 self.0.add_error(errors);
             }
         }
@@ -1574,11 +1630,10 @@ pub struct EnvParser<E, I, T>
     parser: fn(E, State<I>) -> ParseResult<T, I>,
 }
 
-impl<E, I, O> Parser for EnvParser<E, I, O>
+impl<E, I, O> Parser<I> for EnvParser<E, I, O>
     where E: Clone,
           I: Stream
 {
-    type Input = I;
     type Output = O;
 
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
@@ -1634,17 +1689,16 @@ pub fn env_parser<E, I, O>(env: E,
 }
 
 #[cfg(feature = "range_stream")]
-pub struct Range<I>(I::Range) where I: RangeStream;
+pub struct Range<R>(R);
 #[cfg(feature = "range_stream")]
-impl<I, E> Parser for Range<I>
+impl<I, E> Parser<I> for Range<I::Range>
     where I: RangeStream<Item = E>,
           I::Range: Positioner<Position = E::Position> + PartialEq + ::primitives::Range,
           E: Positioner + Clone
 {
-    type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         use primitives::Range;
         let State { mut position, input, .. } = input;
         match input.uncons_range(self.0.len()) {
@@ -1663,7 +1717,7 @@ impl<I, E> Parser for Range<I>
             Err(err) => Err(Consumed::Empty(ParseError::new(position, err))),
         }
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut ParseError<I>) {
         // TODO Add unexpected message?
         errors.add_error(Error::Expected(Info::Range(self.0.clone())));
     }
@@ -1682,26 +1736,21 @@ impl<I, E> Parser for Range<I>
 /// # }
 /// ```
 #[cfg(feature = "range_stream")]
-pub fn range<I, E>(i: I::Range) -> Range<I>
-    where I: RangeStream<Item = E>,
-          I::Range: Positioner<Position = E::Position> + PartialEq + ::primitives::Range,
-          E: Positioner + Clone
-{
+pub fn range<R>(i: R) -> Range<R> {
     Range(i)
 }
 
 #[cfg(feature = "range_stream")]
-pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
+pub struct Take(usize);
 #[cfg(feature = "range_stream")]
-impl<I, E> Parser for Take<I>
+impl<I, E> Parser<I> for Take
     where I: RangeStream<Item = E>,
           I::Range: ::primitives::Range + Positioner<Position = E::Position>,
           E: Positioner + Clone
 {
-    type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         input.uncons_range(self.0)
     }
 }
@@ -1719,26 +1768,22 @@ impl<I, E> Parser for Take<I>
 /// # }
 /// ```
 #[cfg(feature = "range_stream")]
-pub fn take<I>(n: usize) -> Take<I>
-    where I: RangeStream,
-          I::Range: ::primitives::Range
-{
-    Take(n, PhantomData)
+pub fn take(n: usize) -> Take {
+    Take(n)
 }
 
 #[cfg(feature = "range_stream")]
-pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
+pub struct TakeWhile<F>(F);
 #[cfg(feature = "range_stream")]
-impl<I, E, F> Parser for TakeWhile<I, F>
+impl<I, E, F> Parser<I> for TakeWhile<F>
     where I: RangeStream<Item = E>,
           I::Range: ::primitives::Range + Positioner<Position = E::Position>,
           E: Positioner + Clone,
           F: FnMut(I::Item) -> bool
 {
-    type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         input.uncons_while(&mut self.0)
     }
 }
@@ -1756,25 +1801,23 @@ impl<I, E, F> Parser for TakeWhile<I, F>
 /// # }
 /// ```
 #[cfg(feature = "range_stream")]
-pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
-    where I: RangeStream,
-          F: FnMut(I::Item) -> bool
+pub fn take_while<T, F>(f: F) -> TakeWhile<F>
+    where F: FnMut(T) -> bool
 {
-    TakeWhile(f, PhantomData)
+    TakeWhile(f)
 }
 
 #[cfg(feature = "range_stream")]
-pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
+pub struct TakeWhile1<F>(F);
 #[cfg(feature = "range_stream")]
-impl<I, F> Parser for TakeWhile1<I, F>
+impl<I, F> Parser<I> for TakeWhile1<F>
     where I: RangeStream,
           I::Range: ::primitives::Range,
           F: FnMut(I::Item) -> bool
 {
-    type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<Self::Output, I> {
         input.uncons_while(&mut self.0)
              .and_then(|(v, input)| {
                  match input {
@@ -1805,12 +1848,10 @@ impl<I, F> Parser for TakeWhile1<I, F>
 /// # }
 /// ```
 #[cfg(feature = "range_stream")]
-pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
-    where I: RangeStream,
-          I::Range: ::primitives::Range,
-          F: FnMut(I::Item) -> bool
+pub fn take_while1<F, T>(f: F) -> TakeWhile1<F>
+    where F: FnMut(T) -> bool
 {
-    TakeWhile1(f, PhantomData)
+    TakeWhile1(f)
 }
 
 #[cfg(test)]
@@ -1821,7 +1862,7 @@ mod tests {
 
     #[test]
     fn choice_empty() {
-        let mut parser = choice::<&mut [Token<&str>], Token<&str>>(&mut []);
+        let mut parser = choice::<&mut [Token<_>], Token<_>, &str>(&mut []);
         let result_err = parser.parse("a");
         assert!(result_err.is_err());
     }
