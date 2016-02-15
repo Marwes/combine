@@ -62,3 +62,18 @@ fn shared_stream_insufficent_backtrack() {
     assert!(result.unwrap_err().errors.iter()
             .any(|err| *err == Error::Message("Backtracked to far".into())));
 }
+
+/// Test which checks that a stream which has ended does not repeat the last token in some cases in
+/// which case this test would loop forever
+#[test]
+fn always_output_end_of_input_after_end_of_input() {
+    let text = "10".chars();
+    let buffer = BufferedStream::new(text, 1);
+    let int = many1(digit())
+        .map(|s: String| s.parse::<i64>().unwrap());
+    let result = many(spaces().with(int))
+        .parse(buffer.as_stream())
+        .map(|t| t.0);
+    assert_eq!(result, Ok(vec![10]));
+}
+

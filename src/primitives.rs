@@ -948,11 +948,11 @@ impl<I> BufferedStreamInner<I>
 {
     fn uncons(&mut self, offset: usize) -> Result<I::Item, Error<I::Item, I::Item>> {
         if offset >= self.offset {
-            self.offset += 1;
             let item = match self.iter.next() {
                 Some(item) => item,
                 None => return Err(Error::end_of_input()),
             };
+            self.offset += 1;
             // We want the VecDeque to only keep the last .capacity() elements so we need to remove
             // an element if it gets to large
             if self.buffer.len() == self.buffer.capacity() {
