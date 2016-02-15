@@ -218,7 +218,7 @@ impl<I, O, S, P> Parser for Choice<S, P>
 /// let mut parser2 = choice([string("one"), string("two"), string("three")]);
 /// // Fails as the parser for "two" consumes the first 't' before failing
 /// assert!(parser2.parse("three").is_err());
-/// 
+///
 /// // Use 'try' to make failing parsers always act as if they have not consumed any input
 /// let mut parser3 = choice([try(string("one")), try(string("two")), try(string("three"))]);
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
@@ -1017,10 +1017,10 @@ pub fn try<P>(p: P) -> Try<P>
 #[derive(Clone)]
 pub struct LookAhead<P>(P);
 
-impl <I, O, P> Parser for LookAhead<P>
-    where I: Stream
-        , P: Parser<Input=I, Output=O> {
-
+impl<I, O, P> Parser for LookAhead<P>
+    where I: Stream,
+          P: Parser<Input = I, Output = O>
+{
     type Input = I;
     type Output = O;
 
@@ -1371,7 +1371,7 @@ pub trait ParserExt : Parser + Sized {
     /// let mut parser2 = string("two").or(string("three"));
     /// // Fails as the parser for "two" consumes the first 't' before failing
     /// assert!(parser2.parse("three").is_err());
-    /// 
+    ///
     /// // Use 'try' to make failing parsers always act as if they have not consumed any input
     /// let mut parser3 = try(string("two")).or(try(string("three")));
     /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
