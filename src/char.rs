@@ -1,4 +1,4 @@
-use primitives::{Consumed, Parser, ParseError, ParseResult, Error, State, Stream};
+use primitives::{Consumed, Parser, ParseError, ParseResult, Error, Stream};
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, ParserExt, With};
 use std::marker::PhantomData;
 
@@ -12,7 +12,7 @@ macro_rules! impl_char_parser {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
         fn parse_lazy(&mut self,
-                      input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+                      input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
         fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -158,11 +158,11 @@ impl<I> Parser for String<I> where I: Stream<Item = char>
 {
     type Input = I;
     type Output = &'static str;
-    fn parse_lazy(&mut self, mut input: State<I>) -> ParseResult<&'static str, I> {
-        let start = input.position;
+    fn parse_lazy(&mut self, mut input: I) -> ParseResult<&'static str, I> {
+        let start = input.position();
         let mut consumed = false;
         for c in self.0.chars() {
-            match input.uncons() {
+            match ::primitives::uncons(input) {
                 Ok((other, rest)) => {
                     if c != other {
                         return Err(if consumed {
@@ -223,7 +223,7 @@ pub fn string<I>(s: &'static str) -> String<I>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser, SourcePosition};
+    use primitives::{Error, ParseError, Parser, SourcePosition, State};
 
     #[test]
     fn space_error() {
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn string_consumed() {
-        let result = string("a").parse("b");
+        let result = string("a").parse(State::new("b"));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().position,
                    SourcePosition {
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn string_error() {
-        let result = string("abc").parse("bc");
+        let result = string("abc").parse(State::new("bc"));
         assert_eq!(result,
                    Err(ParseError {
                        position: SourcePosition {

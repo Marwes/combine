@@ -12,7 +12,7 @@ pub struct Ini {
     pub sections: HashMap<String, HashMap<String, String>>,
 }
 
-fn property<I>(input: State<I>) -> ParseResult<(String, String), I>
+fn property<I>(input: I) -> ParseResult<(String, String), I>
     where I: Stream<Item = char>
 {
     (many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
@@ -23,7 +23,7 @@ fn property<I>(input: State<I>) -> ParseResult<(String, String), I>
         .parse_state(input)
 }
 
-fn whitespace<I>(input: State<I>) -> ParseResult<(), I>
+fn whitespace<I>(input: I) -> ParseResult<(), I>
     where I: Stream<Item = char>
 {
     let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
@@ -32,14 +32,14 @@ fn whitespace<I>(input: State<I>) -> ParseResult<(), I>
     skip_many(skip_many1(space()).or(comment)).parse_state(input)
 }
 
-fn properties<I>(input: State<I>) -> ParseResult<HashMap<String, String>, I>
+fn properties<I>(input: I) -> ParseResult<HashMap<String, String>, I>
     where I: Stream<Item = char>
 {
     // After each property we skip any whitespace that followed it
     many(parser(property).skip(parser(whitespace))).parse_state(input)
 }
 
-fn section<I>(input: State<I>) -> ParseResult<(String, HashMap<String, String>), I>
+fn section<I>(input: I) -> ParseResult<(String, HashMap<String, String>), I>
     where I: Stream<Item = char>
 {
     (between(token('['), token(']'), many(satisfy(|c| c != ']'))),
@@ -50,7 +50,7 @@ fn section<I>(input: State<I>) -> ParseResult<(String, HashMap<String, String>),
         .parse_state(input)
 }
 
-fn ini<I>(input: State<I>) -> ParseResult<Ini, I>
+fn ini<I>(input: I) -> ParseResult<Ini, I>
     where I: Stream<Item = char>
 {
     (parser(whitespace),
@@ -96,7 +96,7 @@ type=LL(1)
 fn ini_error() {
     let text = "[error";
     let result = parser(ini)
-                     .parse(text)
+                     .parse(State::new(text))
                      .map(|t| t.0);
     assert_eq!(result,
                Err(ParseError {

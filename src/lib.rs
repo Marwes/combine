@@ -77,7 +77,7 @@
 //! correct signature into a parser. In this case we define `expr` to work on any type of `Stream`
 //! which is combine's way of abstracting over different data sources such as array slices, string
 //! slices, iterators etc. If instead you would only need to parse string already in memory you
-//! could define `expr` as `fn expr(input: State<&str>) -> ParseResult<Expr, &str>`
+//! could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
 //!
 //! ```
 //! extern crate combine;
@@ -91,7 +91,7 @@
 //!     Pair(Box<Expr>, Box<Expr>)
 //! }
 //!
-//! fn expr<I>(input: State<I>) -> ParseResult<Expr, I>
+//! fn expr<I>(input: I) -> ParseResult<Expr, I>
 //!     where I: Stream<Item=char>
 //! {
 //!     let word = many1(letter());
@@ -163,7 +163,7 @@ mod tests {
     use super::primitives::{SourcePosition, Stream, Error, Consumed};
 
 
-    fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
+    fn integer<'a, I>(input: I) -> ParseResult<i64, I>
         where I: Stream<Item = char>
     {
         let (s, input) = try!(many1::<String, _>(digit())
@@ -231,7 +231,9 @@ mod tests {
     }
 
     #[allow(unconditional_recursion)]
-    fn expr(input: State<&str>) -> ParseResult<Expr, &str> {
+    fn expr<I>(input: I) -> ParseResult<Expr, I>
+        where I: Stream<Item = char>
+    {
         let word = many1(letter()).expected("identifier");
         let integer = parser(integer);
         let array = between(char('['), char(']'), sep_by(parser(expr), char(','))).expected("[");
@@ -260,7 +262,7 @@ mod tests {
         let input = r"
 ,123
 ";
-        let result = parser(expr).parse(input);
+        let result = parser(expr).parse(State::new(input));
         let err = ParseError {
             position: SourcePosition {
                 line: 2,
@@ -282,7 +284,7 @@ mod tests {
         let input = r"
 ,123
 ";
-        let result = parser(expr).parse(input);
+        let result = parser(expr).parse(State::new(input));
         let m = format!("{}", result.unwrap_err());
         let expected = r"Parse error at line: 2, column: 1
 Unexpected ','
@@ -291,7 +293,9 @@ Expected 'integer', 'identifier', '[' or '('
         assert_eq!(m, expected);
     }
 
-    fn term(input: State<&str>) -> ParseResult<Expr, &str> {
+    fn term<I>(input: I) -> ParseResult<Expr, I>
+        where I: Stream<Item = char>
+    {
         fn times(l: Expr, r: Expr) -> Expr {
             Expr::Times(Box::new(l), Box::new(r))
         }
@@ -310,7 +314,7 @@ Expected 'integer', 'identifier', '[' or '('
 1 * 2 + 3 * test
 ";
         let (result, _) = parser(term)
-                              .parse(input)
+                              .parse(State::new(input))
                               .unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
@@ -320,12 +324,12 @@ Expected 'integer', 'identifier', '[' or '('
     }
 
 
-    fn follow(input: State<&str>) -> ParseResult<(), &str> {
+    fn follow(input: State<&str>) -> ParseResult<(), State<&str>> {
         match input.clone().uncons() {
             Ok((c, _)) => {
                 if c.is_alphanumeric() {
                     let e = Error::Unexpected(c.into());
-                    Err(Consumed::Empty(ParseError::new(input.position, e)))
+                    Err(Consumed::Empty(ParseError::new(input.position(), e)))
                 } else {
                     Ok(((), Consumed::Empty(input)))
                 }
@@ -339,7 +343,7 @@ Expected 'integer', 'identifier', '[' or '('
                         .skip(parser(follow))
                         .map(|x| x.to_string())
                         .or(many1(digit()));
-        match p.parse("le123") {
+        match p.parse(State::new("le123")) {
             Ok(_) => assert!(false),
             Err(err) => {
                 assert_eq!(err.position,
@@ -349,7 +353,7 @@ Expected 'integer', 'identifier', '[' or '('
                            })
             }
         }
-        match p.parse("let1") {
+        match p.parse(State::new("let1")) {
             Ok(_) => assert!(false),
             Err(err) => {
                 assert_eq!(err.position,
@@ -364,7 +368,7 @@ Expected 'integer', 'identifier', '[' or '('
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
-        let err = p.parse("ab,abc")
+        let err = p.parse(State::new("ab,abc"))
                    .map(|x| format!("{:?}", x))
                    .unwrap_err();
         assert_eq!(err.position,
@@ -377,7 +381,7 @@ Expected 'integer', 'identifier', '[' or '('
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.parse("ab")
+        let err = p.parse(State::new("ab"))
                    .map(|x| format!("{:?}", x))
                    .unwrap_err();
         assert_eq!(err.position,
@@ -398,7 +402,7 @@ Expected 'integer', 'identifier', '[' or '('
     #[test]
     fn inner_error_consume() {
         let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
-        let result = p.parse("[1][2][]");
+        let result = p.parse(State::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x))
                           .unwrap_err();

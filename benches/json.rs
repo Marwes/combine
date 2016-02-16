@@ -31,9 +31,9 @@ fn lex<'a, P>(p: P) -> Skip<P, Spaces<P::Input>>
 }
 struct Json<I>(::std::marker::PhantomData<fn(I) -> I>);
 
-type JsonParser<O, I> = Expected<FnParser<I, fn(State<I>) -> ParseResult<O, I>>>;
+type JsonParser<O, I> = Expected<FnParser<I, fn(I) -> ParseResult<O, I>>>;
 
-fn fn_parser<O, I>(f: fn(State<I>) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
+fn fn_parser<O, I>(f: fn(I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
     where I: Stream<Item = char>
 {
     parser(f).expected(err)
@@ -44,7 +44,7 @@ impl<I> Json<I> where I: Stream<Item = char>
     fn integer() -> JsonParser<i64, I> {
         fn_parser(Json::<I>::integer_, "integer")
     }
-    fn integer_(input: State<I>) -> ParseResult<i64, I> {
+    fn integer_(input: I) -> ParseResult<i64, I> {
         let (s, input) = try!(lex(many1::<String, _>(digit())).parse_lazy(input));
         let mut n = 0;
         for c in s.chars() {
@@ -56,7 +56,7 @@ impl<I> Json<I> where I: Stream<Item = char>
     fn number() -> JsonParser<f64, I> {
         fn_parser(Json::<I>::number_, "number")
     }
-    fn number_(input: State<I>) -> ParseResult<f64, I> {
+    fn number_(input: I) -> ParseResult<f64, I> {
         let i = char('0')
                     .map(|_| 0.0)
                     .or(Json::<I>::integer().map(|x| x as f64));
@@ -110,7 +110,7 @@ impl<I> Json<I> where I: Stream<Item = char>
     fn char() -> JsonParser<char, I> {
         fn_parser(Json::<I>::char_, "char")
     }
-    fn char_(input: State<I>) -> ParseResult<char, I> {
+    fn char_(input: I) -> ParseResult<char, I> {
         let (c, input) = try!(any().parse_lazy(input));
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some())
                                       .map(|c| {
@@ -129,7 +129,7 @@ impl<I> Json<I> where I: Stream<Item = char>
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_state(input)),
             '"' => {
-                Err(Consumed::Empty(ParseError::from_errors(input.into_inner().position,
+                Err(Consumed::Empty(ParseError::from_errors(input.into_inner().position(),
                                                             Vec::new())))
             }
             _ => Ok((c, input)),
@@ -138,14 +138,14 @@ impl<I> Json<I> where I: Stream<Item = char>
     fn string() -> JsonParser<String, I> {
         fn_parser(Json::<I>::string_, "string")
     }
-    fn string_(input: State<I>) -> ParseResult<String, I> {
+    fn string_(input: I) -> ParseResult<String, I> {
         between(char('"'), lex(char('"')), many(Json::<I>::char())).parse_lazy(input)
     }
 
     fn object() -> JsonParser<Value, I> {
         fn_parser(Json::<I>::object_, "object")
     }
-    fn object_(input: State<I>) -> ParseResult<Value, I> {
+    fn object_(input: I) -> ParseResult<Value, I> {
         let field = (Json::<I>::string(), lex(char(':')), Json::<I>::value()).map(|t| (t.0, t.2));
         let fields = sep_by(field, lex(char(',')));
         between(lex(char('{')), lex(char('}')), fields)
@@ -153,14 +153,14 @@ impl<I> Json<I> where I: Stream<Item = char>
             .parse_lazy(input)
     }
 
-    fn value() -> FnParser<I, fn(State<I>) -> ParseResult<Value, I>> {
+    fn value() -> FnParser<I, fn(I) -> ParseResult<Value, I>> {
         parser({
             let f: fn(_) -> _ = Json::<I>::value_;
             f
         })
     }
     #[allow(unconditional_recursion)]
-    fn value_(input: State<I>) -> ParseResult<Value, I> {
+    fn value_(input: I) -> ParseResult<Value, I> {
         let mut array = between(lex(char('[')),
                                 lex(char(']')),
                                 sep_by(Json::<I>::value(), lex(char(','))))
@@ -223,7 +223,7 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         .unwrap();
     let mut parser = Json::value();
     let text = from_iter(data.chars());
-    match parser.parse(text.clone()) {
+    match parser.parse(State::new(text.clone())) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -232,7 +232,7 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.parse(text.clone());
+        let result = parser.parse(State::new(text.clone()));
         ::test::black_box(result)
     });
 }
@@ -246,7 +246,7 @@ fn bench_buffered_json(bencher: &mut ::test::Bencher) {
     bencher.iter(|| {
         let buffer = BufferedStream::new(data.chars(), 1);
         let mut parser = Json::value();
-        match parser.parse(buffer.as_stream()) {
+        match parser.parse(State::new(buffer.as_stream())) {
             Ok((Value::Array(v), _)) => {
                 ::test::black_box(v);
             }

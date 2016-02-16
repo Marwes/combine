@@ -37,10 +37,10 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 
 // Parsers which are used frequntly can be wrapped like this to avoid writing parser(fn_name) in
 // several places.
-fn two_digits<I>() -> FnParser<I, fn(State<I>) -> ParseResult<i32, I>>
+fn two_digits<I>() -> FnParser<I, fn(I) -> ParseResult<i32, I>>
     where I: Stream<Item = char>
 {
-    fn two_digits_<I>(input: State<I>) -> ParseResult<i32, I>
+    fn two_digits_<I>(input: I) -> ParseResult<i32, I>
         where I: Stream<Item = char>
     {
         (digit(), digit())
@@ -55,7 +55,7 @@ fn two_digits<I>() -> FnParser<I, fn(State<I>) -> ParseResult<i32, I>>
 /// -06:30
 /// -01
 /// Z
-fn time_zone<I>(input: State<I>) -> ParseResult<i32, I>
+fn time_zone<I>(input: I) -> ParseResult<i32, I>
     where I: Stream<Item = char>
 {
     let utc = char('Z').map(|_| 0);
@@ -77,7 +77,7 @@ fn time_zone<I>(input: State<I>) -> ParseResult<i32, I>
 
 /// Parses a date
 /// 2010-01-30
-fn date<I>(input: State<I>) -> ParseResult<Date, I>
+fn date<I>(input: I) -> ParseResult<Date, I>
     where I: Stream<Item = char>
 {
     (many::<String, _>(digit()),
@@ -98,7 +98,7 @@ fn date<I>(input: State<I>) -> ParseResult<Date, I>
 
 /// Parses a time
 /// 12:30:02
-fn time<I>(input: State<I>) -> ParseResult<Time, I>
+fn time<I>(input: I) -> ParseResult<Time, I>
     where I: Stream<Item = char>
 {
     (two_digits(),
@@ -121,7 +121,7 @@ fn time<I>(input: State<I>) -> ParseResult<Time, I>
 
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
-fn date_time<I>(input: State<I>) -> ParseResult<DateTime, I>
+fn date_time<I>(input: I) -> ParseResult<DateTime, I>
     where I: Stream<Item = char>
 {
     (parser(date), char('T'), parser(time))
