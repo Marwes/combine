@@ -445,14 +445,6 @@ impl<I> State<I>
             input: input,
         }
     }
-
-    ///Updates the `position` and `input` to be as if `item` was removed and `rest` is
-    ///the remaining input
-    pub fn update(mut self, item: I::Item, rest: I) -> ParseResult<I::Item, State<I>> {
-        item.update(&mut self.position);
-        self.input = rest;
-        Ok((item, Consumed::Consumed(self)))
-    }
 }
 
 impl<I> Stream for State<I>
