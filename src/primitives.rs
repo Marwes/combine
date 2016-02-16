@@ -228,7 +228,7 @@ pub struct ParseError<S: Stream> {
     pub errors: Vec<Error<S::Item, S::Range>>,
 }
 
-impl<P: Positioner + Clone, S: Stream<Item = P>> ParseError<S> {
+impl<S: Stream> ParseError<S> {
     pub fn new(position: S::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
         ParseError::from_errors(position, vec![error])
     }
@@ -237,7 +237,7 @@ impl<P: Positioner + Clone, S: Stream<Item = P>> ParseError<S> {
         ParseError::from_errors(position, vec![])
     }
 
-    pub fn from_errors(position: S::Position, errors: Vec<Error<P, S::Range>>) -> ParseError<S> {
+    pub fn from_errors(position: S::Position, errors: Vec<Error<S::Item, S::Range>>) -> ParseError<S> {
         ParseError {
             position: position,
             errors: errors,
@@ -249,19 +249,19 @@ impl<P: Positioner + Clone, S: Stream<Item = P>> ParseError<S> {
     }
 
     pub fn add_message<M>(&mut self, message: M)
-        where M: Into<Info<P, S::Range>>
+        where M: Into<Info<S::Item, S::Range>>
     {
         self.add_error(Error::Message(message.into()));
     }
 
-    pub fn add_error(&mut self, message: Error<P, S::Range>) {
+    pub fn add_error(&mut self, message: Error<S::Item, S::Range>) {
         // Don't add duplicate errors
         if self.errors.iter().all(|msg| *msg != message) {
             self.errors.push(message);
         }
     }
 
-    pub fn set_expected(&mut self, message: Info<P, S::Range>) {
+    pub fn set_expected(&mut self, message: Info<S::Item, S::Range>) {
         // Remove all other expected messages
         self.errors.retain(|e| {
             match *e {
@@ -409,7 +409,8 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 ///The `State<I>` struct keeps track of the current position in the stream `I`
 #[derive(Clone, PartialEq)]
 pub struct State<I>
-    where I: Stream
+    where I: Stream,
+          I::Item: Positioner
 {
     ///The current position
     pub position: <I::Item as Positioner>::Position,
@@ -419,6 +420,7 @@ pub struct State<I>
 
 impl<I> fmt::Debug for State<I>
     where I: Stream + fmt::Debug,
+          I::Item: Positioner,
           <I::Item as Positioner>::Position: fmt::Debug
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -429,7 +431,10 @@ impl<I> fmt::Debug for State<I>
     }
 }
 
-impl<I: Stream> State<I> {
+impl<I> State<I>
+    where I: Stream,
+          I::Item: Positioner
+{
     ///Creates a new `State<I>` from an input stream. Initializes the position to
     ///`Positioner::start()`
     pub fn new(input: I) -> State<I> {
@@ -448,7 +453,10 @@ impl<I: Stream> State<I> {
     }
 }
 
-impl<I: Stream> Stream for State<I> {
+impl<I> Stream for State<I>
+    where I: Stream,
+          I::Item: Positioner
+{
     type Item = I::Item;
     type Range = I::Range;
     type Position = <I::Item as Positioner>::Position;
@@ -506,7 +514,8 @@ impl<I, E> State<I>
 #[cfg(feature = "range_stream")]
 impl<I> State<I>
     where I: RangeStream,
-          I::Range: Range
+          I::Item: Positioner,
+          I::Range: Positioner + Range
 {
     ///Removes items from the input while `predicate` returns `true`.
     pub fn uncons_while<F>(self, mut predicate: F) -> ParseResult<I::Range, State<I>>
@@ -548,12 +557,12 @@ pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<ParseError<I>>>;
 ///A stream is a sequence of items that can be extracted one by one
 pub trait Stream : Clone {
     ///The type of items which is yielded from this stream
-    type Item: Positioner + Clone;
+    type Item: Clone + PartialEq;
 
     ///The type of a range of items yielded from this stream.
     ///Types which do not a have a way of yielding ranges of items should just use the
     ///Self::Item for this type
-    type Range: Positioner + Clone;
+    type Range: Clone + PartialEq;
 
     type Position: Ord;
 
@@ -574,7 +583,7 @@ pub fn uncons<I>(input: I) -> ParseResult<I::Item, I>
 }
 
 #[cfg(feature = "range_stream")]
-pub trait RangeStream: Stream + Positioner {
+pub trait RangeStream: Stream {
     ///Takes `size` elements from the stream
     ///Fails if the length of the stream is less than `size`.
     fn uncons_range(self,
@@ -658,7 +667,7 @@ impl<'a, T> Range for &'a [T] {
 }
 
 #[cfg(feature = "range_stream")]
-impl<'a, T> RangeStream for &'a [T] where T: Positioner + Copy
+impl<'a, T> RangeStream for &'a [T] where T: Copy + PartialEq
 {
     fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
         if size < self.len() {
@@ -693,7 +702,7 @@ impl<'a> Stream for &'a str {
     }
 }
 
-impl<'a, T> Stream for &'a [T] where T: Positioner + Copy
+impl<'a, T> Stream for &'a [T] where T: Copy + PartialEq
 {
     type Item = T;
     type Range = &'a [T];
@@ -721,7 +730,7 @@ impl<'a, T> Clone for SliceStream<'a, T> {
     }
 }
 
-impl<'a, T> Stream for SliceStream<'a, T> where T: Positioner + 'a
+impl<'a, T> Stream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
 {
     type Item = &'a T;
     type Range = &'a [T];
@@ -740,7 +749,7 @@ impl<'a, T> Stream for SliceStream<'a, T> where T: Positioner + 'a
 }
 
 #[cfg(feature = "range_stream")]
-impl<'a, T> RangeStream for SliceStream<'a, T> where T: Positioner + 'a
+impl<'a, T> RangeStream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
 {
     fn uncons_range(self,
                     size: usize)
@@ -780,7 +789,7 @@ pub fn from_iter<I>(iter: I) -> IteratorStream<I>
     IteratorStream(iter, 0)
 }
 
-impl<I: Iterator + Clone> Stream for IteratorStream<I> where I::Item: Positioner + Clone
+impl<I: Iterator + Clone> Stream for IteratorStream<I> where I::Item: Clone + PartialEq
 {
     type Item = I::Item;
     type Range = I::Item;
@@ -1066,7 +1075,7 @@ impl<'a, I> BufferedStream<'a, I> where I: Iterator
 #[cfg(feature = "buffered_stream")]
 impl<'a, I> Stream for BufferedStream<'a, I>
     where I: Iterator + 'a,
-          I::Item: Positioner + Clone + 'a
+          I::Item: Clone + PartialEq + 'a
 {
     type Item = I::Item;
     type Range = I::Item;
