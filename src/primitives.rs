@@ -583,7 +583,7 @@ impl<'a> RangeStream for &'a str {
         let len = self.chars()
                       .take_while(|c| f(*c))
                       .fold(0, |len, c| len + c.len_utf8());
-        Ok((&self[..len], &self[len..]))
+        Ok(self.split_at(len))
     }
     fn uncons_range(self, size: usize) -> Result<(&'a str, &'a str), Error<char, &'a str>> {
         fn is_char_boundary(s: &str, index: usize) -> bool {
@@ -597,7 +597,7 @@ impl<'a> RangeStream for &'a str {
         }
         if size < self.len() {
             if is_char_boundary(self, size) {
-                Ok((&self[0..size], &self[size..]))
+                Ok(self.split_at(size))
             } else {
                 Err(Error::Message("uncons_range on non character boundary".into()))
             }
@@ -624,7 +624,7 @@ impl<'a, T> RangeStream for &'a [T] where T: Positioner + Copy
 {
     fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
         if size < self.len() {
-            Ok((&self[0..size], &self[size..]))
+            Ok(self.split_at(size))
         } else {
             Err(Error::end_of_input())
         }
@@ -635,7 +635,7 @@ impl<'a, T> RangeStream for &'a [T] where T: Positioner + Copy
         let len = self.iter()
                       .take_while(|c| f(**c))
                       .count();
-        Ok((&self[..len], &self[len..]))
+        Ok(self.split_at(len))
     }
 }
 
@@ -655,10 +655,9 @@ impl<'a, T> Stream for &'a [T] where T: Positioner + Copy
     type Item = T;
     type Range = &'a [T];
     fn uncons(self) -> Result<(T, &'a [T]), Error<T, &'a [T]>> {
-        if self.len() > 0 {
-            Ok((self[0], &self[1..]))
-        } else {
-            Err(Error::end_of_input())
+        match self.split_first() {
+            Some((first, rest)) => Ok((*first, rest)),
+            None => Err(Error::end_of_input()),
         }
     }
 }
@@ -678,10 +677,9 @@ impl<'a, T> Stream for SliceStream<'a, T> where T: Positioner + 'a
     type Item = &'a T;
     type Range = &'a [T];
     fn uncons(self) -> Result<(&'a T, SliceStream<'a, T>), Error<&'a T, &'a [T]>> {
-        if self.0.len() > 0 {
-            Ok((&self.0[0], SliceStream(&self.0[1..])))
-        } else {
-            Err(Error::end_of_input())
+        match self.0.split_first() {
+            Some((first, rest)) => Ok((first, SliceStream(rest))),
+            None => Err(Error::end_of_input()),
         }
     }
 }
@@ -693,7 +691,8 @@ impl<'a, T> RangeStream for SliceStream<'a, T> where T: Positioner + 'a
                     size: usize)
                     -> Result<(&'a [T], SliceStream<'a, T>), Error<&'a T, &'a [T]>> {
         if size < self.0.len() {
-            Ok((&self.0[0..size], SliceStream(&self.0[size..])))
+            let (range, rest) = self.0.split_at(size);
+            Ok((range, SliceStream(rest)))
         } else {
             Err(Error::end_of_input())
         }
@@ -708,7 +707,8 @@ impl<'a, T> RangeStream for SliceStream<'a, T> where T: Positioner + 'a
                       .iter()
                       .take_while(|c| f(*c))
                       .count();
-        Ok((&self.0[..len], SliceStream(&self.0[len..])))
+        let (range, rest) = self.0.split_at(len);
+        Ok((range, SliceStream(rest)))
     }
 }
 
