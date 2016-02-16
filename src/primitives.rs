@@ -245,7 +245,7 @@ impl<P: Positioner + Clone, S: Stream<Item = P>> ParseError<S> {
     }
 
     pub fn end_of_input(position: P::Position) -> ParseError<S> {
-        ParseError::from_errors(position, vec![Error::end_of_input()])
+        ParseError::new(position, Error::end_of_input())
     }
 
     pub fn add_message<M>(&mut self, message: M)
@@ -256,7 +256,7 @@ impl<P: Positioner + Clone, S: Stream<Item = P>> ParseError<S> {
 
     pub fn add_error(&mut self, message: Error<P, S::Range>) {
         // Don't add duplicate errors
-        if self.errors.iter().find(|msg| **msg == message).is_none() {
+        if self.errors.iter().all(|msg| *msg != message) {
             self.errors.push(message);
         }
     }
@@ -348,32 +348,29 @@ impl<S> fmt::Display for ParseError<S>
 
         // Then we print out all the things that were expected in a comma separated list
         // 'Expected 'a', 'expression' or 'let'
-        let expected_count = self.errors
-                                 .iter()
-                                 .filter(|e| {
-                                     match **e {
-                                         Error::Expected(_) => true,
-                                         _ => false,
-                                     }
-                                 })
-                                 .count();
-        let mut i = 0;
-        for error in self.errors.iter() {
-            match *error {
-                Error::Expected(ref message) => {
-                    i += 1;
-                    if i == 1 {
-                        try!(write!(f, "Expected"));
-                    } else if i == expected_count {
-                        // Last expected message to be written
-                        try!(write!(f, " or"));
-                    } else {
-                        try!(write!(f, ","));
+        let iter = || {
+            self.errors
+                .iter()
+                .filter_map(|e| {
+                    match *e {
+                        Error::Expected(ref err) => Some(err),
+                        _ => None,
                     }
-                    try!(write!(f, " '{}'", message));
-                }
-                _ => (),
+                })
+        };
+        let expected_count = iter().count();
+        let mut i = 0;
+        for message in iter() {
+            i += 1;
+            if i == 1 {
+                try!(write!(f, "Expected"));
+            } else if i == expected_count {
+                // Last expected message to be written
+                try!(write!(f, " or"));
+            } else {
+                try!(write!(f, ","));
             }
+            try!(write!(f, " '{}'", message));
         }
         if expected_count != 0 {
             try!(writeln!(f, ""));
@@ -403,7 +400,7 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
         match *self {
             Error::Unexpected(ref c) => write!(f, "Unexpected '{}'", c),
             Error::Expected(ref s) => write!(f, "Expected {}", s),
-            Error::Message(ref msg) => write!(f, "{}", msg),
+            Error::Message(ref msg) => msg.fmt(f),
             Error::Other(ref err) => err.fmt(f),
         }
     }
