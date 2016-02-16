@@ -237,7 +237,9 @@ impl<S: Stream> ParseError<S> {
         ParseError::from_errors(position, vec![])
     }
 
-    pub fn from_errors(position: S::Position, errors: Vec<Error<S::Item, S::Range>>) -> ParseError<S> {
+    pub fn from_errors(position: S::Position,
+                       errors: Vec<Error<S::Item, S::Range>>)
+                       -> ParseError<S> {
         ParseError {
             position: position,
             errors: errors,
@@ -482,69 +484,45 @@ impl<I> Stream for State<I>
 }
 
 #[cfg(feature = "range_stream")]
-impl<I, E> State<I>
+impl<I, E> RangeStream for State<I>
     where I: RangeStream<Item = E>,
           I::Range: Range + Positioner<Position = E::Position>,
           E: Positioner + Clone
 {
-    ///Removes `size` items from the input returning them as a range.
-    ///Fails if there are fewer items than `size`
-    pub fn uncons_range(self, size: usize) -> ParseResult<I::Range, State<I>> {
+    fn uncons_range(self, size: usize) -> Result<(I::Range, State<I>), Error<I::Item, I::Range>> {
         let State { mut position, input, .. } = self;
-        let result = input.uncons_range(size);
-        match result {
-            Ok((value, input)) => {
-                value.update(&mut position);
-                let state = State {
-                    position: position,
-                    input: input,
-                };
-                let state = if value.len() == 0 {
-                    Consumed::Empty(state)
-                } else {
-                    Consumed::Consumed(state)
-                };
-                Ok((value, state))
-            }
-            Err(err) => Err(Consumed::Empty(ParseError::new(position, err))),
-        }
+        input.uncons_range(size)
+             .map(|(value, input)| {
+                 value.update(&mut position);
+                 let state = State {
+                     position: position,
+                     input: input,
+                 };
+                 (value, state)
+             })
     }
-}
 
-#[cfg(feature = "range_stream")]
-impl<I> State<I>
-    where I: RangeStream,
-          I::Item: Positioner,
-          I::Range: Positioner + Range
-{
-    ///Removes items from the input while `predicate` returns `true`.
-    pub fn uncons_while<F>(self, mut predicate: F) -> ParseResult<I::Range, State<I>>
+    fn uncons_while<F>(self,
+                       mut predicate: F)
+                       -> Result<(I::Range, State<I>), Error<I::Item, I::Range>>
         where F: FnMut(I::Item) -> bool
     {
         let State { mut position, input, .. } = self;
-        let result = input.uncons_while(|t| {
-            if predicate(t.clone()) {
-                t.update(&mut position);
-                true
-            } else {
-                false
-            }
-        });
-        match result {
-            Ok((value, input)) => {
-                let state = State {
-                    position: position,
-                    input: input,
-                };
-                let state = if value.len() == 0 {
-                    Consumed::Empty(state)
-                } else {
-                    Consumed::Consumed(state)
-                };
-                Ok((value, state))
-            }
-            Err(err) => Err(Consumed::Empty(ParseError::new(position, err))),
-        }
+        input.uncons_while(|t| {
+                 if predicate(t.clone()) {
+                     t.update(&mut position);
+                     true
+                 } else {
+                     false
+                 }
+             })
+             .map(|(value, input)| {
+                 let state = State {
+                     position: position,
+                     input: input,
+                 };
+                 (value, state)
+             })
     }
 }
 
