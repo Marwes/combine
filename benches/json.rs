@@ -244,7 +244,7 @@ fn bench_buffered_json(bencher: &mut ::test::Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     bencher.iter(|| {
-        let buffer = BufferedStream::new(data.chars(), 1);
+        let buffer = BufferedStream::new(from_iter(data.chars()), 1);
         let mut parser = Json::value();
         match parser.parse(State::new(buffer.as_stream())) {
             Ok((Value::Array(v), _)) => {
