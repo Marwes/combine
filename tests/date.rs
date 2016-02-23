@@ -37,7 +37,7 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 
 // Parsers which are used frequntly can be wrapped like this to avoid writing parser(fn_name) in
 // several places.
-fn two_digits<I>() -> FnParser<I, fn(State<I>) -> ParseResult<i32, I>>
+fn two_digits<I>() -> FnParser<fn(State<I>) -> ParseResult<i32, I>>
     where I: Stream<Item = char>
 {
     fn two_digits_<I>(input: State<I>) -> ParseResult<i32, I>
@@ -80,7 +80,7 @@ fn time_zone<I>(input: State<I>) -> ParseResult<i32, I>
 fn date<I>(input: State<I>) -> ParseResult<Date, I>
     where I: Stream<Item = char>
 {
-    (many::<String, _>(digit()),
+    (many::<String, _, _>(digit()),
      char('-'),
      two_digits(),
      char('-'),

@@ -166,7 +166,7 @@ mod tests {
     fn integer<'a, I>(input: State<I>) -> ParseResult<i64, I>
         where I: Stream<Item = char>
     {
-        let (s, input) = try!(many1::<String, _>(digit())
+        let (s, input) = try!(many1::<String, _, _>(digit())
                                   .expected("integer")
                                   .parse_state(input));
         let mut n = 0;
@@ -298,7 +298,7 @@ Expected 'integer', 'identifier', '[' or '('
         fn plus(l: Expr, r: Expr) -> Expr {
             Expr::Plus(Box::new(l), Box::new(r))
         }
-        let mul = char('*').map(|_| times);
+        let mul = char('*').map::<_, fn(Expr, Expr) -> Expr>(|_: char| times);
         let add = char('+').map(|_| plus);
         let factor = chainl1(parser(expr), mul);
         chainl1(factor, add).parse_state(input)
@@ -363,7 +363,7 @@ Expected 'integer', 'identifier', '[' or '('
 
     #[test]
     fn sep_by_error_consume() {
-        let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
+        let mut p = sep_by::<Vec<_>, _, _, _>(string("abc"), char(','));
         let err = p.parse("ab,abc")
                    .map(|x| format!("{:?}", x))
                    .unwrap_err();
@@ -397,7 +397,7 @@ Expected 'integer', 'identifier', '[' or '('
 
     #[test]
     fn inner_error_consume() {
-        let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
+        let mut p = many::<Vec<_>, _, _>(between(char('['), char(']'), digit()));
         let result = p.parse("[1][2][]");
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x))
@@ -416,7 +416,7 @@ Expected 'integer', 'identifier', '[' or '('
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<Input = &str, Output = char>> = Box::new(digit());
+        let mut parser: Box<Parser<&str, Output = char>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }

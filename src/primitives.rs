@@ -826,18 +826,13 @@ impl Positioner for u8 {
 ///All methods have a default implementation but there needs to be at least an implementation of
 ///`parse_state` or`parse_lazy`. If `parse_lazy` is implemented an implementation of `add_error` is
 ///also recommended to improve error reporting.
-pub trait Parser {
-    ///The type which is take as input for the parser. The type must implement the `Stream` trait
-    ///which allows the parser to read item from the type.
-    type Input: Stream;
+pub trait Parser<Input> where Input: Stream {
     ///The type which is returned if the parser is successful.
     type Output;
 
     ///Entrypoint of the parser
     ///Takes some input and tries to parse it returning a `ParseResult`
-    fn parse(&mut self,
-             input: Self::Input)
-             -> Result<(Self::Output, Self::Input), ParseError<Self::Input>> {
+    fn parse(&mut self, input: Input) -> Result<(Self::Output, Input), ParseError<Input>> {
         match self.parse_state(State::new(input)) {
             Ok((v, state)) => Ok((v, state.into_inner().input)),
             Err(error) => Err(error.into_inner()),
@@ -846,7 +841,7 @@ pub trait Parser {
 
     ///Parses using the state `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse_state(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_state(&mut self, input: State<Input>) -> ParseResult<Self::Output, Input> {
         let mut result = self.parse_lazy(input.clone());
         if let Err(Consumed::Empty(ref mut error)) = result {
             if let Ok((t, _)) = input.input.uncons() {
@@ -860,18 +855,17 @@ pub trait Parser {
     ///Specialized version of parse_state where the parser does not need to add an error to the
     ///`ParseError` when it does not consume any input before encountering the error.
     ///Instead the error can be added later through the `add_error` method
-    fn parse_lazy(&mut self, input: State<Self::Input>) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: State<Input>) -> ParseResult<Self::Output, Input> {
         self.parse_state(input)
     }
 
     ///Adds the first error that would normally be returned by this parser if it failed
-    fn add_error(&mut self, _error: &mut ParseError<Self::Input>) {}
+    fn add_error(&mut self, _error: &mut ParseError<Input>) {}
 }
-impl<'a, I, O, P: ?Sized> Parser for &'a mut P
+impl<'a, I, O, P: ?Sized> Parser<I> for &'a mut P
     where I: Stream,
-          P: Parser<Input = I, Output = O>
+          P: Parser<I, Output = O>
 {
-    type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         (**self).parse_state(input)
@@ -879,15 +873,14 @@ impl<'a, I, O, P: ?Sized> Parser for &'a mut P
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
         (**self).parse_lazy(input)
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut ParseError<I>) {
         (**self).add_error(error)
     }
 }
-impl<I, O, P: ?Sized> Parser for Box<P>
+impl<I, O, P: ?Sized> Parser<I> for Box<P>
     where I: Stream,
-          P: Parser<Input = I, Output = O>
+          P: Parser<I, Output = O>
 {
-    type Input = I;
     type Output = O;
     fn parse_state(&mut self, input: State<I>) -> ParseResult<O, I> {
         (**self).parse_state(input)
@@ -895,7 +888,7 @@ impl<I, O, P: ?Sized> Parser for Box<P>
     fn parse_lazy(&mut self, input: State<I>) -> ParseResult<O, I> {
         (**self).parse_lazy(input)
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut ParseError<I>) {
         (**self).add_error(error)
     }
 }
