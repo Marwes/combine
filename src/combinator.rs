@@ -1,6 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{HasPosition, Info, Parser, ParseResult, ParseError, Stream, Error, Consumed};
+use primitives::{HasPosition, Info, Parser, ParseResult, ParseError, Stream, StreamOnce, Error, Consumed};
 #[cfg(feature = "range_stream")]
 use primitives::{RangeStream, Positioner};
 
@@ -1124,7 +1124,7 @@ impl<I, P1, P2> Parser for Skip<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Message<P>(P, Info<<P::Input as Stream>::Item, <P::Input as Stream>::Range>)
+pub struct Message<P>(P, Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
     where P: Parser;
 impl<I, P> Parser for Message<P>
     where I: Stream,
@@ -1227,7 +1227,7 @@ impl<P, N, F> Parser for Then<P, F>
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(P, Info<<P::Input as Stream>::Item, <P::Input as Stream>::Range>)
+pub struct Expected<P>(P, Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
     where P: Parser;
 impl<P> Parser for Expected<P> where P: Parser
 {
@@ -1277,7 +1277,7 @@ pub struct AndThen<P, F>(P, F);
 impl<P, F, O, E> Parser for AndThen<P, F>
     where P: Parser,
           F: FnMut(P::Output) -> Result<O, E>,
-          E: Into<Error<<P::Input as Stream>::Item, <P::Input as Stream>::Range>>
+          E: Into<Error<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>
 {
     type Input = P::Input;
     type Output = O;
@@ -1463,7 +1463,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn message<S>(self, msg: S) -> Message<Self>
-        where S: Into<Info<<Self::Input as Stream>::Item, <Self::Input as Stream>::Range>>
+        where S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
     {
         Message(self, msg.into())
     }
@@ -1486,7 +1486,7 @@ pub trait ParserExt : Parser + Sized {
     /// # }
     /// ```
     fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: Into<Info<<Self::Input as Stream>::Item, <Self::Input as Stream>::Range>>
+        where S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
     {
         Expected(self, msg.into())
     }
@@ -1508,7 +1508,7 @@ pub trait ParserExt : Parser + Sized {
     /// ```
     fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
         where F: FnMut(Self::Output) -> Result<O, E>,
-              E: Into<Error<<Self::Input as Stream>::Item, <Self::Input as Stream>::Range>>
+              E: Into<Error<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
     {
         AndThen(self, f)
     }

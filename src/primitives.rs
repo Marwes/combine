@@ -447,7 +447,7 @@ impl<I> State<I>
     }
 }
 
-impl<I> Stream for State<I>
+impl<I> StreamOnce for State<I>
     where I: Stream,
           I::Item: Positioner
 {
@@ -519,8 +519,8 @@ pub trait HasPosition {
     fn position(&self) -> Self::Position;
 }
 
-///A stream is a sequence of items that can be extracted one by one
-pub trait Stream : Clone + HasPosition {
+/// `StreamOnce` represents a sequence of items that can be extracted one by one.
+pub trait StreamOnce: Sized + HasPosition {
     ///The type of items which is yielded from this stream
     type Item: Clone + PartialEq;
 
@@ -533,6 +533,11 @@ pub trait Stream : Clone + HasPosition {
     ///Returns `Err` if no element could be retrieved
     fn uncons(&mut self) -> Result<Self::Item, Error<Self::Item, Self::Range>>;
 }
+
+/// A stream which can be duplicated
+pub trait Stream : StreamOnce + Clone { }
+
+impl<I> Stream for I where I: StreamOnce + Clone { }
 
 pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
     where I: Stream
@@ -653,7 +658,7 @@ impl<'a, T> RangeStream for &'a [T] where T: Copy + PartialEq
     }
 }
 
-impl<'a> Stream for &'a str {
+impl<'a> StreamOnce for &'a str {
     type Item = char;
     type Range = &'a str;
 
@@ -675,7 +680,7 @@ impl<'a> HasPosition for &'a str {
     }
 }
 
-impl<'a, T> Stream for &'a [T] where T: Copy + PartialEq
+impl<'a, T> StreamOnce for &'a [T] where T: Copy + PartialEq
 {
     type Item = T;
     type Range = &'a [T];
@@ -710,7 +715,7 @@ impl<'a, T> Clone for SliceStream<'a, T> {
     }
 }
 
-impl<'a, T> Stream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
+impl<'a, T> StreamOnce for SliceStream<'a, T> where T: Clone + PartialEq + 'a
 {
     type Item = &'a T;
     type Range = &'a [T];
@@ -789,7 +794,7 @@ impl <I> Iterator for IteratorStream<I> where I: Iterator {
     }
 }
 
-impl<I: Iterator + Clone> Stream for IteratorStream<I> where I::Item: Clone + PartialEq
+impl<I: Iterator> StreamOnce for IteratorStream<I> where I::Item: Clone + PartialEq
 {
     type Item = I::Item;
     type Range = I::Item;
@@ -980,7 +985,7 @@ impl<I, O, P: ?Sized> Parser for Box<P>
 
 #[cfg(feature = "buffered_stream")]
 pub struct BufferedStream<'a, I>
-    where I: Iterator + HasPosition + 'a,
+    where I: StreamOnce + 'a,
           I::Item: 'a
 {
     offset: usize,
@@ -990,7 +995,7 @@ pub struct BufferedStream<'a, I>
 
 #[cfg(feature = "buffered_stream")]
 impl<'a, I> Clone for BufferedStream<'a, I>
-    where I: Iterator + HasPosition + 'a,
+    where I: StreamOnce + 'a,
           I::Position: Clone,
           I::Item: 'a
 {
@@ -1005,14 +1010,14 @@ impl<'a, I> Clone for BufferedStream<'a, I>
 
 #[cfg(feature = "buffered_stream")]
 pub struct SharedBufferedStream<I>
-    where I: Iterator + HasPosition
+    where I: StreamOnce
 {
     buffer: UnsafeCell<BufferedStreamInner<I>>,
 }
 
 #[cfg(feature = "buffered_stream")]
 struct BufferedStreamInner<I>
-    where I: Iterator + HasPosition
+    where I: StreamOnce
 {
     offset: usize,
     iter: I,
@@ -1021,15 +1026,15 @@ struct BufferedStreamInner<I>
 
 #[cfg(feature = "buffered_stream")]
 impl<I> BufferedStreamInner<I>
-    where I: Iterator + HasPosition,
+    where I: StreamOnce,
           I::Position: Clone,
           I::Item: Clone
 {
-    fn uncons(&mut self, offset: usize) -> Result<(I::Item, I::Position), Error<I::Item, I::Item>> {
+    fn uncons(&mut self, offset: usize) -> Result<(I::Item, I::Position), Error<I::Item, I::Range>> {
         if offset >= self.offset {
-            let item = match self.iter.next() {
-                Some(item) => item,
-                None => return Err(Error::end_of_input()),
+            let item = match self.iter.uncons() {
+                Ok(item) => item,
+                Err(err) => return Err(err),
             };
             self.offset += 1;
             // We want the VecDeque to only keep the last .capacity() elements so we need to remove
@@ -1051,7 +1056,7 @@ impl<I> BufferedStreamInner<I>
 
 #[cfg(feature = "buffered_stream")]
 impl<I> SharedBufferedStream<I>
-    where I: Iterator + HasPosition,
+    where I: StreamOnce,
           I::Position: Clone,
           I::Item: Clone
 {
@@ -1062,13 +1067,13 @@ impl<I> SharedBufferedStream<I>
             buffer: self,
         }
     }
-    fn uncons(&self, offset: usize) -> Result<(I::Item, I::Position), Error<I::Item, I::Item>> {
+    fn uncons(&self, offset: usize) -> Result<(I::Item, I::Position), Error<I::Item, I::Range>> {
         unsafe { (*self.buffer.get()).uncons(offset) }
     }
 }
 
 #[cfg(feature = "buffered_stream")]
-impl<'a, I> BufferedStream<'a, I> where I: Iterator + HasPosition
+impl<'a, I> BufferedStream<'a, I> where I: StreamOnce
 {
     pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
         SharedBufferedStream {
@@ -1082,15 +1087,15 @@ impl<'a, I> BufferedStream<'a, I> where I: Iterator + HasPosition
 }
 
 #[cfg(feature = "buffered_stream")]
-impl<'a, I> Stream for BufferedStream<'a, I>
-    where I: Iterator + HasPosition + 'a,
+impl<'a, I> StreamOnce for BufferedStream<'a, I>
+    where I: StreamOnce + 'a,
           I::Position: Clone,
           I::Item: Clone + PartialEq + 'a
 {
     type Item = I::Item;
-    type Range = I::Item;
+    type Range = I::Range;
 
-    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Item>> {
+    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
         let (value, position) = try!(self.buffer.uncons(self.offset));
         self.position = position;
         self.offset += 1;
@@ -1099,7 +1104,7 @@ impl<'a, I> Stream for BufferedStream<'a, I>
 }
 
 #[cfg(feature = "buffered_stream")]
-impl<'a, I> HasPosition for BufferedStream<'a, I> where I: Iterator + HasPosition, I::Position: Clone {
+impl<'a, I> HasPosition for BufferedStream<'a, I> where I: StreamOnce, I::Position: Clone {
     type Position = I::Position;
 
     fn position(&self) -> Self::Position {
