@@ -35,11 +35,11 @@ impl<I> Parser for Any<I> where I: Stream
 {
     type Input = I;
     type Output = I::Item;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<I::Item, I> {
+    fn parse_lazy(&mut self, mut input: I) -> ParseResult<I::Item, I> {
         let position = input.position();
-        input.uncons()
-             .map(|(x, input)| (x, Consumed::Consumed(input)))
-             .map_err(|err| Consumed::Empty(ParseError::new(position, err)))
+        let x = try!(input.uncons()
+             .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
+        Ok((x, Consumed::Consumed(input)))
     }
 }
 
@@ -76,10 +76,11 @@ fn satisfy_impl<I, P, F>(input: I, predicate: &mut P, f: F) -> ParseResult<I::It
           P: FnMut(I::Item) -> bool,
           F: FnOnce(I::Position, I::Item) -> ParseError<I>
 {
-    match input.clone().uncons() {
-        Ok((c, s)) => {
+    let mut next = input.clone();
+    match next.uncons() {
+        Ok(c) => {
             if (predicate)(c.clone()) {
-                Ok((c, Consumed::Consumed(s)))
+                Ok((c, Consumed::Consumed(next)))
             } else {
                 Err(Consumed::Empty(f(input.position(), c)))
             }
@@ -1652,13 +1653,13 @@ impl<I, E> Parser for Range<I>
     type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, mut input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         use primitives::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
-            Ok((other, rest)) => {
+            Ok(other) => {
                 if other == self.0 {
-                    Ok((other, Consumed::Consumed(rest)))
+                    Ok((other, Consumed::Consumed(input)))
                 } else {
                     Err(Consumed::Empty(ParseError::empty(position)))
                 }
@@ -1704,11 +1705,11 @@ impl<I, E> Parser for Take<I>
     type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, mut input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         let position = input.position();
-        input.uncons_range(self.0)
-             .map(|(x, input)| (x, Consumed::Consumed(input)))
-             .map_err(|err| Consumed::Empty(ParseError::new(position, err)))
+        let x = try!(input.uncons_range(self.0)
+             .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
+        Ok((x, Consumed::Consumed(input)))
     }
 }
 
@@ -1784,10 +1785,10 @@ impl<I, F> Parser for TakeWhile1<I, F>
         ::primitives::uncons_while(input, &mut self.0).and_then(|(v, input)| {
             match input {
                 Consumed::Consumed(_) => Ok((v, input)),
-                Consumed::Empty(input) => {
+                Consumed::Empty(mut input) => {
                     let position = input.position();
                     let error = match input.uncons() {
-                        Ok((t, _)) => Error::Unexpected(Info::Token(t)),
+                        Ok(t) => Error::Unexpected(Info::Token(t)),
                         Err(err) => err,
                     };
                     Err(Consumed::Empty(ParseError::new(position, error)))

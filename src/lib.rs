@@ -191,8 +191,8 @@ mod tests {
     fn iterator() {
         let result = parser(integer)
                          .parse(from_iter("123".chars()))
-                         .map(|(i, input)| (i, input.uncons().err().map(|_| ())));
-        assert_eq!(result, Ok((123i64, Some(()))));
+                         .map(|(i, mut input)| (i, input.uncons().is_err()));
+        assert_eq!(result, Ok((123i64, true)));
     }
     #[test]
     fn field() {
@@ -326,7 +326,7 @@ Expected 'integer', 'identifier', '[' or '('
 
     fn follow(input: State<&str>) -> ParseResult<(), State<&str>> {
         match input.clone().uncons() {
-            Ok((c, _)) => {
+            Ok(c) => {
                 if c.is_alphanumeric() {
                     let e = Error::Unexpected(c.into());
                     Err(Consumed::Empty(ParseError::new(input.position(), e)))

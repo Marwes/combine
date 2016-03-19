@@ -454,16 +454,11 @@ impl<I> Stream for State<I>
     type Item = I::Item;
     type Range = I::Range;
 
-    fn uncons(self) -> Result<(I::Item, State<I>), Error<I::Item, I::Range>> {
-        let State { mut position, input, .. } = self;
-        match input.uncons() {
-            Ok((c, input)) => {
-                c.update(&mut position);
-                Ok((c,
-                    State {
-                    position: position,
-                    input: input,
-                }))
+    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
+        match self.input.uncons() {
+            Ok(c) => {
+                c.update(&mut self.position);
+                Ok(c)
             }
             Err(err) => Err(err),
         }
@@ -486,39 +481,28 @@ impl<I, E> RangeStream for State<I>
           I::Range: Range + Positioner<Position = E::Position>,
           E: Positioner + Clone
 {
-    fn uncons_range(self, size: usize) -> Result<(I::Range, State<I>), Error<I::Item, I::Range>> {
-        let State { mut position, input, .. } = self;
-        input.uncons_range(size)
-             .map(|(value, input)| {
-                 value.update(&mut position);
-                 let state = State {
-                     position: position,
-                     input: input,
-                 };
-                 (value, state)
+    fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
+        let position = &mut self.position;
+        self.input.uncons_range(size)
+             .map(|value| {
+                 value.update(position);
+                 value
              })
     }
 
-    fn uncons_while<F>(self,
+    fn uncons_while<F>(&mut self,
                        mut predicate: F)
-                       -> Result<(I::Range, State<I>), Error<I::Item, I::Range>>
+                       -> Result<I::Range, Error<I::Item, I::Range>>
         where F: FnMut(I::Item) -> bool
     {
-        let State { mut position, input, .. } = self;
-        input.uncons_while(|t| {
+        let position = &mut self.position;
+        self.input.uncons_while(|t| {
                  if predicate(t.clone()) {
-                     t.update(&mut position);
+                     t.update(position);
                      true
                  } else {
                      false
                  }
-             })
-             .map(|(value, input)| {
-                 let state = State {
-                     position: position,
-                     input: input,
-                 };
-                 (value, state)
              })
     }
 }
@@ -547,50 +531,47 @@ pub trait Stream : Clone + HasPosition {
 
     ///Takes a stream and removes its first item, yielding the item and the rest of the elements
     ///Returns `Err` if no element could be retrieved
-    fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item, Self::Range>>;
+    fn uncons(&mut self) -> Result<Self::Item, Error<Self::Item, Self::Range>>;
 }
 
-pub fn uncons<I>(input: I) -> ParseResult<I::Item, I>
+pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
     where I: Stream
 {
     let position = input.position();
-    input.uncons()
-         .map(|(x, input)| (x, Consumed::Consumed(input)))
-         .map_err(|err| Consumed::Empty(ParseError::new(position, err)))
+    let x = try!(input.uncons().map_err(|err| Consumed::Empty(ParseError::new(position, err))));
+    Ok((x, Consumed::Consumed(input)))
 }
 
 #[cfg(feature = "range_stream")]
 pub trait RangeStream: Stream {
     ///Takes `size` elements from the stream
     ///Fails if the length of the stream is less than `size`.
-    fn uncons_range(self,
+    fn uncons_range(&mut self,
                     size: usize)
-                    -> Result<(Self::Range, Self), Error<Self::Item, Self::Range>>;
+                    -> Result<Self::Range, Error<Self::Item, Self::Range>>;
 
     ///Takes items from stream, testing each one with `predicate`
     ///returns the range of items which passed `predicate`
-    fn uncons_while<F>(self, f: F) -> Result<(Self::Range, Self), Error<Self::Item, Self::Range>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Error<Self::Item, Self::Range>>
         where F: FnMut(Self::Item) -> bool;
 }
 
 #[cfg(feature = "range_stream")]
 ///Removes items from the input while `predicate` returns `true`.
-pub fn uncons_while<I, F>(input: I, predicate: F) -> ParseResult<I::Range, I>
+pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ParseResult<I::Range, I>
     where F: FnMut(I::Item) -> bool,
           I: RangeStream,
           I::Range: Range
 {
     let position = input.position();
-    input.uncons_while(predicate)
-         .map(|(x, input)| {
-             let input = if x.len() == 0 {
-                 Consumed::Empty(input)
-             } else {
-                 Consumed::Consumed(input)
-             };
-             (x, input)
-         })
-         .map_err(|err| Consumed::Empty(ParseError::new(position, err)))
+    let x = try!(input.uncons_while(predicate)
+         .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
+    let input = if x.len() == 0 {
+        Consumed::Empty(input)
+    } else {
+        Consumed::Consumed(input)
+    };
+    Ok((x, input))
 }
 
 pub trait Range {
@@ -601,15 +582,18 @@ pub trait Range {
 
 #[cfg(feature = "range_stream")]
 impl<'a> RangeStream for &'a str {
-    fn uncons_while<F>(self, mut f: F) -> Result<(&'a str, &'a str), Error<char, &'a str>>
+    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool
     {
         let len = self.chars()
                       .take_while(|c| f(*c))
                       .fold(0, |len, c| len + c.len_utf8());
-        Ok(self.split_at(len))
+        let (result, remaining) = self.split_at(len);
+        *self = remaining;
+        Ok(result)
     }
-    fn uncons_range(self, size: usize) -> Result<(&'a str, &'a str), Error<char, &'a str>> {
+
+    fn uncons_range(&mut self, size: usize) -> Result<&'a str, Error<char, &'a str>> {
         fn is_char_boundary(s: &str, index: usize) -> bool {
             if index == s.len() {
                 return true;
@@ -621,7 +605,9 @@ impl<'a> RangeStream for &'a str {
         }
         if size < self.len() {
             if is_char_boundary(self, size) {
-                Ok(self.split_at(size))
+                let (result, remaining) = self.split_at(size);
+                *self = remaining;
+                Ok(result)
             } else {
                 Err(Error::Message("uncons_range on non character boundary".into()))
             }
@@ -646,20 +632,24 @@ impl<'a, T> Range for &'a [T] {
 #[cfg(feature = "range_stream")]
 impl<'a, T> RangeStream for &'a [T] where T: Copy + PartialEq
 {
-    fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
+    fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<T, &'a [T]>> {
         if size < self.len() {
-            Ok(self.split_at(size))
+            let (result, remaining) = self.split_at(size);
+            *self = remaining;
+            Ok(result)
         } else {
             Err(Error::end_of_input())
         }
     }
-    fn uncons_while<F>(self, mut f: F) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>>
+    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Error<T, &'a [T]>>
         where F: FnMut(Self::Item) -> bool
     {
         let len = self.iter()
                       .take_while(|c| f(**c))
                       .count();
-        Ok(self.split_at(len))
+        let (result, remaining) = self.split_at(len);
+        *self = remaining;
+        Ok(result)
     }
 }
 
@@ -667,9 +657,12 @@ impl<'a> Stream for &'a str {
     type Item = char;
     type Range = &'a str;
 
-    fn uncons(self) -> Result<(char, &'a str), Error<char, &'a str>> {
+    fn uncons(&mut self) -> Result<char, Error<char, &'a str>> {
         match self.chars().next() {
-            Some(c) => Ok((c, &self[c.len_utf8()..])),
+            Some(c) => {
+                *self = &self[c.len_utf8()..];
+                Ok(c)
+            }
             None => Err(Error::end_of_input()),
         }
     }
@@ -687,9 +680,12 @@ impl<'a, T> Stream for &'a [T] where T: Copy + PartialEq
     type Item = T;
     type Range = &'a [T];
 
-    fn uncons(self) -> Result<(T, &'a [T]), Error<T, &'a [T]>> {
+    fn uncons(&mut self) -> Result<T, Error<T, &'a [T]>> {
         match self.split_first() {
-            Some((first, rest)) => Ok((*first, rest)),
+            Some((first, rest)) => {
+                *self = rest;
+                Ok(*first)
+            }
             None => Err(Error::end_of_input()),
         }
     }
@@ -719,9 +715,12 @@ impl<'a, T> Stream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
     type Item = &'a T;
     type Range = &'a [T];
 
-    fn uncons(self) -> Result<(&'a T, SliceStream<'a, T>), Error<&'a T, &'a [T]>> {
+    fn uncons(&mut self) -> Result<&'a T, Error<&'a T, &'a [T]>> {
         match self.0.split_first() {
-            Some((first, rest)) => Ok((first, SliceStream(rest))),
+            Some((first, rest)) => {
+                self.0 = rest;
+                Ok(first)
+            }
             None => Err(Error::end_of_input()),
         }
     }
@@ -737,20 +736,21 @@ impl<'a, T> HasPosition for SliceStream<'a, T> {
 #[cfg(feature = "range_stream")]
 impl<'a, T> RangeStream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
 {
-    fn uncons_range(self,
+    fn uncons_range(&mut self,
                     size: usize)
-                    -> Result<(&'a [T], SliceStream<'a, T>), Error<&'a T, &'a [T]>> {
+                    -> Result<&'a [T], Error<&'a T, &'a [T]>> {
         if size < self.0.len() {
             let (range, rest) = self.0.split_at(size);
-            Ok((range, SliceStream(rest)))
+            self.0 = rest;
+            Ok(range)
         } else {
             Err(Error::end_of_input())
         }
     }
 
-    fn uncons_while<F>(self,
+    fn uncons_while<F>(&mut self,
                        mut f: F)
-                       -> Result<(&'a [T], SliceStream<'a, T>), Error<&'a T, &'a [T]>>
+                       -> Result<&'a [T], Error<&'a T, &'a [T]>>
         where F: FnMut(Self::Item) -> bool
     {
         let len = self.0
@@ -758,7 +758,8 @@ impl<'a, T> RangeStream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
                       .take_while(|c| f(*c))
                       .count();
         let (range, rest) = self.0.split_at(len);
-        Ok((range, SliceStream(rest)))
+        self. 0 = rest;
+        Ok(range)
     }
 }
 
@@ -793,9 +794,9 @@ impl<I: Iterator + Clone> Stream for IteratorStream<I> where I::Item: Clone + Pa
     type Item = I::Item;
     type Range = I::Item;
 
-    fn uncons(mut self) -> Result<(I::Item, Self), Error<I::Item, I::Item>> {
+    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Item>> {
         match self.next() {
-            Some(x) => Ok((x, self)),
+            Some(x) => Ok(x),
             None => Err(Error::end_of_input()),
         }
     }
@@ -923,10 +924,10 @@ pub trait Parser {
 
     ///Parses using the state `input` by calling Stream::uncons one or more times
     ///On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse_state(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_state(&mut self, mut input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         let mut result = self.parse_lazy(input.clone());
         if let Err(Consumed::Empty(ref mut error)) = result {
-            if let Ok((t, _)) = input.uncons() {
+            if let Ok(t) = input.uncons() {
                 error.add_error(Error::Unexpected(Info::Token(t)));
             }
             self.add_error(error);
@@ -1089,11 +1090,11 @@ impl<'a, I> Stream for BufferedStream<'a, I>
     type Item = I::Item;
     type Range = I::Item;
 
-    fn uncons(mut self) -> Result<(I::Item, BufferedStream<'a, I>), Error<I::Item, I::Item>> {
+    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Item>> {
         let (value, position) = try!(self.buffer.uncons(self.offset));
         self.position = position;
         self.offset += 1;
-        Ok((value, self))
+        Ok(value)
     }
 }
 
