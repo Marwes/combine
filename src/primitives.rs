@@ -978,6 +978,17 @@ pub struct BufferedStream<'a, I>
 }
 
 #[cfg(feature = "buffered_stream")]
+impl<'a, I> fmt::Debug for BufferedStream<'a, I>
+    where I: StreamOnce + 'a,
+          I::Item: 'a
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let buffer_offset = unsafe { (*self.buffer.buffer.get()).offset };
+        write!(f, "BufferedStream {{ offset: {:?} buffer_offset: {:?} }}", self.offset, buffer_offset)
+    }
+}
+
+#[cfg(feature = "buffered_stream")]
 impl<'a, I> Clone for BufferedStream<'a, I>
     where I: StreamOnce + 'a,
           I::Position: Clone,
@@ -1015,6 +1026,7 @@ impl<I> BufferedStreamInner<I>
 {
     fn uncons(&mut self, offset: usize) -> Result<I::Item, Error<I::Item, I::Range>> {
         if offset >= self.offset {
+            let position = self.iter.position();
             let item = try!(self.iter.uncons());
             self.offset += 1;
             // We want the VecDeque to only keep the last .capacity() elements so we need to remove
@@ -1022,7 +1034,6 @@ impl<I> BufferedStreamInner<I>
             if self.buffer.len() == self.buffer.capacity() {
                 self.buffer.pop_front();
             }
-            let position = self.iter.position();
             self.buffer.push_back((item.clone(), position.clone()));
             Ok(item)
         } else if offset < self.offset - self.buffer.len() {

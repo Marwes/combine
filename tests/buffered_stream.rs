@@ -14,7 +14,7 @@ fn shared_stream_buffer() {
         }
     });
     let buffer = BufferedStream::new(from_iter(text), 1);
-    let int = many(digit()).map(|s: String| s.parse::<i64>().unwrap());
+    let int: &mut Parser<Input = _, Output = _> = &mut many(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = sep_by(int, char(','))
                      .parse(buffer.as_stream())
                      .map(|t| t.0);
@@ -29,7 +29,10 @@ fn shared_stream_backtrack() {
     let buffer = BufferedStream::new(from_iter(&mut iter), 2);
     let stream = buffer.as_stream();
 
-    let value = choice([try(string("apple")), try(string("orange")), try(string("ananas"))]);
+    let value: &mut Parser<Input = _, Output = _> = &mut choice([
+                                                                try(string("apple")),
+                                                                try(string("orange")),
+                                                                try(string("ananas"))]);
     let mut parser = sep_by(value, char(','));
     let result = parser.parse(stream)
                        .map(|t| t.0);
@@ -44,7 +47,10 @@ fn shared_stream_insufficent_backtrack() {
     let buffer = BufferedStream::new(from_iter(&mut iter), 1);
     let stream = buffer.as_stream();
 
-    let value = choice([try(string("apple")), try(string("orange")), try(string("ananas"))]);
+    let value: &mut Parser<Input = _, Output = _> = &mut choice([
+                                                                try(string("apple")),
+                                                                try(string("orange")),
+                                                                try(string("ananas"))]);
     let mut parser = sep_by(value, char(','));
     let result: Result<Vec<&str>, _> = parser.parse(stream)
                                              .map(|t| t.0);
@@ -66,4 +72,18 @@ fn always_output_end_of_input_after_end_of_input() {
                      .parse(buffer.as_stream())
                      .map(|t| t.0);
     assert_eq!(result, Ok(vec![10]));
+}
+
+#[test]
+fn position() {
+    let text = "10abc".chars();
+    let buffer = BufferedStream::new(from_iter(text), 3);
+    let stream = buffer.as_stream();
+    println!("{:?}", stream);
+    assert_eq!(stream.position(), 0);
+    let result = many1::<Vec<_>, _>(digit()).parse(stream.clone());
+    println!("{:?}", stream);
+    assert_eq!(stream.position(), 0);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().1.position(), 2);
 }
