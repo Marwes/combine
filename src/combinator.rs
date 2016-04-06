@@ -1,6 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{HasPosition, Info, Parser, ParseResult, ParseError, Stream, StreamOnce, Error, Consumed};
+use primitives::{Info, Parser, ParseResult, ParseError, Stream, StreamOnce, Error, Consumed};
 #[cfg(feature = "range_stream")]
 use primitives::{RangeStream, Positioner};
 
@@ -766,10 +766,10 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// ```
 /// extern crate combine;
 /// use combine::*;
-/// use combine::primitives::{Consumed, Error, Stream, HasPosition};
+/// use combine::primitives::{Consumed, Error, Stream, StreamOnce};
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
-///     // Force input to be a &str
+///     // Help type inference out
 ///     let _: &str = input;
 ///     let position = input.position();
 ///     let (char_digit, input) = try!(digit().parse_state(input));
@@ -1397,7 +1397,7 @@ pub trait ParserExt : Parser + Sized {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::{Consumed, Error, Stream, HasPosition};
+    /// # use combine::primitives::{Consumed, Error, Stream, StreamOnce};
     /// # fn main() {
     /// let result = digit()
     ///     .then(|d| parser(move |input| {
