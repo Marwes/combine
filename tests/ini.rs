@@ -4,7 +4,7 @@ extern crate combine;
 use std::collections::HashMap;
 
 use combine::*;
-use combine::primitives::{Error, SourcePosition, Stream};
+use combine::primitives::{Error, SourcePosition};
 
 #[derive(PartialEq, Debug)]
 pub struct Ini {

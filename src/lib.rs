@@ -132,7 +132,7 @@
 //! ```
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseError, ParseResult, State, from_iter};
+pub use primitives::{Parser, ParseError, ParseResult, State, from_iter, Stream, StreamOnce};
 #[doc(inline)]
 pub use char::{char, digit, space, spaces, newline, crlf, tab, upper, lower, letter, alpha_num,
                hex_digit, oct_digit, string};
@@ -160,7 +160,7 @@ pub mod char;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::primitives::{SourcePosition, Stream, StreamOnce, Error, Consumed};
+    use super::primitives::{SourcePosition, Error, Consumed};
 
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>

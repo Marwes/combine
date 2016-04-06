@@ -766,7 +766,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// ```
 /// extern crate combine;
 /// use combine::*;
-/// use combine::primitives::{Consumed, Error, Stream, StreamOnce};
+/// use combine::primitives::{Consumed, Error};
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     // Help type inference out
@@ -1397,7 +1397,7 @@ pub trait ParserExt : Parser + Sized {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::{Consumed, Error, Stream, StreamOnce};
+    /// # use combine::primitives::{Consumed, Error};
     /// # fn main() {
     /// let result = digit()
     ///     .then(|d| parser(move |input| {
@@ -1602,10 +1602,9 @@ impl<E, I, O> Parser for EnvParser<E, I, O>
 /// while still allowing the parsers to be written in separate functions.
 ///
 /// ```
-/// # extern crate combine as pc;
+/// # extern crate combine;
 /// # use std::collections::HashMap;
-/// # use pc::primitives::Stream;
-/// # use pc::*;
+/// # use combine::*;
 /// # fn main() {
 ///     struct Interner(HashMap<String, u32>);
 ///     impl Interner {

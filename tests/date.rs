@@ -5,7 +5,6 @@ extern crate combine;
 
 use combine::*;
 use combine::combinator::FnParser;
-use combine::primitives::Stream;
 
 #[derive(PartialEq, Debug)]
 pub struct Date {
