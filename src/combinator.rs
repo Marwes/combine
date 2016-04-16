@@ -1,7 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use primitives::{Info, Parser, ParseResult, ParseError, Stream, StreamOnce, Error, Consumed};
-#[cfg(feature = "range_stream")]
 use primitives::{RangeStream, Positioner};
 
 macro_rules! impl_parser {
@@ -31,7 +30,8 @@ macro_rules! impl_parser {
 #[derive(Clone)]
 pub struct Any<I>(PhantomData<fn(I) -> I>);
 
-impl<I> Parser for Any<I> where I: Stream
+impl<I> Parser for Any<I>
+    where I: Stream
 {
     type Input = I;
     type Output = I::Item;
@@ -237,7 +237,8 @@ pub fn choice<S, P>(ps: S) -> Choice<S, P>
 
 #[derive(Clone)]
 pub struct Unexpected<I>(Info<I::Item, I::Range>, PhantomData<fn(I) -> I>) where I: Stream;
-impl<I> Parser for Unexpected<I> where I: Stream
+impl<I> Parser for Unexpected<I>
+    where I: Stream
 {
     type Input = I;
     type Output = ();
@@ -329,6 +330,50 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
     NotFollowedBy(try(parser)
                       .then(f)
                       .or(value(())))
+}
+
+#[derive(Clone)]
+pub struct Eof<I>(PhantomData<I>);
+impl<I> Parser for Eof<I>
+    where I: Stream
+{
+    type Input = I;
+    type Output = ();
+
+    fn parse_lazy(&mut self, input: I) -> ParseResult<(), I> {
+        match input.clone().uncons() {
+            Err(ref err) if *err == Error::end_of_input() => Ok(((), Consumed::Empty(input))),
+            _ => Err(Consumed::Empty(ParseError::empty(input.position()))),
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        errors.add_error(Error::Expected("end of input".into()))
+    }
+}
+
+/// Succeeds only if the stream is at end of input, fails otherwise.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::{Error, Positioner};
+/// # fn main() {
+/// let mut parser = eof();
+/// assert_eq!(parser.parse(State::new("")), Ok(((), State::new(""))));
+/// assert_eq!(parser.parse(State::new("x")), Err(ParseError {
+///     position: <char as Positioner>::start(),
+///     errors: vec![
+///         Error::Unexpected('x'.into()),
+///         Error::Expected("end of input".into())
+///     ]
+/// }));
+/// # }
+/// ```
+pub fn eof<I>() -> Eof<I>
+    where I: Stream
+{
+    Eof(PhantomData)
 }
 
 pub struct Iter<P: Parser> {
@@ -807,7 +852,8 @@ impl<I, O, F> Parser for FnParser<I, F>
     }
 }
 
-impl<I, O> Parser for fn(I) -> ParseResult<O, I> where I: Stream
+impl<I, O> Parser for fn(I) -> ParseResult<O, I>
+    where I: Stream
 {
     type Input = I;
     type Output = O;
@@ -818,7 +864,8 @@ impl<I, O> Parser for fn(I) -> ParseResult<O, I> where I: Stream
 
 #[derive(Clone)]
 pub struct Optional<P>(P);
-impl<P> Parser for Optional<P> where P: Parser
+impl<P> Parser for Optional<P>
+    where P: Parser
 {
     type Input = P::Input;
     type Output = Option<P::Output>;
@@ -1229,7 +1276,8 @@ impl<P, N, F> Parser for Then<P, F>
 #[derive(Clone)]
 pub struct Expected<P>(P, Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
     where P: Parser;
-impl<P> Parser for Expected<P> where P: Parser
+impl<P> Parser for Expected<P>
+    where P: Parser
 {
     type Input = P::Input;
     type Output = P::Output;
@@ -1641,9 +1689,8 @@ pub fn env_parser<E, I, O>(env: E, parser: fn(E, I) -> ParseResult<O, I>) -> Env
     }
 }
 
-#[cfg(feature = "range_stream")]
 pub struct Range<I>(I::Range) where I: RangeStream;
-#[cfg(feature = "range_stream")]
+
 impl<I, E> Parser for Range<I>
     where I: RangeStream<Item = E>,
           I::Range: Positioner<Position = E::Position> + PartialEq + ::primitives::Range,
@@ -1684,7 +1731,6 @@ impl<I, E> Parser for Range<I>
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[cfg(feature = "range_stream")]
 pub fn range<I, E>(i: I::Range) -> Range<I>
     where I: RangeStream<Item = E>,
           I::Range: Positioner<Position = E::Position> + PartialEq + ::primitives::Range,
@@ -1693,9 +1739,7 @@ pub fn range<I, E>(i: I::Range) -> Range<I>
     Range(i)
 }
 
-#[cfg(feature = "range_stream")]
 pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
-#[cfg(feature = "range_stream")]
 impl<I, E> Parser for Take<I>
     where I: RangeStream<Item = E>,
           I::Range: ::primitives::Range + Positioner<Position = E::Position>,
@@ -1724,7 +1768,6 @@ impl<I, E> Parser for Take<I>
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[cfg(feature = "range_stream")]
 pub fn take<I>(n: usize) -> Take<I>
     where I: RangeStream,
           I::Range: ::primitives::Range
@@ -1732,9 +1775,7 @@ pub fn take<I>(n: usize) -> Take<I>
     Take(n, PhantomData)
 }
 
-#[cfg(feature = "range_stream")]
 pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
-#[cfg(feature = "range_stream")]
 impl<I, E, F> Parser for TakeWhile<I, F>
     where I: RangeStream<Item = E>,
           I::Range: ::primitives::Range + Positioner<Position = E::Position>,
@@ -1761,7 +1802,6 @@ impl<I, E, F> Parser for TakeWhile<I, F>
 /// assert_eq!(result, Ok(("", "abc")));
 /// # }
 /// ```
-#[cfg(feature = "range_stream")]
 pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
     where I: RangeStream,
           F: FnMut(I::Item) -> bool
@@ -1769,9 +1809,7 @@ pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
     TakeWhile(f, PhantomData)
 }
 
-#[cfg(feature = "range_stream")]
 pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
-#[cfg(feature = "range_stream")]
 impl<I, F> Parser for TakeWhile1<I, F>
     where I: RangeStream,
           I::Range: ::primitives::Range,
@@ -1810,7 +1848,6 @@ impl<I, F> Parser for TakeWhile1<I, F>
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[cfg(feature = "range_stream")]
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
     where I: RangeStream,
           I::Range: ::primitives::Range,
@@ -1871,14 +1908,12 @@ mod tests {
                    }));
     }
 
-    #[cfg(feature = "range_stream")]
     #[test]
     fn take_while_test() {
         let result = take_while(|c: char| c.is_digit(10)).parse("123abc");
         assert_eq!(result, Ok(("123", "abc")));
     }
 
-    #[cfg(feature = "range_stream")]
     #[test]
     fn range_string_no_char_boundary_error() {
         let mut parser = range("hello");

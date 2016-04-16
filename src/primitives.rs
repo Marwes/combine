@@ -105,7 +105,8 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     }
 }
 
-impl<E, T, R> From<E> for Error<T, R> where E: StdError + 'static + Send
+impl<E, T, R> From<E> for Error<T, R>
+    where E: StdError + 'static + Send
 {
     fn from(e: E) -> Error<T, R> {
         Error::Other(Box::new(e))
@@ -470,7 +471,6 @@ impl<I> StreamOnce for State<I>
     }
 }
 
-#[cfg(feature = "range_stream")]
 impl<I, E> RangeStream for State<I>
     where I: RangeStream<Item = E>,
           I::Range: Range + Positioner<Position = E::Position>,
@@ -543,7 +543,7 @@ pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
     Ok((x, Consumed::Consumed(input)))
 }
 
-#[cfg(feature = "range_stream")]
+/// A `RangeStream` is an extension of Stream which allows for zero copy parsing
 pub trait RangeStream: Stream {
     ///Takes `size` elements from the stream
     ///Fails if the length of the stream is less than `size`.
@@ -557,7 +557,6 @@ pub trait RangeStream: Stream {
         where F: FnMut(Self::Item) -> bool;
 }
 
-#[cfg(feature = "range_stream")]
 ///Removes items from the input while `predicate` returns `true`.
 pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ParseResult<I::Range, I>
     where F: FnMut(I::Item) -> bool,
@@ -581,7 +580,6 @@ pub trait Range {
     fn len(&self) -> usize;
 }
 
-#[cfg(feature = "range_stream")]
 impl<'a> RangeStream for &'a str {
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool
@@ -630,8 +628,8 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-#[cfg(feature = "range_stream")]
-impl<'a, T> RangeStream for &'a [T] where T: Copy + PartialEq
+impl<'a, T> RangeStream for &'a [T]
+    where T: Copy + PartialEq
 {
     fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<T, &'a [T]>> {
         if size < self.len() {
@@ -674,7 +672,8 @@ impl<'a> StreamOnce for &'a str {
     }
 }
 
-impl<'a, T> StreamOnce for &'a [T] where T: Copy + PartialEq
+impl<'a, T> StreamOnce for &'a [T]
+	where T: Copy + PartialEq
 {
     type Item = T;
     type Range = &'a [T];
@@ -705,7 +704,8 @@ impl<'a, T> Clone for SliceStream<'a, T> {
     }
 }
 
-impl<'a, T> StreamOnce for SliceStream<'a, T> where T: Clone + PartialEq + 'a
+impl<'a, T> StreamOnce for SliceStream<'a, T>
+	where T: Clone + PartialEq + 'a
 {
     type Item = &'a T;
     type Range = &'a [T];
@@ -726,8 +726,8 @@ impl<'a, T> StreamOnce for SliceStream<'a, T> where T: Clone + PartialEq + 'a
     }
 }
 
-#[cfg(feature = "range_stream")]
-impl<'a, T> RangeStream for SliceStream<'a, T> where T: Clone + PartialEq + 'a
+impl<'a, T> RangeStream for SliceStream<'a, T>
+    where T: Clone + PartialEq + 'a
 {
     fn uncons_range(&mut self,
                     size: usize)
@@ -834,7 +834,8 @@ impl<T> Positioner for [T] where T: Positioner
     }
 }
 
-impl<'a, T> Positioner for SliceStream<'a, T> where T: Positioner + 'a
+impl<'a, T> Positioner for SliceStream<'a, T>
+    where T: Positioner + 'a
 {
     type Position = T::Position;
     fn start() -> T::Position {

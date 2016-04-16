@@ -154,7 +154,8 @@ pub fn hex_digit<I>() -> HexDigit<I>
 
 #[derive(Clone)]
 pub struct String<I>(&'static str, PhantomData<I>);
-impl<I> Parser for String<I> where I: Stream<Item = char>
+impl<I> Parser for String<I>
+    where I: Stream<Item = char>
 {
     type Input = I;
     type Output = &'static str;
