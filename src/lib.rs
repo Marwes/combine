@@ -137,10 +137,10 @@ pub use primitives::{Parser, ParseError, ParseResult, State, from_iter};
 pub use char::{char, digit, space, spaces, newline, crlf, tab, upper, lower, letter, alpha_num,
                hex_digit, oct_digit, string};
 #[doc(inline)]
-pub use combinator::{any, between, chainl1, chainr1, choice, env_parser, many, many1, optional,
-                     parser, satisfy, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_many,
-                     skip_many1, token, try, look_ahead, value, unexpected, not_followed_by,
-                     ParserExt};
+pub use combinator::{any, between, chainl1, chainr1, choice, eof, env_parser, many, many1,
+                     optional, parser, satisfy, sep_by, sep_by1, sep_end_by, sep_end_by1,
+                     skip_many, skip_many1, token, try, look_ahead, value, unexpected,
+                     not_followed_by, ParserExt};
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {

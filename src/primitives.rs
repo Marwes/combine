@@ -105,7 +105,8 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     }
 }
 
-impl<E, T, R> From<E> for Error<T, R> where E: StdError + 'static + Send
+impl<E, T, R> From<E> for Error<T, R>
+    where E: StdError + 'static + Send
 {
     fn from(e: E) -> Error<T, R> {
         Error::Other(Box::new(e))
@@ -613,7 +614,8 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-impl<'a, T> RangeStream for &'a [T] where T: Positioner + Copy
+impl<'a, T> RangeStream for &'a [T]
+    where T: Positioner + Copy
 {
     fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
         if size < self.len() {
@@ -643,7 +645,8 @@ impl<'a> Stream for &'a str {
     }
 }
 
-impl<'a, T> Stream for &'a [T] where T: Positioner + Copy
+impl<'a, T> Stream for &'a [T]
+    where T: Positioner + Copy
 {
     type Item = T;
     type Range = &'a [T];
@@ -665,7 +668,8 @@ impl<'a, T> Clone for SliceStream<'a, T> {
     }
 }
 
-impl<'a, T> Stream for SliceStream<'a, T> where T: Positioner + 'a
+impl<'a, T> Stream for SliceStream<'a, T>
+    where T: Positioner + 'a
 {
     type Item = &'a T;
     type Range = &'a [T];
@@ -677,7 +681,8 @@ impl<'a, T> Stream for SliceStream<'a, T> where T: Positioner + 'a
     }
 }
 
-impl<'a, T> RangeStream for SliceStream<'a, T> where T: Positioner + 'a
+impl<'a, T> RangeStream for SliceStream<'a, T>
+    where T: Positioner + 'a
 {
     fn uncons_range(self,
                     size: usize)
@@ -717,7 +722,8 @@ pub fn from_iter<I>(iter: I) -> IteratorStream<I>
     IteratorStream(iter)
 }
 
-impl<I: Iterator + Clone> Stream for IteratorStream<I> where I::Item: Positioner + Clone
+impl<I: Iterator + Clone> Stream for IteratorStream<I>
+    where I::Item: Positioner + Clone
 {
     type Item = I::Item;
     type Range = I::Item;
@@ -738,7 +744,8 @@ pub trait Positioner: PartialEq {
     ///Updates the position given that `self` has been taken from the stream
     fn update(&self, position: &mut Self::Position);
 }
-impl<'a, T: ?Sized> Positioner for &'a T where T: Positioner
+impl<'a, T: ?Sized> Positioner for &'a T
+    where T: Positioner
 {
     type Position = T::Position;
     fn start() -> T::Position {
@@ -748,7 +755,8 @@ impl<'a, T: ?Sized> Positioner for &'a T where T: Positioner
         (*self).update(position)
     }
 }
-impl<T> Positioner for [T] where T: Positioner
+impl<T> Positioner for [T]
+    where T: Positioner
 {
     type Position = T::Position;
     fn start() -> T::Position {
@@ -761,7 +769,8 @@ impl<T> Positioner for [T] where T: Positioner
     }
 }
 
-impl<'a, T> Positioner for SliceStream<'a, T> where T: Positioner + 'a
+impl<'a, T> Positioner for SliceStream<'a, T>
+    where T: Positioner + 'a
 {
     type Position = T::Position;
     fn start() -> T::Position {
@@ -978,7 +987,8 @@ impl<I> SharedBufferedStream<I>
 }
 
 #[cfg(feature = "buffered_stream")]
-impl<'a, I> BufferedStream<'a, I> where I: Iterator
+impl<'a, I> BufferedStream<'a, I>
+    where I: Iterator
 {
     pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
         SharedBufferedStream {

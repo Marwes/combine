@@ -30,7 +30,8 @@ macro_rules! impl_parser {
 #[derive(Clone)]
 pub struct Any<I>(PhantomData<fn(I) -> I>);
 
-impl<I> Parser for Any<I> where I: Stream
+impl<I> Parser for Any<I>
+    where I: Stream
 {
     type Input = I;
     type Output = I::Item;
@@ -232,7 +233,8 @@ pub fn choice<S, P>(ps: S) -> Choice<S, P>
 
 #[derive(Clone)]
 pub struct Unexpected<I>(Info<I::Item, I::Range>, PhantomData<fn(I) -> I>) where I: Stream;
-impl<I> Parser for Unexpected<I> where I: Stream
+impl<I> Parser for Unexpected<I>
+    where I: Stream
 {
     type Input = I;
     type Output = ();
@@ -324,6 +326,50 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
     NotFollowedBy(try(parser)
                       .then(f)
                       .or(value(())))
+}
+
+#[derive(Clone)]
+pub struct Eof<I>(PhantomData<I>);
+impl<I> Parser for Eof<I>
+    where I: Stream
+{
+    type Input = I;
+    type Output = ();
+
+    fn parse_lazy(&mut self, input: State<I>) -> ParseResult<(), I> {
+        match input.input.clone().uncons() {
+            Err(ref err) if *err == Error::end_of_input() => Ok(((), Consumed::Empty(input))),
+            _ => Err(Consumed::Empty(ParseError::empty(input.position))),
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        errors.add_error(Error::Expected("end of input".into()))
+    }
+}
+
+/// Succeeds only if the stream is at end of input, fails otherwise.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::{Error, Positioner};
+/// # fn main() {
+/// let mut parser = eof();
+/// assert_eq!(parser.parse(""), Ok(((), "")));
+/// assert_eq!(parser.parse("x"), Err(ParseError {
+///     position: <char as Positioner>::start(),
+///     errors: vec![
+///         Error::Unexpected('x'.into()),
+///         Error::Expected("end of input".into())
+///     ]
+/// }));
+/// # }
+/// ```
+pub fn eof<I>() -> Eof<I>
+    where I: Stream
+{
+    Eof(PhantomData)
 }
 
 pub struct Iter<P: Parser> {
@@ -798,7 +844,8 @@ impl<I, O, F> Parser for FnParser<I, F>
     }
 }
 
-impl<I, O> Parser for fn(State<I>) -> ParseResult<O, I> where I: Stream
+impl<I, O> Parser for fn(State<I>) -> ParseResult<O, I>
+    where I: Stream
 {
     type Input = I;
     type Output = O;
@@ -809,7 +856,8 @@ impl<I, O> Parser for fn(State<I>) -> ParseResult<O, I> where I: Stream
 
 #[derive(Clone)]
 pub struct Optional<P>(P);
-impl<P> Parser for Optional<P> where P: Parser
+impl<P> Parser for Optional<P>
+    where P: Parser
 {
     type Input = P::Input;
     type Output = Option<P::Output>;
@@ -1220,7 +1268,8 @@ impl<P, N, F> Parser for Then<P, F>
 #[derive(Clone)]
 pub struct Expected<P>(P, Info<<P::Input as Stream>::Item, <P::Input as Stream>::Range>)
     where P: Parser;
-impl<P> Parser for Expected<P> where P: Parser
+impl<P> Parser for Expected<P>
+    where P: Parser
 {
     type Input = P::Input;
     type Output = P::Output;
