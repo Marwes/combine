@@ -467,7 +467,6 @@ impl<I: Stream> State<I> {
     }
 }
 
-#[cfg(feature = "range_stream")]
 impl<I, E> State<I>
     where I: RangeStream<Item = E>,
           I::Range: Range + Positioner<Position = E::Position>,
@@ -497,7 +496,6 @@ impl<I, E> State<I>
     }
 }
 
-#[cfg(feature = "range_stream")]
 impl<I> State<I>
     where I: RangeStream,
           I::Range: Range
@@ -552,7 +550,7 @@ pub trait Stream : Clone {
     fn uncons(self) -> Result<(Self::Item, Self), Error<Self::Item, Self::Range>>;
 }
 
-#[cfg(feature = "range_stream")]
+/// A `RangeStream` is an extension of Stream which allows for zero copy parsing
 pub trait RangeStream: Stream + Positioner {
     ///Takes `size` elements from the stream
     ///Fails if the length of the stream is less than `size`.
@@ -572,7 +570,6 @@ pub trait Range {
     fn len(&self) -> usize;
 }
 
-#[cfg(feature = "range_stream")]
 impl<'a> RangeStream for &'a str {
     fn uncons_while<F>(self, mut f: F) -> Result<(&'a str, &'a str), Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool
@@ -616,7 +613,6 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-#[cfg(feature = "range_stream")]
 impl<'a, T> RangeStream for &'a [T] where T: Positioner + Copy
 {
     fn uncons_range(self, size: usize) -> Result<(&'a [T], &'a [T]), Error<T, &'a [T]>> {
@@ -681,7 +677,6 @@ impl<'a, T> Stream for SliceStream<'a, T> where T: Positioner + 'a
     }
 }
 
-#[cfg(feature = "range_stream")]
 impl<'a, T> RangeStream for SliceStream<'a, T> where T: Positioner + 'a
 {
     fn uncons_range(self,
