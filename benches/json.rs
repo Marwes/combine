@@ -7,8 +7,7 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{from_iter, Consumed, Parser, ParseError, ParseResult, State, Stream,
-                     BufferedStream};
+use pc::primitives::{Consumed, Parser, ParseError, ParseResult, State, Stream, BufferedStream};
 use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by,
                      Expected, FnParser, Skip, ParserExt};
 use pc::char::{char, digit, spaces, Spaces, string};
@@ -222,8 +221,7 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     let mut parser = Json::value();
-    let text = from_iter(data.chars());
-    match parser.parse(text.clone()) {
+    match parser.parse(&data[..]) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -232,7 +230,7 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.parse(text.clone());
+        let result = parser.parse(&data[..]);
         ::test::black_box(result)
     });
 }

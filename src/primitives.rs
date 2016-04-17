@@ -575,9 +575,15 @@ impl<'a> RangeStream for &'a str {
     fn uncons_while<F>(self, mut f: F) -> Result<(&'a str, &'a str), Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool
     {
-        let len = self.chars()
-                      .take_while(|c| f(*c))
-                      .fold(0, |len, c| len + c.len_utf8());
+        let mut chars = self.chars();
+        let mut last_char_len = 0;
+        for c in chars.by_ref() {
+            if !f(c) {
+                last_char_len = c.len_utf8();
+                break;
+            }
+        }
+        let len = self.len() - chars.as_str().len() - last_char_len;
         Ok(self.split_at(len))
     }
     fn uncons_range(self, size: usize) -> Result<(&'a str, &'a str), Error<char, &'a str>> {
@@ -638,8 +644,9 @@ impl<'a> Stream for &'a str {
     type Item = char;
     type Range = &'a str;
     fn uncons(self) -> Result<(char, &'a str), Error<char, &'a str>> {
-        match self.chars().next() {
-            Some(c) => Ok((c, &self[c.len_utf8()..])),
+        let mut chars = self.chars();
+        match chars.next() {
+            Some(c) => Ok((c, chars.as_str())),
             None => Err(Error::end_of_input()),
         }
     }
