@@ -91,7 +91,7 @@ pub enum Error<T, R> {
     ///Generic message
     Message(Info<T, R>),
     ///Variant for containing other types of errors
-    Other(Box<StdError + Send>),
+    Other(Box<StdError + Send + Sync>),
 }
 
 impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
@@ -106,7 +106,7 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
 }
 
 impl<E, T, R> From<E> for Error<T, R>
-    where E: StdError + 'static + Send
+    where E: StdError + 'static + Send + Sync
 {
     fn from(e: E) -> Error<T, R> {
         Error::Other(Box::new(e))
