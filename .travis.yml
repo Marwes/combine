@@ -17,7 +17,7 @@ before_script:
 script:
 - |
   cargo build &&
-  cargo test --features test &&
+  travis_wait cargo test --features test &&
   travis-cargo --only nightly bench -- --features test &&
   travis-cargo --only stable doc
 after_success:
