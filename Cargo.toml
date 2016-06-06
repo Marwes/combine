@@ -19,5 +19,3 @@ license = "MIT"
 
 name = "combine"
 path = "src/lib.rs"
-
-[features]
