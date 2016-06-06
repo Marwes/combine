@@ -1,9 +1,7 @@
 use std::fmt;
 use std::error::Error as StdError;
 use std::any::Any;
-#[cfg(feature = "buffered_stream")]
 use std::cell::UnsafeCell;
-#[cfg(feature = "buffered_stream")]
 use std::collections::VecDeque;
 
 ///Struct which represents a position in a source file
@@ -969,7 +967,7 @@ impl<I, O, P: ?Sized> Parser for Box<P>
     }
 }
 
-#[cfg(feature = "buffered_stream")]
+/// A `BufferedStream` wraps an instance `StreamOnce`, allowing it to b used as a `Stream`
 pub struct BufferedStream<'a, I>
     where I: StreamOnce + 'a,
           I::Item: 'a
@@ -978,7 +976,6 @@ pub struct BufferedStream<'a, I>
     buffer: &'a SharedBufferedStream<I>,
 }
 
-#[cfg(feature = "buffered_stream")]
 impl<'a, I> fmt::Debug for BufferedStream<'a, I>
     where I: StreamOnce + 'a,
           I::Item: 'a
@@ -989,7 +986,6 @@ impl<'a, I> fmt::Debug for BufferedStream<'a, I>
     }
 }
 
-#[cfg(feature = "buffered_stream")]
 impl<'a, I> Clone for BufferedStream<'a, I>
     where I: StreamOnce + 'a,
           I::Position: Clone,
@@ -1003,14 +999,12 @@ impl<'a, I> Clone for BufferedStream<'a, I>
     }
 }
 
-#[cfg(feature = "buffered_stream")]
 pub struct SharedBufferedStream<I>
     where I: StreamOnce
 {
     buffer: UnsafeCell<BufferedStreamInner<I>>,
 }
 
-#[cfg(feature = "buffered_stream")]
 struct BufferedStreamInner<I>
     where I: StreamOnce
 {
@@ -1019,7 +1013,6 @@ struct BufferedStreamInner<I>
     buffer: VecDeque<(I::Item, I::Position)>,
 }
 
-#[cfg(feature = "buffered_stream")]
 impl<I> BufferedStreamInner<I>
     where I: StreamOnce,
           I::Position: Clone,
@@ -1055,7 +1048,6 @@ impl<I> BufferedStreamInner<I>
     }
 }
 
-#[cfg(feature = "buffered_stream")]
 impl<I> SharedBufferedStream<I>
     where I: StreamOnce,
           I::Position: Clone,
@@ -1075,9 +1067,13 @@ impl<I> SharedBufferedStream<I>
     }
 }
 
-#[cfg(feature = "buffered_stream")]
 impl<'a, I> BufferedStream<'a, I> where I: StreamOnce
 {
+    /// Constructs a new `BufferedStream` froma a `StreamOnce` instance with a `lookahead` number
+    /// of elements stored in the buffer.
+    ///
+    /// `BufferedStream` always implement `Stream` allowing one-shot streams to used as if could
+    /// be used multiple times.
     pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
         SharedBufferedStream {
             buffer: UnsafeCell::new(BufferedStreamInner {
@@ -1089,7 +1085,6 @@ impl<'a, I> BufferedStream<'a, I> where I: StreamOnce
     }
 }
 
-#[cfg(feature = "buffered_stream")]
 impl<'a, I> StreamOnce for BufferedStream<'a, I>
     where I: StreamOnce + 'a,
           I::Position: Clone,
