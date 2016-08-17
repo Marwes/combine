@@ -19,7 +19,8 @@
 //!
 //! ```rust
 //! extern crate combine;
-//! use combine::{digit, letter, Parser, ParserExt};
+//! use combine::{Parser, ParserExt};
+//! use combine::char::{digit, letter};
 //!
 //! fn main() {
 //!     if let Err(err) = digit().or(letter()).parse("|") {
@@ -51,7 +52,8 @@
 //!
 //! ```
 //! extern crate combine;
-//! use combine::{spaces, many1, sep_by, digit, char, Parser, ParserExt, ParseError};
+//! use combine::char::{spaces, digit, char};
+//! use combine::{many1, sep_by, Parser, ParserExt, ParseError};
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -81,7 +83,8 @@
 //!
 //! ```
 //! extern crate combine;
-//! use combine::{between, char, letter, spaces, many1, parser, sep_by, Parser, ParserExt};
+//! use combine::char::{char, letter, spaces};
+//! use combine::{between, many1, parser, sep_by, Parser, ParserExt};
 //! use combine::primitives::{State, Stream, ParseResult};
 //!
 //! #[derive(Debug, PartialEq)]
@@ -134,9 +137,6 @@
 #[doc(inline)]
 pub use primitives::{Parser, ParseError, ParseResult, State, from_iter, Stream, StreamOnce};
 #[doc(inline)]
-pub use char::{char, digit, space, spaces, newline, crlf, tab, upper, lower, letter, alpha_num,
-               hex_digit, oct_digit, string};
-#[doc(inline)]
 pub use combinator::{any, between, chainl1, chainr1, choice, eof, env_parser, many, many1,
                      optional, parser, satisfy, sep_by, sep_by1, sep_end_by, sep_end_by1,
                      skip_many, skip_many1, token, try, look_ahead, value, unexpected,
@@ -161,14 +161,15 @@ pub mod char;
 mod tests {
     use super::*;
     use super::primitives::{SourcePosition, Error, Consumed};
+    use char::{alpha_num, char, digit, letter, spaces, string};
 
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
         where I: Stream<Item = char>
     {
         let (s, input) = try!(many1::<String, _>(digit())
-                                  .expected("integer")
-                                  .parse_state(input));
+            .expected("integer")
+            .parse_state(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -190,8 +191,8 @@ mod tests {
     #[test]
     fn iterator() {
         let result = parser(integer)
-                         .parse(from_iter("123".chars()))
-                         .map(|(i, mut input)| (i, input.uncons().is_err()));
+            .parse(from_iter("123".chars()))
+            .map(|(i, mut input)| (i, input.uncons().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
     #[test]
@@ -199,8 +200,8 @@ mod tests {
         let word = || many(alpha_num());
         let spaces = spaces();
         let c_decl = (word(), spaces.clone(), char(':'), spaces, word())
-                         .map(|t| (t.0, t.4))
-                         .parse("x: int");
+            .map(|t| (t.0, t.4))
+            .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
@@ -209,8 +210,8 @@ mod tests {
 123
 ";
         let result = (spaces(), parser(integer), spaces())
-                         .map(|t| t.1)
-                         .parse_state(State::new(source));
+            .map(|t| t.1)
+            .parse_state(State::new(source));
         let state = Consumed::Consumed(State {
             position: SourcePosition {
                 line: 3,
@@ -240,12 +241,12 @@ mod tests {
         let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
         let spaces = spaces();
         spaces.clone()
-              .with(word.map(Expr::Id)
-                        .or(integer.map(Expr::Int))
-                        .or(array.map(Expr::Array))
-                        .or(paren_expr))
-              .skip(spaces)
-              .parse_state(input)
+            .with(word.map(Expr::Id)
+                .or(integer.map(Expr::Int))
+                .or(array.map(Expr::Array))
+                .or(paren_expr))
+            .skip(spaces)
+            .parse_state(input)
     }
 
     #[test]
@@ -314,8 +315,8 @@ Expected 'integer', 'identifier', '[' or '('
 1 * 2 + 3 * test
 ";
         let (result, _) = parser(term)
-                              .parse(State::new(input))
-                              .unwrap();
+            .parse(State::new(input))
+            .unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
         let e2 = Expr::Times(Box::new(Expr::Int(3)),
@@ -340,9 +341,9 @@ Expected 'integer', 'identifier', '[' or '('
     #[test]
     fn error_position() {
         let mut p = string("let")
-                        .skip(parser(follow))
-                        .map(|x| x.to_string())
-                        .or(many1(digit()));
+            .skip(parser(follow))
+            .map(|x| x.to_string())
+            .or(many1(digit()));
         match p.parse(State::new("le123")) {
             Ok(_) => assert!(false),
             Err(err) => {
@@ -369,8 +370,8 @@ Expected 'integer', 'identifier', '[' or '('
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
         let err = p.parse(State::new("ab,abc"))
-                   .map(|x| format!("{:?}", x))
-                   .unwrap_err();
+            .map(|x| format!("{:?}", x))
+            .unwrap_err();
         assert_eq!(err.position,
                    SourcePosition {
                        line: 1,
@@ -382,8 +383,8 @@ Expected 'integer', 'identifier', '[' or '('
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
         let err = p.parse(State::new("ab"))
-                   .map(|x| format!("{:?}", x))
-                   .unwrap_err();
+            .map(|x| format!("{:?}", x))
+            .unwrap_err();
         assert_eq!(err.position,
                    SourcePosition {
                        line: 1,
@@ -405,7 +406,7 @@ Expected 'integer', 'identifier', '[' or '('
         let result = p.parse(State::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x))
-                          .unwrap_err();
+            .unwrap_err();
         assert_eq!(error.position,
                    SourcePosition {
                        line: 1,
@@ -459,8 +460,8 @@ Expected 'integer', 'identifier', '[' or '('
             }
         }
         let result: Result<((), _), ParseError<&str>> = string("abc")
-                                                            .and_then(|_| Err(Error))
-                                                            .parse("abc");
+            .and_then(|_| Err(Error))
+            .parse("abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {

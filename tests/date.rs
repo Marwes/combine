@@ -3,8 +3,10 @@
 
 extern crate combine;
 
-use combine::*;
 use combine::combinator::FnParser;
+use combine::char::{char, digit};
+use combine::{Stream, Parser, ParserExt, ParseResult, choice, many, optional, parser};
+
 
 #[derive(PartialEq, Debug)]
 pub struct Date {

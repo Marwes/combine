@@ -1,7 +1,8 @@
 // The feature `buffered_stream` must be enabled to run these tests
 extern crate combine;
-use combine::*;
 use combine::primitives::{BufferedStream, Error};
+use combine::char::{char, digit, spaces, string};
+use combine::{StreamOnce, Parser, ParserExt, choice, from_iter, many, many1, sep_by, try};
 
 #[test]
 fn shared_stream_buffer() {

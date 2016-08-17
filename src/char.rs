@@ -22,11 +22,12 @@ macro_rules! impl_char_parser {
 }
 }
 
-///Parses a character and succeeds if the character is equal to `c`
+/// Parses a character and succeeds if the character is equal to `c`
 ///
 /// ```
-/// # extern crate combine as pc;
-/// # use pc::*;
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::char;
 /// # fn main() {
 /// let result = char('!')
 ///     .parse("!")
@@ -41,7 +42,7 @@ pub fn char<I>(c: char) -> Token<I>
 }
 
 impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses a digit from a stream containing characters
+/// Parses a digit from a stream containing characters
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item = char>
 {
@@ -50,7 +51,7 @@ pub fn digit<I>() -> Digit<I>
 }
 
 impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses whitespace
+/// Parses whitespace
 pub fn space<I>() -> Space<I>
     where I: Stream<Item = char>
 {
@@ -58,7 +59,7 @@ pub fn space<I>() -> Space<I>
     Space(satisfy(f).expected("whitespace"), PhantomData)
 }
 impl_char_parser! { Spaces(), Expected<SkipMany<Space<I>>> }
-///Skips over zero or more spaces
+/// Skips over zero or more spaces
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item = char>
 {
@@ -66,7 +67,7 @@ pub fn spaces<I>() -> Spaces<I>
 }
 
 impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses a newline character
+/// Parses a newline character
 pub fn newline<I>() -> NewLine<I>
     where I: Stream<Item = char>
 {
@@ -75,7 +76,7 @@ pub fn newline<I>() -> NewLine<I>
 }
 
 impl_char_parser! { CrLf(), Expected<With<Satisfy<I, fn (char) -> bool>, NewLine<I>>> }
-///Parses carriage return and newline, returning the newline character.
+/// Parses carriage return and newline, returning the newline character.
 pub fn crlf<I>() -> CrLf<I>
     where I: Stream<Item = char>
 {
@@ -86,7 +87,7 @@ pub fn crlf<I>() -> CrLf<I>
 }
 
 impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses a tab character
+/// Parses a tab character
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item = char>
 {
@@ -95,7 +96,7 @@ pub fn tab<I>() -> Tab<I>
 }
 
 impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses an uppercase letter
+/// Parses an uppercase letter
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item = char>
 {
@@ -104,7 +105,7 @@ pub fn upper<I>() -> Upper<I>
 }
 
 impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses an lowercase letter
+/// Parses an lowercase letter
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item = char>
 {
@@ -114,7 +115,7 @@ pub fn lower<I>() -> Lower<I>
 }
 
 impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses either an alphabet letter or digit
+/// Parses either an alphabet letter or digit
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item = char>
 {
@@ -124,7 +125,7 @@ pub fn alpha_num<I>() -> AlphaNum<I>
 }
 
 impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses an alphabet letter
+/// Parses an alphabet letter
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item = char>
 {
@@ -133,7 +134,7 @@ pub fn letter<I>() -> Letter<I>
 }
 
 impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses an octal digit
+/// Parses an octal digit
 pub fn oct_digit<I>() -> OctDigit<I>
     where I: Stream<Item = char>
 {
@@ -142,7 +143,7 @@ pub fn oct_digit<I>() -> OctDigit<I>
 }
 
 impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
-///Parses a hexdecimal digit with uppercase and lowercase
+/// Parses a hexdecimal digit with uppercase and lowercase
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item = char>
 {
@@ -202,11 +203,12 @@ impl<I> Parser for String<I>
     }
 }
 
-///Parses the string `s`
+/// Parses the string `s`
 ///
 /// ```
-/// # extern crate combine as pc;
-/// # use pc::*;
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::string;
 /// # fn main() {
 /// let result = string("rust")
 ///     .parse("rust")
