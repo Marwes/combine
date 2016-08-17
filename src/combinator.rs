@@ -1,7 +1,9 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Info, Parser, ParseResult, ParseError, Stream, StreamOnce, Error, Consumed};
-use primitives::{RangeStream, Positioner};
+use primitives::{Info, Parser, ParseResult, ConsumedResult, ParseError, Stream, StreamOnce, Error,
+                 Consumed};
+use primitives::{FastResult, RangeStream, Positioner};
+use primitives::FastResult::*;
 
 macro_rules! impl_parser {
     ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
@@ -17,7 +19,7 @@ macro_rules! impl_parser {
             self.0.parse_state(input)
         }
         fn parse_lazy(&mut self,
-                      input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
         fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
@@ -35,11 +37,12 @@ impl<I> Parser for Any<I>
 {
     type Input = I;
     type Output = I::Item;
-    fn parse_lazy(&mut self, mut input: I) -> ParseResult<I::Item, I> {
+    fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<I::Item, I> {
         let position = input.position();
-        let x = try!(input.uncons()
-            .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
-        Ok((x, Consumed::Consumed(input)))
+        match input.uncons() {
+            Ok(x) => ConsumedOk((x, input)),
+            Err(err) => ConsumedErr(ParseError::new(position, err)),
+        }
     }
 }
 
@@ -71,7 +74,7 @@ pub struct Satisfy<I, P> {
     _marker: PhantomData<I>,
 }
 
-fn satisfy_impl<I, P, R>(input: I, mut predicate: P) -> ParseResult<R, I>
+fn satisfy_impl<I, P, R>(input: I, mut predicate: P) -> ConsumedResult<R, I>
     where I: Stream,
           P: FnMut(I::Item) -> Option<R>
 {
@@ -79,11 +82,11 @@ fn satisfy_impl<I, P, R>(input: I, mut predicate: P) -> ParseResult<R, I>
     match next.uncons() {
         Ok(c) => {
             match predicate(c.clone()) {
-                Some(c) => Ok((c, Consumed::Consumed(next))),
-                None => Err(Consumed::Empty(ParseError::empty(input.position()))),
+                Some(c) => ConsumedOk((c, next)),
+                None => EmptyErr(ParseError::empty(input.position())),
             }
         }
-        Err(err) => Err(Consumed::Empty(ParseError::new(input.position(), err))),
+        Err(err) => EmptyErr(ParseError::new(input.position(), err)),
     }
 }
 
@@ -93,7 +96,7 @@ impl<I, P> Parser for Satisfy<I, P>
 {
     type Input = I;
     type Output = I::Item;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
             Some(c)
         } else {
@@ -135,7 +138,7 @@ impl<I, P, R> Parser for SatisfyMap<I, P>
 {
     type Input = I;
     type Output = R;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<R, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<R, I> {
         satisfy_impl(input, &mut self.predicate)
     }
 }
@@ -189,7 +192,7 @@ impl<I> Parser for Token<I>
 {
     type Input = I;
     type Output = I::Item;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
@@ -229,27 +232,28 @@ impl<I, O, S, P> Parser for Choice<S, P>
 {
     type Input = I;
     type Output = O;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         let mut empty_err = None;
         for p in AsMut::as_mut(&mut self.0) {
             match p.parse_lazy(input.clone()) {
-                consumed_err @ Err(Consumed::Consumed(_)) => return consumed_err,
-                Err(Consumed::Empty(err)) => {
+                consumed_err @ ConsumedErr(_) => return consumed_err,
+                EmptyErr(err) => {
                     empty_err = match empty_err {
                         None => Some(err),
                         Some(prev_err) => Some(prev_err.merge(err)),
                     };
                 }
-                ok @ Ok(_) => return ok,
+                ok @ ConsumedOk(_) => return ok,
+                ok @ EmptyOk(_) => return ok,
             }
         }
-        Err(Consumed::Empty(match empty_err {
+        EmptyErr(match empty_err {
             None => {
                 ParseError::new(input.position(),
                                 Error::Message("parser choice is empty".into()))
             }
             Some(err) => err,
-        }))
+        })
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
         for p in self.0.as_mut() {
@@ -296,8 +300,8 @@ impl<I> Parser for Unexpected<I>
 {
     type Input = I;
     type Output = ();
-    fn parse_lazy(&mut self, input: I) -> ParseResult<(), I> {
-        Err(Consumed::Empty(ParseError::empty(input.position())))
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
+        EmptyErr(ParseError::empty(input.position()))
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
         error.errors.push(Error::Unexpected(self.0.clone()));
@@ -332,8 +336,8 @@ impl<I, T> Parser for Value<I, T>
 {
     type Input = I;
     type Output = T;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<T, I> {
-        Ok((self.0.clone(), Consumed::Empty(input)))
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<T, I> {
+        EmptyOk((self.0.clone(), input))
     }
 }
 /// Always returns the value `v` without consuming any input.
@@ -395,10 +399,10 @@ impl<I> Parser for Eof<I>
     type Input = I;
     type Output = ();
 
-    fn parse_lazy(&mut self, input: I) -> ParseResult<(), I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
         match input.clone().uncons() {
-            Err(ref err) if *err == Error::end_of_input() => Ok(((), Consumed::Empty(input))),
-            _ => Err(Consumed::Empty(ParseError::empty(input.position()))),
+            Err(ref err) if *err == Error::end_of_input() => EmptyOk(((), input)),
+            _ => EmptyErr(ParseError::empty(input.position())),
         }
     }
 
@@ -433,24 +437,29 @@ pub fn eof<I>() -> Eof<I>
 
 pub struct Iter<P: Parser> {
     parser: P,
-    input: Consumed<P::Input>,
-    error: Option<Consumed<ParseError<P::Input>>>,
+    input: P::Input,
+    result: FastResult<(), Option<ParseError<P::Input>>>,
 }
 
 impl<P: Parser> Iter<P> {
     fn new(parser: P, input: P::Input) -> Iter<P> {
         Iter {
             parser: parser,
-            input: Consumed::Empty(input),
-            error: None,
+            input: input,
+            result: EmptyOk(()),
         }
     }
     /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
     pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
-        match self.error {
-            Some(err @ Consumed::Consumed(_)) => Err(err),
-            _ => Ok((value, self.input)),
+        self.into_result_fast(value).into()
+    }
+
+    fn into_result_fast<O>(self, value: O) -> ConsumedResult<O, P::Input> {
+        match self.result {
+            ConsumedOk(()) | ConsumedErr(None) => ConsumedOk((value, self.input)),
+            EmptyOk(()) | EmptyErr(_) => EmptyOk((value, self.input)),
+            ConsumedErr(Some(e)) => ConsumedErr(e),
         }
     }
 }
@@ -458,19 +467,51 @@ impl<P: Parser> Iter<P> {
 impl<P: Parser> Iterator for Iter<P> {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
-        if self.error.is_some() {
-            return None;
-        }
-        match self.parser.parse_lazy(self.input.clone().into_inner()) {
-            Ok((value, rest)) => {
-                self.input = self.input.merge(rest);
-                Some(value)
+        let value;
+        self.result = match self.result {
+            ConsumedOk(()) => {
+                match self.parser.parse_lazy(self.input.clone()) {
+                    EmptyOk((v, input)) |
+                    ConsumedOk((v, input)) => {
+                        value = Some(v);
+                        self.input = input;
+                        ConsumedOk(())
+                    }
+                    EmptyErr(_) => {
+                        value = None;
+                        ConsumedErr(None)
+                    }
+                    ConsumedErr(e) => {
+                        value = None;
+                        ConsumedErr(Some(e))
+                    }
+                }
             }
-            Err(err) => {
-                self.error = Some(err);
-                None
+            EmptyOk(()) => {
+                match self.parser.parse_lazy(self.input.clone()) {
+                    ConsumedOk((v, input)) => {
+                        value = Some(v);
+                        self.input = input;
+                        ConsumedOk(())
+                    }
+                    EmptyOk((v, input)) => {
+                        value = Some(v);
+                        self.input = input;
+                        EmptyOk(())
+                    }
+                    EmptyErr(_) => {
+                        value = None;
+                        EmptyErr(None)
+                    }
+                    ConsumedErr(e) => {
+                        value = None;
+                        ConsumedErr(Some(e))
+                    }
+                }
             }
-        }
+            EmptyErr(_) | ConsumedErr(_) => return None,
+        };
+        value
     }
 }
 
@@ -521,15 +562,14 @@ impl<F, P> Parser for Many1<F, P>
 {
     type Input = P::Input;
     type Output = F;
-    fn parse_lazy(&mut self, input: P::Input) -> ParseResult<F, P::Input> {
-        let (first, input) = try!(self.0.parse_lazy(input));
-        input.combine(move |input| {
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+        self.0.parse_lazy(input).and_then(|(first, input)| {
             let mut iter = Iter::new(&mut self.0, input);
             let result = Some(first)
                 .into_iter()
                 .chain(iter.by_ref())
                 .collect();
-            iter.into_result(result)
+            iter.into_result_fast(result)
         })
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -618,7 +658,7 @@ impl<F, P, S> Parser for SepBy<F, P, S>
     type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: P::Input) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         sep_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
             .parse_lazy(input)
@@ -672,17 +712,18 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
     type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: P::Input) -> ParseResult<F, P::Input> {
-        let (first, rest) = try!(self.parser.parse_lazy(input.clone()));
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+        // FIXME FastResult
+        let (first, rest) = ctry!(self.parser.parse_lazy(input.clone()));
 
-        rest.combine(move |input| {
+        rest.combine_fast(move |input| {
             let rest = (&mut self.separator).with(&mut self.parser);
             let mut iter = Iter::new(rest, input);
             let result = Some(first)
                 .into_iter()
                 .chain(iter.by_ref())
                 .collect();
-            iter.into_result(result)
+            iter.into_result_fast(result)
         })
     }
 
@@ -743,7 +784,7 @@ impl<F, P, S> Parser for SepEndBy<F, P, S>
     type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: P::Input) -> ParseResult<F, P::Input> {
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         sep_end_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
             .parse_lazy(input)
@@ -798,10 +839,10 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
     type Input = P::Input;
     type Output = F;
 
-    fn parse_lazy(&mut self, input: P::Input) -> ParseResult<F, P::Input> {
-        let (first, input) = try!(self.parser.parse_lazy(input.clone()));
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+        let (first, input) = ctry!(self.parser.parse_lazy(input.clone()));
 
-        input.combine(|input| {
+        input.combine_fast(|input| {
             let rest = (&mut self.separator).with(optional(&mut self.parser));
             let mut iter = Iter::new(rest, input);
             // `iter` yields Option<P::Output>, by using flat map we make sure that we stop
@@ -811,7 +852,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
                 .into_iter()
                 .chain(iter.by_ref().flat_map(|x| x))
                 .collect();
-            iter.into_result(result)
+            iter.into_result_fast(result)
         })
     }
 
@@ -933,11 +974,11 @@ impl<P> Parser for Optional<P>
 {
     type Input = P::Input;
     type Output = Option<P::Output>;
-    fn parse_lazy(&mut self, input: P::Input) -> ParseResult<Option<P::Output>, P::Input> {
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<Option<P::Output>, P::Input> {
         match self.0.parse_state(input.clone()) {
-            Ok((x, rest)) => Ok((Some(x), rest)),
-            Err(err @ Consumed::Consumed(_)) => return Err(err),
-            Err(Consumed::Empty(_)) => Ok((None, Consumed::Empty(input))),
+            Ok((x, rest)) => Ok((Some(x), rest)).into(),
+            Err(Consumed::Consumed(err)) => ConsumedErr(err),
+            Err(Consumed::Empty(_)) => EmptyOk((None, input)),
         }
     }
 }
@@ -997,19 +1038,19 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
     type Input = I;
     type Output = P::Output;
 
-    fn parse_lazy(&mut self, input: I) -> ParseResult<P::Output, I> {
-        let (mut l, mut input) = try!(self.0.parse_lazy(input));
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<P::Output, I> {
+        let (mut l, mut input) = ctry!(self.0.parse_lazy(input));
         loop {
-            match (&mut self.1, &mut self.0).parse_lazy(input.clone().into_inner()) {
+            match (&mut self.1, &mut self.0).parse_lazy(input.clone().into_inner()).into() {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
                     input = input.merge(rest);
                 }
-                Err(err @ Consumed::Consumed(_)) => return Err(err),
+                Err(Consumed::Consumed(err)) => return ConsumedErr(err),
                 Err(Consumed::Empty(_)) => break,
             }
         }
-        Ok((l, input))
+        Ok((l, input)).into()
     }
 
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1049,27 +1090,28 @@ impl<I, P, Op> Parser for Chainr1<P, Op>
 {
     type Input = I;
     type Output = P::Output;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<P::Output, I> {
-        let (mut l, mut input) = try!(self.0.parse_lazy(input));
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<P::Output, I> {
+        // FIXME FastResult
+        let (mut l, mut input) = ctry!(self.0.parse_lazy(input));
         loop {
-            let op = match self.1.parse_lazy(input.clone().into_inner()) {
+            let op = match self.1.parse_lazy(input.clone().into_inner()).into() {
                 Ok((x, rest)) => {
                     input = input.merge(rest);
                     x
                 }
-                Err(err @ Consumed::Consumed(_)) => return Err(err),
+                Err(Consumed::Consumed(err)) => return ConsumedErr(err),
                 Err(Consumed::Empty(_)) => break,
             };
-            match self.parse_lazy(input.clone().into_inner()) {
+            match self.parse_lazy(input.clone().into_inner()).into() {
                 Ok((r, rest)) => {
                     l = op(l, r);
                     input = input.merge(rest);
                 }
-                Err(err @ Consumed::Consumed(_)) => return Err(err),
+                Err(Consumed::Consumed(err)) => return ConsumedErr(err),
                 Err(Consumed::Empty(_)) => break,
             }
         }
-        Ok((l, input))
+        Ok((l, input)).into()
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
@@ -1106,10 +1148,11 @@ impl<I, O, P> Parser for Try<P>
 {
     type Input = I;
     type Output = O;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         self.0
             .parse_state(input)
             .map_err(Consumed::as_empty)
+            .into()
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
@@ -1148,8 +1191,9 @@ impl<I, O, P> Parser for LookAhead<P>
     type Input = I;
     type Output = O;
 
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
-        self.0.parse_lazy(input.clone()).map(|(o, _input)| (o, Consumed::Empty(input)))
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+        let (o, _input) = ctry!(self.0.parse_lazy(input.clone()));
+        EmptyOk((o, input))
     }
 
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1190,9 +1234,11 @@ impl<I, P1, P2> Parser for With<P1, P2>
 {
     type Input = I;
     type Output = P2::Output;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<Self::Output, I> {
-        let ((_, b), rest) = try!((&mut self.0).and(&mut self.1).parse_lazy(input));
-        Ok((b, rest))
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
+        (&mut self.0)
+            .and(&mut self.1)
+            .parse_lazy(input)
+            .map(|(_, b)| b)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
@@ -1210,9 +1256,11 @@ impl<I, P1, P2> Parser for Skip<P1, P2>
 {
     type Input = I;
     type Output = P1::Output;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<Self::Output, I> {
-        let ((a, _), rest) = try!((&mut self.0).and(&mut self.1).parse_lazy(input));
-        Ok((a, rest))
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
+        (&mut self.0)
+            .and(&mut self.1)
+            .parse_lazy(input)
+            .map(|(a, _)| a)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
@@ -1241,7 +1289,7 @@ impl<I, P> Parser for Message<P>
             })
     }
 
-    fn parse_lazy(&mut self, input: I) -> ParseResult<Self::Output, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input.clone())
     }
 
@@ -1262,15 +1310,17 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
 {
     type Input = I;
     type Output = O;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         match self.0.parse_lazy(input.clone()) {
-            Ok(x) => Ok(x),
-            Err(err @ Consumed::Consumed(_)) => Err(err),
-            Err(Consumed::Empty(error1)) => {
+            ConsumedOk(x) => ConsumedOk(x),
+            EmptyOk(x) => EmptyOk(x),
+            ConsumedErr(err) => ConsumedErr(err),
+            EmptyErr(error1) => {
                 match self.1.parse_lazy(input) {
-                    Ok(x) => Ok(x),
-                    Err(err @ Consumed::Consumed(_)) => Err(err),
-                    Err(Consumed::Empty(error2)) => Err(Consumed::Empty(error1.merge(error2))),
+                    ConsumedOk(x) => ConsumedOk(x),
+                    EmptyOk(x) => EmptyOk(x),
+                    ConsumedErr(err) => ConsumedErr(err),
+                    EmptyErr(error2) => EmptyErr(error1.merge(error2)),
                 }
             }
         }
@@ -1290,10 +1340,12 @@ impl<I, A, B, P, F> Parser for Map<P, F>
 {
     type Input = I;
     type Output = B;
-    fn parse_lazy(&mut self, input: I) -> ParseResult<B, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
         match self.0.parse_lazy(input) {
-            Ok((x, input)) => Ok(((self.1)(x), input)),
-            Err(err) => Err(err),
+            ConsumedOk((x, input)) => ConsumedOk(((self.1)(x), input)),
+            EmptyOk((x, input)) => EmptyOk(((self.1)(x), input)),
+            ConsumedErr(err) => ConsumedErr(err),
+            EmptyErr(err) => EmptyErr(err),
         }
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1310,11 +1362,11 @@ impl<P, N, F> Parser for Then<P, F>
 {
     type Input = N::Input;
     type Output = N::Output;
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        let (value, input) = try!(self.0.parse_lazy(input));
-        input.combine(move |input| {
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let (value, input) = ctry!(self.0.parse_lazy(input));
+        input.combine_fast(move |input| {
             let mut next = (self.1)(value);
-            next.parse_state(input)
+            next.parse_state_fast(input)
         })
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1344,7 +1396,7 @@ impl<P> Parser for Expected<P>
             })
     }
 
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.0.parse_lazy(input)
     }
 
@@ -1378,17 +1430,15 @@ impl<P, F, O, E> Parser for AndThen<P, F>
 {
     type Input = P::Input;
     type Output = O;
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<O, Self::Input> {
-        self.0
-            .parse_lazy(input)
-            .and_then(|(o, input)| {
-                match (self.1)(o) {
-                    Ok(o) => Ok((o, input)),
-                    Err(err) => {
-                        Err(input.map(move |input| ParseError::new(input.position(), err.into())))
-                    }
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<O, Self::Input> {
+        let (o, input) = ctry!(self.0.parse_lazy(input));
+        (match (self.1)(o) {
+                Ok(o) => Ok((o, input)),
+                Err(err) => {
+                    Err(input.map(move |input| ParseError::new(input.position(), err.into())))
                 }
             })
+            .into()
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
@@ -1644,6 +1694,19 @@ pub trait ParserExt: Parser + Sized {
 
 impl<P: Parser> ParserExt for P {}
 
+macro_rules! chain {
+    ($input: ident, $first: ident [$($all: ident)+]) => {
+        $first.parse_state_fast($input).map(move |$first| {
+            ($($all),+)
+        })
+    };
+    ($input: ident, $first: ident, $($id: ident),+ [$($all: ident)+]) => {
+        $first.parse_state_fast($input).and_then(move |($first, input)| {
+            chain!(input, $($id),+ [$($all)+])
+        })
+    }
+}
+
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
@@ -1656,11 +1719,11 @@ macro_rules! tuple_parser {
             #[allow(non_snake_case)]
             fn parse_lazy(&mut self,
                           input: Input)
-                          -> ParseResult<($h::Output, $($id::Output),+), Input> {
+                          -> ConsumedResult<($h::Output, $($id::Output),+), Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
-                let ($h, input) = try!($h.parse_lazy(input));
-                $(let ($id, input) = try!(input.combine(|input| $id.parse_state(input)));)+
-                Ok((($h, $($id),+), input))
+                $h.parse_lazy(input).and_then(move |($h, input)| {
+                    chain!(input, $($id),+ [$h $($id)+])
+                })
             }
             fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
                 self.0.add_error(errors);
@@ -1696,8 +1759,8 @@ impl<E, I, O> Parser for EnvParser<E, I, O>
     type Input = I;
     type Output = O;
 
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
-        (self.parser)(self.env.clone(), input)
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+        (self.parser)(self.env.clone(), input).into()
     }
 }
 
@@ -1756,18 +1819,18 @@ impl<I, E> Parser for Range<I>
     type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         use primitives::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
             Ok(other) => {
                 if other == self.0 {
-                    Ok((other, Consumed::Consumed(input)))
+                    ConsumedOk((other, input))
                 } else {
-                    Err(Consumed::Empty(ParseError::empty(position)))
+                    EmptyErr(ParseError::empty(position))
                 }
             }
-            Err(err) => Err(Consumed::Empty(ParseError::new(position, err))),
+            Err(err) => EmptyErr(ParseError::new(position, err)),
         }
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1805,11 +1868,12 @@ impl<I, E> Parser for Take<I>
     type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let position = input.position();
-        let x = try!(input.uncons_range(self.0)
-            .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
-        Ok((x, Consumed::Consumed(input)))
+        match input.uncons_range(self.0) {
+            Ok(x) => ConsumedOk((x, input)),
+            Err(err) => EmptyErr(ParseError::new(position, err)),
+        }
     }
 }
 
@@ -1845,7 +1909,7 @@ impl<I, E, F> Parser for TakeWhile<I, F>
     type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         ::primitives::uncons_while(input, &mut self.0)
     }
 }
@@ -1878,16 +1942,16 @@ impl<I, F> Parser for TakeWhile1<I, F>
     type Input = I;
     type Output = I::Range;
 
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        ::primitives::uncons_while(input, &mut self.0).and_then(|(v, input)| {
-            match input {
-                Consumed::Consumed(_) => Ok((v, input)),
-                Consumed::Empty(input) => {
-                    let position = input.position();
-                    Err(Consumed::Empty(ParseError::empty(position)))
-                }
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        match ::primitives::uncons_while(input, &mut self.0) {
+            ConsumedOk((v, input)) => ConsumedOk((v, input)),
+            EmptyOk((_, input)) => {
+                let position = input.position();
+                EmptyErr(ParseError::empty(position))
             }
-        })
+            EmptyErr(err) => EmptyErr(err),
+            ConsumedErr(err) => ConsumedErr(err),
+        }
     }
 }
 

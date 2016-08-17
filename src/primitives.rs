@@ -4,6 +4,20 @@ use std::any::Any;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 
+use self::FastResult::*;
+
+#[macro_export]
+macro_rules! ctry {
+    ($result: expr) => {
+        match $result {
+            ConsumedOk((x, i)) => (x, Consumed::Consumed(i)),
+            EmptyOk((x, i)) => (x, Consumed::Empty(i)),
+            ConsumedErr(err) => return ConsumedErr(err.into()),
+            EmptyErr(err) => return EmptyErr(err.into()),
+        }
+    }
+}
+
 /// Struct which represents a position in a source file
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
@@ -204,7 +218,7 @@ impl<T> Consumed<T> {
     /// ```
     pub fn combine<F, U, I>(self, f: F) -> ParseResult<U, I>
         where F: FnOnce(T) -> ParseResult<U, I>,
-              I: Stream
+              I: StreamOnce
     {
         match self {
             Consumed::Consumed(x) => {
@@ -217,17 +231,33 @@ impl<T> Consumed<T> {
             Consumed::Empty(x) => f(x),
         }
     }
+    pub fn combine_fast<F, U, I>(self, f: F) -> ConsumedResult<U, I>
+        where F: FnOnce(T) -> ConsumedResult<U, I>,
+              I: StreamOnce
+    {
+        use self::FastResult::*;
+        match self {
+            Consumed::Consumed(x) => {
+                match f(x) {
+                    EmptyOk((v, rest)) => ConsumedOk((v, rest)),
+                    EmptyErr(err) => ConsumedErr(err),
+                    y => y,
+                }
+            }
+            Consumed::Empty(x) => f(x),
+        }
+    }
 }
 /// Struct which hold information about an error that occured at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occured in the same position.
-pub struct ParseError<S: Stream> {
+pub struct ParseError<S: StreamOnce> {
     /// The position where the error occured
     pub position: S::Position,
     /// A vector containing specific information on what errors occured at `position`
     pub errors: Vec<Error<S::Item, S::Range>>,
 }
 
-impl<S: Stream> ParseError<S> {
+impl<S: StreamOnce> ParseError<S> {
     pub fn new(position: S::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
         ParseError::from_errors(position, vec![error])
     }
@@ -555,20 +585,22 @@ pub trait RangeStream: Stream {
 }
 
 /// Removes items from the input while `predicate` returns `true`.
-pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ParseResult<I::Range, I>
+pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ConsumedResult<I::Range, I>
     where F: FnMut(I::Item) -> bool,
           I: RangeStream,
           I::Range: Range
 {
     let position = input.position();
-    let x = try!(input.uncons_while(predicate)
-        .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
-    let input = if x.len() == 0 {
-        Consumed::Empty(input)
-    } else {
-        Consumed::Consumed(input)
-    };
-    Ok((x, input))
+    match input.uncons_while(predicate) {
+        Err(err) => EmptyErr(ParseError::new(position, err)),
+        Ok(x) => {
+            if x.len() == 0 {
+                EmptyOk((x, input))
+            } else {
+                ConsumedOk((x, input))
+            }
+        }
+    }
 }
 
 pub trait Range {
@@ -894,6 +926,98 @@ impl Positioner for u8 {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Copy)]
+pub enum FastResult<T, E> {
+    ConsumedOk(T),
+    EmptyOk(T),
+    ConsumedErr(E),
+    EmptyErr(E),
+}
+
+impl<T, E> FastResult<T, E> {
+    pub fn as_ref(&self) -> FastResult<&T, &E>
+    {
+        match *self {
+            ConsumedOk(ref t) => ConsumedOk(t),
+            EmptyOk(ref t) => EmptyOk(t),
+            ConsumedErr(ref e) => ConsumedErr(e),
+            EmptyErr(ref e) => EmptyErr(e),
+        }
+    }
+    
+    pub fn and_then<F, T2>(self, f: F) -> F::Output
+        where F: FnOnce(T) -> FastResult<T2, E>
+    {
+        match self {
+            ConsumedOk(t) => {
+                match f(t) {
+                    ConsumedOk(t2) | EmptyOk(t2) => ConsumedOk(t2),
+                    EmptyErr(e) | ConsumedErr(e) => ConsumedErr(e),
+                }
+            }
+            EmptyOk(t) => f(t),
+            ConsumedErr(e) => ConsumedErr(e),
+            EmptyErr(e) => EmptyErr(e),
+        }
+    }
+}
+
+impl<T, E> ConsumedResult<T, E>
+    where E: StreamOnce
+{
+    pub fn map<F, T2>(self, f: F) -> ConsumedResult<F::Output, E>
+        where F: FnOnce(T) -> T2
+    {
+        match self {
+            ConsumedOk((t, i)) => ConsumedOk((f(t), i)),
+            EmptyOk((t, i)) => EmptyOk((f(t), i)),
+            ConsumedErr(e) => ConsumedErr(e),
+            EmptyErr(e) => EmptyErr(e),
+        }
+    }
+}
+
+pub type ConsumedResult<O, I> = FastResult<(O, I), ParseError<I>>;
+
+impl<T, E> Into<Result<Consumed<T>, Consumed<E>>> for FastResult<T, E> {
+    fn into(self) -> Result<Consumed<T>, Consumed<E>> {
+        match self {
+            ConsumedOk(t) => Ok(Consumed::Consumed(t)),
+            EmptyOk(t) => Ok(Consumed::Empty(t)), 
+            ConsumedErr(e) => Err(Consumed::Consumed(e)),
+            EmptyErr(e) => Err(Consumed::Empty(e)),
+        }
+    }
+}
+
+impl<O, I> Into<ParseResult<O, I>> for ConsumedResult<O, I>
+    where I: StreamOnce
+{
+    fn into(self) -> ParseResult<O, I> {
+        use self::FastResult::*;
+        match self {
+            ConsumedOk((t, i)) => Ok((t, Consumed::Consumed(i))),
+            EmptyOk((t, i)) => Ok((t, Consumed::Empty(i))), 
+            ConsumedErr(e) => Err(Consumed::Consumed(e)),
+            EmptyErr(e) => Err(Consumed::Empty(e)),
+        }
+    }
+}
+
+impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
+    where I: StreamOnce
+{
+    fn from(result: ParseResult<O, I>) -> ConsumedResult<O, I> {
+        use self::FastResult::*;
+        match result {
+            Ok((t, Consumed::Consumed(i))) => ConsumedOk((t, i)),
+            Ok((t, Consumed::Empty(i))) => EmptyOk((t, i)),
+            Err(Consumed::Consumed(e)) => ConsumedErr(e),
+            Err(Consumed::Empty(e)) => EmptyErr(e),
+        }
+    }
+}
+
 /// By implementing the `Parser` trait a type says that it can be used to parse an input stream into
 /// the type `Output`.
 ///
@@ -920,22 +1044,28 @@ pub trait Parser {
 
     /// Parses using the state `input` by calling Stream::uncons one or more times
     /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
-    fn parse_state(&mut self, mut input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_state(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+        self.parse_state_fast(input).into()
+    }
+
+    fn parse_state_fast(&mut self,
+                        mut input: Self::Input)
+                        -> ConsumedResult<Self::Output, Self::Input> {
         let mut result = self.parse_lazy(input.clone());
-        if let Err(Consumed::Empty(ref mut error)) = result {
+        if let FastResult::EmptyErr(ref mut error) = result {
             if let Ok(t) = input.uncons() {
                 error.add_error(Error::Unexpected(Info::Token(t)));
             }
             self.add_error(error);
         }
-        result
+        result.into()
     }
 
     /// Specialized version of parse_state where the parser does not need to add an error to the
     /// `ParseError` when it does not consume any input before encountering the error.
     /// Instead the error can be added later through the `add_error` method
-    fn parse_lazy(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        self.parse_state(input)
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.parse_state(input).into()
     }
 
     /// Adds the first error that would normally be returned by this parser if it failed
@@ -950,7 +1080,7 @@ impl<'a, I, O, P: ?Sized> Parser for &'a mut P
     fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
         (**self).parse_state(input)
     }
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         (**self).parse_lazy(input)
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
@@ -966,7 +1096,7 @@ impl<I, O, P: ?Sized> Parser for Box<P>
     fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
         (**self).parse_state(input)
     }
-    fn parse_lazy(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         (**self).parse_lazy(input)
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {

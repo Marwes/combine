@@ -1,4 +1,4 @@
-use primitives::{Consumed, Parser, ParseError, ParseResult, Error, Stream};
+use primitives::{Consumed, Parser, ParseError, ConsumedResult, Error, Stream};
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, ParserExt, With};
 use std::marker::PhantomData;
 
@@ -12,7 +12,7 @@ macro_rules! impl_char_parser {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
         fn parse_lazy(&mut self,
-                      input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
         fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -160,7 +160,7 @@ impl<I> Parser for String<I>
 {
     type Input = I;
     type Output = &'static str;
-    fn parse_lazy(&mut self, mut input: I) -> ParseResult<&'static str, I> {
+    fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<&'static str, I> {
         let start = input.position();
         let mut consumed = false;
         for c in self.0.chars() {
@@ -174,19 +174,19 @@ impl<I> Parser for String<I>
                             Consumed::Consumed(error)
                         } else {
                             Consumed::Empty(ParseError::empty(start))
-                        });
+                        }).into();
                     }
                     consumed = true;
                     input = rest.into_inner();
                 }
                 Err(error) => {
-                    return error.combine(|mut error| {
+                    return error.combine_fast(|mut error| {
                         error.position = start;
                         Err(if consumed {
                             Consumed::Consumed(error)
                         } else {
                             Consumed::Empty(error)
-                        })
+                        }).into()
                     })
                 }
             }
@@ -196,7 +196,7 @@ impl<I> Parser for String<I>
             Consumed::Consumed(input)
         } else {
             Consumed::Empty(input)
-        }))
+        })).into()
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         errors.add_error(Error::Expected(self.0.into()));

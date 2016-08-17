@@ -46,7 +46,7 @@ impl<I> Json<I>
         fn_parser(Json::<I>::integer_, "integer")
     }
     fn integer_(input: I) -> ParseResult<i64, I> {
-        let (s, input) = try!(lex(many1::<String, _>(digit())).parse_lazy(input));
+        let (s, input) = try!(lex(many1::<String, _>(digit())).parse_lazy(input).into());
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -105,14 +105,14 @@ impl<I> Json<I>
                         None => n,
                     }
                 }))
-            .parse_lazy(input)
+            .parse_lazy(input).into()
     }
 
     fn char() -> JsonParser<char, I> {
         fn_parser(Json::<I>::char_, "char")
     }
     fn char_(input: I) -> ParseResult<char, I> {
-        let (c, input) = try!(any().parse_lazy(input));
+        let (c, input) = try!(any().parse_lazy(input).into());
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some())
             .map(|c| {
                 match c {
@@ -140,7 +140,7 @@ impl<I> Json<I>
         fn_parser(Json::<I>::string_, "string")
     }
     fn string_(input: I) -> ParseResult<String, I> {
-        between(char('"'), lex(char('"')), many(Json::<I>::char())).parse_lazy(input)
+        between(char('"'), lex(char('"')), many(Json::<I>::char())).parse_lazy(input).into()
     }
 
     fn object() -> JsonParser<Value, I> {
@@ -151,7 +151,7 @@ impl<I> Json<I>
         let fields = sep_by(field, lex(char(',')));
         between(lex(char('{')), lex(char('}')), fields)
             .map(Value::Object)
-            .parse_lazy(input)
+            .parse_lazy(input).into()
     }
 
     fn value() -> FnParser<I, fn(I) -> ParseResult<Value, I>> {
@@ -181,7 +181,7 @@ impl<I> Json<I>
                                                                       .map(|_| Value::Bool(true))),
                                                                   &mut lex(string("null")
                                                                       .map(|_| Value::Null))])
-            .parse_lazy(input)
+            .parse_lazy(input).into()
     }
 }
 

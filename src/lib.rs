@@ -151,6 +151,7 @@ macro_rules! static_fn {
 }
 
 /// Module containing the primitive types which is used to create and compose more advanced parsers
+#[macro_use]
 pub mod primitives;
 /// Module containing all specific parsers
 pub mod combinator;
