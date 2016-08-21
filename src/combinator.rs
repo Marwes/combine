@@ -1786,6 +1786,9 @@ impl<I, E> Parser for Take<I>
 /// # use combine::combinator::take;
 /// # use combine::*;
 /// # fn main() {
+/// let mut parser = take(1);
+/// let result = parser.parse("1");
+/// assert_eq!(result, Ok(("1", "")));
 /// let mut parser = take(4);
 /// let result = parser.parse("123abc");
 /// assert_eq!(result, Ok(("123a", "bc")));

@@ -599,7 +599,7 @@ impl<'a> RangeStream for &'a str {
                 Some(&b) => b < 128 || b >= 192,
             }
         }
-        if size < self.len() {
+        if size <= self.len() {
             if is_char_boundary(self, size) {
                 let (result, remaining) = self.split_at(size);
                 *self = remaining;
@@ -629,7 +629,7 @@ impl<'a, T> RangeStream for &'a [T]
     where T: Copy + PartialEq
 {
     fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<T, &'a [T]>> {
-        if size < self.len() {
+        if size <= self.len() {
             let (result, remaining) = self.split_at(size);
             *self = remaining;
             Ok(result)
@@ -727,7 +727,7 @@ impl<'a, T> RangeStream for SliceStream<'a, T>
     where T: Clone + PartialEq + 'a
 {
     fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<&'a T, &'a [T]>> {
-        if size < self.0.len() {
+        if size <= self.0.len() {
             let (range, rest) = self.0.split_at(size);
             self.0 = rest;
             Ok(range)
@@ -1106,5 +1106,18 @@ impl<'a, I> StreamOnce for BufferedStream<'a, I>
 
     fn position(&self) -> Self::Position {
         self.buffer.position(self.offset)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn uncons_range_at_end() {
+        assert_eq!("".uncons_range(0), Ok(""));
+        assert_eq!("123".uncons_range(3), Ok("123"));
+        assert_eq!((&[1][..]).uncons_range(1), Ok(&[1][..]));
+        let s: &[u8] = &[];
+        assert_eq!(SliceStream(s).uncons_range(0), Ok(&[][..]));
     }
 }
