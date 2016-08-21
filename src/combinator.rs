@@ -1850,13 +1850,9 @@ impl<I, F> Parser for TakeWhile1<I, F>
         ::primitives::uncons_while(input, &mut self.0).and_then(|(v, input)| {
             match input {
                 Consumed::Consumed(_) => Ok((v, input)),
-                Consumed::Empty(mut input) => {
+                Consumed::Empty(input) => {
                     let position = input.position();
-                    let error = match input.uncons() {
-                        Ok(t) => Error::Unexpected(Info::Token(t)),
-                        Err(err) => err,
-                    };
-                    Err(Consumed::Empty(ParseError::new(position, error)))
+                    Err(Consumed::Empty(ParseError::empty(position)))
                 }
             }
         })
