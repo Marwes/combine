@@ -1220,7 +1220,7 @@ pub fn look_ahead<P>(p: P) -> LookAhead<P>
 }
 
 #[derive(Clone)]
-pub struct With<P1, P2>(P1, P2)
+pub struct With<P1, P2>((P1, P2))
     where P1: Parser,
           P2: Parser;
 impl<I, P1, P2> Parser for With<P1, P2>
@@ -1231,10 +1231,7 @@ impl<I, P1, P2> Parser for With<P1, P2>
     type Input = I;
     type Output = P2::Output;
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
-        (&mut self.0)
-            .and(&mut self.1)
-            .parse_lazy(input)
-            .map(|(_, b)| b)
+        self.0.parse_lazy(input).map(|(_, b)| b)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
@@ -1242,7 +1239,7 @@ impl<I, P1, P2> Parser for With<P1, P2>
 }
 
 #[derive(Clone)]
-pub struct Skip<P1, P2>(P1, P2)
+pub struct Skip<P1, P2>((P1, P2))
     where P1: Parser,
           P2: Parser;
 impl<I, P1, P2> Parser for Skip<P1, P2>
@@ -1253,10 +1250,7 @@ impl<I, P1, P2> Parser for Skip<P1, P2>
     type Input = I;
     type Output = P1::Output;
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
-        (&mut self.0)
-            .and(&mut self.1)
-            .parse_lazy(input)
-            .map(|(a, _)| a)
+        self.0.parse_lazy(input).map(|(a, _)| a)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
@@ -1461,7 +1455,7 @@ pub trait ParserExt: Parser + Sized {
     fn with<P2>(self, p: P2) -> With<Self, P2>
         where P2: Parser<Input = Self::Input>
     {
-        With(self, p)
+        With((self, p))
     }
 
     /// Discards the value of the `p` parser and returns the value of `self`
@@ -1482,7 +1476,7 @@ pub trait ParserExt: Parser + Sized {
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
         where P2: Parser<Input = Self::Input>
     {
-        Skip(self, p)
+        Skip((self, p))
     }
 
     /// Parses with `self` followed by `p`
