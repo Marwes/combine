@@ -713,7 +713,6 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
     type Output = F;
 
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
-        // FIXME FastResult
         let (first, rest) = ctry!(self.parser.parse_lazy(input.clone()));
 
         rest.combine_fast(move |input| {
@@ -1694,19 +1693,6 @@ pub trait ParserExt: Parser + Sized {
 
 impl<P: Parser> ParserExt for P {}
 
-macro_rules! chain {
-    ($input: ident, $first: ident [$($all: ident)+]) => {
-        $first.parse_state_fast($input).map(move |$first| {
-            ($($all),+)
-        })
-    };
-    ($input: ident, $first: ident, $($id: ident),+ [$($all: ident)+]) => {
-        $first.parse_state_fast($input).and_then(move |($first, input)| {
-            chain!(input, $($id),+ [$($all)+])
-        })
-    }
-}
-
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
@@ -1718,12 +1704,49 @@ macro_rules! tuple_parser {
             type Output = ($h::Output, $($id::Output),+);
             #[allow(non_snake_case)]
             fn parse_lazy(&mut self,
-                          input: Input)
+                          mut input: Input)
                           -> ConsumedResult<($h::Output, $($id::Output),+), Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
-                $h.parse_lazy(input).and_then(move |($h, input)| {
-                    chain!(input, $($id),+ [$h $($id)+])
-                })
+                let mut consumed = false;
+                let $h = match $h.parse_lazy(input) {
+                    ConsumedOk((x, new_input)) => {
+                        consumed = true;
+                        input = new_input;
+                        x
+                    }
+                    EmptyErr(err) => return EmptyErr(err),
+                    ConsumedErr(err) => return ConsumedErr(err),
+                    EmptyOk((x, new_input)) => {
+                        input = new_input;
+                        x
+                    }
+                };
+                $(
+                    let $id = match $id.parse_state_fast(input) {
+                        ConsumedOk((x, new_input)) => {
+                            consumed = true;
+                            input = new_input;
+                            x
+                        }
+                        EmptyErr(err) => {
+                            if consumed {
+                                return ConsumedErr(err)
+                            } else {
+                                return EmptyErr(err)
+                            }
+                        }
+                        ConsumedErr(err) => return ConsumedErr(err),
+                        EmptyOk((x, new_input)) => {
+                            input = new_input;
+                            x
+                        }
+                    };
+                )+
+                if consumed {
+                    ConsumedOk((($h, $($id),+), input))
+                } else {
+                    EmptyOk((($h, $($id),+), input))
+                }
             }
             fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
                 self.0.add_error(errors);
