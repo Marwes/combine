@@ -141,6 +141,18 @@ pub enum Consumed<T> {
 }
 
 impl<T> Consumed<T> {
+    pub fn as_mut(&mut self) -> &mut T {
+        match *self {
+            Consumed::Empty(ref mut t) => t,
+            Consumed::Consumed(ref mut t) => t,
+        }
+    }
+    pub fn as_ref(&self) -> &T {
+        match *self {
+            Consumed::Empty(ref t) => t,
+            Consumed::Consumed(ref t) => t,
+        }
+    }
     /// Returns true if `self` is empty
     pub fn is_empty(&self) -> bool {
         match *self {
