@@ -1127,27 +1127,6 @@ pub fn look_ahead<P>(p: P) -> LookAhead<P>
 }
 
 #[derive(Clone)]
-pub struct And<P1, P2>(P1, P2);
-impl<I, P1, P2> Parser for And<P1, P2>
-    where I: Stream,
-          P1: Parser<Input = I>,
-          P2: Parser<Input = I>
-{
-    type Input = I;
-    type Output = (P1::Output, P2::Output);
-    fn parse_lazy(&mut self, input: I) -> ParseResult<(P1::Output, P2::Output), I> {
-        let (a, rest) = try!(self.0.parse_lazy(input));
-        rest.combine(move |rest| {
-            let (b, rest) = try!(self.1.parse_state(rest));
-            Ok(((a, b), rest))
-        })
-    }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        self.0.add_error(errors)
-    }
-}
-
-#[derive(Clone)]
 pub struct With<P1, P2>(P1, P2)
     where P1: Parser,
           P2: Parser;
@@ -1423,10 +1402,10 @@ pub trait ParserExt: Parser + Sized {
     /// assert_eq!(result, Ok(('9', 'i')));
     /// # }
     /// ```
-    fn and<P2>(self, p: P2) -> And<Self, P2>
+    fn and<P2>(self, p: P2) -> (Self, P2)
         where P2: Parser<Input = Self::Input>
     {
-        And(self, p)
+        (self, p)
     }
 
     /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming any
