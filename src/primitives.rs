@@ -581,11 +581,17 @@ impl<'a> RangeStream for &'a str {
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool
     {
-        let len = self.chars()
-            .take_while(|c| f(*c))
-            .fold(0, |len, c| len + c.len_utf8());
-        let (result, remaining) = self.split_at(len);
-        *self = remaining;
+        let mut chars = self.chars();
+        while let Some(c) = chars.next() {
+            if !f(c) {
+                let len = self.len() - chars.as_str().len() - c.len_utf8();
+                let (result, rest) = self.split_at(len);
+                *self = rest;
+                return Ok(result)
+            }
+        }
+        let result = *self;
+        *self = &self[self.len()..];
         Ok(result)
     }
 
@@ -655,9 +661,10 @@ impl<'a> StreamOnce for &'a str {
     type Position = usize;
 
     fn uncons(&mut self) -> Result<char, Error<char, &'a str>> {
-        match self.chars().next() {
+        let mut chars = self.chars();
+        match chars.next() {
             Some(c) => {
-                *self = &self[c.len_utf8()..];
+                *self = chars.as_str();
                 Ok(c)
             }
             None => Err(Error::end_of_input()),

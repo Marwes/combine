@@ -7,11 +7,11 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{from_iter, Consumed, Parser, ParseError, ParseResult, State, Stream,
-                     BufferedStream};
+use pc::primitives::{Consumed, Parser, ParseError, ParseResult, State, Stream, BufferedStream};
 use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by,
                      Expected, FnParser, Skip, ParserExt};
 use pc::char::{char, digit, spaces, Spaces, string};
+use pc::from_iter;
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -39,7 +39,8 @@ fn fn_parser<O, I>(f: fn(I) -> ParseResult<O, I>, err: &'static str) -> JsonPars
     parser(f).expected(err)
 }
 
-impl<I> Json<I> where I: Stream<Item = char>
+impl<I> Json<I>
+    where I: Stream<Item = char>
 {
     fn integer() -> JsonParser<i64, I> {
         fn_parser(Json::<I>::integer_, "integer")
@@ -58,8 +59,8 @@ impl<I> Json<I> where I: Stream<Item = char>
     }
     fn number_(input: I) -> ParseResult<f64, I> {
         let i = char('0')
-                    .map(|_| 0.0)
-                    .or(Json::<I>::integer().map(|x| x as f64));
+            .map(|_| 0.0)
+            .or(Json::<I>::integer().map(|x| x as f64));
         let fractional = many(digit()).map(|digits: String| {
             let mut magnitude = 1.0;
             digits.chars().fold(0.0, |acc, d| {
@@ -72,7 +73,7 @@ impl<I> Json<I> where I: Stream<Item = char>
         });
 
         let exp = satisfy(|c| c == 'e' || c == 'E')
-                      .with(optional(char('-')).and(Json::<I>::integer()));
+            .with(optional(char('-')).and(Json::<I>::integer()));
         lex(optional(char('-'))
                 .and(i)
                 .map(|(sign, n)| {
@@ -113,19 +114,19 @@ impl<I> Json<I> where I: Stream<Item = char>
     fn char_(input: I) -> ParseResult<char, I> {
         let (c, input) = try!(any().parse_lazy(input));
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some())
-                                      .map(|c| {
-                                          match c {
-                                              '"' => '"',
-                                              '\\' => '\\',
-                                              '/' => '/',
-                                              'b' => '\u{0008}',
-                                              'f' => '\u{000c}',
-                                              'n' => '\n',
-                                              'r' => '\r',
-                                              't' => '\t',
-                                              c => c,//Should never happen
-                                          }
-                                      });
+            .map(|c| {
+                match c {
+                    '"' => '"',
+                    '\\' => '\\',
+                    '/' => '/',
+                    'b' => '\u{0008}',
+                    'f' => '\u{000c}',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    c => c,//Should never happen
+                }
+            });
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_state(input)),
             '"' => {
@@ -164,16 +165,22 @@ impl<I> Json<I> where I: Stream<Item = char>
         let mut array = between(lex(char('[')),
                                 lex(char(']')),
                                 sep_by(Json::<I>::value(), lex(char(','))))
-                            .map(Value::Array);
+            .map(Value::Array);
 
-        choice::<[&mut Parser<Input = I, Output = Value>; 7],
-                 _>([&mut Json::<I>::string().map(Value::String),
-                     &mut Json::<I>::object(),
-                     &mut array,
-                     &mut Json::<I>::number().map(Value::Number),
-                     &mut lex(string("false").map(|_| Value::Bool(false))),
-                     &mut lex(string("true").map(|_| Value::Bool(true))),
-                     &mut lex(string("null").map(|_| Value::Null))])
+        choice::<[&mut Parser<Input = I, Output = Value>; 7], _>([&mut Json::<I>::string()
+                                                                      .map(Value::String),
+                                                                  &mut Json::<I>::object(),
+                                                                  &mut array,
+                                                                  &mut Json::<I>::number()
+                                                                      .map(Value::Number),
+                                                                  &mut lex(string("false")
+                                                                      .map(|_| {
+                                                                          Value::Bool(false)
+                                                                      })),
+                                                                  &mut lex(string("true")
+                                                                      .map(|_| Value::Bool(true))),
+                                                                  &mut lex(string("null")
+                                                                      .map(|_| Value::Null))])
             .parse_lazy(input)
     }
 }
@@ -203,9 +210,9 @@ fn json_test() {
                                ("true", Bool(true)),
                                ("false", Bool(false)),
                                ("null", Null)]
-                              .into_iter()
-                              .map(|(k, v)| (k.to_string(), v))
-                              .collect());
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect());
     match result {
         Ok(result) => assert_eq!(result, (expected, "")),
         Err(e) => {
@@ -222,8 +229,7 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     let mut parser = Json::value();
-    let text = from_iter(data.chars());
-    match parser.parse(State::new(text.clone())) {
+    match parser.parse(State::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -232,7 +238,7 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.parse(State::new(text.clone()));
+        let result = parser.parse(State::new(&data[..]));
         ::test::black_box(result)
     });
 }
