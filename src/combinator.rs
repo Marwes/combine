@@ -71,18 +71,16 @@ pub struct Satisfy<I, P> {
     _marker: PhantomData<I>,
 }
 
-fn satisfy_impl<I, P, F>(input: I, predicate: &mut P, f: F) -> ParseResult<I::Item, I>
+fn satisfy_impl<I, P, R>(input: I, mut predicate: P) -> ParseResult<R, I>
     where I: Stream,
-          P: FnMut(I::Item) -> bool,
-          F: FnOnce(I::Position, I::Item) -> ParseError<I>
+          P: FnMut(I::Item) -> Option<R>
 {
     let mut next = input.clone();
     match next.uncons() {
         Ok(c) => {
-            if (predicate)(c.clone()) {
-                Ok((c, Consumed::Consumed(next)))
-            } else {
-                Err(Consumed::Empty(f(input.position(), c)))
+            match predicate(c.clone()) {
+                Some(c) => Ok((c, Consumed::Consumed(next))),
+                None => Err(Consumed::Empty(ParseError::empty(input.position()))),
             }
         }
         Err(err) => Err(Consumed::Empty(ParseError::new(input.position(), err))),
@@ -96,7 +94,11 @@ impl<I, P> Parser for Satisfy<I, P>
     type Input = I;
     type Output = I::Item;
     fn parse_lazy(&mut self, input: I) -> ParseResult<I::Item, I> {
-        satisfy_impl(input, &mut self.predicate, |pos, _| ParseError::empty(pos))
+        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
+            Some(c)
+        } else {
+            None
+        })
     }
 }
 
@@ -122,6 +124,57 @@ pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
 }
 
 #[derive(Clone)]
+pub struct SatisfyMap<I, P> {
+    predicate: P,
+    _marker: PhantomData<I>,
+}
+
+impl<I, P, R> Parser for SatisfyMap<I, P>
+    where I: Stream,
+          P: FnMut(I::Item) -> Option<R>
+{
+    type Input = I;
+    type Output = R;
+    fn parse_lazy(&mut self, input: I) -> ParseResult<R, I> {
+        satisfy_impl(input, &mut self.predicate)
+    }
+}
+
+/// Parses a token and passes it to `predicate`. If `predicate` returns `Some` the parser succeeds
+/// and returns the value inside the `Option`. If `predicate` returns `None` the parser fails
+/// without consuming any imput.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # fn main() {
+/// #[derive(Debug, PartialEq)]
+/// enum YesNo {
+///     Yes,
+///     No,
+/// }
+/// let mut parser = satisfy_map(|c| {
+///     match c {
+///         'Y' => Some(YesNo::Yes),
+///         'N' => Some(YesNo::No),
+///         _ => None,
+///     }
+/// });
+/// assert_eq!(parser.parse("Y").map(|x| x.0), Ok(YesNo::Yes));
+/// assert!(parser.parse("A").map(|x| x.0).is_err());
+/// # }
+/// ```
+pub fn satisfy_map<I, P, R>(predicate: P) -> SatisfyMap<I, P>
+    where I: Stream,
+          P: FnMut(I::Item) -> Option<R>
+{
+    SatisfyMap {
+        predicate: predicate,
+        _marker: PhantomData,
+    }
+}
+
+#[derive(Clone)]
 pub struct Token<I>
     where I: Stream,
           I::Item: PartialEq
@@ -137,7 +190,7 @@ impl<I> Parser for Token<I>
     type Input = I;
     type Output = I::Item;
     fn parse_lazy(&mut self, input: I) -> ParseResult<I::Item, I> {
-        satisfy_impl(input, &mut |c| c == self.c, |pos, _| ParseError::empty(pos))
+        satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
         error.errors.push(Error::Expected(Info::Token(self.c.clone())));
