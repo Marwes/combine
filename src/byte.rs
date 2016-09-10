@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use combinator::{Expected, ParserExt, satisfy, Satisfy, skip_many, SkipMany, token, Token, With};
-use primitives::{ConsumedResult, Parser, ParseError, Stream};
+use primitives::{Consumed, ConsumedResult, Error, Info, Parser, ParseError, Stream};
 
 /// Parses a u8acter and succeeds if the u8acter is equal to `c`
 ///
@@ -142,4 +142,79 @@ pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item = u8>
 {
     byte_parser!(hex_digit, HexDigit, is_hex)
+}
+
+#[derive(Clone)]
+pub struct Bytes<I>(&'static [u8], PhantomData<I>);
+impl<'a, I> Parser for Bytes<I>
+    where I: Stream<Item = u8, Range = &'a [u8]>
+{
+    type Input = I;
+    type Output = &'static [u8];
+    #[inline]
+    fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<&'static [u8], I> {
+        let start = input.position();
+        let mut consumed = false;
+        for &c in self.0 {
+            match ::primitives::uncons(input) {
+                Ok((other, rest)) => {
+                    if c != other {
+                        return Err(if consumed {
+                                let errors = vec![Error::Unexpected(Info::Token(other)),
+                                                  Error::Expected(Info::Range(self.0))];
+                                let error = ParseError::from_errors(start, errors);
+                                Consumed::Consumed(error)
+                            } else {
+                                Consumed::Empty(ParseError::empty(start))
+                            })
+                            .into();
+                    }
+                    consumed = true;
+                    input = rest.into_inner();
+                }
+                Err(error) => {
+                    return error.combine_fast(|mut error| {
+                        error.position = start;
+                        Err(if consumed {
+                                Consumed::Consumed(error)
+                            } else {
+                                Consumed::Empty(error)
+                            })
+                            .into()
+                    })
+                }
+            }
+        }
+        Ok((self.0,
+            if consumed {
+                Consumed::Consumed(input)
+            } else {
+                Consumed::Empty(input)
+            }))
+            .into()
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        errors.add_error(Error::Expected(Info::Range(self.0)));
+    }
+}
+
+/// Parses the bytes `s`. If you have a stream implementing `RangeStream` such as `&[u8]` you can
+/// also use the `range` parser which may be more efficient.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::byte::bytes;
+/// # fn main() {
+/// let result = bytes(b"rust")
+///     .parse(&b"rust"[..])
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(&b"rust"[..]));
+/// # }
+/// ```
+#[inline(always)]
+pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
+    where I: Stream<Item = u8, Range = &'a [u8]>
+{
+    Bytes(s, PhantomData)
 }
