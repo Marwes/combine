@@ -18,6 +18,10 @@ macro_rules! impl_parser {
                        input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
             self.0.parse_state(input)
         }
+        fn parse_state_fast(&mut self,
+                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_state_fast(input)
+        }
         fn parse_lazy(&mut self,
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
@@ -37,6 +41,7 @@ impl<I> Parser for Any<I>
 {
     type Input = I;
     type Output = I::Item;
+    #[inline]
     fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<I::Item, I> {
         let position = input.position();
         match input.uncons() {
@@ -60,6 +65,7 @@ impl<I> Parser for Any<I>
 /// assert!(byte_parser.parse(&b""[..]).is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn any<I>() -> Any<I>
     where I: Stream
 {
@@ -96,6 +102,7 @@ impl<I, P> Parser for Satisfy<I, P>
 {
     type Input = I;
     type Output = I::Item;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
             Some(c)
@@ -116,6 +123,7 @@ impl<I, P> Parser for Satisfy<I, P>
 /// assert_eq!(parser.parse("?").map(|x| x.0), Ok('?'));
 /// # }
 /// ```
+#[inline(always)]
 pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
     where I: Stream,
           P: FnMut(I::Item) -> bool
@@ -138,6 +146,7 @@ impl<I, P, R> Parser for SatisfyMap<I, P>
 {
     type Input = I;
     type Output = R;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<R, I> {
         satisfy_impl(input, &mut self.predicate)
     }
@@ -167,6 +176,7 @@ impl<I, P, R> Parser for SatisfyMap<I, P>
 /// assert!(parser.parse("A").map(|x| x.0).is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn satisfy_map<I, P, R>(predicate: P) -> SatisfyMap<I, P>
     where I: Stream,
           P: FnMut(I::Item) -> Option<R>
@@ -192,6 +202,7 @@ impl<I> Parser for Token<I>
 {
     type Input = I;
     type Output = I::Item;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
@@ -212,6 +223,7 @@ impl<I> Parser for Token<I>
 /// assert_eq!(result, Ok('!'));
 /// # }
 /// ```
+#[inline(always)]
 pub fn token<I>(c: I::Item) -> Token<I>
     where I: Stream,
           I::Item: PartialEq
@@ -232,6 +244,7 @@ impl<I, O, S, P> Parser for Choice<S, P>
 {
     type Input = I;
     type Output = O;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         let mut empty_err = None;
         for p in AsMut::as_mut(&mut self.0) {
@@ -286,6 +299,7 @@ impl<I, O, S, P> Parser for Choice<S, P>
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn choice<S, P>(ps: S) -> Choice<S, P>
     where S: AsMut<[P]>,
           P: Parser
@@ -300,6 +314,7 @@ impl<I> Parser for Unexpected<I>
 {
     type Input = I;
     type Output = ();
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
         EmptyErr(ParseError::empty(input.position()))
     }
@@ -321,6 +336,7 @@ impl<I> Parser for Unexpected<I>
 /// assert!(result.err().unwrap().errors.iter().any(|m| *m == Error::Unexpected("token".into())));
 /// # }
 /// ```
+#[inline(always)]
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
     where I: Stream,
           S: Into<Info<I::Item, I::Range>>
@@ -336,6 +352,7 @@ impl<I, T> Parser for Value<I, T>
 {
     type Input = I;
     type Output = T;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<T, I> {
         EmptyOk((self.0.clone(), input))
     }
@@ -352,6 +369,7 @@ impl<I, T> Parser for Value<I, T>
 /// assert_eq!(result, Ok(42));
 /// # }
 /// ```
+#[inline(always)]
 pub fn value<I, T>(v: T) -> Value<I, T>
     where I: Stream,
           T: Clone
@@ -378,6 +396,7 @@ impl_parser! { NotFollowedBy(P,),
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
     where P: Parser,
           P::Output: ::std::fmt::Display
@@ -399,6 +418,7 @@ impl<I> Parser for Eof<I>
     type Input = I;
     type Output = ();
 
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
         match input.clone().uncons() {
             Err(ref err) if *err == Error::end_of_input() => EmptyOk(((), input)),
@@ -429,6 +449,7 @@ impl<I> Parser for Eof<I>
 /// }));
 /// # }
 /// ```
+#[inline(always)]
 pub fn eof<I>() -> Eof<I>
     where I: Stream
 {
@@ -539,6 +560,7 @@ impl<F, P> Parser for Many<F, P>
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
 /// # }
 /// ```
+#[inline(always)]
 pub fn many<F, P>(p: P) -> Many<F, P>
     where P: Parser,
           F: FromIterator<P::Output>
@@ -555,6 +577,7 @@ impl<F, P> Parser for Many1<F, P>
 {
     type Input = P::Input;
     type Output = F;
+    #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let (first, input) = ctry!(self.0.parse_lazy(input));
         let mut iter = Iter {
@@ -587,6 +610,7 @@ impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<(
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn skip_many<P>(p: P) -> SkipMany<P>
     where P: Parser
 {
@@ -609,6 +633,7 @@ impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn skip_many1<P>(p: P) -> SkipMany1<P>
     where P: Parser
 {
@@ -634,6 +659,7 @@ pub fn skip_many1<P>(p: P) -> SkipMany1<P>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn many1<F, P>(p: P) -> Many1<F, P>
     where F: FromIterator<P::Output>,
           P: Parser
@@ -655,6 +681,7 @@ impl<F, P, S> Parser for SepBy<F, P, S>
     type Input = P::Input;
     type Output = F;
 
+    #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         sep_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
@@ -683,6 +710,7 @@ impl<F, P, S> Parser for SepBy<F, P, S>
 /// assert_eq!(result_ok2, Ok((vec![], "")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
     where F: FromIterator<P::Output>,
           P: Parser,
@@ -709,6 +737,7 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
     type Input = P::Input;
     type Output = F;
 
+    #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let (first, rest) = ctry!(self.parser.parse_lazy(input.clone()));
 
@@ -753,6 +782,7 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
 /// }));
 /// # }
 /// ```
+#[inline(always)]
 pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
     where F: FromIterator<P::Output>,
           P: Parser,
@@ -780,6 +810,7 @@ impl<F, P, S> Parser for SepEndBy<F, P, S>
     type Input = P::Input;
     type Output = F;
 
+    #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         sep_end_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| Ok((None.into_iter().collect(), Consumed::Empty(input)))))
@@ -808,6 +839,7 @@ impl<F, P, S> Parser for SepEndBy<F, P, S>
 /// assert_eq!(result_ok2, Ok((vec!['1', '2', '3'], "")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn sep_end_by<F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
     where F: FromIterator<P::Output>,
           P: Parser,
@@ -835,6 +867,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
     type Input = P::Input;
     type Output = F;
 
+    #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let (first, input) = ctry!(self.parser.parse_lazy(input.clone()));
 
@@ -882,6 +915,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
 /// }));
 /// # }
 /// ```
+#[inline(always)]
 pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
     where F: FromIterator<P::Output>,
           P: Parser,
@@ -935,6 +969,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// assert_eq!(result, Ok(8));
 /// # }
 /// ```
+#[inline(always)]
 pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
     where I: Stream,
           F: FnMut(I) -> ParseResult<O, I>
@@ -970,6 +1005,7 @@ impl<P> Parser for Optional<P>
 {
     type Input = P::Input;
     type Output = Option<P::Output>;
+    #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<Option<P::Output>, P::Input> {
         match self.0.parse_state(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)).into(),
@@ -993,6 +1029,7 @@ impl<P> Parser for Optional<P>
 /// assert_eq!(result2, Ok((Some('1'), "")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn optional<P>(parser: P) -> Optional<P>
     where P: Parser
 {
@@ -1014,6 +1051,7 @@ impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
+#[inline(always)]
 pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
     where I: Stream,
           L: Parser<Input = I>,
@@ -1034,6 +1072,7 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
     type Input = I;
     type Output = P::Output;
 
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<P::Output, I> {
         let (mut l, mut input) = ctry!(self.0.parse_lazy(input));
         loop {
@@ -1068,6 +1107,7 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
 ///     assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
 /// }
 /// ```
+#[inline(always)]
 pub fn chainl1<P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
     where P: Parser,
           Op: Parser<Input = P::Input>,
@@ -1086,6 +1126,7 @@ impl<I, P, Op> Parser for Chainr1<P, Op>
 {
     type Input = I;
     type Output = P::Output;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<P::Output, I> {
         // FIXME FastResult
         let (mut l, mut input) = ctry!(self.0.parse_lazy(input));
@@ -1128,6 +1169,7 @@ impl<I, P, Op> Parser for Chainr1<P, Op>
 ///     assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
 /// }
 /// ```
+#[inline(always)]
 pub fn chainr1<P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
     where P: Parser,
           Op: Parser<Input = P::Input>,
@@ -1144,6 +1186,7 @@ impl<I, O, P> Parser for Try<P>
 {
     type Input = I;
     type Output = O;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         self.0
             .parse_state(input)
@@ -1171,6 +1214,7 @@ impl<I, O, P> Parser for Try<P>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn try<P>(p: P) -> Try<P>
     where P: Parser
 {
@@ -1187,6 +1231,7 @@ impl<I, O, P> Parser for LookAhead<P>
     type Input = I;
     type Output = O;
 
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         let (o, _input) = ctry!(self.0.parse_lazy(input.clone()));
         EmptyOk((o, input))
@@ -1213,6 +1258,7 @@ impl<I, O, P> Parser for LookAhead<P>
 //        assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn look_ahead<P>(p: P) -> LookAhead<P>
     where P: Parser
 {
@@ -1230,6 +1276,7 @@ impl<I, P1, P2> Parser for With<P1, P2>
 {
     type Input = I;
     type Output = P2::Output;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input).map(|(_, b)| b)
     }
@@ -1249,6 +1296,7 @@ impl<I, P1, P2> Parser for Skip<P1, P2>
 {
     type Input = I;
     type Output = P1::Output;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input).map(|(a, _)| a)
     }
@@ -1279,6 +1327,7 @@ impl<I, P> Parser for Message<P>
             })
     }
 
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input.clone())
     }
@@ -1300,6 +1349,7 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
 {
     type Input = I;
     type Output = O;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         match self.0.parse_lazy(input.clone()) {
             ConsumedOk(x) => ConsumedOk(x),
@@ -1330,6 +1380,7 @@ impl<I, A, B, P, F> Parser for Map<P, F>
 {
     type Input = I;
     type Output = B;
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
         match self.0.parse_lazy(input) {
             ConsumedOk((x, input)) => ConsumedOk(((self.1)(x), input)),
@@ -1352,6 +1403,7 @@ impl<P, N, F> Parser for Then<P, F>
 {
     type Input = N::Input;
     type Output = N::Output;
+    #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (value, input) = ctry!(self.0.parse_lazy(input));
         input.combine_fast(move |input| {
@@ -1386,6 +1438,7 @@ impl<P> Parser for Expected<P>
             })
     }
 
+    #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.0.parse_lazy(input)
     }
@@ -1420,6 +1473,7 @@ impl<P, F, O, E> Parser for AndThen<P, F>
 {
     type Input = P::Input;
     type Output = O;
+    #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<O, Self::Input> {
         let (o, input) = ctry!(self.0.parse_lazy(input));
         (match (self.1)(o) {
@@ -1773,6 +1827,7 @@ impl<E, I, O> Parser for EnvParser<E, I, O>
     type Input = I;
     type Output = O;
 
+    #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         (self.parser)(self.env.clone(), input).into()
     }
@@ -1813,6 +1868,7 @@ impl<E, I, O> Parser for EnvParser<E, I, O>
 ///     assert_eq!(result, Ok((0, "")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn env_parser<E, I, O>(env: E, parser: fn(E, I) -> ParseResult<O, I>) -> EnvParser<E, I, O>
     where E: Clone,
           I: Stream
@@ -1833,6 +1889,7 @@ impl<I, E> Parser for Range<I>
     type Input = I;
     type Output = I::Range;
 
+    #[inline]
     fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         use primitives::Range;
         let position = input.position();
@@ -1865,6 +1922,7 @@ impl<I, E> Parser for Range<I>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn range<I, E>(i: I::Range) -> Range<I>
     where I: RangeStream<Item = E>,
           I::Range: Positioner<Position = E::Position> + PartialEq + ::primitives::Range,
@@ -1882,6 +1940,7 @@ impl<I, E> Parser for Take<I>
     type Input = I;
     type Output = I::Range;
 
+    #[inline]
     fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let position = input.position();
         match input.uncons_range(self.0) {
@@ -1906,6 +1965,7 @@ impl<I, E> Parser for Take<I>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn take<I>(n: usize) -> Take<I>
     where I: RangeStream,
           I::Range: ::primitives::Range
@@ -1923,6 +1983,7 @@ impl<I, E, F> Parser for TakeWhile<I, F>
     type Input = I;
     type Output = I::Range;
 
+    #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         ::primitives::uncons_while(input, &mut self.0)
     }
@@ -1940,6 +2001,7 @@ impl<I, E, F> Parser for TakeWhile<I, F>
 /// assert_eq!(result, Ok(("", "abc")));
 /// # }
 /// ```
+#[inline(always)]
 pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
     where I: RangeStream,
           F: FnMut(I::Item) -> bool
@@ -1956,6 +2018,7 @@ impl<I, F> Parser for TakeWhile1<I, F>
     type Input = I;
     type Output = I::Range;
 
+    #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         match ::primitives::uncons_while(input, &mut self.0) {
             ConsumedOk((v, input)) => ConsumedOk((v, input)),
@@ -1982,6 +2045,7 @@ impl<I, F> Parser for TakeWhile1<I, F>
 /// assert!(result.is_err());
 /// # }
 /// ```
+#[inline(always)]
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
     where I: RangeStream,
           I::Range: ::primitives::Range,

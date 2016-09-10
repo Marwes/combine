@@ -11,6 +11,7 @@ macro_rules! impl_char_parser {
         where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
+        #[inline]
         fn parse_lazy(&mut self,
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
@@ -35,6 +36,7 @@ macro_rules! impl_char_parser {
 /// assert_eq!(result, Ok('!'));
 /// # }
 /// ```
+#[inline(always)]
 pub fn char<I>(c: char) -> Token<I>
     where I: Stream<Item = char>
 {
@@ -43,6 +45,7 @@ pub fn char<I>(c: char) -> Token<I>
 
 impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a digit from a stream containing characters
+#[inline(always)]
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item = char>
 {
@@ -52,6 +55,7 @@ pub fn digit<I>() -> Digit<I>
 
 impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses whitespace
+#[inline(always)]
 pub fn space<I>() -> Space<I>
     where I: Stream<Item = char>
 {
@@ -60,6 +64,7 @@ pub fn space<I>() -> Space<I>
 }
 impl_char_parser! { Spaces(), Expected<SkipMany<Space<I>>> }
 /// Skips over zero or more spaces
+#[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item = char>
 {
@@ -68,6 +73,7 @@ pub fn spaces<I>() -> Spaces<I>
 
 impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a newline character
+#[inline(always)]
 pub fn newline<I>() -> NewLine<I>
     where I: Stream<Item = char>
 {
@@ -77,6 +83,7 @@ pub fn newline<I>() -> NewLine<I>
 
 impl_char_parser! { CrLf(), Expected<With<Satisfy<I, fn (char) -> bool>, NewLine<I>>> }
 /// Parses carriage return and newline, returning the newline character.
+#[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
     where I: Stream<Item = char>
 {
@@ -88,6 +95,7 @@ pub fn crlf<I>() -> CrLf<I>
 
 impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a tab character
+#[inline(always)]
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item = char>
 {
@@ -97,6 +105,7 @@ pub fn tab<I>() -> Tab<I>
 
 impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an uppercase letter
+#[inline(always)]
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item = char>
 {
@@ -106,6 +115,7 @@ pub fn upper<I>() -> Upper<I>
 
 impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an lowercase letter
+#[inline(always)]
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item = char>
 {
@@ -116,6 +126,7 @@ pub fn lower<I>() -> Lower<I>
 
 impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses either an alphabet letter or digit
+#[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item = char>
 {
@@ -126,6 +137,7 @@ pub fn alpha_num<I>() -> AlphaNum<I>
 
 impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an alphabet letter
+#[inline(always)]
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item = char>
 {
@@ -135,6 +147,7 @@ pub fn letter<I>() -> Letter<I>
 
 impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an octal digit
+#[inline(always)]
 pub fn oct_digit<I>() -> OctDigit<I>
     where I: Stream<Item = char>
 {
@@ -144,6 +157,7 @@ pub fn oct_digit<I>() -> OctDigit<I>
 
 impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a hexdecimal digit with uppercase and lowercase
+#[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item = char>
 {
@@ -160,6 +174,7 @@ impl<I> Parser for String<I>
 {
     type Input = I;
     type Output = &'static str;
+    #[inline]
     fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<&'static str, I> {
         let start = input.position();
         let mut consumed = false;
@@ -168,13 +183,14 @@ impl<I> Parser for String<I>
                 Ok((other, rest)) => {
                     if c != other {
                         return Err(if consumed {
-                            let errors = vec![Error::Unexpected(other.into()),
-                                              Error::Expected(self.0.into())];
-                            let error = ParseError::from_errors(start, errors);
-                            Consumed::Consumed(error)
-                        } else {
-                            Consumed::Empty(ParseError::empty(start))
-                        }).into();
+                                let errors = vec![Error::Unexpected(other.into()),
+                                                  Error::Expected(self.0.into())];
+                                let error = ParseError::from_errors(start, errors);
+                                Consumed::Consumed(error)
+                            } else {
+                                Consumed::Empty(ParseError::empty(start))
+                            })
+                            .into();
                     }
                     consumed = true;
                     input = rest.into_inner();
@@ -183,20 +199,22 @@ impl<I> Parser for String<I>
                     return error.combine_fast(|mut error| {
                         error.position = start;
                         Err(if consumed {
-                            Consumed::Consumed(error)
-                        } else {
-                            Consumed::Empty(error)
-                        }).into()
+                                Consumed::Consumed(error)
+                            } else {
+                                Consumed::Empty(error)
+                            })
+                            .into()
                     })
                 }
             }
         }
         Ok((self.0,
             if consumed {
-            Consumed::Consumed(input)
-        } else {
-            Consumed::Empty(input)
-        })).into()
+                Consumed::Consumed(input)
+            } else {
+                Consumed::Empty(input)
+            }))
+            .into()
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         errors.add_error(Error::Expected(self.0.into()));
@@ -216,6 +234,7 @@ impl<I> Parser for String<I>
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
+#[inline(always)]
 pub fn string<I>(s: &'static str) -> String<I>
     where I: Stream<Item = char>
 {

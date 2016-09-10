@@ -498,6 +498,7 @@ impl<I> StreamOnce for State<I>
     type Range = I::Range;
     type Position = <I::Item as Positioner>::Position;
 
+    #[inline]
     fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
         match self.input.uncons() {
             Ok(c) => {
@@ -508,6 +509,7 @@ impl<I> StreamOnce for State<I>
         }
     }
 
+    #[inline(always)]
     fn position(&self) -> Self::Position {
         self.position.clone()
     }
@@ -518,6 +520,7 @@ impl<I, E> RangeStream for State<I>
           I::Range: Range + Positioner<Position = E::Position>,
           E: Positioner + Clone
 {
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
         let position = &mut self.position;
         self.input
@@ -528,6 +531,7 @@ impl<I, E> RangeStream for State<I>
             })
     }
 
+    #[inline]
     fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, Error<I::Item, I::Range>>
         where F: FnMut(I::Item) -> bool
     {
@@ -576,6 +580,7 @@ pub trait Stream: StreamOnce + Clone {}
 
 impl<I> Stream for I where I: StreamOnce + Clone {}
 
+#[inline]
 pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
     where I: Stream
 {
@@ -597,6 +602,7 @@ pub trait RangeStream: Stream {
 }
 
 /// Removes items from the input while `predicate` returns `true`.
+#[inline]
 pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ConsumedResult<I::Range, I>
     where F: FnMut(I::Item) -> bool,
           I: RangeStream,
@@ -622,6 +628,7 @@ pub trait Range {
 }
 
 impl<'a> RangeStream for &'a str {
+    #[inline]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, Error<char, &'a str>>
         where F: FnMut(Self::Item) -> bool
     {
@@ -631,7 +638,7 @@ impl<'a> RangeStream for &'a str {
                 let len = self.len() - chars.as_str().len() - c.len_utf8();
                 let (result, rest) = self.split_at(len);
                 *self = rest;
-                return Ok(result)
+                return Ok(result);
             }
         }
         let result = *self;
@@ -639,6 +646,7 @@ impl<'a> RangeStream for &'a str {
         Ok(result)
     }
 
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a str, Error<char, &'a str>> {
         fn is_char_boundary(s: &str, index: usize) -> bool {
             if index == s.len() {
@@ -664,12 +672,14 @@ impl<'a> RangeStream for &'a str {
 }
 
 impl<'a> Range for &'a str {
+    #[inline]
     fn len(&self) -> usize {
         str::len(self)
     }
 }
 
 impl<'a, T> Range for &'a [T] {
+    #[inline]
     fn len(&self) -> usize {
         <[T]>::len(self)
     }
@@ -678,6 +688,7 @@ impl<'a, T> Range for &'a [T] {
 impl<'a, T> RangeStream for &'a [T]
     where T: Copy + PartialEq
 {
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<T, &'a [T]>> {
         if size <= self.len() {
             let (result, remaining) = self.split_at(size);
@@ -687,6 +698,7 @@ impl<'a, T> RangeStream for &'a [T]
             Err(Error::end_of_input())
         }
     }
+    #[inline]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Error<T, &'a [T]>>
         where F: FnMut(Self::Item) -> bool
     {
@@ -704,6 +716,7 @@ impl<'a> StreamOnce for &'a str {
     type Range = &'a str;
     type Position = usize;
 
+    #[inline]
     fn uncons(&mut self) -> Result<char, Error<char, &'a str>> {
         let mut chars = self.chars();
         match chars.next() {
@@ -715,6 +728,7 @@ impl<'a> StreamOnce for &'a str {
         }
     }
 
+    #[inline(always)]
     fn position(&self) -> Self::Position {
         self.as_bytes().as_ptr() as usize
     }
@@ -727,6 +741,7 @@ impl<'a, T> StreamOnce for &'a [T]
     type Range = &'a [T];
     type Position = usize;
 
+    #[inline]
     fn uncons(&mut self) -> Result<T, Error<T, &'a [T]>> {
         match self.split_first() {
             Some((first, rest)) => {
@@ -737,6 +752,7 @@ impl<'a, T> StreamOnce for &'a [T]
         }
     }
 
+    #[inline(always)]
     fn position(&self) -> Self::Position {
         self.as_ptr() as usize
     }
@@ -759,6 +775,7 @@ impl<'a, T> StreamOnce for SliceStream<'a, T>
     type Range = &'a [T];
     type Position = usize;
 
+    #[inline]
     fn uncons(&mut self) -> Result<&'a T, Error<&'a T, &'a [T]>> {
         match self.0.split_first() {
             Some((first, rest)) => {
@@ -769,6 +786,7 @@ impl<'a, T> StreamOnce for SliceStream<'a, T>
         }
     }
 
+    #[inline(always)]
     fn position(&self) -> Self::Position {
         self.0.as_ptr() as usize
     }
@@ -777,6 +795,7 @@ impl<'a, T> StreamOnce for SliceStream<'a, T>
 impl<'a, T> RangeStream for SliceStream<'a, T>
     where T: Clone + PartialEq + 'a
 {
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<&'a T, &'a [T]>> {
         if size <= self.0.len() {
             let (range, rest) = self.0.split_at(size);
@@ -787,6 +806,7 @@ impl<'a, T> RangeStream for SliceStream<'a, T>
         }
     }
 
+    #[inline]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Error<&'a T, &'a [T]>>
         where F: FnMut(Self::Item) -> bool
     {
@@ -835,6 +855,7 @@ impl<I: Iterator> StreamOnce for IteratorStream<I>
     type Range = I::Item;
     type Position = usize;
 
+    #[inline]
     fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Item>> {
         match self.next() {
             Some(x) => Ok(x),
@@ -842,6 +863,7 @@ impl<I: Iterator> StreamOnce for IteratorStream<I>
         }
     }
 
+    #[inline(always)]
     fn position(&self) -> Self::Position {
         self.1
     }
@@ -947,8 +969,7 @@ pub enum FastResult<T, E> {
 }
 
 impl<T, E> FastResult<T, E> {
-    pub fn as_ref(&self) -> FastResult<&T, &E>
-    {
+    pub fn as_ref(&self) -> FastResult<&T, &E> {
         match *self {
             ConsumedOk(ref t) => ConsumedOk(t),
             EmptyOk(ref t) => EmptyOk(t),
@@ -956,7 +977,7 @@ impl<T, E> FastResult<T, E> {
             EmptyErr(ref e) => EmptyErr(e),
         }
     }
-    
+
     pub fn and_then<F, T2>(self, f: F) -> F::Output
         where F: FnOnce(T) -> FastResult<T2, E>
     {
@@ -1056,10 +1077,12 @@ pub trait Parser {
 
     /// Parses using the state `input` by calling Stream::uncons one or more times
     /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
+    #[inline(always)]
     fn parse_state(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.parse_state_fast(input).into()
     }
 
+    #[inline]
     fn parse_state_fast(&mut self,
                         mut input: Self::Input)
                         -> ConsumedResult<Self::Output, Self::Input> {
@@ -1076,6 +1099,7 @@ pub trait Parser {
     /// Specialized version of parse_state where the parser does not need to add an error to the
     /// `ParseError` when it does not consume any input before encountering the error.
     /// Instead the error can be added later through the `add_error` method
+    #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.parse_state(input).into()
     }
@@ -1089,12 +1113,23 @@ impl<'a, I, O, P: ?Sized> Parser for &'a mut P
 {
     type Input = I;
     type Output = O;
+
+    #[inline(always)]
     fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
         (**self).parse_state(input)
     }
+
+    #[inline(always)]
+    fn parse_state_fast(&mut self, input: I) -> ConsumedResult<O, I> {
+        (**self).parse_state_fast(input)
+    }
+
+    #[inline(always)]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         (**self).parse_lazy(input)
     }
+
+    #[inline(always)]
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
         (**self).add_error(error)
     }
@@ -1105,12 +1140,23 @@ impl<I, O, P: ?Sized> Parser for Box<P>
 {
     type Input = I;
     type Output = O;
+
+    #[inline(always)]
     fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
         (**self).parse_state(input)
     }
+
+    #[inline(always)]
+    fn parse_state_fast(&mut self, input: I) -> ConsumedResult<O, I> {
+        (**self).parse_state_fast(input)
+    }
+
+    #[inline(always)]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         (**self).parse_lazy(input)
     }
+
+    #[inline(always)]
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
         (**self).add_error(error)
     }
@@ -1170,6 +1216,7 @@ impl<I> BufferedStreamInner<I>
           I::Position: Clone,
           I::Item: Clone
 {
+    #[inline]
     fn uncons(&mut self, offset: usize) -> Result<I::Item, Error<I::Item, I::Range>> {
         if offset >= self.offset {
             let position = self.iter.position();
@@ -1189,6 +1236,8 @@ impl<I> BufferedStreamInner<I>
             Ok(self.buffer[self.buffer.len() - (self.offset - offset)].0.clone())
         }
     }
+
+    #[inline]
     fn position(&self, offset: usize) -> I::Position {
         if offset >= self.offset {
             self.iter.position()
@@ -1211,9 +1260,11 @@ impl<I> SharedBufferedStream<I>
             buffer: self,
         }
     }
+    #[inline]
     fn uncons(&self, offset: usize) -> Result<I::Item, Error<I::Item, I::Range>> {
         unsafe { (*self.buffer.get()).uncons(offset) }
     }
+    #[inline(always)]
     fn position(&self, offset: usize) -> I::Position {
         unsafe { (*self.buffer.get()).position(offset) }
     }
@@ -1247,12 +1298,14 @@ impl<'a, I> StreamOnce for BufferedStream<'a, I>
     type Range = I::Range;
     type Position = I::Position;
 
+    #[inline]
     fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
         let value = try!(self.buffer.uncons(self.offset));
         self.offset += 1;
         Ok(value)
     }
 
+    #[inline(always)]
     fn position(&self) -> Self::Position {
         self.buffer.position(self.offset)
     }
@@ -1262,6 +1315,7 @@ impl<'a, I> StreamOnce for BufferedStream<'a, I>
 mod tests {
     use super::*;
     #[test]
+    #[inline]
     fn uncons_range_at_end() {
         assert_eq!("".uncons_range(0), Ok(""));
         assert_eq!("123".uncons_range(3), Ok("123"));
