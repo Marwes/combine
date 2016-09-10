@@ -150,15 +150,40 @@ macro_rules! static_fn {
     } }
 }
 
+macro_rules! impl_token_parser {
+    ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
+    #[derive(Clone)]
+    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
+        where I: Stream<Item=$ty> $(, $ty_var : Parser<Input=I>)*;
+    impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
+        where I: Stream<Item=$ty> $(, $ty_var : Parser<Input=I>)* {
+        type Input = I;
+        type Output = <$inner_type as Parser>::Output;
+        #[inline]
+        fn parse_lazy(&mut self,
+                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_lazy(input)
+        }
+        fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+            self.0.add_error(errors)
+        }
+    }
+}
+}
+
 /// Module containing the primitive types which is used to create and compose more advanced parsers
 #[macro_use]
 pub mod primitives;
 /// Module containing all specific parsers
 pub mod combinator;
-/// Module containing parsers specialized on character streams
-pub mod char;
 /// Module containing zero-copy parsers
 pub mod range;
+/// Module containing parsers specialized on byte streams
+pub mod byte;
+/// Module containing parsers specialized on character streams
+pub mod char;
+
+
 
 #[cfg(test)]
 mod tests {

@@ -2,27 +2,6 @@ use primitives::{Consumed, Parser, ParseError, ConsumedResult, Error, Stream};
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, ParserExt, With};
 use std::marker::PhantomData;
 
-macro_rules! impl_char_parser {
-    ($name: ident ($($ty_var: ident),*), $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
-        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)*;
-    impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
-        where I: Stream<Item=char> $(, $ty_var : Parser<Input=I>)* {
-        type Input = I;
-        type Output = <$inner_type as Parser>::Output;
-        #[inline]
-        fn parse_lazy(&mut self,
-                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_lazy(input)
-        }
-        fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-            self.0.add_error(errors)
-        }
-    }
-}
-}
-
 /// Parses a character and succeeds if the character is equal to `c`
 ///
 /// ```
@@ -43,7 +22,7 @@ pub fn char<I>(c: char) -> Token<I>
     token(c)
 }
 
-impl_char_parser! { Digit(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Digit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a digit from a stream containing characters
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
@@ -53,7 +32,7 @@ pub fn digit<I>() -> Digit<I>
           PhantomData)
 }
 
-impl_char_parser! { Space(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Space(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses whitespace
 #[inline(always)]
 pub fn space<I>() -> Space<I>
@@ -62,7 +41,7 @@ pub fn space<I>() -> Space<I>
     let f: fn(char) -> bool = char::is_whitespace;
     Space(satisfy(f).expected("whitespace"), PhantomData)
 }
-impl_char_parser! { Spaces(), Expected<SkipMany<Space<I>>> }
+impl_token_parser! { Spaces(), char, Expected<SkipMany<Space<I>>> }
 /// Skips over zero or more spaces
 #[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
@@ -71,17 +50,17 @@ pub fn spaces<I>() -> Spaces<I>
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
 
-impl_char_parser! { NewLine(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Newline(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a newline character
 #[inline(always)]
-pub fn newline<I>() -> NewLine<I>
+pub fn newline<I>() -> Newline<I>
     where I: Stream<Item = char>
 {
-    NewLine(satisfy(static_fn!((ch, char) -> bool { ch == '\n' })).expected("lf newline"),
+    Newline(satisfy(static_fn!((ch, char) -> bool { ch == '\n' })).expected("lf newline"),
             PhantomData)
 }
 
-impl_char_parser! { CrLf(), Expected<With<Satisfy<I, fn (char) -> bool>, NewLine<I>>> }
+impl_token_parser! { CrLf(), char, Expected<With<Satisfy<I, fn (char) -> bool>, Newline<I>>> }
 /// Parses carriage return and newline, returning the newline character.
 #[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
@@ -93,7 +72,7 @@ pub fn crlf<I>() -> CrLf<I>
          PhantomData)
 }
 
-impl_char_parser! { Tab(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Tab(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a tab character
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
@@ -103,7 +82,7 @@ pub fn tab<I>() -> Tab<I>
         PhantomData)
 }
 
-impl_char_parser! { Upper(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Upper(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an uppercase letter
 #[inline(always)]
 pub fn upper<I>() -> Upper<I>
@@ -113,7 +92,7 @@ pub fn upper<I>() -> Upper<I>
           PhantomData)
 }
 
-impl_char_parser! { Lower(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Lower(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an lowercase letter
 #[inline(always)]
 pub fn lower<I>() -> Lower<I>
@@ -124,7 +103,7 @@ pub fn lower<I>() -> Lower<I>
           PhantomData)
 }
 
-impl_char_parser! { AlphaNum(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { AlphaNum(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses either an alphabet letter or digit
 #[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
@@ -135,7 +114,7 @@ pub fn alpha_num<I>() -> AlphaNum<I>
              PhantomData)
 }
 
-impl_char_parser! { Letter(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { Letter(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an alphabet letter
 #[inline(always)]
 pub fn letter<I>() -> Letter<I>
@@ -145,7 +124,7 @@ pub fn letter<I>() -> Letter<I>
            PhantomData)
 }
 
-impl_char_parser! { OctDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { OctDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an octal digit
 #[inline(always)]
 pub fn oct_digit<I>() -> OctDigit<I>
@@ -155,7 +134,7 @@ pub fn oct_digit<I>() -> OctDigit<I>
              PhantomData)
 }
 
-impl_char_parser! { HexDigit(), Expected<Satisfy<I, fn (char) -> bool>> }
+impl_token_parser! { HexDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses a hexdecimal digit with uppercase and lowercase
 #[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>

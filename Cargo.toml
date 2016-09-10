@@ -20,6 +20,9 @@ license = "MIT"
 name = "combine"
 path = "src/lib.rs"
 
+[dependencies]
+ascii = "0.7.0"
+
 [dev-dependencies]
 byteorder = "0.5.3"
 
