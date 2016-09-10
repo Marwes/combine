@@ -4,7 +4,7 @@ extern crate combine;
 
 use combine::*;
 use combine::primitives::Error;
-use combine::combinator::{take_while1, range};
+use combine::range::{take_while1, range};
 
 #[derive(Debug)]
 struct Request<'a> {

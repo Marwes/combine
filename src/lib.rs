@@ -155,8 +155,10 @@ macro_rules! static_fn {
 pub mod primitives;
 /// Module containing all specific parsers
 pub mod combinator;
-/// Module containg parsers specialized on character streams
+/// Module containing parsers specialized on character streams
 pub mod char;
+/// Module containing zero-copy parsers
+pub mod range;
 
 #[cfg(test)]
 mod tests {
