@@ -536,10 +536,10 @@ impl<F, P> Parser for Many<F, P>
 {
     type Input = P::Input;
     type Output = F;
-    fn parse_state(&mut self, input: P::Input) -> ParseResult<F, P::Input> {
+    fn parse_state_fast(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let mut iter = (&mut self.0).iter(input);
         let result = iter.by_ref().collect();
-        iter.into_result(result)
+        iter.into_result_fast(result)
     }
 }
 
@@ -1404,10 +1404,21 @@ impl<I, A, B, P, F> Parser for FlatMap<P, F>
     type Output = B;
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
-        let (o, input) = ctry!(self.0.parse_lazy(input));
-        match (self.1)(o) {
-            Ok((x, _)) => Ok((x, input)).into(),
-            Err(err) => Err(input.map(move |_| err)).into(),
+        match self.0.parse_lazy(input) {
+            EmptyOk((o, input)) => {
+                match (self.1)(o) {
+                    Ok((x, _)) => EmptyOk((x, input)),
+                    Err(err) => EmptyErr(err),
+                }
+            }
+            ConsumedOk((o, input)) => {
+                match (self.1)(o) {
+                    Ok((x, _)) => ConsumedOk((x, input)),
+                    Err(err) => ConsumedErr(err),
+                }
+            }
+            EmptyErr(err) => EmptyErr(err),
+            ConsumedErr(err) => ConsumedErr(err),
         }
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1426,11 +1437,21 @@ impl<P, N, F> Parser for Then<P, F>
     type Output = N::Output;
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let (value, input) = ctry!(self.0.parse_lazy(input));
-        input.combine_fast(move |input| {
-            let mut next = (self.1)(value);
-            next.parse_state_fast(input)
-        })
+        match self.0.parse_lazy(input) {
+            EmptyOk((value, input)) => {
+                let mut next = (self.1)(value);
+                next.parse_state_fast(input)
+            }
+            ConsumedOk((value, input)) => {
+                let mut next = (self.1)(value);
+                match next.parse_state_fast(input) {
+                    EmptyOk(x) | ConsumedOk(x) => ConsumedOk(x),
+                    EmptyErr(x) | ConsumedErr(x) => ConsumedErr(x),
+                }
+            }
+            EmptyErr(err) => EmptyErr(err),
+            ConsumedErr(err) => ConsumedErr(err),
+        }
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
@@ -1496,14 +1517,22 @@ impl<P, F, O, E> Parser for AndThen<P, F>
     type Output = O;
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<O, Self::Input> {
-        let (o, input) = ctry!(self.0.parse_lazy(input));
-        (match (self.1)(o) {
-                Ok(o) => Ok((o, input)),
-                Err(err) => {
-                    Err(input.map(move |input| ParseError::new(input.position(), err.into())))
+        match self.0.parse_lazy(input) {
+            EmptyOk((o, input)) => {
+                match (self.1)(o) {
+                    Ok(o) => EmptyOk((o, input)),
+                    Err(err) => EmptyErr(ParseError::new(input.position(), err.into())),
                 }
-            })
-            .into()
+            }
+            ConsumedOk((o, input)) => {
+                match (self.1)(o) {
+                    Ok(o) => ConsumedOk((o, input)),
+                    Err(err) => ConsumedErr(ParseError::new(input.position(), err.into())),
+                }
+            }
+            EmptyErr(err) => EmptyErr(err),
+            ConsumedErr(err) => ConsumedErr(err),
+        }
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
