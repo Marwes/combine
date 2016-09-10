@@ -147,8 +147,8 @@ pub fn hex_digit<I>() -> HexDigit<I>
 
 
 #[derive(Clone)]
-pub struct String<I>(&'static str, PhantomData<I>);
-impl<I> Parser for String<I>
+pub struct Str<I>(&'static str, PhantomData<I>);
+impl<I> Parser for Str<I>
     where I: Stream<Item = char>
 {
     type Input = I;
@@ -214,10 +214,10 @@ impl<I> Parser for String<I>
 /// # }
 /// ```
 #[inline(always)]
-pub fn string<I>(s: &'static str) -> String<I>
+pub fn string<I>(s: &'static str) -> Str<I>
     where I: Stream<Item = char>
 {
-    String(s, PhantomData)
+    Str(s, PhantomData)
 }
 
 
