@@ -108,8 +108,8 @@ fn http_requests_small(b: &mut ::test::Bencher) {
 fn http_requests_large(b: &mut ::test::Bencher) {
     use std::iter;
 
-    let mut buffer = Vec::with_capacity(REQUESTS.len() * 4);
-    for buf in iter::repeat(REQUESTS).take(4) {
+    let mut buffer = Vec::with_capacity(REQUESTS.len() * 5);
+    for buf in iter::repeat(REQUESTS).take(5) {
         buffer.extend_from_slice(buf);
     }
     http_requests_bench(b, &buffer)
