@@ -608,9 +608,8 @@ pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ConsumedResult<I::Range
           I: RangeStream,
           I::Range: Range
 {
-    let position = input.position();
     match input.uncons_while(predicate) {
-        Err(err) => EmptyErr(ParseError::new(position, err)),
+        Err(err) => EmptyErr(ParseError::new(input.position(), err)),
         Ok(x) => {
             if x.len() == 0 {
                 EmptyOk((x, input))
