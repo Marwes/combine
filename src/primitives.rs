@@ -10,10 +10,10 @@ use self::FastResult::*;
 macro_rules! ctry {
     ($result: expr) => {
         match $result {
-            ConsumedOk((x, i)) => (x, Consumed::Consumed(i)),
-            EmptyOk((x, i)) => (x, Consumed::Empty(i)),
-            ConsumedErr(err) => return ConsumedErr(err.into()),
-            EmptyErr(err) => return EmptyErr(err.into()),
+            $crate::primitives::FastResult::ConsumedOk((x, i)) => (x, $crate::primitives::Consumed::Consumed(i)),
+            $crate::primitives::FastResult::EmptyOk((x, i)) => (x, $crate::primitives::Consumed::Empty(i)),
+            $crate::primitives::FastResult::ConsumedErr(err) => return $crate::primitives::FastResult::ConsumedErr(err.into()),
+            $crate::primitives::FastResult::EmptyErr(err) => return $crate::primitives::FastResult::EmptyErr(err.into()),
         }
     }
 }
