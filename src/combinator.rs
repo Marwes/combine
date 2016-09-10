@@ -1394,6 +1394,28 @@ impl<I, A, B, P, F> Parser for Map<P, F>
 }
 
 #[derive(Clone)]
+pub struct FlatMap<P, F>(P, F);
+impl<I, A, B, P, F> Parser for FlatMap<P, F>
+    where I: Stream,
+          P: Parser<Input = I, Output = A>,
+          F: FnMut(A) -> Result<(B, I), ParseError<I>>
+{
+    type Input = I;
+    type Output = B;
+    #[inline]
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
+        let (o, input) = ctry!(self.0.parse_lazy(input));
+        match (self.1)(o) {
+            Ok((x, _)) => Ok((x, input)).into(),
+            Err(err) => Err(input.map(move |_| err)).into(),
+        }
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        self.0.add_error(errors);
+    }
+}
+
+#[derive(Clone)]
 pub struct Then<P, F>(P, F);
 impl<P, N, F> Parser for Then<P, F>
     where F: FnMut(P::Output) -> N,
@@ -1635,6 +1657,12 @@ pub trait ParserExt: Parser + Sized {
         where F: FnMut(Self::Output) -> B
     {
         Map(self, f)
+    }
+
+    fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
+        where F: FnMut(Self::Output) -> Result<(B, Self::Input), ParseError<Self::Input>>
+    {
+        FlatMap(self, f)
     }
 
     /// Parses with `self` and if it fails, adds the message `msg` to the error

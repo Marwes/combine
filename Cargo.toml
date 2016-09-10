@@ -19,3 +19,11 @@ license = "MIT"
 
 name = "combine"
 path = "src/lib.rs"
+
+[dev-dependencies]
+byteorder = "0.5.3"
+
+
+[features]
+# Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
+mp4 = []
