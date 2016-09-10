@@ -1767,13 +1767,17 @@ macro_rules! tuple_parser {
                     }
                 };
                 $(
-                    let $id = match $id.parse_state_fast(input) {
+                    let $id = match $id.parse_lazy(input.clone()) {
                         ConsumedOk((x, new_input)) => {
                             consumed = true;
                             input = new_input;
                             x
                         }
-                        EmptyErr(err) => {
+                        EmptyErr(mut err) => {
+                            if let Ok(t) = input.uncons() {
+                                err.add_error(Error::Unexpected(Info::Token(t)));
+                            }
+                            $id.add_error(&mut err);
                             if consumed {
                                 return ConsumedErr(err)
                             } else {
