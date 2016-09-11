@@ -9,7 +9,7 @@ use std::path::Path;
 
 use pc::primitives::{Consumed, Parser, ParseError, ParseResult, State, Stream, BufferedStream};
 use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by,
-                     Expected, FnParser, Skip, ParserExt};
+                     Expected, FnParser, Skip};
 use pc::char::{char, digit, spaces, Spaces, string};
 use pc::from_iter;
 
@@ -76,36 +76,21 @@ impl<I> Json<I>
             .with(optional(char('-')).and(Json::<I>::integer()));
         lex(optional(char('-'))
                 .and(i)
-                .map(|(sign, n)| {
-                    if sign.is_some() {
-                        -n
-                    } else {
-                        n
-                    }
-                })
+                .map(|(sign, n)| { if sign.is_some() { -n } else { n } })
                 .and(optional(char('.')).with(fractional))
-                .map(|(x, y)| {
-                    if x > 0.0 {
-                        x + y
-                    } else {
-                        x - y
-                    }
-                })
+                .map(|(x, y)| { if x > 0.0 { x + y } else { x - y } })
                 .and(optional(exp))
                 .map(|(n, exp_option)| {
                     match exp_option {
                         Some((sign, e)) => {
-                            let e = if sign.is_some() {
-                                -e
-                            } else {
-                                e
-                            };
+                            let e = if sign.is_some() { -e } else { e };
                             n * 10.0f64.powi(e as i32)
                         }
                         None => n,
                     }
                 }))
-            .parse_lazy(input).into()
+            .parse_lazy(input)
+            .into()
     }
 
     fn char() -> JsonParser<char, I> {
@@ -151,7 +136,8 @@ impl<I> Json<I>
         let fields = sep_by(field, lex(char(',')));
         between(lex(char('{')), lex(char('}')), fields)
             .map(Value::Object)
-            .parse_lazy(input).into()
+            .parse_lazy(input)
+            .into()
     }
 
     fn value() -> FnParser<I, fn(I) -> ParseResult<Value, I>> {
@@ -181,7 +167,8 @@ impl<I> Json<I>
                                                                       .map(|_| Value::Bool(true))),
                                                                   &mut lex(string("null")
                                                                       .map(|_| Value::Null))])
-            .parse_lazy(input).into()
+            .parse_lazy(input)
+            .into()
     }
 }
 

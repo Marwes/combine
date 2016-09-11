@@ -6,6 +6,9 @@ use std::collections::VecDeque;
 
 use self::FastResult::*;
 
+use combinator::{AndThen, and_then, Expected, expected, FlatMap, flat_map, Iter, Map, map,
+                 Message, message, Or, or, Skip, skip, Then, then, With, with};
+
 #[macro_export]
 macro_rules! ctry {
     ($result: expr) => {
@@ -1105,6 +1108,268 @@ pub trait Parser {
 
     /// Adds the first error that would normally be returned by this parser if it failed
     fn add_error(&mut self, _error: &mut ParseError<Self::Input>) {}
+
+    /// Discards the value of the `self` parser and returns the value of `p`
+    /// Fails if any of the parsers fails
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .with(token('i'))
+    ///     .parse("9i")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok('i'));
+    /// # }
+    /// ```
+    fn with<P2>(self, p: P2) -> With<Self, P2>
+        where Self: Sized,
+              P2: Parser<Input = Self::Input>
+    {
+        with(self, p)
+    }
+
+    /// Discards the value of the `p` parser and returns the value of `self`
+    /// Fails if any of the parsers fails
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .skip(token('i'))
+    ///     .parse("9i")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok('9'));
+    /// # }
+    /// ```
+    fn skip<P2>(self, p: P2) -> Skip<Self, P2>
+        where Self: Sized,
+              P2: Parser<Input = Self::Input>
+    {
+        skip(self, p)
+    }
+
+    /// Parses with `self` followed by `p`
+    /// Succeeds if both parsers succeed, otherwise fails
+    /// Returns a tuple with both values on success
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .and(token('i'))
+    ///     .parse("9i")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok(('9', 'i')));
+    /// # }
+    /// ```
+    fn and<P2>(self, p: P2) -> (Self, P2)
+        where Self: Sized,
+              P2: Parser<Input = Self::Input>
+    {
+        (self, p)
+    }
+
+    /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming any
+    /// input it tries to consume the same input using `p`.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::{digit, string};
+    /// # fn main() {
+    /// let mut parser = string("let")
+    ///     .or(digit().map(|_| "digit"))
+    ///     .or(string("led"));
+    /// assert_eq!(parser.parse("let"), Ok(("let", "")));
+    /// assert_eq!(parser.parse("1"), Ok(("digit", "")));
+    /// assert!(parser.parse("led").is_err());
+    ///
+    /// let mut parser2 = string("two").or(string("three"));
+    /// // Fails as the parser for "two" consumes the first 't' before failing
+    /// assert!(parser2.parse("three").is_err());
+    ///
+    /// // Use 'try' to make failing parsers always act as if they have not consumed any input
+    /// let mut parser3 = try(string("two")).or(try(string("three")));
+    /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
+    /// # }
+    /// ```
+    fn or<P2>(self, p: P2) -> Or<Self, P2>
+        where Self: Sized,
+              P2: Parser<Input = Self::Input, Output = Self::Output>
+    {
+        or(self, p)
+    }
+
+    /// Parses using `self` and then passes the value to `f` which returns a parser used to parse
+    /// the rest of the input
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # use combine::primitives::{Consumed, Error};
+    /// # fn main() {
+    /// let result = digit()
+    ///     .then(|d| parser(move |input| {
+    ///             // Force input to be a &str
+    ///             let _: &str = input;
+    ///         if d == '9' {
+    ///             Ok((9, Consumed::Empty(input)))
+    ///         }
+    ///         else {
+    ///             let position = input.position();
+    ///             let err = ParseError::new(position, Error::Message("Not a nine".into()));
+    ///             Err((Consumed::Empty(err)))
+    ///         }
+    ///     }))
+    ///     .parse("9");
+    /// assert_eq!(result, Ok((9, "")));
+    /// # }
+    /// ```
+    fn then<N, F>(self, f: F) -> Then<Self, F>
+        where Self: Sized,
+              F: FnMut(Self::Output) -> N,
+              N: Parser<Input = Self::Input>
+    {
+        then(self, f)
+    }
+
+    /// Uses `f` to map over the parsed value
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .map(|c| c == '9')
+    ///     .parse("9")
+    ///     .map(|x| x.0);
+    /// assert_eq!(result, Ok(true));
+    /// # }
+    /// ```
+    fn map<F, B>(self, f: F) -> Map<Self, F>
+        where Self: Sized,
+              F: FnMut(Self::Output) -> B
+    {
+        map(self, f)
+    }
+
+    fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
+        where Self: Sized,
+              F: FnMut(Self::Output) -> Result<(B, Self::Input), ParseError<Self::Input>>
+    {
+        flat_map(self, f)
+    }
+
+    /// Parses with `self` and if it fails, adds the message `msg` to the error
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::primitives::{Error, Positioner};
+    /// # fn main() {
+    /// let result = token('9')
+    ///     .message("Not a nine")
+    ///     .parse(State::new("8"));
+    /// assert_eq!(result, Err(ParseError {
+    ///     position: <char as Positioner>::start(),
+    ///     errors: vec![
+    ///         Error::Unexpected('8'.into()),
+    ///         Error::Expected('9'.into()),
+    ///         Error::Message("Not a nine".into())
+    ///     ]
+    /// }));
+    /// # }
+    /// ```
+    fn message<S>(self, msg: S) -> Message<Self>
+        where Self: Sized,
+              S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
+    {
+        message(self, msg.into())
+    }
+
+    /// Parses with `self` and if it fails without consuming any input any expected errors are
+    /// replaced by `msg`. `msg` is then used in error messages as "Expected `msg`".
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::primitives::{Error, Positioner};
+    /// # fn main() {
+    /// let result = token('9')
+    ///     .expected("nine")
+    ///     .parse(State::new("8"));
+    /// assert_eq!(result, Err(ParseError {
+    ///     position: <char as Positioner>::start(),
+    ///     errors: vec![Error::Unexpected('8'.into()), Error::Expected("nine".into())]
+    /// }));
+    /// # }
+    /// ```
+    fn expected<S>(self, msg: S) -> Expected<Self>
+        where Self: Sized,
+              S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
+    {
+        expected(self, msg.into())
+    }
+
+    /// Parses with `self` and applies `f` on the result if `self` parses successfully
+    /// `f` may optionally fail with an error which is automatically converted to a `ParseError`
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # fn main() {
+    /// let mut parser = many1(digit())
+    ///     .and_then(|s: String| s.parse::<i32>());
+    /// let result = parser.parse("1234");
+    /// assert_eq!(result, Ok((1234, "")));
+    /// let err = parser.parse("abc");
+    /// assert!(err.is_err());
+    /// # }
+    /// ```
+    fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
+        where Self: Sized,
+              F: FnMut(Self::Output) -> Result<O, E>,
+              E: Into<Error<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
+    {
+        and_then(self, f)
+    }
+
+    /// Creates an iterator from a parser and a state. Can be used as an alternative to `many` when
+    /// collecting directly into a `FromIterator` type is not desirable
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::{char, digit};
+    /// # fn main() {
+    /// let mut buffer = String::new();
+    /// let number = parser(|input| {
+    ///     buffer.clear();
+    ///     let mut iter = digit().iter(input);
+    ///     buffer.extend(&mut iter);
+    ///     let i = buffer.parse::<i32>().unwrap();
+    ///     iter.into_result(i)
+    /// });
+    /// let result = sep_by(number, char(','))
+    ///     .parse("123,45,6");
+    /// assert_eq!(result, Ok((vec![123, 45, 6], "")));
+    /// # }
+    /// ```
+    fn iter(self, input: Self::Input) -> Iter<Self>
+        where Self: Sized
+    {
+        Iter::new(self, input)
+    }
 }
 impl<'a, I, O, P: ?Sized> Parser for &'a mut P
     where I: Stream,

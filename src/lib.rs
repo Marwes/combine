@@ -19,7 +19,7 @@
 //!
 //! ```rust
 //! extern crate combine;
-//! use combine::{Parser, ParserExt};
+//! use combine::Parser;
 //! use combine::char::{digit, letter};
 //!
 //! fn main() {
@@ -38,8 +38,8 @@
 //!
 //! * `combinator` contains the before mentioned parser combinators and thus contains the main
 //! building blocks for creating any sort of complex parsers. It consists of free functions `such`
-//! as `many` and `satisfy` as well as a the `ParserExt` trait which provides a few functions such
-//! as `or` which are more natural to use method calls.
+//! as `many` and `satisfy` as well as a few methods on the `Parser` trait which provides a few
+//! functions such as `or` which are more natural to use method calls.
 //!
 //! * `char` provides parsers specifically working with streams of characters.
 //! As a few examples it has parsers for accepting digits, letters or whitespace.
@@ -53,7 +53,7 @@
 //! ```
 //! extern crate combine;
 //! use combine::char::{spaces, digit, char};
-//! use combine::{many1, sep_by, Parser, ParserExt, ParseError};
+//! use combine::{many1, sep_by, Parser, ParseError};
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -84,7 +84,7 @@
 //! ```
 //! extern crate combine;
 //! use combine::char::{char, letter, spaces};
-//! use combine::{between, many1, parser, sep_by, Parser, ParserExt};
+//! use combine::{between, many1, parser, sep_by, Parser};
 //! use combine::primitives::{State, Stream, ParseResult};
 //!
 //! #[derive(Debug, PartialEq)]
@@ -140,7 +140,7 @@ pub use primitives::{Parser, ParseError, ParseResult, State, from_iter, Stream, 
 pub use combinator::{any, between, chainl1, chainr1, choice, eof, env_parser, many, many1,
                      optional, parser, satisfy, satisfy_map, sep_by, sep_by1, sep_end_by,
                      sep_end_by1, skip_many, skip_many1, token, try, look_ahead, value,
-                     unexpected, not_followed_by, ParserExt};
+                     unexpected, not_followed_by};
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {

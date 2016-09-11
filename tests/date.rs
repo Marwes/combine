@@ -5,7 +5,7 @@ extern crate combine;
 
 use combine::combinator::FnParser;
 use combine::char::{char, digit};
-use combine::{Stream, Parser, ParserExt, ParseResult, choice, many, optional, parser};
+use combine::{Stream, Parser, ParseResult, choice, many, optional, parser};
 
 
 #[derive(PartialEq, Debug)]
@@ -63,17 +63,13 @@ fn time_zone<I>(input: I) -> ParseResult<i32, I>
     let offset = (choice([char('-'), char('+')]),
                   two_digits(),
                   optional(optional(char(':')).with(two_digits())))
-                     .map(|(sign, hour, minute)| {
-                         let offset = hour * 60 + minute.unwrap_or(0);
-                         if sign == '-' {
-                             -offset
-                         } else {
-                             offset
-                         }
-                     });
+        .map(|(sign, hour, minute)| {
+            let offset = hour * 60 + minute.unwrap_or(0);
+            if sign == '-' { -offset } else { offset }
+        });
 
     utc.or(offset)
-       .parse_state(input)
+        .parse_state(input)
 }
 
 /// Parses a date
@@ -81,11 +77,7 @@ fn time_zone<I>(input: I) -> ParseResult<i32, I>
 fn date<I>(input: I) -> ParseResult<Date, I>
     where I: Stream<Item = char>
 {
-    (many::<String, _>(digit()),
-     char('-'),
-     two_digits(),
-     char('-'),
-     two_digits())
+    (many::<String, _>(digit()), char('-'), two_digits(), char('-'), two_digits())
         .map(|(year, _, month, _, day)| {
             // Its ok to just unwrap since we only parsed digits
             Date {
@@ -102,12 +94,7 @@ fn date<I>(input: I) -> ParseResult<Date, I>
 fn time<I>(input: I) -> ParseResult<Time, I>
     where I: Stream<Item = char>
 {
-    (two_digits(),
-     char(':'),
-     two_digits(),
-     char(':'),
-     two_digits(),
-     parser(time_zone))
+    (two_digits(), char(':'), two_digits(), char(':'), two_digits(), parser(time_zone))
         .map(|(hour, _, minute, _, second, time_zone)| {
             // Its ok to just unwrap since we only parsed digits
             Time {

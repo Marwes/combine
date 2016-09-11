@@ -469,7 +469,7 @@ enum State<I: StreamOnce> {
 }
 
 impl<P: Parser> Iter<P> {
-    fn new(parser: P, input: P::Input) -> Iter<P> {
+    pub fn new(parser: P, input: P::Input) -> Iter<P> {
         Iter {
             parser: parser,
             input: input,
@@ -1284,6 +1284,14 @@ impl<I, P1, P2> Parser for With<P1, P2>
     }
 }
 
+#[inline(always)]
+pub fn with<P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
+    where P1: Parser,
+          P2: Parser<Input = P1::Input>
+{
+    With((p1, p2))
+}
+
 #[derive(Clone)]
 pub struct Skip<P1, P2>((P1, P2))
     where P1: Parser,
@@ -1302,6 +1310,14 @@ impl<I, P1, P2> Parser for Skip<P1, P2>
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors)
     }
+}
+
+#[inline(always)]
+pub fn skip<P1, P2>(p1: P1, p2: P2) -> Skip<P1, P2>
+    where P1: Parser,
+          P2: Parser<Input = P1::Input>
+{
+    Skip((p1, p2))
 }
 
 #[derive(Clone)]
@@ -1337,6 +1353,15 @@ impl<I, P> Parser for Message<P>
     }
 }
 
+#[inline(always)]
+pub fn message<P>(p: P,
+                  msg: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
+                  -> Message<P>
+    where P: Parser
+{
+    Message(p, msg)
+}
+
 #[derive(Clone)]
 pub struct Or<P1, P2>(P1, P2)
     where P1: Parser,
@@ -1370,6 +1395,14 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
     }
 }
 
+#[inline(always)]
+pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
+    where P1: Parser,
+          P2: Parser<Input = P1::Input, Output = P1::Output>
+{
+    Or(p1, p2)
+}
+
 #[derive(Clone)]
 pub struct Map<P, F>(P, F);
 impl<I, A, B, P, F> Parser for Map<P, F>
@@ -1391,6 +1424,14 @@ impl<I, A, B, P, F> Parser for Map<P, F>
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
     }
+}
+
+#[inline(always)]
+pub fn map<P, F, B>(p: P, f: F) -> Map<P, F>
+    where P: Parser,
+          F: FnMut(P::Output) -> B
+{
+    Map(p, f)
 }
 
 #[derive(Clone)]
@@ -1426,6 +1467,14 @@ impl<I, A, B, P, F> Parser for FlatMap<P, F>
     }
 }
 
+#[inline(always)]
+pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
+    where P: Parser,
+          F: FnMut(P::Output) -> Result<(B, P::Input), ParseError<P::Input>>
+{
+    FlatMap(p, f)
+}
+
 #[derive(Clone)]
 pub struct Then<P, F>(P, F);
 impl<P, N, F> Parser for Then<P, F>
@@ -1456,6 +1505,15 @@ impl<P, N, F> Parser for Then<P, F>
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
     }
+}
+
+#[inline(always)]
+pub fn then<P, F, N>(p: P, f: F) -> Then<P, F>
+    where F: FnMut(P::Output) -> N,
+          P: Parser,
+          N: Parser<Input = P::Input>
+{
+    Then(p, f)
 }
 
 #[derive(Clone)]
@@ -1506,6 +1564,15 @@ impl<P> Parser for Expected<P>
     }
 }
 
+#[inline(always)]
+pub fn expected<P>(p: P,
+                   info: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
+                   -> Expected<P>
+    where P: Parser
+{
+    Expected(p, info)
+}
+
 #[derive(Clone)]
 pub struct AndThen<P, F>(P, F);
 impl<P, F, O, E> Parser for AndThen<P, F>
@@ -1539,260 +1606,14 @@ impl<P, F, O, E> Parser for AndThen<P, F>
     }
 }
 
-/// Extension trait which provides functions that are more conveniently used through method calls
-pub trait ParserExt: Parser + Sized {
-    /// Discards the value of the `self` parser and returns the value of `p`
-    /// Fails if any of the parsers fails
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # fn main() {
-    /// let result = digit()
-    ///     .with(token('i'))
-    ///     .parse("9i")
-    ///     .map(|x| x.0);
-    /// assert_eq!(result, Ok('i'));
-    /// # }
-    /// ```
-    fn with<P2>(self, p: P2) -> With<Self, P2>
-        where P2: Parser<Input = Self::Input>
-    {
-        With((self, p))
-    }
-
-    /// Discards the value of the `p` parser and returns the value of `self`
-    /// Fails if any of the parsers fails
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # fn main() {
-    /// let result = digit()
-    ///     .skip(token('i'))
-    ///     .parse("9i")
-    ///     .map(|x| x.0);
-    /// assert_eq!(result, Ok('9'));
-    /// # }
-    /// ```
-    fn skip<P2>(self, p: P2) -> Skip<Self, P2>
-        where P2: Parser<Input = Self::Input>
-    {
-        Skip((self, p))
-    }
-
-    /// Parses with `self` followed by `p`
-    /// Succeeds if both parsers succeed, otherwise fails
-    /// Returns a tuple with both values on success
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # fn main() {
-    /// let result = digit()
-    ///     .and(token('i'))
-    ///     .parse("9i")
-    ///     .map(|x| x.0);
-    /// assert_eq!(result, Ok(('9', 'i')));
-    /// # }
-    /// ```
-    fn and<P2>(self, p: P2) -> (Self, P2)
-        where P2: Parser<Input = Self::Input>
-    {
-        (self, p)
-    }
-
-    /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming any
-    /// input it tries to consume the same input using `p`.
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::{digit, string};
-    /// # fn main() {
-    /// let mut parser = string("let")
-    ///     .or(digit().map(|_| "digit"))
-    ///     .or(string("led"));
-    /// assert_eq!(parser.parse("let"), Ok(("let", "")));
-    /// assert_eq!(parser.parse("1"), Ok(("digit", "")));
-    /// assert!(parser.parse("led").is_err());
-    ///
-    /// let mut parser2 = string("two").or(string("three"));
-    /// // Fails as the parser for "two" consumes the first 't' before failing
-    /// assert!(parser2.parse("three").is_err());
-    ///
-    /// // Use 'try' to make failing parsers always act as if they have not consumed any input
-    /// let mut parser3 = try(string("two")).or(try(string("three")));
-    /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
-    /// # }
-    /// ```
-    fn or<P2>(self, p: P2) -> Or<Self, P2>
-        where P2: Parser<Input = Self::Input>
-    {
-        Or(self, p)
-    }
-
-    /// Parses using `self` and then passes the value to `f` which returns a parser used to parse
-    /// the rest of the input
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # use combine::primitives::{Consumed, Error};
-    /// # fn main() {
-    /// let result = digit()
-    ///     .then(|d| parser(move |input| {
-    ///             // Force input to be a &str
-    ///             let _: &str = input;
-    ///         if d == '9' {
-    ///             Ok((9, Consumed::Empty(input)))
-    ///         }
-    ///         else {
-    ///             let position = input.position();
-    ///             let err = ParseError::new(position, Error::Message("Not a nine".into()));
-    ///             Err((Consumed::Empty(err)))
-    ///         }
-    ///     }))
-    ///     .parse("9");
-    /// assert_eq!(result, Ok((9, "")));
-    /// # }
-    /// ```
-    fn then<N, F>(self, f: F) -> Then<Self, F>
-        where F: FnMut(Self::Output) -> N,
-              N: Parser<Input = Self::Input>
-    {
-        Then(self, f)
-    }
-
-    /// Uses `f` to map over the parsed value
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # fn main() {
-    /// let result = digit()
-    ///     .map(|c| c == '9')
-    ///     .parse("9")
-    ///     .map(|x| x.0);
-    /// assert_eq!(result, Ok(true));
-    /// # }
-    /// ```
-    fn map<F, B>(self, f: F) -> Map<Self, F>
-        where F: FnMut(Self::Output) -> B
-    {
-        Map(self, f)
-    }
-
-    fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
-        where F: FnMut(Self::Output) -> Result<(B, Self::Input), ParseError<Self::Input>>
-    {
-        FlatMap(self, f)
-    }
-
-    /// Parses with `self` and if it fails, adds the message `msg` to the error
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::primitives::{Error, Positioner};
-    /// # fn main() {
-    /// let result = token('9')
-    ///     .message("Not a nine")
-    ///     .parse(State::new("8"));
-    /// assert_eq!(result, Err(ParseError {
-    ///     position: <char as Positioner>::start(),
-    ///     errors: vec![
-    ///         Error::Unexpected('8'.into()),
-    ///         Error::Expected('9'.into()),
-    ///         Error::Message("Not a nine".into())
-    ///     ]
-    /// }));
-    /// # }
-    /// ```
-    fn message<S>(self, msg: S) -> Message<Self>
-        where S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
-    {
-        Message(self, msg.into())
-    }
-
-    /// Parses with `self` and if it fails without consuming any input any expected errors are
-    /// replaced by `msg`. `msg` is then used in error messages as "Expected `msg`".
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::primitives::{Error, Positioner};
-    /// # fn main() {
-    /// let result = token('9')
-    ///     .expected("nine")
-    ///     .parse(State::new("8"));
-    /// assert_eq!(result, Err(ParseError {
-    ///     position: <char as Positioner>::start(),
-    ///     errors: vec![Error::Unexpected('8'.into()), Error::Expected("nine".into())]
-    /// }));
-    /// # }
-    /// ```
-    fn expected<S>(self, msg: S) -> Expected<Self>
-        where S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
-    {
-        Expected(self, msg.into())
-    }
-
-    /// Parses with `self` and applies `f` on the result if `self` parses successfully
-    /// `f` may optionally fail with an error which is automatically converted to a `ParseError`
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # fn main() {
-    /// let mut parser = many1(digit())
-    ///     .and_then(|s: String| s.parse::<i32>());
-    /// let result = parser.parse("1234");
-    /// assert_eq!(result, Ok((1234, "")));
-    /// let err = parser.parse("abc");
-    /// assert!(err.is_err());
-    /// # }
-    /// ```
-    fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
-        where F: FnMut(Self::Output) -> Result<O, E>,
-              E: Into<Error<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>
-    {
-        AndThen(self, f)
-    }
-
-    /// Creates an iterator from a parser and a state. Can be used as an alternative to `many` when
-    /// collecting directly into a `FromIterator` type is not desirable
-    ///
-    /// ```
-    /// # extern crate combine;
-    /// # use combine::*;
-    /// # use combine::char::{char, digit};
-    /// # fn main() {
-    /// let mut buffer = String::new();
-    /// let number = parser(|input| {
-    ///     buffer.clear();
-    ///     let mut iter = digit().iter(input);
-    ///     buffer.extend(&mut iter);
-    ///     let i = buffer.parse::<i32>().unwrap();
-    ///     iter.into_result(i)
-    /// });
-    /// let result = sep_by(number, char(','))
-    ///     .parse("123,45,6");
-    /// assert_eq!(result, Ok((vec![123, 45, 6], "")));
-    /// # }
-    /// ```
-    fn iter(self, input: Self::Input) -> Iter<Self> {
-        Iter::new(self, input)
-    }
+#[inline(always)]
+pub fn and_then<P, F, O, E>(p: P, f: F) -> AndThen<P, F>
+    where P: Parser,
+          F: FnMut(P::Output) -> Result<O, E>,
+          E: Into<Error<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>
+{
+    AndThen(p, f)
 }
-
-impl<P: Parser> ParserExt for P {}
 
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
