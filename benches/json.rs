@@ -113,7 +113,7 @@ impl<I> Json<I>
                 }
             });
         match c {
-            '\\' => input.combine(|input| back_slash_char.parse_state(input)),
+            '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
             '"' => {
                 Err(Consumed::Empty(ParseError::from_errors(input.into_inner().position(),
                                                             Vec::new())))

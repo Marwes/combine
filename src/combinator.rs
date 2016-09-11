@@ -13,13 +13,13 @@ macro_rules! impl_parser {
         where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
         type Input = <$first as Parser>::Input;
         type Output = <$inner_type as Parser>::Output;
-        fn parse_state(&mut self,
+        fn parse_stream(&mut self,
                        input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-            self.0.parse_state(input)
+            self.0.parse_stream(input)
         }
-        fn parse_state_fast(&mut self,
+        fn parse_stream_consumed(&mut self,
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_state_fast(input)
+            self.0.parse_stream_consumed(input)
         }
         fn parse_lazy(&mut self,
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -536,7 +536,7 @@ impl<F, P> Parser for Many<F, P>
 {
     type Input = P::Input;
     type Output = F;
-    fn parse_state_fast(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_stream_consumed(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let mut iter = (&mut self.0).iter(input);
         let result = iter.by_ref().collect();
         iter.into_result_fast(result)
@@ -930,7 +930,7 @@ pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         self(input)
     }
 }
@@ -951,7 +951,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///     // Help type inference out
 ///     let _: &str = input;
 ///     let position = input.position();
-///     let (char_digit, input) = try!(digit().parse_state(input));
+///     let (char_digit, input) = try!(digit().parse_stream(input));
 ///     let d = (char_digit as i32) - ('0' as i32);
 ///     if d % 2 == 0 {
 ///         Ok((d, input))
@@ -982,7 +982,7 @@ impl<I, O, F> Parser for FnParser<I, F>
 {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         (self.0)(input)
     }
 }
@@ -992,7 +992,7 @@ impl<I, O> Parser for fn(I) -> ParseResult<O, I>
 {
     type Input = I;
     type Output = O;
-    fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
+    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         self(input)
     }
 }
@@ -1006,7 +1006,7 @@ impl<P> Parser for Optional<P>
     type Output = Option<P::Output>;
     #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<Option<P::Output>, P::Input> {
-        match self.0.parse_state(input.clone()) {
+        match self.0.parse_stream(input.clone()) {
             Ok((x, rest)) => Ok((Some(x), rest)).into(),
             Err(Consumed::Consumed(err)) => ConsumedErr(err),
             Err(Consumed::Empty(_)) => EmptyOk((None, input)),
@@ -1188,7 +1188,7 @@ impl<I, O, P> Parser for Try<P>
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         self.0
-            .parse_state(input)
+            .parse_stream(input)
             .map_err(Consumed::as_empty)
             .into()
     }
@@ -1330,10 +1330,10 @@ impl<I, P> Parser for Message<P>
     type Input = I;
     type Output = P::Output;
 
-    fn parse_state(&mut self, input: I) -> ParseResult<Self::Output, I> {
+    fn parse_stream(&mut self, input: I) -> ParseResult<Self::Output, I> {
         // The message should always be added even if some input was consumed before failing
         self.0
-            .parse_state(input.clone())
+            .parse_stream(input.clone())
             .map_err(|errors| {
                 errors.map(|mut errors| {
                     errors.add_message(self.1.clone());
@@ -1489,11 +1489,11 @@ impl<P, N, F> Parser for Then<P, F>
         match self.0.parse_lazy(input) {
             EmptyOk((value, input)) => {
                 let mut next = (self.1)(value);
-                next.parse_state_fast(input)
+                next.parse_stream_consumed(input)
             }
             ConsumedOk((value, input)) => {
                 let mut next = (self.1)(value);
-                match next.parse_state_fast(input) {
+                match next.parse_stream_consumed(input) {
                     EmptyOk(x) | ConsumedOk(x) => ConsumedOk(x),
                     EmptyErr(x) | ConsumedErr(x) => ConsumedErr(x),
                 }
@@ -1525,11 +1525,11 @@ impl<P> Parser for Expected<P>
     type Input = P::Input;
     type Output = P::Output;
 
-    fn parse_state(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         // add_error is only called on unconsumed inputs but we want this expected message to always
         // replace the ones always present in the ParseError
         self.0
-            .parse_state(input)
+            .parse_stream(input)
             .map_err(|errors| {
                 errors.map(|mut errors| {
                     errors.set_expected(self.1.clone());
@@ -1731,7 +1731,7 @@ impl<E, I, O> Parser for EnvParser<E, I, O>
 ///         {
 ///             many(letter())
 ///                 .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
-///                 .parse_state(input)
+///                 .parse_stream(input)
 ///         }
 ///     }
 ///

@@ -46,7 +46,7 @@ fn two_digits<I>() -> FnParser<I, fn(I) -> ParseResult<i32, I>>
     {
         (digit(), digit())
             .map(two_digits_to_int)
-            .parse_state(input)
+            .parse_stream(input)
     }
     parser(two_digits_)
 }
@@ -69,7 +69,7 @@ fn time_zone<I>(input: I) -> ParseResult<i32, I>
         });
 
     utc.or(offset)
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 /// Parses a date
@@ -86,7 +86,7 @@ fn date<I>(input: I) -> ParseResult<Date, I>
                 day: day,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 /// Parses a time
@@ -104,7 +104,7 @@ fn time<I>(input: I) -> ParseResult<Time, I>
                 time_zone: time_zone,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 /// Parses a date time according to ISO8601
@@ -119,7 +119,7 @@ fn date_time<I>(input: I) -> ParseResult<DateTime, I>
                 time: time,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 #[test]

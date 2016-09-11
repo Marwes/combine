@@ -208,7 +208,7 @@ impl<T> Consumed<T> {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
     /// fn char(input: &str) -> ParseResult<char, &str> {
-    ///     let (c, input) = try!(satisfy(|c| c != '"').parse_state(input));
+    ///     let (c, input) = try!(satisfy(|c| c != '"').parse_stream(input));
     ///     match c {
     ///         //Since the `char` parser has already consumed some of the input `combine` is used
     ///         //propagate the consumed state to the next part of the parser
@@ -221,7 +221,7 @@ impl<T> Consumed<T> {
     ///                         c => c
     ///                     }
     ///                 })
-    ///                 .parse_state(input)
+    ///                 .parse_stream(input)
     ///             }),
     ///         _ => Ok((c, input))
     ///     }
@@ -1057,7 +1057,7 @@ impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
 /// the type `Output`.
 ///
 /// All methods have a default implementation but there needs to be at least an implementation of
-/// `parse_state` or`parse_lazy`. If `parse_lazy` is implemented an implementation of `add_error` is
+/// `parse_stream` or`parse_lazy`. If `parse_lazy` is implemented an implementation of `add_error` is
 /// also recommended to improve error reporting.
 pub trait Parser {
     /// The type which is take as input for the parser. The type must implement the `Stream` trait
@@ -1071,23 +1071,25 @@ pub trait Parser {
     fn parse(&mut self,
              input: Self::Input)
              -> Result<(Self::Output, Self::Input), ParseError<Self::Input>> {
-        match self.parse_state(input) {
+        match self.parse_stream(input) {
             Ok((v, state)) => Ok((v, state.into_inner())),
             Err(error) => Err(error.into_inner()),
         }
     }
 
-    /// Parses using the state `input` by calling Stream::uncons one or more times
+    /// Parses using the stream `input` by calling Stream::uncons one or more times
     /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
     #[inline(always)]
-    fn parse_state(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        self.parse_state_fast(input).into()
+    fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+        self.parse_stream_consumed(input).into()
     }
 
+    /// Parses using the stream `input` by calling Stream::uncons one or more times
+    /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
     #[inline]
-    fn parse_state_fast(&mut self,
-                        mut input: Self::Input)
-                        -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_stream_consumed(&mut self,
+                             mut input: Self::Input)
+                             -> ConsumedResult<Self::Output, Self::Input> {
         let mut result = self.parse_lazy(input.clone());
         if let FastResult::EmptyErr(ref mut error) = result {
             if let Ok(t) = input.uncons() {
@@ -1095,15 +1097,15 @@ pub trait Parser {
             }
             self.add_error(error);
         }
-        result.into()
+        result
     }
 
-    /// Specialized version of parse_state where the parser does not need to add an error to the
+    /// Specialized version of parse_stream where the parser does not need to add an error to the
     /// `ParseError` when it does not consume any input before encountering the error.
     /// Instead the error can be added later through the `add_error` method
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.parse_state(input).into()
+        self.parse_stream(input).into()
     }
 
     /// Adds the first error that would normally be returned by this parser if it failed
@@ -1393,13 +1395,13 @@ impl<'a, I, O, P: ?Sized> Parser for &'a mut P
     type Output = O;
 
     #[inline(always)]
-    fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
-        (**self).parse_state(input)
+    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
+        (**self).parse_stream(input)
     }
 
     #[inline(always)]
-    fn parse_state_fast(&mut self, input: I) -> ConsumedResult<O, I> {
-        (**self).parse_state_fast(input)
+    fn parse_stream_consumed(&mut self, input: I) -> ConsumedResult<O, I> {
+        (**self).parse_stream_consumed(input)
     }
 
     #[inline(always)]
@@ -1420,13 +1422,13 @@ impl<I, O, P: ?Sized> Parser for Box<P>
     type Output = O;
 
     #[inline(always)]
-    fn parse_state(&mut self, input: I) -> ParseResult<O, I> {
-        (**self).parse_state(input)
+    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
+        (**self).parse_stream(input)
     }
 
     #[inline(always)]
-    fn parse_state_fast(&mut self, input: I) -> ConsumedResult<O, I> {
-        (**self).parse_state_fast(input)
+    fn parse_stream_consumed(&mut self, input: I) -> ConsumedResult<O, I> {
+        (**self).parse_stream_consumed(input)
     }
 
     #[inline(always)]

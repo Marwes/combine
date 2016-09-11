@@ -118,7 +118,7 @@
 //!         .or(array.map(Expr::Array))
 //!         .or(pair)
 //!         .skip(spaces())
-//!         .parse_state(input)
+//!         .parse_stream(input)
 //! }
 //!
 //! fn main() {
@@ -197,7 +197,7 @@ mod tests {
     {
         let (s, input) = try!(many1::<String, _>(digit())
             .expected("integer")
-            .parse_state(input));
+            .parse_stream(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -239,7 +239,7 @@ mod tests {
 ";
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
-            .parse_state(State::new(source));
+            .parse_stream(State::new(source));
         let state = Consumed::Consumed(State {
             position: SourcePosition {
                 line: 3,
@@ -274,7 +274,7 @@ mod tests {
                 .or(array.map(Expr::Array))
                 .or(paren_expr))
             .skip(spaces)
-            .parse_state(input)
+            .parse_stream(input)
     }
 
     #[test]
@@ -334,7 +334,7 @@ Expected 'integer', 'identifier', '[' or '('
         let mul = char('*').map(|_| times);
         let add = char('+').map(|_| plus);
         let factor = chainl1(parser(expr), mul);
-        chainl1(factor, add).parse_state(input)
+        chainl1(factor, add).parse_stream(input)
     }
 
     #[test]
