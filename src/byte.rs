@@ -7,7 +7,7 @@ use self::ascii::AsciiChar;
 use combinator::{Expected, ParserExt, satisfy, Satisfy, skip_many, SkipMany, token, Token, With};
 use primitives::{Consumed, ConsumedResult, Error, Info, Parser, ParseError, Stream};
 
-/// Parses a u8acter and succeeds if the u8acter is equal to `c`
+/// Parses a character and succeeds if the character is equal to `c`
 ///
 /// ```
 /// # extern crate combine;
@@ -38,7 +38,7 @@ macro_rules! byte_parser {
     })
 }
 
-/// Parses a digit from a stream containing u8acters
+/// Parses a digit from a stream containing characters
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item = u8>
@@ -90,7 +90,7 @@ pub fn crlf<I>() -> CrLf<I>
 }
 
 impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses a tab u8acter
+/// Parses a tab character
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item = u8>
