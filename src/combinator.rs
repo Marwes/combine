@@ -1439,7 +1439,7 @@ pub struct FlatMap<P, F>(P, F);
 impl<I, A, B, P, F> Parser for FlatMap<P, F>
     where I: Stream,
           P: Parser<Input = I, Output = A>,
-          F: FnMut(A) -> Result<(B, I), ParseError<I>>
+          F: FnMut(A) -> Result<B, ParseError<I>>
 {
     type Input = I;
     type Output = B;
@@ -1448,13 +1448,13 @@ impl<I, A, B, P, F> Parser for FlatMap<P, F>
         match self.0.parse_lazy(input) {
             EmptyOk((o, input)) => {
                 match (self.1)(o) {
-                    Ok((x, _)) => EmptyOk((x, input)),
+                    Ok(x) => EmptyOk((x, input)),
                     Err(err) => EmptyErr(err),
                 }
             }
             ConsumedOk((o, input)) => {
                 match (self.1)(o) {
-                    Ok((x, _)) => ConsumedOk((x, input)),
+                    Ok(x) => ConsumedOk((x, input)),
                     Err(err) => ConsumedErr(err),
                 }
             }
@@ -1470,7 +1470,7 @@ impl<I, A, B, P, F> Parser for FlatMap<P, F>
 #[inline(always)]
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
     where P: Parser,
-          F: FnMut(P::Output) -> Result<(B, P::Input), ParseError<P::Input>>
+          F: FnMut(P::Output) -> Result<B, ParseError<P::Input>>
 {
     FlatMap(p, f)
 }

@@ -1262,9 +1262,23 @@ pub trait Parser {
         map(self, f)
     }
 
+    /// Uses `f` to map over the output of `self`. If `f` returns an error the parser fails.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # use combine::range::take;
+    /// # fn main() {
+    /// let result = take(4)
+    ///     .flat_map(|bs| many(digit()).parse(bs).map(|t| t.0))
+    ///     .parse("12abcd");
+    /// assert_eq!(result, Ok((String::from("12"), "cd")));
+    /// # }
+    /// ```
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
         where Self: Sized,
-              F: FnMut(Self::Output) -> Result<(B, Self::Input), ParseError<Self::Input>>
+              F: FnMut(Self::Output) -> Result<B, ParseError<Self::Input>>
     {
         flat_map(self, f)
     }

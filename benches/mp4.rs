@@ -50,7 +50,7 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
         .or(range(&b"skip"[..]).map(|_| MP4Box::Skip))
         .or(range(&b"wide"[..]).map(|_| MP4Box::Wide))
         .or(value(MP4Box::Unknown));
-    let data_interpreter = mp4_box.flat_map(|box_data| box_parser.parse(box_data));
+    let data_interpreter = mp4_box.flat_map(|box_data| box_parser.parse(box_data).map(|t| t.0));
 
     many(data_interpreter).parse(data)
 }
@@ -67,6 +67,6 @@ fn run_test(b: &mut Bencher, data: &[u8]) {
 }
 
 #[bench]
-fn small_test(b: &mut Bencher) {
+fn mp4_small_test(b: &mut Bencher) {
     run_test(b, MP4_SMALL)
 }
