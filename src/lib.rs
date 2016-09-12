@@ -308,20 +308,6 @@ mod tests {
         assert_eq!(result, Err(err));
     }
 
-    #[test]
-    fn expression_error_message() {
-        let input = r"
-,123
-";
-        let result = parser(expr).parse(State::new(input));
-        let m = format!("{}", result.unwrap_err());
-        let expected = r"Parse error at line: 2, column: 1
-Unexpected ','
-Expected 'integer', 'identifier', '[' or '('
-";
-        assert_eq!(m, expected);
-    }
-
     fn term<I>(input: I) -> ParseResult<Expr, I>
         where I: Stream<Item = char>
     {

@@ -1103,8 +1103,8 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
 /// let number = digit().map(|c: char| c.to_digit(10).unwrap());
 /// let sub = token('-').map(|_| |l: u32, r: u32| l - r);
 /// let mut parser = chainl1(number, sub);
-///     assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
-/// }
+/// assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
+/// # }
 /// ```
 #[inline(always)]
 pub fn chainl1<P, Op>(parser: P, op: Op) -> Chainl1<P, Op>

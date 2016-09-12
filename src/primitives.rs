@@ -129,8 +129,87 @@ impl<E, T, R> From<E> for Error<T, R>
 }
 
 impl<T, R> Error<T, R> {
+    /// Returns the `end_of_input` error
     pub fn end_of_input() -> Error<T, R> {
         Error::Unexpected("end of input".into())
+    }
+
+    /// Formats a slice of errors in a human readable way
+    ///
+    /// ```rust
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::*;
+    ///
+    /// # fn main() {
+    /// let input = r"
+    ///   ,123
+    /// ";
+    /// let result = spaces().with(char('.').or(char('a')).or(digit()))
+    ///     .parse(State::new(input));
+    /// let m = format!("{}", result.unwrap_err());
+    /// let expected = r"Parse error at line: 2, column: 3
+    /// Unexpected `,`
+    /// Expected `.`, `a` or `digit`
+    /// ";
+    /// assert_eq!(m, expected);
+    /// # }
+    /// ```
+    pub fn fmt_errors(errors: &[Error<T, R>], f: &mut fmt::Formatter) -> fmt::Result
+        where T: fmt::Display,
+              R: fmt::Display
+    {
+        // First print the token that we did not expect
+        // There should really just be one unexpected message at this point though we print them
+        // all to be safe
+        let unexpected = errors.iter()
+            .filter(|e| {
+                match **e {
+                    Error::Unexpected(_) => true,
+                    _ => false,
+                }
+            });
+        for error in unexpected {
+            try!(writeln!(f, "{}", error));
+        }
+
+        // Then we print out all the things that were expected in a comma separated list
+        // 'Expected 'a', 'expression' or 'let'
+        let iter = || {
+            errors.iter()
+                .filter_map(|e| {
+                    match *e {
+                        Error::Expected(ref err) => Some(err),
+                        _ => None,
+                    }
+                })
+        };
+        let expected_count = iter().count();
+        for (i, message) in iter().enumerate() {
+            let s = match i {
+                0 => "Expected",
+                _ if i < expected_count - 1 => ",",
+                // Last expected message to be written
+                _ => " or",
+            };
+            try!(write!(f, "{} `{}`", s, message));
+        }
+        if expected_count != 0 {
+            try!(writeln!(f, ""));
+        }
+        // If there are any generic messages we print them out last
+        let messages = errors.iter()
+            .filter(|e| {
+                match **e {
+                    Error::Message(_) |
+                    Error::Other(_) => true,
+                    _ => false,
+                }
+            });
+        for error in messages {
+            try!(writeln!(f, "{}", error));
+        }
+        Ok(())
     }
 }
 
@@ -376,67 +455,10 @@ impl<S> fmt::Display for ParseError<S>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
-
-        // First print the token that we did not expect
-        // There should really just be one unexpected message at this point though we print them
-        // all to be safe
-        let unexpected = self.errors
-            .iter()
-            .filter(|e| {
-                match **e {
-                    Error::Unexpected(_) => true,
-                    _ => false,
-                }
-            });
-        for error in unexpected {
-            try!(writeln!(f, "{}", error));
-        }
-
-        // Then we print out all the things that were expected in a comma separated list
-        // 'Expected 'a', 'expression' or 'let'
-        let iter = || {
-            self.errors
-                .iter()
-                .filter_map(|e| {
-                    match *e {
-                        Error::Expected(ref err) => Some(err),
-                        _ => None,
-                    }
-                })
-        };
-        let expected_count = iter().count();
-        let mut i = 0;
-        for message in iter() {
-            i += 1;
-            if i == 1 {
-                try!(write!(f, "Expected"));
-            } else if i == expected_count {
-                // Last expected message to be written
-                try!(write!(f, " or"));
-            } else {
-                try!(write!(f, ","));
-            }
-            try!(write!(f, " '{}'", message));
-        }
-        if expected_count != 0 {
-            try!(writeln!(f, ""));
-        }
-        // If there are any generic messages we print them out last
-        let messages = self.errors
-            .iter()
-            .filter(|e| {
-                match **e {
-                    Error::Message(_) |
-                    Error::Other(_) => true,
-                    _ => false,
-                }
-            });
-        for error in messages {
-            try!(writeln!(f, "{}", error));
-        }
-        Ok(())
+        Error::fmt_errors(&self.errors, f)
     }
 }
+
 impl fmt::Display for SourcePosition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "line: {}, column: {}", self.line, self.column)
@@ -445,8 +467,8 @@ impl fmt::Display for SourcePosition {
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Unexpected(ref c) => write!(f, "Unexpected '{}'", c),
-            Error::Expected(ref s) => write!(f, "Expected {}", s),
+            Error::Unexpected(ref c) => write!(f, "Unexpected `{}`", c),
+            Error::Expected(ref s) => write!(f, "Expected `{}`", s),
             Error::Message(ref msg) => msg.fmt(f),
             Error::Other(ref err) => err.fmt(f),
         }
