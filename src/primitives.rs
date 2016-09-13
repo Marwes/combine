@@ -325,7 +325,7 @@ impl<T> Consumed<T> {
             Consumed::Empty(x) => f(x),
         }
     }
-    pub fn combine_fast<F, U, I>(self, f: F) -> ConsumedResult<U, I>
+    pub fn combine_consumed<F, U, I>(self, f: F) -> ConsumedResult<U, I>
         where F: FnOnce(T) -> ConsumedResult<U, I>,
               I: StreamOnce
     {
@@ -1034,6 +1034,10 @@ impl<T, E> ConsumedResult<T, E>
     }
 }
 
+
+/// A `Result` type which has the consumed status flattened into the result.
+/// Conversions to and from `std::result::Result` can be done using `result.into()` or
+/// `From::from(result)`
 pub type ConsumedResult<O, I> = FastResult<(O, I), ParseError<I>>;
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<E>>> for FastResult<T, E> {

@@ -175,7 +175,7 @@ impl<I> Parser for Str<I>
                     input = rest.into_inner();
                 }
                 Err(error) => {
-                    return error.combine_fast(|mut error| {
+                    return error.combine_consumed(|mut error| {
                         error.position = start;
                         Err(if consumed {
                                 Consumed::Consumed(error)

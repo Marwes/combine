@@ -740,7 +740,7 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let (first, rest) = ctry!(self.parser.parse_lazy(input.clone()));
 
-        rest.combine_fast(move |input| {
+        rest.combine_consumed(move |input| {
             let rest = (&mut self.separator).with(&mut self.parser);
             let mut iter = Iter::new(rest, input);
             let result = Some(first)
@@ -870,7 +870,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let (first, input) = ctry!(self.parser.parse_lazy(input.clone()));
 
-        input.combine_fast(|input| {
+        input.combine_consumed(|input| {
             let rest = (&mut self.separator).with(optional(&mut self.parser));
             let mut iter = Iter::new(rest, input);
             // `iter` yields Option<P::Output>, by using flat map we make sure that we stop

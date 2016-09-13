@@ -135,7 +135,8 @@
 //! ```
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseError, ParseResult, State, from_iter, Stream, StreamOnce};
+pub use primitives::{Parser, ParseError, ConsumedResult, ParseResult, State, from_iter, Stream,
+                     StreamOnce};
 #[doc(inline)]
 pub use combinator::{any, between, chainl1, chainr1, choice, eof, env_parser, many, many1,
                      optional, parser, satisfy, satisfy_map, sep_by, sep_by1, sep_end_by,
