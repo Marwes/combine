@@ -3,9 +3,10 @@
 
 extern crate combine;
 
-use combine::*;
 use combine::combinator::FnParser;
-use combine::primitives::Stream;
+use combine::char::{char, digit};
+use combine::{Stream, Parser, ParseResult, choice, many, optional, parser};
+
 
 #[derive(PartialEq, Debug)]
 pub struct Date {
@@ -37,15 +38,15 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 
 // Parsers which are used frequntly can be wrapped like this to avoid writing parser(fn_name) in
 // several places.
-fn two_digits<I>() -> FnParser<I, fn(State<I>) -> ParseResult<i32, I>>
+fn two_digits<I>() -> FnParser<I, fn(I) -> ParseResult<i32, I>>
     where I: Stream<Item = char>
 {
-    fn two_digits_<I>(input: State<I>) -> ParseResult<i32, I>
+    fn two_digits_<I>(input: I) -> ParseResult<i32, I>
         where I: Stream<Item = char>
     {
         (digit(), digit())
             .map(two_digits_to_int)
-            .parse_state(input)
+            .parse_stream(input)
     }
     parser(two_digits_)
 }
@@ -55,36 +56,28 @@ fn two_digits<I>() -> FnParser<I, fn(State<I>) -> ParseResult<i32, I>>
 /// -06:30
 /// -01
 /// Z
-fn time_zone<I>(input: State<I>) -> ParseResult<i32, I>
+fn time_zone<I>(input: I) -> ParseResult<i32, I>
     where I: Stream<Item = char>
 {
     let utc = char('Z').map(|_| 0);
     let offset = (choice([char('-'), char('+')]),
                   two_digits(),
                   optional(optional(char(':')).with(two_digits())))
-                     .map(|(sign, hour, minute)| {
-                         let offset = hour * 60 + minute.unwrap_or(0);
-                         if sign == '-' {
-                             -offset
-                         } else {
-                             offset
-                         }
-                     });
+        .map(|(sign, hour, minute)| {
+            let offset = hour * 60 + minute.unwrap_or(0);
+            if sign == '-' { -offset } else { offset }
+        });
 
     utc.or(offset)
-       .parse_state(input)
+        .parse_stream(input)
 }
 
 /// Parses a date
 /// 2010-01-30
-fn date<I>(input: State<I>) -> ParseResult<Date, I>
+fn date<I>(input: I) -> ParseResult<Date, I>
     where I: Stream<Item = char>
 {
-    (many::<String, _>(digit()),
-     char('-'),
-     two_digits(),
-     char('-'),
-     two_digits())
+    (many::<String, _>(digit()), char('-'), two_digits(), char('-'), two_digits())
         .map(|(year, _, month, _, day)| {
             // Its ok to just unwrap since we only parsed digits
             Date {
@@ -93,20 +86,15 @@ fn date<I>(input: State<I>) -> ParseResult<Date, I>
                 day: day,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 /// Parses a time
 /// 12:30:02
-fn time<I>(input: State<I>) -> ParseResult<Time, I>
+fn time<I>(input: I) -> ParseResult<Time, I>
     where I: Stream<Item = char>
 {
-    (two_digits(),
-     char(':'),
-     two_digits(),
-     char(':'),
-     two_digits(),
-     parser(time_zone))
+    (two_digits(), char(':'), two_digits(), char(':'), two_digits(), parser(time_zone))
         .map(|(hour, _, minute, _, second, time_zone)| {
             // Its ok to just unwrap since we only parsed digits
             Time {
@@ -116,12 +104,12 @@ fn time<I>(input: State<I>) -> ParseResult<Time, I>
                 time_zone: time_zone,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
-fn date_time<I>(input: State<I>) -> ParseResult<DateTime, I>
+fn date_time<I>(input: I) -> ParseResult<DateTime, I>
     where I: Stream<Item = char>
 {
     (parser(date), char('T'), parser(time))
@@ -131,7 +119,7 @@ fn date_time<I>(input: State<I>) -> ParseResult<DateTime, I>
                 time: time,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 #[test]

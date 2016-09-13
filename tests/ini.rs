@@ -4,7 +4,8 @@ extern crate combine;
 use std::collections::HashMap;
 
 use combine::*;
-use combine::primitives::{Error, SourcePosition, Stream};
+use combine::char::space;
+use combine::primitives::{Error, SourcePosition};
 
 #[derive(PartialEq, Debug)]
 pub struct Ini {
@@ -12,7 +13,7 @@ pub struct Ini {
     pub sections: HashMap<String, HashMap<String, String>>,
 }
 
-fn property<I>(input: State<I>) -> ParseResult<(String, String), I>
+fn property<I>(input: I) -> ParseResult<(String, String), I>
     where I: Stream<Item = char>
 {
     (many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
@@ -20,26 +21,26 @@ fn property<I>(input: State<I>) -> ParseResult<(String, String), I>
      many1(satisfy(|c| c != '\n' && c != ';')))
         .map(|(key, _, value)| (key, value))
         .expected("property")
-        .parse_state(input)
+        .parse_stream(input)
 }
 
-fn whitespace<I>(input: State<I>) -> ParseResult<(), I>
+fn whitespace<I>(input: I) -> ParseResult<(), I>
     where I: Stream<Item = char>
 {
     let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
     // Wrap the `spaces().or(comment)` in `skip_many` so that it skips alternating whitespace and
     // comments
-    skip_many(skip_many1(space()).or(comment)).parse_state(input)
+    skip_many(skip_many1(space()).or(comment)).parse_stream(input)
 }
 
-fn properties<I>(input: State<I>) -> ParseResult<HashMap<String, String>, I>
+fn properties<I>(input: I) -> ParseResult<HashMap<String, String>, I>
     where I: Stream<Item = char>
 {
     // After each property we skip any whitespace that followed it
-    many(parser(property).skip(parser(whitespace))).parse_state(input)
+    many(parser(property).skip(parser(whitespace))).parse_stream(input)
 }
 
-fn section<I>(input: State<I>) -> ParseResult<(String, HashMap<String, String>), I>
+fn section<I>(input: I) -> ParseResult<(String, HashMap<String, String>), I>
     where I: Stream<Item = char>
 {
     (between(token('['), token(']'), many(satisfy(|c| c != ']'))),
@@ -47,22 +48,20 @@ fn section<I>(input: State<I>) -> ParseResult<(String, HashMap<String, String>),
      parser(properties))
         .map(|(name, _, properties)| (name, properties))
         .expected("section")
-        .parse_state(input)
+        .parse_stream(input)
 }
 
-fn ini<I>(input: State<I>) -> ParseResult<Ini, I>
+fn ini<I>(input: I) -> ParseResult<Ini, I>
     where I: Stream<Item = char>
 {
-    (parser(whitespace),
-     parser(properties),
-     many(parser(section)))
+    (parser(whitespace), parser(properties), many(parser(section)))
         .map(|(_, global, sections)| {
             Ini {
                 global: global,
                 sections: sections,
             }
         })
-        .parse_state(input)
+        .parse_stream(input)
 }
 
 #[test]
@@ -87,8 +86,8 @@ type=LL(1)
     expected.sections.insert(String::from("section"), section);
 
     let result = parser(ini)
-                     .parse(text)
-                     .map(|t| t.0);
+        .parse(text)
+        .map(|t| t.0);
     assert_eq!(result, Ok(expected));
 }
 
@@ -96,8 +95,8 @@ type=LL(1)
 fn ini_error() {
     let text = "[error";
     let result = parser(ini)
-                     .parse(text)
-                     .map(|t| t.0);
+        .parse(State::new(text))
+        .map(|t| t.0);
     assert_eq!(result,
                Err(ParseError {
                    position: SourcePosition {
