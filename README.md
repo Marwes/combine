@@ -62,6 +62,17 @@ The easiest way to contribute is to just open an issue about any problems you en
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
+### 2.0.0-beta3
+
+* `parse_state` renamed to `parse_stream`.
+* `parse_lazy` changed to return a `ConsumedResult`. To make calls to `parse_lazy` return a `Result` you can call `parser.parse_lazy(input).into()`.
+* `char::String` renamed to `char::Str` to avoid name collisions with `std::string::String`.
+* The amouunt of reexports from the root module has been reduced.
+* `ParserExt` removed, all methods now exist directly on `Parser`.
+* `Stream` split into `Stream` and `StreamOnce`.
+* `StreamOnce::uncons` now takes `&mut self` instead of `self`.
+* `Position` added as an associated type on `StreamOnce`.
+
 ### 1.0.0
 * `&[T]` streams has had the `Item` type changed from `&T` to `T` and requires a `T: Copy` bound. If you need the old behavior you can wrap the `&[T]` in the `SliceStream` newtype i.e `parser.parse(SliceStream(slice))`.
 
