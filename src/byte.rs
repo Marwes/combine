@@ -147,10 +147,6 @@ pub fn hex_digit<I>() -> HexDigit<I>
 #[derive(Clone)]
 pub struct Bytes<I>(&'static [u8], PhantomData<I>) where I: Stream<Item = u8>;
 
-fn eq(&l: &u8, r: u8) -> bool {
-    l == r
-}
-
 impl<'a, I> Parser for Bytes<I>
     where I: Stream<Item = u8, Range = &'a [u8]>
 {
@@ -158,12 +154,12 @@ impl<'a, I> Parser for Bytes<I>
     type Output = &'static [u8];
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        tokens(eq, Info::Range(self.0), self.0.iter())
+        tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
             .parse_lazy(input)
             .map(|chars| chars.as_slice())
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        tokens(eq, Info::Range(self.0), self.0.iter()).add_error(errors)
+        tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
 
@@ -186,4 +182,46 @@ pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
     where I: Stream<Item = u8, Range = &'a [u8]>
 {
     Bytes(s, PhantomData)
+}
+
+#[derive(Clone)]
+pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>) where I: Stream<Item = u8>;
+
+impl<'a, C, I> Parser for BytesCmp<C, I>
+    where C: FnMut(u8, u8) -> bool,
+          I: Stream<Item = u8, Range = &'a [u8]>
+{
+    type Input = I;
+    type Output = &'static [u8];
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let cmp = &mut self.1;
+        tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        let cmp = &mut self.1;
+        tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
+    }
+}
+
+/// Parses the bytes `s` using `cmp` to compare each token. If you have a stream implementing
+/// `RangeStream` such as `&[u8]` you can also use the `range` parser which may be more efficient.
+///
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::byte::bytes_cmp;
+/// # use combine::primitives::Info;
+/// # fn main() {
+/// use std::ascii::AsciiExt;
+/// let result = bytes_cmp(|l, r| l.eq_ignore_ascii_case(&r), Info::Range(b"abc"[..]), &b"abc"[..])
+///     .parse(&b"AbC"[..]);
+/// assert_eq!(result, Ok(&b"abc"[..]));
+/// # }
+/// ```
+#[inline(always)]
+pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
+    where C: FnMut(u8, u8) -> bool,
+          I: Stream<Item = u8, Range = &'a [u8]>
+{
+    BytesCmp(s, cmp, PhantomData)
 }

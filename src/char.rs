@@ -186,6 +186,45 @@ pub fn string<I>(s: &'static str) -> Str<I>
     Str(s, PhantomData)
 }
 
+#[derive(Clone)]
+pub struct StrCmp<C, I>(&'static str, C, PhantomData<fn(I) -> I>) where I: Stream<Item = char>;
+impl<C, I> Parser for StrCmp<C, I>
+    where C: FnMut(char, char) -> bool,
+          I: Stream<Item = char>
+{
+    type Input = I;
+    type Output = &'static str;
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        tokens(&mut self.1, self.0.into(), self.0.chars())
+            .parse_lazy(input)
+            .map(|_| self.0)
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        tokens(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
+    }
+}
+/// Parses the string `s`, using `cmp` to compare each character
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::string_cmp;
+/// use std::ascii::AsciiExt;
+/// # fn main() {
+/// let result = string_cmp("rust", |l, r| l.eq_ignore_ascii_case(&r))
+///     .parse("RusT")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok("rust"));
+/// # }
+/// ```
+#[inline(always)]
+pub fn string_cmp<C, I>(s: &'static str, cmp: C) -> StrCmp<C, I>
+    where C: FnMut(char, char) -> bool,
+          I: Stream<Item = char>
+{
+    StrCmp(s, cmp, PhantomData)
+}
 
 #[cfg(test)]
 mod tests {
