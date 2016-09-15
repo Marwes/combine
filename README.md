@@ -60,7 +60,7 @@ Here is a list containing most of the breaking changes in older versions of comb
 * `parse_state` renamed to `parse_stream`.
 * `parse_lazy` changed to return a `ConsumedResult`. To make calls to `parse_lazy` return a `Result` you can call `parser.parse_lazy(input).into()`.
 * `char::String` renamed to `char::Str` to avoid name collisions with `std::string::String`.
-* The amouunt of reexports from the root module has been reduced.
+* The amount of reexports from the root module has been reduced.
 * `ParserExt` removed, all methods now exist directly on `Parser`.
 * `Stream` split into `Stream` and `StreamOnce`.
 * `StreamOnce::uncons` now takes `&mut self` instead of `self`.
