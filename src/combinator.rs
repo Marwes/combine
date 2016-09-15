@@ -234,6 +234,98 @@ pub fn token<I>(c: I::Item) -> Token<I>
 }
 
 #[derive(Clone)]
+pub struct Tokens<C, T, I>
+    where I: Stream
+{
+    cmp: C,
+    expected: Info<I::Item, I::Range>,
+    tokens: T,
+    _marker: PhantomData<I>,
+}
+
+impl<C, T, I> Parser for Tokens<C, T, I>
+    where C: FnMut(T::Item, I::Item) -> bool,
+          T: Clone + IntoIterator,
+          I: Stream
+{
+    type Input = I;
+    type Output = T;
+    #[inline]
+    fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<T, I> {
+        let start = input.position();
+        let mut consumed = false;
+        for c in self.tokens.clone() {
+            match ::primitives::uncons(input) {
+                Ok((other, rest)) => {
+                    if !(self.cmp)(c, other.clone()) {
+                        return if consumed {
+                            let errors = vec![Error::Unexpected(Info::Token(other)),
+                                              Error::Expected(self.expected.clone())];
+                            let error = ParseError::from_errors(start, errors);
+                            ConsumedErr(error)
+                        } else {
+                            EmptyErr(ParseError::empty(start))
+                        };
+                    }
+                    consumed = true;
+                    input = rest.into_inner();
+                }
+                Err(error) => {
+                    return error.combine_consumed(|mut error| {
+                        error.position = start;
+                        if consumed {
+                            ConsumedErr(error)
+                        } else {
+                            EmptyErr(error)
+                        }
+                    })
+                }
+            }
+        }
+        if consumed {
+            ConsumedOk((self.tokens.clone(), input))
+        } else {
+            EmptyOk((self.tokens.clone(), input))
+        }
+    }
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        errors.add_error(Error::Expected(self.expected.clone()));
+    }
+}
+
+/// Parses `tokens`.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::Info;
+/// # fn main() {
+/// use std::ascii::AsciiExt;
+/// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())
+///     .parse("AbC")
+///     .map(|x| x.0.as_str());
+/// assert_eq!(result, Ok("abc"));
+/// let result = tokens(|&l, r| (if l < r { r - l } else { l - r }) <= 2, Info::Range(&b"025"[..]), &b"025"[..])
+///     .parse(&b"123"[..])
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(&b"025"[..]));
+/// # }
+/// ```
+#[inline(always)]
+pub fn tokens<C, T, I>(cmp: C, expected: Info<I::Item, I::Range>, tokens: T) -> Tokens<C, T, I>
+    where C: FnMut(T::Item, I::Item) -> bool,
+          T: Clone + IntoIterator,
+          I: Stream
+{
+    Tokens {
+        cmp: cmp,
+        expected: expected,
+        tokens: tokens,
+        _marker: PhantomData,
+    }
+}
+
+#[derive(Clone)]
 pub struct Choice<S, P>(S, PhantomData<P>);
 
 impl<I, O, S, P> Parser for Choice<S, P>

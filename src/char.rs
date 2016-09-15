@@ -1,5 +1,5 @@
-use primitives::{Consumed, Parser, ParseError, ConsumedResult, Error, Stream};
-use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, With};
+use primitives::{Parser, ParseError, ConsumedResult, Stream};
+use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
 use std::marker::PhantomData;
 
 /// Parses a character and succeeds if the character is equal to `c`
@@ -145,61 +145,27 @@ pub fn hex_digit<I>() -> HexDigit<I>
              PhantomData)
 }
 
+fn eq(l: char, r: char) -> bool {
+    l == r
+}
 
 #[derive(Clone)]
-pub struct Str<I>(&'static str, PhantomData<I>);
+pub struct Str<I>(&'static str, PhantomData<fn(I) -> I>) where I: Stream<Item = char>;
 impl<I> Parser for Str<I>
     where I: Stream<Item = char>
 {
     type Input = I;
     type Output = &'static str;
     #[inline]
-    fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<&'static str, I> {
-        let start = input.position();
-        let mut consumed = false;
-        for c in self.0.chars() {
-            match ::primitives::uncons(input) {
-                Ok((other, rest)) => {
-                    if c != other {
-                        return Err(if consumed {
-                                let errors = vec![Error::Unexpected(other.into()),
-                                                  Error::Expected(self.0.into())];
-                                let error = ParseError::from_errors(start, errors);
-                                Consumed::Consumed(error)
-                            } else {
-                                Consumed::Empty(ParseError::empty(start))
-                            })
-                            .into();
-                    }
-                    consumed = true;
-                    input = rest.into_inner();
-                }
-                Err(error) => {
-                    return error.combine_consumed(|mut error| {
-                        error.position = start;
-                        Err(if consumed {
-                                Consumed::Consumed(error)
-                            } else {
-                                Consumed::Empty(error)
-                            })
-                            .into()
-                    })
-                }
-            }
-        }
-        Ok((self.0,
-            if consumed {
-                Consumed::Consumed(input)
-            } else {
-                Consumed::Empty(input)
-            }))
-            .into()
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        tokens(eq, self.0.into(), self.0.chars())
+            .parse_lazy(input)
+            .map(|_| self.0)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        errors.add_error(Error::Expected(self.0.into()));
+        tokens(eq, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
-
 /// Parses the string `s`
 ///
 /// ```

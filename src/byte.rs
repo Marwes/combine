@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, With};
-use primitives::{Consumed, ConsumedResult, Error, Info, Parser, ParseError, Stream};
+use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
+use primitives::{ConsumedResult, Info, Parser, ParseError, Stream};
 
 /// Parses a character and succeeds if the character is equal to `c`
 ///
@@ -145,56 +145,25 @@ pub fn hex_digit<I>() -> HexDigit<I>
 }
 
 #[derive(Clone)]
-pub struct Bytes<I>(&'static [u8], PhantomData<I>);
+pub struct Bytes<I>(&'static [u8], PhantomData<I>) where I: Stream<Item = u8>;
+
+fn eq(&l: &u8, r: u8) -> bool {
+    l == r
+}
+
 impl<'a, I> Parser for Bytes<I>
     where I: Stream<Item = u8, Range = &'a [u8]>
 {
     type Input = I;
     type Output = &'static [u8];
     #[inline]
-    fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<&'static [u8], I> {
-        let start = input.position();
-        let mut consumed = false;
-        for &c in self.0 {
-            match ::primitives::uncons(input) {
-                Ok((other, rest)) => {
-                    if c != other {
-                        return Err(if consumed {
-                                let errors = vec![Error::Unexpected(Info::Token(other)),
-                                                  Error::Expected(Info::Range(self.0))];
-                                let error = ParseError::from_errors(start, errors);
-                                Consumed::Consumed(error)
-                            } else {
-                                Consumed::Empty(ParseError::empty(start))
-                            })
-                            .into();
-                    }
-                    consumed = true;
-                    input = rest.into_inner();
-                }
-                Err(error) => {
-                    return error.combine_consumed(|mut error| {
-                        error.position = start;
-                        Err(if consumed {
-                                Consumed::Consumed(error)
-                            } else {
-                                Consumed::Empty(error)
-                            })
-                            .into()
-                    })
-                }
-            }
-        }
-        Ok((self.0,
-            if consumed {
-                Consumed::Consumed(input)
-            } else {
-                Consumed::Empty(input)
-            }))
-            .into()
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        tokens(eq, Info::Range(self.0), self.0.iter())
+            .parse_lazy(input)
+            .map(|chars| chars.as_slice())
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        errors.add_error(Error::Expected(Info::Range(self.0)));
+        tokens(eq, Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
 
