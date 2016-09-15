@@ -35,13 +35,6 @@ The library adheres to [semantic versioning](http://semver.org).
 
 If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a day by opening an issue, sending an email or posting a message on gitter.
 
-## Experimental additions
-
-Though `combine` is stable now that does not mean it is done. To make it as easy as possible to opt-in to these upcoming changes cargo features is used. If you include one or more of these features in your project you may experience breaking changes between versions. As these changes are unstable I really appreciate any and all feedback on these to help make the additions the best they can be.
-
-* __range_stream__ Adds parsers for zero copy parsing through the use of the `RangeStream` trait.
-* __buffered_stream__ Adds the `BufferedStream` type which can be used to read input from sources which cannot be freely cloned such as files.
-
 ## Extra
 
 There is an additional crate which has parsers to lex and parse programming languages in [combine-language](https://github.com/Marwes/combine-language).
