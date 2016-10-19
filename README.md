@@ -1,5 +1,5 @@
 # combine
-[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Coverage Status](https://coveralls.io/repos/Marwes/parser-combinators/badge.svg?branch=master&service=github)](https://coveralls.io/github/Marwes/parser-combinators?branch=master) [![Docs v1](https://docs.rs/combine/badge.svg?version=^1)](https://docs.rs/crate/combine/^1) [![Docs](https://docs.rs/combine/badge.svg?version=2.0.0-beta3)](https://docs.rs/crate/combine/2.0.0-beta3) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Coverage Status](https://coveralls.io/repos/Marwes/parser-combinators/badge.svg?branch=master&service=github)](https://coveralls.io/github/Marwes/parser-combinators?branch=master) [![Docs v1](https://docs.rs/combine/badge.svg?version=^1)](https://docs.rs/combine/^1) [![Docs](https://docs.rs/combine/badge.svg)](https://docs.rs/combine) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahead using the [try  combinator](https://marwes.github.io/combine/combine/fn.try.html).
 
@@ -23,7 +23,7 @@ Larger examples can be found in the [tests][tests] and [benches][benches] folder
 
 [Documentation and examples](https://docs.rs/crate/combine)
 
-[Documentation and examples (beta)](https://docs.rs/crate/combine/2.0.0-beta3)
+[Documentation and examples (1.x)](https://docs.rs/crate/combine/1^)
 
 [crates.io](https://crates.io/crates/combine)
 
