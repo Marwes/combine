@@ -1137,6 +1137,32 @@ pub trait Parser {
     /// Adds the first error that would normally be returned by this parser if it failed
     fn add_error(&mut self, _error: &mut ParseError<Self::Input>) {}
 
+    /// Borrows a parser instead of consuming it.
+    ///
+    /// Used to apply parser combinators on `self` without losing ownership.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::primitives::Consumed;
+    /// # use combine::char::{digit, letter};
+    /// fn test() -> ParseResult<(char, char), &'static str> {
+    ///     let mut p = digit();
+    ///     let ((d, _), input) = try!((p.by_ref(), letter()).parse_stream("1a23"));
+    ///     let (d2, input) = try!(input.combine(|input| p.parse_stream(input)));
+    ///     Ok(((d, d2), input))
+    /// }
+    ///
+    /// fn main() {
+    ///     assert_eq!(test(), Ok((('1', '2'), Consumed::Consumed("3"))));
+    /// }
+    /// ```
+    fn by_ref(&mut self) -> &mut Self
+        where Self: Sized
+    {
+        self
+    }
+
     /// Discards the value of the `self` parser and returns the value of `p`
     /// Fails if any of the parsers fails
     ///
