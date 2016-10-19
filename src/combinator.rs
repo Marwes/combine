@@ -408,6 +408,106 @@ impl<I, O, S, P> Parser for Choice<S, P>
     }
 }
 
+#[derive(Clone)]
+pub struct OneOf<T, I>
+    where I: Stream
+{
+    tokens: T,
+    _marker: PhantomData<I>,
+}
+
+impl<T, I> Parser for OneOf<T, I>
+    where T: Clone + IntoIterator<Item = I::Item>,
+          I: Stream,
+          I::Item: PartialEq
+{
+    type Input = I;
+    type Output = I::Item;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
+        satisfy(|c| self.tokens.clone().into_iter().any(|t| t == c)).parse_lazy(input)
+    }
+
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        for expected in self.tokens.clone() {
+            errors.add_error(Error::Expected(Info::Token(expected)));
+        }
+    }
+}
+
+/// Extract one token and succeeds if it is part of `tokens`.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::Info;
+/// # fn main() {
+/// let result = many(one_of("abc".chars()))
+///     .parse("abd");
+/// assert_eq!(result, Ok((String::from("ab"), "d")));
+/// # }
+/// ```
+#[inline(always)]
+pub fn one_of<T, I>(tokens: T) -> OneOf<T, I>
+    where T: Clone + IntoIterator,
+          I: Stream,
+          I::Item: PartialEq<T::Item>
+{
+    OneOf {
+        tokens: tokens,
+        _marker: PhantomData,
+    }
+}
+
+
+#[derive(Clone)]
+pub struct NoneOf<T, I>
+    where I: Stream
+{
+    tokens: T,
+    _marker: PhantomData<I>,
+}
+
+impl<T, I> Parser for NoneOf<T, I>
+    where T: Clone + IntoIterator<Item = I::Item>,
+          I: Stream,
+          I::Item: PartialEq
+{
+    type Input = I;
+    type Output = I::Item;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
+        satisfy(|c| self.tokens.clone().into_iter().all(|t| t != c)).parse_lazy(input)
+    }
+}
+
+/// Extract one token and succeeds if it is part of `tokens`.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::Info;
+/// # fn main() {
+/// let result = many(none_of("abc".chars()))
+///     .parse("edc");
+/// assert_eq!(result, Ok((String::from("ed"), "c")));
+/// # }
+/// ```
+#[inline(always)]
+pub fn none_of<T, I>(tokens: T) -> NoneOf<T, I>
+    where T: Clone + IntoIterator,
+          I: Stream,
+          I::Item: PartialEq<T::Item>
+{
+    NoneOf {
+        tokens: tokens,
+        _marker: PhantomData,
+    }
+}
+
+
 /// Takes an array of parsers and tries to apply them each in order.
 /// Fails if all parsers fails or if an applied parser consumes input before failing.
 ///
