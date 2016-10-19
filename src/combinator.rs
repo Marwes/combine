@@ -460,7 +460,6 @@ pub fn one_of<T, I>(tokens: T) -> OneOf<T, I>
     }
 }
 
-
 #[derive(Clone)]
 pub struct NoneOf<T, I>
     where I: Stream
@@ -507,6 +506,55 @@ pub fn none_of<T, I>(tokens: T) -> NoneOf<T, I>
     }
 }
 
+#[derive(Clone)]
+pub struct Count<F, P> {
+    parser: P,
+    count: usize,
+    _marker: PhantomData<fn() -> F>,
+}
+
+impl<P, F> Parser for Count<F, P>
+    where P: Parser,
+          F: FromIterator<P::Output>
+{
+    type Input = P::Input;
+    type Output = F;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+        let mut iter = self.parser.by_ref().iter(input);
+        let value = iter.by_ref().take(self.count).collect();
+        iter.into_result_fast(value)
+    }
+
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        self.parser.add_error(error)
+    }
+}
+
+/// Extract one token and succeeds if it is part of `tokens`.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::Info;
+/// # fn main() {
+/// let result = many(none_of("abc".chars()))
+///     .parse("edc");
+/// assert_eq!(result, Ok((String::from("ed"), "c")));
+/// # }
+/// ```
+#[inline(always)]
+pub fn count<F, P>(count: usize, parser: P) -> Count<F, P>
+    where P: Parser,
+          F: FromIterator<P::Output>
+{
+    Count {
+        parser: parser,
+        count: count,
+        _marker: PhantomData,
+    }
+}
 
 /// Takes an array of parsers and tries to apply them each in order.
 /// Fails if all parsers fails or if an applied parser consumes input before failing.
