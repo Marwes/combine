@@ -325,6 +325,48 @@ pub fn tokens<C, T, I>(cmp: C, expected: Info<I::Item, I::Range>, tokens: T) -> 
     }
 }
 
+
+#[derive(Clone)]
+pub struct Position<I>
+    where I: Stream
+{
+    _marker: PhantomData<I>,
+}
+
+impl<I> Parser for Position<I>
+    where I: Stream
+{
+    type Input = I;
+    type Output = I::Position;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Position, I> {
+        EmptyOk((input.position(), input))
+    }
+}
+
+/// Parser which just returns the current position in the stream
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::SourcePosition;
+/// # fn main() {
+/// let result = (position(), token('!'), position())
+///     .parse(State::new("!"))
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok((SourcePosition { line: 1, column: 1 },
+///                        '!',
+///                        SourcePosition { line: 1, column: 2 })));
+/// # }
+/// ```
+#[inline(always)]
+pub fn position<I>() -> Position<I>
+    where I: Stream
+{
+    Position { _marker: PhantomData }
+}
+
 #[derive(Clone)]
 pub struct Choice<S, P>(S, PhantomData<P>);
 
