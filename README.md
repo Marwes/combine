@@ -23,8 +23,6 @@ Larger examples can be found in the [tests][tests] and [benches][benches] folder
 
 [Documentation and examples](https://docs.rs/crate/combine)
 
-[Documentation and examples (1.x)](https://docs.rs/crate/combine/1^)
-
 [crates.io](https://crates.io/crates/combine)
 
 ## About
