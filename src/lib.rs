@@ -19,17 +19,16 @@
 //!
 //! ```rust
 //! extern crate combine;
-//! use combine::Parser;
+//! use combine::{Parser, State};
 //! use combine::char::{digit, letter};
+//! const MSG: &'static str = r#"Parse error at line: 1, column: 1
+//!                              Unexpected '|'
+//!                              Expected 'digit' or 'letter'"#;
 //!
 //! fn main() {
-//!     if let Err(err) = digit().or(letter()).parse("|") {
-//!         println!("{}", err);
-//!         // The println! call above prints
-//!         //
-//!         // Parse error at line: 1, column: 1
-//!         // Unexpected '|'
-//!         // Expected 'digit' or 'letter'
+//!     // Wrapping a `&str` with `State` provides automatic line and column tracking
+//!     if let Err(err) = digit().or(letter()).parse(State::new("|")) {
+//!         assert_eq!(MSG, format!("{}", MSG));
 //!     }
 //! }
 //! ```
