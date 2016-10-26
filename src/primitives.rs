@@ -1,8 +1,9 @@
-use std::fmt;
-use std::error::Error as StdError;
 use std::any::Any;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
+use std::error::Error as StdError;
+use std::fmt;
+use std::io::{Read, Bytes};
 
 use self::FastResult::*;
 
@@ -890,6 +891,61 @@ impl<I: Iterator> StreamOnce for IteratorStream<I>
     #[inline(always)]
     fn position(&self) -> Self::Position {
         self.1
+    }
+}
+
+pub struct ReadStream<R> {
+    bytes: Bytes<R>,
+    offset: usize,
+}
+
+impl<R: Read> StreamOnce for ReadStream<R> {
+    type Item = u8;
+    type Range = u8;
+    type Position = usize;
+
+    #[inline]
+    fn uncons(&mut self) -> Result<u8, Error<u8, u8>> {
+        match self.bytes.next() {
+            Some(Ok(b)) => {
+                self.offset += 1;
+                Ok(b)
+            }
+            Some(Err(err)) => Err(err.into()),
+            None => Err(Error::end_of_input()),
+        }
+    }
+
+    #[inline(always)]
+    fn position(&self) -> Self::Position {
+        self.offset
+    }
+}
+
+/// Creates a `StreamOnce` instance from a value implementing `std::io::Read`
+///
+/// ```rust
+/// # extern crate combine;
+/// use combine::*;
+/// use combine::byte::*;
+/// use combine::primitives::{BufferedStream, from_read};
+/// use std::io::Read;
+///
+/// # fn main() {
+/// let mut input: &[u8] = b"123,";
+/// let stream = BufferedStream::new(from_read(&mut input), 1);
+/// let result = (many(digit()), byte(b','))
+///     .parse(stream.as_stream())
+///     .map(|t| t.0);
+/// assert_eq!(result, Ok((vec![b'1', b'2', b'3'], b',')));
+/// # }
+/// ```
+pub fn from_read<R>(read: R) -> ReadStream<R>
+    where R: Read
+{
+    ReadStream {
+        bytes: read.bytes(),
+        offset: 0,
     }
 }
 
