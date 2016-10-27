@@ -22,13 +22,14 @@
 //! use combine::{Parser, State};
 //! use combine::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
-//!                              Unexpected '|'
-//!                              Expected 'digit' or 'letter'"#;
+//! Unexpected `|`
+//! Expected `digit` or `letter`
+//! "#;
 //!
 //! fn main() {
 //!     // Wrapping a `&str` with `State` provides automatic line and column tracking
 //!     if let Err(err) = digit().or(letter()).parse(State::new("|")) {
-//!         assert_eq!(MSG, format!("{}", MSG));
+//!         assert_eq!(MSG, format!("{}", err));
 //!     }
 //! }
 //! ```
