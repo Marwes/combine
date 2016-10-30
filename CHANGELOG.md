@@ -1,3 +1,13 @@
+<a name="2.1.0"></a>
+##  2.1.0 (2016-10-30)
+
+
+#### Features
+
+*   Add a read adapter for the stream trait ([a2a9f214](a2a9f214))
+
+
+
 <a name="2.0.0"></a>
 ## 2.0.0 (2016-10-19)
 
