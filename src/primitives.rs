@@ -711,7 +711,7 @@ impl<'a, T> Range for &'a [T] {
 }
 
 impl<'a, T> RangeStream for &'a [T]
-    where T: Copy + PartialEq
+    where T: Clone + PartialEq
 {
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Error<T, &'a [T]>> {
@@ -728,7 +728,7 @@ impl<'a, T> RangeStream for &'a [T]
         where F: FnMut(Self::Item) -> bool
     {
         let len = self.iter()
-            .take_while(|c| f(**c))
+            .take_while(|c| f((**c).clone()))
             .count();
         let (result, remaining) = self.split_at(len);
         *self = remaining;
@@ -760,7 +760,7 @@ impl<'a> StreamOnce for &'a str {
 }
 
 impl<'a, T> StreamOnce for &'a [T]
-    where T: Copy + PartialEq
+    where T: Clone + PartialEq
 {
     type Item = T;
     type Range = &'a [T];
@@ -771,7 +771,7 @@ impl<'a, T> StreamOnce for &'a [T]
         match self.split_first() {
             Some((first, rest)) => {
                 *self = rest;
-                Ok(*first)
+                Ok(first.clone())
             }
             None => Err(Error::end_of_input()),
         }
@@ -1710,5 +1710,18 @@ mod tests {
         assert_eq!((&[1][..]).uncons_range(1), Ok(&[1][..]));
         let s: &[u8] = &[];
         assert_eq!(SliceStream(s).uncons_range(0), Ok(&[][..]));
+    }
+
+    #[derive(Clone, PartialEq, Debug)]
+    struct CloneOnly {
+        s: String,
+    }
+
+    #[test]
+    fn parse_clone_but_not_copy() {
+        // This verifies we can parse slice references with an item type that is Clone but not Copy.
+        let input = &[CloneOnly { s: "x".to_string() }, CloneOnly { s: "y".to_string() }][..];
+        let result = ::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
+        assert_eq!(result, Ok((&[CloneOnly { s: "x".to_string() }][..], &[CloneOnly { s: "y".to_string() }][..])));
     }
 }
