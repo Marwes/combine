@@ -183,6 +183,16 @@ mod tests {
     fn take_while_test() {
         let result = take_while(|c: char| c.is_digit(10)).parse("123abc");
         assert_eq!(result, Ok(("123", "abc")));
+        let result = take_while(|c: char| c.is_digit(10)).parse("abc");
+        assert_eq!(result, Ok(("", "abc")));
+    }
+
+    #[test]
+    fn take_while1_test() {
+        let result = take_while1(|c: char| c.is_digit(10)).parse("123abc");
+        assert_eq!(result, Ok(("123", "abc")));
+        let result = take_while1(|c: char| c.is_digit(10)).parse("abc");
+        assert!(result.is_err());
     }
 
     #[test]
