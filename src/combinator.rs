@@ -2093,4 +2093,18 @@ mod tests {
                        errors: vec![Error::Unexpected('a'.into()), Error::Expected("digit".into())],
                    }));
     }
+
+    #[derive(Clone, PartialEq, Debug)]
+    struct CloneOnly {
+        s: String,
+    }
+
+    #[test]
+    fn token_clone_but_not_copy() {
+        // Verify we can use token() with a StreamSlice with an item type that is Clone but not
+        // Copy.
+        let input = &[CloneOnly { s: "x".to_string() }, CloneOnly { s: "y".to_string() }][..];
+        let result = token(CloneOnly { s: "x".to_string() }).parse(input);
+        assert_eq!(result, Ok((CloneOnly { s: "x".to_string() }, &[CloneOnly { s: "y".to_string() }][..])));
+    }
 }
