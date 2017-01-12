@@ -153,7 +153,7 @@ impl<I, P, R> Parser for SatisfyMap<I, P>
 
 /// Parses a token and passes it to `predicate`. If `predicate` returns `Some` the parser succeeds
 /// and returns the value inside the `Option`. If `predicate` returns `None` the parser fails
-/// without consuming any imput.
+/// without consuming any input.
 ///
 /// ```
 /// # extern crate combine;
