@@ -33,6 +33,12 @@ The library adheres to [semantic versioning](http://semver.org).
 
 If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a day by opening an issue, sending an email or posting a message on gitter.
 
+## FAQ
+
+### Why does my errors contain inscrutable positions?
+
+Since `combine` aims to crate parsers with little to no overhead streams over `&str` and `&[T]` do not carry any extra position information but instead only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `ParseError` or wrap your stream with `State`.
+
 ## Extra
 
 There is an additional crate which has parsers to lex and parse programming languages in [combine-language](https://github.com/Marwes/combine-language).

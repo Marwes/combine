@@ -164,11 +164,9 @@ impl<T, R> Error<T, R> {
         // There should really just be one unexpected message at this point though we print them
         // all to be safe
         let unexpected = errors.iter()
-            .filter(|e| {
-                match **e {
-                    Error::Unexpected(_) => true,
-                    _ => false,
-                }
+            .filter(|e| match **e {
+                Error::Unexpected(_) => true,
+                _ => false,
             });
         for error in unexpected {
             try!(writeln!(f, "{}", error));
@@ -178,11 +176,9 @@ impl<T, R> Error<T, R> {
         // 'Expected 'a', 'expression' or 'let'
         let iter = || {
             errors.iter()
-                .filter_map(|e| {
-                    match *e {
-                        Error::Expected(ref err) => Some(err),
-                        _ => None,
-                    }
+                .filter_map(|e| match *e {
+                    Error::Expected(ref err) => Some(err),
+                    _ => None,
                 })
         };
         let expected_count = iter().count();
@@ -200,12 +196,10 @@ impl<T, R> Error<T, R> {
         }
         // If there are any generic messages we print them out last
         let messages = errors.iter()
-            .filter(|e| {
-                match **e {
-                    Error::Message(_) |
-                    Error::Other(_) => true,
-                    _ => false,
-                }
+            .filter(|e| match **e {
+                Error::Message(_) |
+                Error::Other(_) => true,
+                _ => false,
             });
         for error in messages {
             try!(writeln!(f, "{}", error));
@@ -389,11 +383,9 @@ impl<S: StreamOnce> ParseError<S> {
 
     pub fn set_expected(&mut self, message: Info<S::Item, S::Range>) {
         // Remove all other expected messages
-        self.errors.retain(|e| {
-            match *e {
-                Error::Expected(_) => false,
-                _ => true,
-            }
+        self.errors.retain(|e| match *e {
+            Error::Expected(_) => false,
+            _ => true,
         });
         self.errors.push(Error::Expected(message));
     }
@@ -411,6 +403,46 @@ impl<S: StreamOnce> ParseError<S> {
                 self
             }
         }
+    }
+}
+
+impl<'s> ParseError<&'s str> {
+    /// Converts the pointer-based position into an indexed position
+    ///
+    /// ```rust
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let text = "b";
+    /// let err = token('a').parse(text).unwrap_err();
+    /// assert_eq!(err.position, text.as_ptr() as usize);
+    /// assert_eq!(err.translate_position(text).position, 0);
+    /// # }
+    /// ```
+    pub fn translate_position(mut self, initial_string: &'s str) -> ParseError<&'s str> {
+        self.position -= initial_string.as_ptr() as usize;
+        self
+    }
+}
+
+impl<'s, T: 's> ParseError<&'s [T]>
+    where T: Clone + PartialEq
+{
+    /// Converts the pointer-based position into an indexed position
+    ///
+    /// ```rust
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let text = b"b";
+    /// let err = token(b'a').parse(&text[..]).unwrap_err();
+    /// assert_eq!(err.position, text.as_ptr() as usize);
+    /// assert_eq!(err.translate_position(text).position, 0);
+    /// # }
+    /// ```
+    pub fn translate_position(mut self, initial_string: &'s [T]) -> ParseError<&'s [T]> {
+        self.position -= initial_string.as_ptr() as usize;
+        self
     }
 }
 
@@ -562,13 +594,11 @@ impl<I, E> RangeStream for State<I>
         where F: FnMut(I::Item) -> bool
     {
         let position = &mut self.position;
-        self.input.uncons_while(|t| {
-            if predicate(t.clone()) {
-                t.update(position);
-                true
-            } else {
-                false
-            }
+        self.input.uncons_while(|t| if predicate(t.clone()) {
+            t.update(position);
+            true
+        } else {
+            false
         })
     }
 }
@@ -1722,6 +1752,8 @@ mod tests {
         // This verifies we can parse slice references with an item type that is Clone but not Copy.
         let input = &[CloneOnly { s: "x".to_string() }, CloneOnly { s: "y".to_string() }][..];
         let result = ::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
-        assert_eq!(result, Ok((&[CloneOnly { s: "x".to_string() }][..], &[CloneOnly { s: "y".to_string() }][..])));
+        assert_eq!(result,
+                   Ok((&[CloneOnly { s: "x".to_string() }][..],
+                       &[CloneOnly { s: "y".to_string() }][..])));
     }
 }
