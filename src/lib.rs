@@ -27,7 +27,8 @@
 //! "#;
 //!
 //! fn main() {
-//!     // Wrapping a `&str` with `State` provides automatic line and column tracking
+//!     // Wrapping a `&str` with `State` provides automatic line and column tracking. If `State`
+//!     // was not used the positions would instead only be pointers into the `&str`
 //!     if let Err(err) = digit().or(letter()).parse(State::new("|")) {
 //!         assert_eq!(MSG, format!("{}", err));
 //!     }
@@ -298,13 +299,11 @@ mod tests {
                 line: 2,
                 column: 1,
             },
-            errors: vec![
-                    Error::Unexpected(','.into()),
-                    Error::Expected("integer".into()),
-                    Error::Expected("identifier".into()),
-                    Error::Expected("[".into()),
-                    Error::Expected("(".into()),
-                ],
+            errors: vec![Error::Unexpected(','.into()),
+                         Error::Expected("integer".into()),
+                         Error::Expected("identifier".into()),
+                         Error::Expected("[".into()),
+                         Error::Expected("(".into())],
         };
         assert_eq!(result, Err(err));
     }
