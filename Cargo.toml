@@ -13,6 +13,8 @@ readme = "README.md"
 
 keywords = ["parser", "combinators", "ll"]
 
+categories = ["parsing"]
+
 license = "MIT"
 
 [lib]
