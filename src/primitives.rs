@@ -7,8 +7,8 @@ use std::io::{Read, Bytes};
 
 use self::FastResult::*;
 
-use combinator::{AndThen, and_then, Expected, expected, FlatMap, flat_map, Iter, Map, map,
-                 Message, message, Or, or, Skip, skip, Then, then, With, with};
+use combinator::{AndThen, and_then, Expected, expected, FlatMap, flat_map, Iter, Map, map, Message,
+                 message, Or, or, Skip, skip, Then, then, With, with};
 
 #[macro_export]
 macro_rules! ctry {
@@ -1523,6 +1523,30 @@ pub trait Parser {
         where Self: Sized
     {
         Iter::new(self, input)
+    }
+
+    /// Turns the parser into a trait object by putting it in a `Box`. Can be used to easily
+    /// return parsers from functions without naming the type.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::{satisfy, token};
+    /// # fn main() {
+    /// fn test<'input, F>(c: char, f: F) ->  Box<Parser<Input = &'input str, Output = (char, char)>>
+    ///     where F: FnMut(char) -> bool + 'static
+    /// {
+    ///     (token(c), satisfy(f)).boxed()
+    /// }
+    /// let result = test('a', |c| c >= 'a' && c <= 'f')
+    ///     .parse("ac");
+    /// assert_eq!(result, Ok((('a', 'c'), "")));
+    /// # }
+    /// ```
+    fn boxed<'a>(self) -> Box<Parser<Input = Self::Input, Output = Self::Output> + 'a>
+        where Self: Sized + 'a
+    {
+        Box::new(self)
     }
 }
 impl<'a, I, O, P: ?Sized> Parser for &'a mut P
