@@ -1531,7 +1531,6 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::{satisfy, token};
     /// # fn main() {
     /// fn test<'input, F>(c: char, f: F) ->  Box<Parser<Input = &'input str, Output = (char, char)>>
     ///     where F: FnMut(char) -> bool + 'static
