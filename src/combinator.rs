@@ -1298,10 +1298,11 @@ impl<P> Parser for Optional<P>
     type Output = Option<P::Output>;
     #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<Option<P::Output>, P::Input> {
-        match self.0.parse_stream(input.clone()) {
-            Ok((x, rest)) => Ok((Some(x), rest)).into(),
-            Err(Consumed::Consumed(err)) => ConsumedErr(err),
-            Err(Consumed::Empty(_)) => EmptyOk((None, input)),
+        match self.0.parse_lazy(input.clone()) {
+            EmptyOk((x, rest)) => ConsumedOk((Some(x), rest)),
+            ConsumedOk((x, rest)) => ConsumedOk((Some(x), rest)),
+            ConsumedErr(err) => ConsumedErr(err),
+            EmptyErr(_) => EmptyOk((None, input)),
         }
     }
 }
