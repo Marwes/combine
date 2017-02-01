@@ -482,16 +482,25 @@ impl<T, I> Parser for NoneOf<T, I>
     }
 }
 
-/// Extract one token and succeeds if it is part of `tokens`.
+/// Extract one token and succeeds if it is not part of `tokens`.
 ///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Info;
+/// # use combine::primitives::{BytePosition, Error, Info};
 /// # fn main() {
-/// let result = many(none_of("abc".chars()))
-///     .parse("edc");
-/// assert_eq!(result, Ok((String::from("ed"), "c")));
+/// let mut parser = many1(none_of(b"abc".iter().cloned()));
+/// let result = parser.parse(State::new(&b"xyb"[..]))
+///     .map(|(output, input)| (output, input.input));
+/// assert_eq!(result, Ok((b"xy"[..].to_owned(), &b"b"[..])));
+///
+/// let result = parser.parse(State::new(&b"ab"[..]));
+/// assert_eq!(result, Err(ParseError {
+///     position: BytePosition { position: 0 },
+///     errors: vec![
+///         Error::Unexpected(Info::Token(b'a')),
+///     ]
+/// }));
 /// # }
 /// ```
 #[inline(always)]
@@ -532,16 +541,17 @@ impl<P, F> Parser for Count<F, P>
     }
 }
 
-/// Extract one token and succeeds if it is part of `tokens`.
+/// Parses up to `count` times using `parser`.
 ///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Info;
+/// # use combine::primitives::{BytePosition, Error, Info};
 /// # fn main() {
-/// let result = many(none_of("abc".chars()))
-///     .parse("edc");
-/// assert_eq!(result, Ok((String::from("ed"), "c")));
+/// let mut parser = count(2, token(b'a'));
+///
+/// let result = parser.parse(&b"aaab"[..]);
+/// assert_eq!(result, Ok((b"aa"[..].to_owned(), &b"ab"[..])));
 /// # }
 /// ```
 #[inline(always)]
@@ -1831,15 +1841,13 @@ impl<P> Parser for Expected<P>
         // Replace all expected errors that where added from the previous add_error
         // with this expected error
         let mut i = 0;
-        errors.errors.retain(|e| {
-            if i < start {
-                i += 1;
-                true
-            } else {
-                match *e {
-                    Error::Expected(_) => false,
-                    _ => true,
-                }
+        errors.errors.retain(|e| if i < start {
+            i += 1;
+            true
+        } else {
+            match *e {
+                Error::Expected(_) => false,
+                _ => true,
             }
         });
         errors.add_error(Error::Expected(self.1.clone()));
@@ -2105,6 +2113,7 @@ mod tests {
         // Copy.
         let input = &[CloneOnly { s: "x".to_string() }, CloneOnly { s: "y".to_string() }][..];
         let result = token(CloneOnly { s: "x".to_string() }).parse(input);
-        assert_eq!(result, Ok((CloneOnly { s: "x".to_string() }, &[CloneOnly { s: "y".to_string() }][..])));
+        assert_eq!(result,
+                   Ok((CloneOnly { s: "x".to_string() }, &[CloneOnly { s: "y".to_string() }][..])));
     }
 }

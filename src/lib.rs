@@ -139,7 +139,7 @@
 pub use primitives::{Parser, ParseError, ConsumedResult, ParseResult, State, from_iter, Stream,
                      StreamOnce};
 #[doc(inline)]
-pub use combinator::{any, between, chainl1, chainr1, choice, eof, env_parser, many, many1,
+pub use combinator::{any, between, chainl1, chainr1, choice, count, eof, env_parser, many, many1,
                      none_of, one_of, optional, parser, position, satisfy, satisfy_map, sep_by,
                      sep_by1, sep_end_by, sep_end_by1, skip_many, skip_many1, token, tokens, try,
                      look_ahead, value, unexpected, not_followed_by};
