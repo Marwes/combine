@@ -4,21 +4,20 @@ name = "combine"
 version = "2.2.0"
 authors = ["Markus Westerlind <marwes91@gmail.com>"]
 
-description = "Parser combinators based on the Haskell library parsec."
+description = "Fast parser combinators on arbitrary streams with zero-copy support."
 
 repository = "https://github.com/Marwes/combine"
 documentation = "https://marwes.github.io/combine/combine/index.html"
 
 readme = "README.md"
 
-keywords = ["parser", "combinators", "ll"]
+keywords = ["parser", "parsing", "combinators", "ll"]
 
 categories = ["parsing"]
 
 license = "MIT"
 
 [lib]
-
 name = "combine"
 path = "src/lib.rs"
 
