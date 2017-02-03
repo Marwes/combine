@@ -567,7 +567,7 @@ pub fn count<F, P>(count: usize, parser: P) -> Count<F, P>
 }
 
 /// Takes an array of parsers and tries to apply them each in order.
-/// Fails if all parsers fails or if an applied parser consumes input before failing.
+/// Fails if all the parsers fails or if an applied parser consumes input before failing.
 ///
 /// ```
 /// # extern crate combine;
@@ -596,6 +596,35 @@ pub fn choice<S, P>(ps: S) -> Choice<S, P>
           P: Parser
 {
     Choice(ps, PhantomData)
+}
+
+/// Takes a number of parsers and tries to apply them each in order.
+/// Fails if all the parsers fails or if an applied parser consumes input before failing.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::{digit, letter, string};
+/// # use combine::primitives::Error;
+/// # fn main() {
+/// let mut parser = choice!(
+///     many1(digit()),
+///     string("let").map(|s| s.to_string()),
+///     many1(letter()));
+/// assert_eq!(parser.parse("let"), Ok(("let".to_string(), "")));
+/// assert_eq!(parser.parse("123abc"), Ok(("123".to_string(), "abc")));
+/// assert!(parser.parse(":123").is_err());
+/// # }
+/// ```
+#[macro_export]
+macro_rules! choice {
+    ($first : expr) => {
+        $first
+    };
+    ($first : expr, $($rest : expr),+) => {
+        $first.or(choice!($($rest),+))
+    }
 }
 
 #[derive(Clone)]

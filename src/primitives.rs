@@ -1319,6 +1319,9 @@ pub trait Parser {
     /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming any
     /// input it tries to consume the same input using `p`.
     ///
+    /// If you are looking to chain 3 or more parsers using `or` you may consider using the
+    /// `choice!` macro instead, which can be clearer and may result in a faster parser.
+    ///
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
