@@ -57,6 +57,16 @@ pub enum Info<T, R> {
 }
 
 impl<T, R> Info<T, R> {
+    pub fn map_token<F, U>(self, f: F) -> Info<U, R> where F: FnOnce(T) -> U {
+        use self::Info::*;
+        match self {
+            Token(t) => Token(f(t)),
+            Range(r) => Range(r),
+            Owned(s) => Owned(s),
+            Borrowed(x) => Borrowed(x),
+        }
+    }
+
     pub fn map_range<F, S>(self, f: F) -> Info<T, S> where F: FnOnce(R) -> S {
         use self::Info::*;
         match self {
@@ -123,7 +133,17 @@ pub enum Error<T, R> {
 }
 
 impl<T, R> Error<T, R> {
-    pub fn map_err_range<F, S>(self, f: F) -> Error<T, S> where F: FnOnce(R) -> S {
+    pub fn map_token<F, U>(self, f: F) -> Error<U, R> where F: FnOnce(T) -> U {
+        use self::Error::*;
+        match self {
+            Unexpected(x) => Unexpected(x.map_token(f)),
+            Expected(x) => Expected(x.map_token(f)),
+            Message(x) => Message(x.map_token(f)),
+            Other(x) => Other(x),
+        }
+    }
+
+    pub fn map_range<F, S>(self, f: F) -> Error<T, S> where F: FnOnce(R) -> S {
         use self::Error::*;
         match self {
             Unexpected(x) => Unexpected(x.map_range(f)),
