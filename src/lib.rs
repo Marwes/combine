@@ -504,12 +504,12 @@ mod tests {
         #[derive(Debug)]
         struct ExtractedError(usize, DisplayVec<Error<CloneOnly, DisplayVec<CloneOnly>>>);
 
-        impl std::error::Error for ExtractedError {
+        impl StdError for ExtractedError {
             fn description(&self) -> &str {
                 "extracted error"
             }
         }
-  
+
         impl fmt::Display for CloneOnly {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, "{}", self.0)
@@ -534,7 +534,11 @@ mod tests {
             .parse(input)
             .map_err(|e| e.translate_position(input))
             .map_err(|e| {
-                ExtractedError(e.position, DisplayVec(e.errors.into_iter().map(|e| e.map_range(|r| DisplayVec(r.to_owned()))).collect()))
+                ExtractedError(e.position,
+                               DisplayVec(e.errors
+                                   .into_iter()
+                                   .map(|e| e.map_range(|r| DisplayVec(r.to_owned())))
+                                   .collect()))
             });
 
         assert!(result.is_err());
