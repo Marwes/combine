@@ -44,7 +44,9 @@ impl fmt::Display for BytePosition {
     }
 }
 
-/// Enum holding error information
+/// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
+/// well as string variants holding simple descriptions.
+///
 /// As there is implementations of `From` for `T: Positioner`, `String` and `&'static str` the
 /// constructor need not be used directly as calling `msg.into()` should turn a message into the
 /// correct `Info` variant
@@ -119,7 +121,7 @@ impl<T, R> From<&'static str> for Info<T, R> {
     }
 }
 
-/// Enum used to store information about an error that has occured
+/// Enum used to store information about an error that has occured during parsing
 #[derive(Debug)]
 pub enum Error<T, R> {
     /// Error indicating an unexpected token has been encountered in the stream
@@ -386,19 +388,25 @@ impl<T> Consumed<T> {
 pub struct ParseError<S: StreamOnce> {
     /// The position where the error occured
     pub position: S::Position,
-    /// A vector containing specific information on what errors occured at `position`
+    /// A vector containing specific information on what errors occured at `position`. Usually
+    /// a fully formed message contains one `Unexpected` error and one or more `Expected` errors.
+    /// `Message` and `Other` may also appear (`combine` never generates these errors on its own)
+    /// and may warrant custom handling.
     pub errors: Vec<Error<S::Item, S::Range>>,
 }
 
 impl<S: StreamOnce> ParseError<S> {
+    /// Constructs a new `ParseError` which occured at `position`
     pub fn new(position: S::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
         ParseError::from_errors(position, vec![error])
     }
 
+    /// Constructs an error with no other information than the position it occured at
     pub fn empty(position: S::Position) -> ParseError<S> {
         ParseError::from_errors(position, vec![])
     }
 
+    /// Constructs a `ParseError` with multiple causes
     pub fn from_errors(position: S::Position,
                        errors: Vec<Error<S::Item, S::Range>>)
                        -> ParseError<S> {
@@ -408,32 +416,42 @@ impl<S: StreamOnce> ParseError<S> {
         }
     }
 
+    /// Constructs an end of input error. Should be returned by parsers which encounter end of
+    /// input unexpectedly
     pub fn end_of_input(position: S::Position) -> ParseError<S> {
         ParseError::new(position, Error::end_of_input())
     }
 
+    /// Adds a `Message` error, taking care not to add duplicated errors
+    #[depreceated]
     pub fn add_message<M>(&mut self, message: M)
         where M: Into<Info<S::Item, S::Range>>
     {
         self.add_error(Error::Message(message.into()));
     }
 
-    pub fn add_error(&mut self, message: Error<S::Item, S::Range>) {
+    /// Adds an error if `error` does not exist in this `ParseError` already (as determined byte
+    /// `PartialEq`)
+    pub fn add_error(&mut self, error: Error<S::Item, S::Range>) {
         // Don't add duplicate errors
-        if self.errors.iter().all(|msg| *msg != message) {
-            self.errors.push(message);
+        if self.errors.iter().all(|err| *err != error) {
+            self.errors.push(error);
         }
     }
 
-    pub fn set_expected(&mut self, message: Info<S::Item, S::Range>) {
+    /// Remvoes all `Expected` errors in `self` and adds `info` instead
+    pub fn set_expected(&mut self, info: Info<S::Item, S::Range>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {
             Error::Expected(_) => false,
             _ => true,
         });
-        self.errors.push(Error::Expected(message));
+        self.errors.push(Error::Expected(info));
     }
 
+    /// Merges two `ParseError`s. If they exist at the same position the errors of `other` arena
+    /// added to `self` (using `add_error` to skip duplicates). If they are not at the same
+    /// position the error furthest ahead are returned, ignoring the other `ParseError`
     pub fn merge(mut self, other: ParseError<S>) -> ParseError<S> {
         use std::cmp::Ordering;
         // Only keep the errors which occured after consuming the most amount of data
