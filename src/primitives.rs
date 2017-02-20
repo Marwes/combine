@@ -56,6 +56,28 @@ pub enum Info<T, R> {
     Borrowed(&'static str),
 }
 
+impl<T, R> Info<T, R> {
+    pub fn map_token<F, U>(self, f: F) -> Info<U, R> where F: FnOnce(T) -> U {
+        use self::Info::*;
+        match self {
+            Token(t) => Token(f(t)),
+            Range(r) => Range(r),
+            Owned(s) => Owned(s),
+            Borrowed(x) => Borrowed(x),
+        }
+    }
+
+    pub fn map_range<F, S>(self, f: F) -> Info<T, S> where F: FnOnce(R) -> S {
+        use self::Info::*;
+        match self {
+            Token(t) => Token(t),
+            Range(r) => Range(f(r)),
+            Owned(s) => Owned(s),
+            Borrowed(x) => Borrowed(x),
+        }
+    }
+}
+
 impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
     fn eq(&self, other: &Info<T, R>) -> bool {
         match (self, other) {
@@ -108,6 +130,28 @@ pub enum Error<T, R> {
     Message(Info<T, R>),
     /// Variant for containing other types of errors
     Other(Box<StdError + Send + Sync>),
+}
+
+impl<T, R> Error<T, R> {
+    pub fn map_token<F, U>(self, f: F) -> Error<U, R> where F: FnOnce(T) -> U {
+        use self::Error::*;
+        match self {
+            Unexpected(x) => Unexpected(x.map_token(f)),
+            Expected(x) => Expected(x.map_token(f)),
+            Message(x) => Message(x.map_token(f)),
+            Other(x) => Other(x),
+        }
+    }
+
+    pub fn map_range<F, S>(self, f: F) -> Error<T, S> where F: FnOnce(R) -> S {
+        use self::Error::*;
+        match self {
+            Unexpected(x) => Unexpected(x.map_range(f)),
+            Expected(x) => Expected(x.map_range(f)),
+            Message(x) => Message(x.map_range(f)),
+            Other(x) => Other(x),
+        }
+    }
 }
 
 impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {

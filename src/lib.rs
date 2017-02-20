@@ -483,4 +483,73 @@ mod tests {
             err
         });
     }
+
+    #[test]
+    fn extract_std_error() {
+        // The previous test verified that we could map a ParseError to a StdError by dropping the
+        // internal error details.  This test verifies that we can map a ParseError to a StdError
+        // without dropping the internal error details.  Consumers using `error-chain` will
+        // appreciate this.  For technical reasons this is pretty janky; see the discussion in
+        // https://github.com/Marwes/combine/issues/86, and excuse the test with significant
+        // boilerplate!
+        use std::fmt;
+        use std::error::Error as StdError;
+
+        #[derive(Clone, PartialEq, Debug)]
+        struct CloneOnly(String);
+
+        #[derive(Debug)]
+        struct DisplayVec<T>(Vec<T>);
+
+        #[derive(Debug)]
+        struct ExtractedError(usize, DisplayVec<Error<CloneOnly, DisplayVec<CloneOnly>>>);
+
+        impl StdError for ExtractedError {
+            fn description(&self) -> &str {
+                "extracted error"
+            }
+        }
+
+        impl fmt::Display for CloneOnly {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl<T: fmt::Debug> fmt::Display for DisplayVec<T> {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "[{:?}]", self.0)
+            }
+        }
+
+        impl fmt::Display for ExtractedError {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                try!(writeln!(f, "Parse error at {}", self.0));
+                Error::fmt_errors(&(self.1).0, f)
+            }
+        }
+
+        let input = &[CloneOnly("x".to_string()), CloneOnly("y".to_string())][..];
+        let result = token(CloneOnly("z".to_string()))
+            .parse(input)
+            .map_err(|e| e.translate_position(input))
+            .map_err(|e| {
+                ExtractedError(e.position,
+                               DisplayVec(e.errors
+                                   .into_iter()
+                                   .map(|e| e.map_range(|r| DisplayVec(r.to_owned())))
+                                   .collect()))
+            });
+
+        assert!(result.is_err());
+        // Test that the fresh ExtractedError is Display, so that the internal errors can be
+        // inspected by consuming code; and that the ExtractedError can be coerced to StdError.
+        let _ = result.map_err(|err| {
+            let s = format!("{}", err);
+            assert!(s.starts_with("Parse error at 0"));
+            assert!(s.contains("Expected"));
+            let err: Box<StdError> = Box::new(err);
+            err
+        });
+    }
 }
