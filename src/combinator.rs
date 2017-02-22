@@ -1658,7 +1658,7 @@ impl<I, P> Parser for Message<P>
             .parse_stream(input.clone())
             .map_err(|errors| {
                 errors.map(|mut errors| {
-                    errors.add_message(self.1.clone());
+                    errors.add_error(Error::Message(self.1.clone()));
                     errors
                 })
             })
@@ -1671,7 +1671,7 @@ impl<I, P> Parser for Message<P>
 
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         self.0.add_error(errors);
-        errors.add_message(self.1.clone());
+        errors.add_error(Error::Message(self.1.clone()));
     }
 }
 

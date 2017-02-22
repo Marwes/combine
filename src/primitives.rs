@@ -59,7 +59,9 @@ pub enum Info<T, R> {
 }
 
 impl<T, R> Info<T, R> {
-    pub fn map_token<F, U>(self, f: F) -> Info<U, R> where F: FnOnce(T) -> U {
+    pub fn map_token<F, U>(self, f: F) -> Info<U, R>
+        where F: FnOnce(T) -> U
+    {
         use self::Info::*;
         match self {
             Token(t) => Token(f(t)),
@@ -69,7 +71,9 @@ impl<T, R> Info<T, R> {
         }
     }
 
-    pub fn map_range<F, S>(self, f: F) -> Info<T, S> where F: FnOnce(R) -> S {
+    pub fn map_range<F, S>(self, f: F) -> Info<T, S>
+        where F: FnOnce(R) -> S
+    {
         use self::Info::*;
         match self {
             Token(t) => Token(t),
@@ -135,7 +139,9 @@ pub enum Error<T, R> {
 }
 
 impl<T, R> Error<T, R> {
-    pub fn map_token<F, U>(self, f: F) -> Error<U, R> where F: FnOnce(T) -> U {
+    pub fn map_token<F, U>(self, f: F) -> Error<U, R>
+        where F: FnOnce(T) -> U
+    {
         use self::Error::*;
         match self {
             Unexpected(x) => Unexpected(x.map_token(f)),
@@ -145,7 +151,9 @@ impl<T, R> Error<T, R> {
         }
     }
 
-    pub fn map_range<F, S>(self, f: F) -> Error<T, S> where F: FnOnce(R) -> S {
+    pub fn map_range<F, S>(self, f: F) -> Error<T, S>
+        where F: FnOnce(R) -> S
+    {
         use self::Error::*;
         match self {
             Unexpected(x) => Unexpected(x.map_range(f)),
@@ -423,7 +431,7 @@ impl<S: StreamOnce> ParseError<S> {
     }
 
     /// Adds a `Message` error, taking care not to add duplicated errors
-    #[depreceated]
+    #[deprecated(since = "2.2.3", note = "Use `add_error(Error::Message())` instead")]
     pub fn add_message<M>(&mut self, message: M)
         where M: Into<Info<S::Item, S::Range>>
     {
