@@ -262,7 +262,11 @@ impl<T, R> Error<T, R> {
     }
 }
 
-/// Enum used to indicate if a parser consumed any items of the stream it was given as an input
+/// Enum used to indicate if a parser consumed any items of the stream it was given as an input.
+///
+/// This is used by parsers such as `or` and `choice` to determine if they should try to parser
+/// with another parser as they will only be able to provide good error reporting if the preceding
+/// parser did not consume any tokens.
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum Consumed<T> {
     /// Constructor indicating that the parser has consumed elements
@@ -327,7 +331,12 @@ impl<T> Consumed<T> {
         }
     }
 
-    /// Combines the Consumed flags from `self` and the result of `f`
+    /// Combines the Consumed flags from `self` and the result of `f`.
+    ///
+    /// Empty <> Empty == Empty
+    /// Consumed <> Empty == Consumed
+    /// Empty <> Consumed == Consumed
+    /// Consumed <> Consumed == Consumed
     ///
     /// ```
     /// # extern crate combine as pc;
