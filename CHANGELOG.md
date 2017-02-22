@@ -9,6 +9,7 @@
 #### Features
 
 *   Add the choice! macro ([6f2cec69](6f2cec69))
+*   Add map functions for Error<> and Info<> ranges. (#86) 
 *   Add Parser::boxed ([3af9c9b3](3af9c9b3))
 
 <a name="2.1.0"></a>
