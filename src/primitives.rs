@@ -440,7 +440,7 @@ impl<S: StreamOnce> ParseError<S> {
     }
 
     /// Adds a `Message` error, taking care not to add duplicated errors
-    #[deprecated(since = "2.2.3", note = "Use `add_error(Error::Message())` instead")]
+    #[deprecated(since = "2.3.0", note = "Use `add_error(Error::Message())` instead")]
     pub fn add_message<M>(&mut self, message: M)
         where M: Into<Info<S::Item, S::Range>>
     {

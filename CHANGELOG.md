@@ -1,3 +1,16 @@
+<a name="v2.3.0"></a>
+## v2.3.0 (2017-02-22)
+
+
+#### Performance
+
+*   Don't call parse_stream in optional ([a4bf28d2](a4bf28d2))
+
+#### Features
+
+*   Add the choice! macro ([6f2cec69](6f2cec69))
+*   Add Parser::boxed ([3af9c9b3](3af9c9b3))
+
 <a name="2.1.0"></a>
 ##  2.1.0 (2016-10-30)
 
