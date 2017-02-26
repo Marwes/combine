@@ -2,7 +2,7 @@ use primitives::{Parser, ParseError, ConsumedResult, Stream};
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
 use std::marker::PhantomData;
 
-/// Parses a character and succeeds if the character is equal to `c`
+/// Parses a character and succeeds if the character is equal to `c`.
 ///
 /// ```
 /// # extern crate combine;
@@ -23,7 +23,8 @@ pub fn char<I>(c: char) -> Token<I>
 }
 
 impl_token_parser! { Digit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses a digit from a stream containing characters
+
+/// Parses a base-10 digit.
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item = char>
@@ -33,7 +34,12 @@ pub fn digit<I>() -> Digit<I>
 }
 
 impl_token_parser! { Space(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses whitespace
+
+/// Parse a single whitespace according to [`std::char::is_whitespace`].
+///
+/// This includes space characters, tabs and newlines.
+///
+/// [`std::char::is_whitespace`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_whitespace
 #[inline(always)]
 pub fn space<I>() -> Space<I>
     where I: Stream<Item = char>
@@ -41,8 +47,14 @@ pub fn space<I>() -> Space<I>
     let f: fn(char) -> bool = char::is_whitespace;
     Space(satisfy(f).expected("whitespace"), PhantomData)
 }
+
 impl_token_parser! { Spaces(), char, Expected<SkipMany<Space<I>>> }
-/// Skips over zero or more spaces
+
+/// Skips over zero or more spaces according to [`std::char::is_whitespace`].
+///
+/// This includes space characters, tabs and newlines.
+///
+/// [`std::char::is_whitespace`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_whitespace
 #[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item = char>
@@ -51,7 +63,8 @@ pub fn spaces<I>() -> Spaces<I>
 }
 
 impl_token_parser! { Newline(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses a newline character
+
+/// Parses a newline character.
 #[inline(always)]
 pub fn newline<I>() -> Newline<I>
     where I: Stream<Item = char>
@@ -61,6 +74,7 @@ pub fn newline<I>() -> Newline<I>
 }
 
 impl_token_parser! { CrLf(), char, Expected<With<Satisfy<I, fn (char) -> bool>, Newline<I>>> }
+
 /// Parses carriage return and newline, returning the newline character.
 #[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
@@ -73,7 +87,8 @@ pub fn crlf<I>() -> CrLf<I>
 }
 
 impl_token_parser! { Tab(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses a tab character
+
+/// Parses a tab character.
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item = char>
@@ -83,7 +98,10 @@ pub fn tab<I>() -> Tab<I>
 }
 
 impl_token_parser! { Upper(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses an uppercase letter
+
+/// Parses an uppercase letter according to [`std::char::is_uppercase`].
+///
+/// [`std::char::is_uppercase`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_uppercase
 #[inline(always)]
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item = char>
@@ -93,7 +111,10 @@ pub fn upper<I>() -> Upper<I>
 }
 
 impl_token_parser! { Lower(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses an lowercase letter
+
+/// Parses an lowercase letter according to [`std::char::is_lowercase`].
+///
+/// [`std::char::is_lowercase`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_lowercase
 #[inline(always)]
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item = char>
@@ -104,7 +125,10 @@ pub fn lower<I>() -> Lower<I>
 }
 
 impl_token_parser! { AlphaNum(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses either an alphabet letter or digit
+
+/// Parses either an alphabet letter or digit according to [`std::char::is_alphanumeric`].
+///
+/// [`std::char::is_alphanumeric`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_alphanumeric
 #[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item = char>
@@ -115,7 +139,10 @@ pub fn alpha_num<I>() -> AlphaNum<I>
 }
 
 impl_token_parser! { Letter(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses an alphabet letter
+
+/// Parses an alphabet letter according to [`std::char::is_alphabetic`].
+///
+/// [`std::char::is_alphabetic`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_alphabetic
 #[inline(always)]
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item = char>
@@ -125,7 +152,8 @@ pub fn letter<I>() -> Letter<I>
 }
 
 impl_token_parser! { OctDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses an octal digit
+
+/// Parses an octal digit.
 #[inline(always)]
 pub fn oct_digit<I>() -> OctDigit<I>
     where I: Stream<Item = char>
@@ -135,7 +163,8 @@ pub fn oct_digit<I>() -> OctDigit<I>
 }
 
 impl_token_parser! { HexDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-/// Parses a hexdecimal digit with uppercase and lowercase
+
+/// Parses a hexdecimal digit with uppercase and lowercase.
 #[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item = char>
@@ -166,7 +195,8 @@ impl<I> Parser for Str<I>
         tokens(eq, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
-/// Parses the string `s`
+
+/// Parses the string `s`.
 ///
 /// ```
 /// # extern crate combine;
@@ -204,7 +234,8 @@ impl<C, I> Parser for StrCmp<C, I>
         tokens(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
-/// Parses the string `s`, using `cmp` to compare each character
+
+/// Parses the string `s`, using `cmp` to compare each character.
 ///
 /// ```
 /// # extern crate combine;

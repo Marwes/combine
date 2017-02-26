@@ -4,14 +4,14 @@
 //! A parser in this library can be described as a function which takes some input and if it
 //! is succesful, returns a value together with the remaining input.
 //! A parser combinator is a function which takes one or more parsers and returns a new parser.
-//! For instance the `many` parser can be used to convert a parser for single digits into one that
+//! For instance the [`many`] parser can be used to convert a parser for single digits into one that
 //! parses multiple digits. By modeling parsers in this way it becomes simple to compose complex
 //! parsers in an almost declarative way.
 //!
 //! # Overview
 //!
 //! `combine` limits itself to creating [LL(1) parsers](https://en.wikipedia.org/wiki/LL_parser)
-//! (it is possible to opt-in to LL(k) parsing using the `try` combinator) which makes the
+//! (it is possible to opt-in to LL(k) parsing using the [`try`] combinator) which makes the
 //! parsers easy to reason about in both function and performance while sacrificing
 //! some generality. In addition to you being able to reason better about the parsers you
 //! construct `combine` the library also takes the knowledge of being an LL parser and uses it to
@@ -35,19 +35,22 @@
 //! }
 //! ```
 //!
-//! This library currently contains three modules.
+//! This library currently contains five modules:
 //!
-//! * `combinator` contains the before mentioned parser combinators and thus contains the main
-//! building blocks for creating any sort of complex parsers. It consists of free functions `such`
-//! as `many` and `satisfy` as well as a few methods on the `Parser` trait which provides a few
-//! functions such as `or` which are more natural to use method calls.
+//! * [`combinator`] contains the before mentioned parser combinators and thus contains the main
+//! building blocks for creating any sort of complex parsers. It consists of free functions such
+//! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a few
+//! functions such as [`or`] which are more natural to use method calls.
 //!
-//! * `char` provides parsers specifically working with streams of characters.
-//! As a few examples it has parsers for accepting digits, letters or whitespace.
-//!
-//! * `primitives` contains the `Parser` and `Stream` traits which are the core abstractions in
+//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions in
 //! combine as well as various structs dealing with input streams and errors. You usually only need
 //! to use this module if you want more control over parsing and input streams.
+//!
+//! * [`char`] and [`byte`] provides parsers specifically working with streams of characters
+//! (`char`) and bytes (`u8`) respectively. As a few examples it has parsers for accepting digits,
+//! letters or whitespace.
+//!
+//! * [`range`] provides some zero-copy parsers for [`RangeStream`]s.
 //!
 //! # Examples
 //!
@@ -76,8 +79,8 @@
 //! ```
 //!
 //! If we need a parser that is mutually recursive we can define a free function which internally
-//! can in turn be used as a parser by using the `parser` function which turns a function with the
-//! correct signature into a parser. In this case we define `expr` to work on any type of `Stream`
+//! can in turn be used as a parser by using the [`parser`][fn parser] function which turns a function with the
+//! correct signature into a parser. In this case we define `expr` to work on any type of [`Stream`]
 //! which is combine's way of abstracting over different data sources such as array slices, string
 //! slices, iterators etc. If instead you would only need to parse string already in memory you
 //! could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
@@ -134,6 +137,20 @@
 //!     assert_eq!(result, Ok((expr, "")));
 //! }
 //! ```
+//!
+//! [`combinator`]: combinator/index.html
+//! [`primitives`]: primitives/index.html
+//! [`char`]: char/index.html
+//! [`byte`]: byte/index.html
+//! [`range`]: range/index.html
+//! [`many`]: combinator/fn.many.html
+//! [`try`]: combinator/fn.try.html
+//! [`satisfy`]: combinator/fn.satisfy.html
+//! [`or`]: primitives/trait.Parser.html#method.or
+//! [`Stream`]: primitives/trait.Stream.html
+//! [`RangeStream`]: primitives/trait.RangeStream.html
+//! [`Parser`]: primitives/trait.Parser.html
+//! [fn parser]: combinator/fn.parser.html
 
 #[doc(inline)]
 pub use primitives::{Parser, ParseError, ConsumedResult, ParseResult, State, from_iter, Stream,
@@ -173,16 +190,17 @@ macro_rules! impl_token_parser {
 }
 }
 
-/// Module containing the primitive types which is used to create and compose more advanced parsers
+/// Module containing the primitive types which is used to create and compose more advanced
+/// parsers.
 #[macro_use]
 pub mod primitives;
-/// Module containing all specific parsers
+/// Module containing all specific parsers.
 pub mod combinator;
-/// Module containing zero-copy parsers
+/// Module containing zero-copy parsers.
 pub mod range;
-/// Module containing parsers specialized on byte streams
+/// Module containing parsers specialized on byte streams.
 pub mod byte;
-/// Module containing parsers specialized on character streams
+/// Module containing parsers specialized on character streams.
 pub mod char;
 
 
