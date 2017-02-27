@@ -1624,7 +1624,7 @@ impl<I, P1, P2> Parser for With<P1, P2>
     }
 }
 
-/// Equavalent to [`p1.with(p2)`].
+/// Equivalent to [`p1.with(p2)`].
 ///
 /// [`p1.with(p2)`]: ../primitives/trait.Parser.html#method.with
 #[inline(always)]
@@ -1696,8 +1696,9 @@ impl<I, P> Parser for Message<P>
     }
 }
 
-/// Returns a parser which attempts to parse using `self`. If `self` fails without consuming
-/// any input it tries to consume the same input using `p`.
+/// Equivalent to [`p1.message(msg)`].
+///
+/// [`p1.message(msg)`]: ../primitives/trait.Parser.html#method.message
 #[inline(always)]
 pub fn message<P>(p: P,
                   msg: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
@@ -1740,7 +1741,7 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
     }
 }
 
-/// Equavalent to [`p1.or(p2)`].
+/// Equivalent to [`p1.or(p2)`].
 ///
 /// If you are looking to chain 3 or more parsers using `or` you may consider using the
 /// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
@@ -1777,7 +1778,7 @@ impl<I, A, B, P, F> Parser for Map<P, F>
     }
 }
 
-/// Equavalent to [`p.map(f)`].
+/// Equivalent to [`p.map(f)`].
 ///
 /// [`p.map(f)`]: ../primitives/trait.Parser.html#method.map
 #[inline(always)]
@@ -1821,7 +1822,7 @@ impl<I, A, B, P, F> Parser for FlatMap<P, F>
     }
 }
 
-/// Equavalent to [`p.flat_map(f)`].
+/// Equivalent to [`p.flat_map(f)`].
 ///
 /// [`p.flat_map(f)`]: ../primitives/trait.Parser.html#method.flat_map
 #[inline(always)]
@@ -1864,7 +1865,7 @@ impl<P, N, F> Parser for Then<P, F>
     }
 }
 
-/// Equavalent to [`p.then(f)`].
+/// Equivalent to [`p.then(f)`].
 ///
 /// [`p.then(f)`]: ../primitives/trait.Parser.html#method.then
 #[inline(always)]
@@ -1922,7 +1923,7 @@ impl<P> Parser for Expected<P>
     }
 }
 
-/// Equavalent to [`p.expected(info)`].
+/// Equivalent to [`p.expected(info)`].
 ///
 /// [`p.expected(info)`]: ../primitives/trait.Parser.html#method.expected
 #[inline(always)]
@@ -1967,7 +1968,7 @@ impl<P, F, O, E> Parser for AndThen<P, F>
     }
 }
 
-/// Equavalent to [`p.and_then(f)`].
+/// Equivalent to [`p.and_then(f)`].
 ///
 /// [`p.and_then(f)`]: ../primitives/trait.Parser.html#method.and_then
 #[inline(always)]
