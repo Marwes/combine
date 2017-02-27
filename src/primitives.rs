@@ -22,7 +22,7 @@ macro_rules! ctry {
     }
 }
 
-/// Struct which represents a position in a source file
+/// Struct which represents a position in a source file.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
     /// Current line of the input
@@ -31,7 +31,7 @@ pub struct SourcePosition {
     pub column: i32,
 }
 
-/// Struct which represents a position in a byte stream
+/// Struct which represents a position in a byte stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BytePosition {
     /// Current position
@@ -49,7 +49,7 @@ impl fmt::Display for BytePosition {
 ///
 /// As there is implementations of `From` for `T: Positioner`, `String` and `&'static str` the
 /// constructor need not be used directly as calling `msg.into()` should turn a message into the
-/// correct `Info` variant
+/// correct `Info` variant.
 #[derive(Clone, Debug)]
 pub enum Info<T, R> {
     Token(T),
@@ -125,7 +125,7 @@ impl<T, R> From<&'static str> for Info<T, R> {
     }
 }
 
-/// Enum used to store information about an error that has occured during parsing
+/// Enum used to store information about an error that has occured during parsing.
 #[derive(Debug)]
 pub enum Error<T, R> {
     /// Error indicating an unexpected token has been encountered in the stream
@@ -184,12 +184,12 @@ impl<E, T, R> From<E> for Error<T, R>
 }
 
 impl<T, R> Error<T, R> {
-    /// Returns the `end_of_input` error
+    /// Returns the `end_of_input` error.
     pub fn end_of_input() -> Error<T, R> {
         Error::Unexpected("end of input".into())
     }
 
-    /// Formats a slice of errors in a human readable way
+    /// Formats a slice of errors in a human readable way.
     ///
     /// ```rust
     /// # extern crate combine;
@@ -288,7 +288,7 @@ impl<T> Consumed<T> {
             Consumed::Consumed(ref t) => t,
         }
     }
-    /// Returns true if `self` is empty
+    /// Returns true if `self` is empty.
     pub fn is_empty(&self) -> bool {
         match *self {
             Consumed::Empty(_) => true,
@@ -296,7 +296,7 @@ impl<T> Consumed<T> {
         }
     }
 
-    /// Extracts the contained value
+    /// Extracts the contained value.
     pub fn into_inner(self) -> T {
         match self {
             Consumed::Empty(x) => x,
@@ -304,17 +304,17 @@ impl<T> Consumed<T> {
         }
     }
 
-    /// Converts `self` into the Consumed state
+    /// Converts `self` into the `Consumed` state.
     pub fn as_consumed(self) -> Consumed<T> {
         Consumed::Consumed(self.into_inner())
     }
 
-    /// Converts `self` into theEmpty state
+    /// Converts `self` into the `Empty` state.
     pub fn as_empty(self) -> Consumed<T> {
         Consumed::Empty(self.into_inner())
     }
 
-    /// Maps over the contained value without changing the consumed state
+    /// Maps over the contained value without changing the consumed state.
     pub fn map<F, U>(self, f: F) -> Consumed<U>
         where F: FnOnce(T) -> U
     {
@@ -331,12 +331,14 @@ impl<T> Consumed<T> {
         }
     }
 
-    /// Combines the Consumed flags from `self` and the result of `f`.
+    /// Combines the `Consumed` flags from `self` and the result of `f`.
     ///
-    /// Empty <> Empty == Empty
-    /// Consumed <> Empty == Consumed
-    /// Empty <> Consumed == Consumed
-    /// Consumed <> Consumed == Consumed
+    /// ```text
+    /// Empty    <> Empty    -> Empty
+    /// Consumed <> Empty    -> Consumed
+    /// Empty    <> Consumed -> Consumed
+    /// Consumed <> Consumed -> Consumed
+    /// ```
     ///
     /// ```
     /// # extern crate combine as pc;
@@ -413,17 +415,17 @@ pub struct ParseError<S: StreamOnce> {
 }
 
 impl<S: StreamOnce> ParseError<S> {
-    /// Constructs a new `ParseError` which occured at `position`
+    /// Constructs a new `ParseError` which occured at `position`.
     pub fn new(position: S::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
         ParseError::from_errors(position, vec![error])
     }
 
-    /// Constructs an error with no other information than the position it occured at
+    /// Constructs an error with no other information than the position it occured at.
     pub fn empty(position: S::Position) -> ParseError<S> {
         ParseError::from_errors(position, vec![])
     }
 
-    /// Constructs a `ParseError` with multiple causes
+    /// Constructs a `ParseError` with multiple causes.
     pub fn from_errors(position: S::Position,
                        errors: Vec<Error<S::Item, S::Range>>)
                        -> ParseError<S> {
@@ -434,12 +436,12 @@ impl<S: StreamOnce> ParseError<S> {
     }
 
     /// Constructs an end of input error. Should be returned by parsers which encounter end of
-    /// input unexpectedly
+    /// input unexpectedly.
     pub fn end_of_input(position: S::Position) -> ParseError<S> {
         ParseError::new(position, Error::end_of_input())
     }
 
-    /// Adds a `Message` error, taking care not to add duplicated errors
+    /// Adds a `Message` error, taking care not to add duplicated errors.
     #[deprecated(since = "2.3.0", note = "Use `add_error(Error::Message())` instead")]
     pub fn add_message<M>(&mut self, message: M)
         where M: Into<Info<S::Item, S::Range>>
@@ -448,7 +450,7 @@ impl<S: StreamOnce> ParseError<S> {
     }
 
     /// Adds an error if `error` does not exist in this `ParseError` already (as determined byte
-    /// `PartialEq`)
+    /// `PartialEq`).
     pub fn add_error(&mut self, error: Error<S::Item, S::Range>) {
         // Don't add duplicate errors
         if self.errors.iter().all(|err| *err != error) {
@@ -456,7 +458,7 @@ impl<S: StreamOnce> ParseError<S> {
         }
     }
 
-    /// Remvoes all `Expected` errors in `self` and adds `info` instead
+    /// Remvoes all `Expected` errors in `self` and adds `info` instead.
     pub fn set_expected(&mut self, info: Info<S::Item, S::Range>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {
@@ -466,9 +468,9 @@ impl<S: StreamOnce> ParseError<S> {
         self.errors.push(Error::Expected(info));
     }
 
-    /// Merges two `ParseError`s. If they exist at the same position the errors of `other` arena
+    /// Merges two `ParseError`s. If they exist at the same position the errors of `other` are
     /// added to `self` (using `add_error` to skip duplicates). If they are not at the same
-    /// position the error furthest ahead are returned, ignoring the other `ParseError`
+    /// position the error furthest ahead are returned, ignoring the other `ParseError`.
     pub fn merge(mut self, other: ParseError<S>) -> ParseError<S> {
         use std::cmp::Ordering;
         // Only keep the errors which occured after consuming the most amount of data
@@ -486,7 +488,7 @@ impl<S: StreamOnce> ParseError<S> {
 }
 
 impl<'s> ParseError<&'s str> {
-    /// Converts the pointer-based position into an indexed position
+    /// Converts the pointer-based position into an indexed position.
     ///
     /// ```rust
     /// # extern crate combine;
@@ -507,7 +509,7 @@ impl<'s> ParseError<&'s str> {
 impl<'s, T: 's> ParseError<&'s [T]>
     where T: Clone + PartialEq
 {
-    /// Converts the pointer-based position into an indexed position
+    /// Converts the pointer-based position into an indexed position.
     ///
     /// ```rust
     /// # extern crate combine;
@@ -618,7 +620,7 @@ impl<I> State<I>
           I::Item: Positioner
 {
     /// Creates a new `State<I>` from an input stream. Initializes the position to
-    /// `Positioner::start()`
+    /// `Positioner::start()`.
     pub fn new(input: I) -> State<I> {
         State {
             position: <I::Item as Positioner>::start(),
@@ -684,29 +686,29 @@ impl<I, E> RangeStream for State<I>
 
 /// A type alias over the specific `Result` type used by parsers to indicate wether they were
 /// successful or not.
-/// `O` is the type that is output on success
-/// `I` is the specific stream type used in the parser
+/// `O` is the type that is output on success.
+/// `I` is the specific stream type used in the parser.
 pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<ParseError<I>>>;
 
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {
-    /// The type of items which is yielded from this stream
+    /// The type of items which is yielded from this stream.
     type Item: Clone + PartialEq;
 
     /// The type of a range of items yielded from this stream.
     /// Types which do not a have a way of yielding ranges of items should just use the
-    /// Self::Item for this type
+    /// `Self::Item` for this type.
     type Range: Clone + PartialEq;
 
     /// Type which represents the position in a stream.
-    /// Ord is required to allow parsers to determine which of two positions are further ahead.
+    /// `Ord` is required to allow parsers to determine which of two positions are further ahead.
     type Position: Ord;
 
-    /// Takes a stream and removes its first item, yielding the item and the rest of the elements
-    /// Returns `Err` if no element could be retrieved
+    /// Takes a stream and removes its first item, yielding the item and the rest of the elements.
+    /// Returns `Err` if no element could be retrieved.
     fn uncons(&mut self) -> Result<Self::Item, Error<Self::Item, Self::Range>>;
 
-    /// Returns the current position of the stream
+    /// Returns the current position of the stream.
     fn position(&self) -> Self::Position;
 }
 
@@ -724,14 +726,14 @@ pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
     Ok((x, Consumed::Consumed(input)))
 }
 
-/// A `RangeStream` is an extension of Stream which allows for zero copy parsing
+/// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
 pub trait RangeStream: Stream {
-    /// Takes `size` elements from the stream
+    /// Takes `size` elements from the stream.
     /// Fails if the length of the stream is less than `size`.
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, Error<Self::Item, Self::Range>>;
 
-    /// Takes items from stream, testing each one with `predicate`
-    /// returns the range of items which passed `predicate`
+    /// Takes items from stream, testing each one with `predicate`.
+    /// returns the range of items which passed `predicate`.
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Error<Self::Item, Self::Range>>
         where F: FnMut(Self::Item) -> bool;
 }
@@ -757,7 +759,7 @@ pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ConsumedResult<I::Range
 
 pub trait Range {
     /// Returns the remaining length of `self`.
-    /// The returned length need not be the same as the number of items left in the stream
+    /// The returned length need not be the same as the number of items left in the stream.
     fn len(&self) -> usize;
 }
 
@@ -892,7 +894,7 @@ impl<'a, T> StreamOnce for &'a [T]
     }
 }
 
-/// Newtype for constructing a stream from a slice where the items in the slice are not copyable
+/// Newtype for constructing a stream from a slice where the items in the slice are not copyable.
 #[derive(Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct SliceStream<'a, T: 'a>(pub &'a [T]);
 
@@ -955,7 +957,9 @@ impl<'a, T> RangeStream for SliceStream<'a, T>
 }
 
 /// Wrapper around iterators which allows them to be treated as a stream.
-/// Returned by `from_iter`.
+/// Returned by [`from_iter`].
+///
+/// [`from_iter`]: fn.from_iter.html
 #[derive(Clone, Debug)]
 pub struct IteratorStream<I>(I, usize) where I: Iterator;
 
@@ -1031,7 +1035,7 @@ impl<R: Read> StreamOnce for ReadStream<R> {
     }
 }
 
-/// Creates a `StreamOnce` instance from a value implementing `std::io::Read`
+/// Creates a `StreamOnce` instance from a value implementing `std::io::Read`.
 ///
 /// ```rust
 /// # extern crate combine;
@@ -1248,8 +1252,12 @@ impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
 /// the type `Output`.
 ///
 /// All methods have a default implementation but there needs to be at least an implementation of
-/// `parse_stream` or`parse_lazy`. If `parse_lazy` is implemented an implementation of `add_error` is
-/// also recommended to improve error reporting.
+/// [`parse_stream`] or [`parse_lazy`]. If [`parse_lazy`] is implemented an implementation of
+/// [`add_error`] is also recommended to improve error reporting.
+///
+/// [`parse_stream`]: trait.Parser.html#method.parse_stream
+/// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
+/// [`add_error`]: trait.Parser.html#method.add_error
 pub trait Parser {
     /// The type which is take as input for the parser. The type must implement the `Stream` trait
     /// which allows the parser to read item from the type.
@@ -1257,8 +1265,11 @@ pub trait Parser {
     /// The type which is returned if the parser is successful.
     type Output;
 
-    /// Entrypoint of the parser
-    /// Takes some input and tries to parse it returning a `ParseResult`
+    /// Entry point of the parser.
+    /// Takes some input and tries to parse it returning the parsed result and the remaining input
+    /// if the parser succeeds or returns a [`ParseError`] if the parser fails.
+    ///
+    /// [`ParseError`]: type.ParseError.html
     fn parse(&mut self,
              input: Self::Input)
              -> Result<(Self::Output, Self::Input), ParseError<Self::Input>> {
@@ -1268,15 +1279,19 @@ pub trait Parser {
         }
     }
 
-    /// Parses using the stream `input` by calling Stream::uncons one or more times
-    /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
+    /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
+    /// On success returns `Ok((value, new_state))` and on failure it returns `Err(error)`.
+    ///
+    /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
     #[inline(always)]
     fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.parse_stream_consumed(input).into()
     }
 
-    /// Parses using the stream `input` by calling Stream::uncons one or more times
-    /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`
+    /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
+    /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`.
+    ///
+    /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
     #[inline]
     fn parse_stream_consumed(&mut self,
                              mut input: Self::Input)
@@ -1291,15 +1306,18 @@ pub trait Parser {
         result
     }
 
-    /// Specialized version of parse_stream where the parser does not need to add an error to the
-    /// `ParseError` when it does not consume any input before encountering the error.
-    /// Instead the error can be added later through the `add_error` method
+    /// Specialized version of [`parse_stream`] where the parser does not need to add an error to
+    /// the `ParseError` when it does not consume any input before encountering the error. Instead
+    /// the error can be added later through the [`add_error`] method
+    ///
+    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
+    /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.parse_stream(input).into()
     }
 
-    /// Adds the first error that would normally be returned by this parser if it failed
+    /// Adds the first error that would normally be returned by this parser if it failed.
     fn add_error(&mut self, _error: &mut ParseError<Self::Input>) {}
 
     /// Borrows a parser instead of consuming it.
@@ -1328,8 +1346,8 @@ pub trait Parser {
         self
     }
 
-    /// Discards the value of the `self` parser and returns the value of `p`
-    /// Fails if any of the parsers fails
+    /// Discards the value of the `self` parser and returns the value of `p`.
+    /// Fails if any of the parsers fails.
     ///
     /// ```
     /// # extern crate combine;
@@ -1350,8 +1368,8 @@ pub trait Parser {
         with(self, p)
     }
 
-    /// Discards the value of the `p` parser and returns the value of `self`
-    /// Fails if any of the parsers fails
+    /// Discards the value of the `p` parser and returns the value of `self`.
+    /// Fails if any of the parsers fails.
     ///
     /// ```
     /// # extern crate combine;
@@ -1372,9 +1390,9 @@ pub trait Parser {
         skip(self, p)
     }
 
-    /// Parses with `self` followed by `p`
-    /// Succeeds if both parsers succeed, otherwise fails
-    /// Returns a tuple with both values on success
+    /// Parses with `self` followed by `p`.
+    /// Succeeds if both parsers succeed, otherwise fails.
+    /// Returns a tuple with both values on success.
     ///
     /// ```
     /// # extern crate combine;
@@ -1395,11 +1413,11 @@ pub trait Parser {
         (self, p)
     }
 
-    /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming any
-    /// input it tries to consume the same input using `p`.
+    /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming
+    /// any input it tries to consume the same input using `p`.
     ///
     /// If you are looking to chain 3 or more parsers using `or` you may consider using the
-    /// `choice!` macro instead, which can be clearer and may result in a faster parser.
+    /// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
     ///
     /// ```
     /// # extern crate combine;
@@ -1422,6 +1440,8 @@ pub trait Parser {
     /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
     /// # }
     /// ```
+    ///
+    /// [`choice!`]: ../macro.choice.html
     fn or<P2>(self, p: P2) -> Or<Self, P2>
         where Self: Sized,
               P2: Parser<Input = Self::Input, Output = Self::Output>
@@ -1430,7 +1450,7 @@ pub trait Parser {
     }
 
     /// Parses using `self` and then passes the value to `f` which returns a parser used to parse
-    /// the rest of the input
+    /// the rest of the input.
     ///
     /// ```
     /// # extern crate combine;
@@ -1463,7 +1483,7 @@ pub trait Parser {
         then(self, f)
     }
 
-    /// Uses `f` to map over the parsed value
+    /// Uses `f` to map over the parsed value.
     ///
     /// ```
     /// # extern crate combine;
@@ -1505,7 +1525,7 @@ pub trait Parser {
         flat_map(self, f)
     }
 
-    /// Parses with `self` and if it fails, adds the message `msg` to the error
+    /// Parses with `self` and if it fails, adds the message `msg` to the error.
     ///
     /// ```
     /// # extern crate combine;
@@ -1556,8 +1576,8 @@ pub trait Parser {
         expected(self, msg.into())
     }
 
-    /// Parses with `self` and applies `f` on the result if `self` parses successfully
-    /// `f` may optionally fail with an error which is automatically converted to a `ParseError`
+    /// Parses with `self` and applies `f` on the result if `self` parses successfully.
+    /// `f` may optionally fail with an error which is automatically converted to a `ParseError`.
     ///
     /// ```
     /// # extern crate combine;
@@ -1580,8 +1600,8 @@ pub trait Parser {
         and_then(self, f)
     }
 
-    /// Creates an iterator from a parser and a state. Can be used as an alternative to `many` when
-    /// collecting directly into a `FromIterator` type is not desirable
+    /// Creates an iterator from a parser and a state. Can be used as an alternative to [`many`] when
+    /// collecting directly into a `FromIterator` type is not desirable.
     ///
     /// ```
     /// # extern crate combine;
@@ -1601,6 +1621,8 @@ pub trait Parser {
     /// assert_eq!(result, Ok((vec![123, 45, 6], "")));
     /// # }
     /// ```
+    ///
+    /// [`many`]: ../combinator/fn.many.html
     fn iter(self, input: Self::Input) -> Iter<Self>
         where Self: Sized
     {
@@ -1685,7 +1707,7 @@ impl<I, O, P: ?Sized> Parser for Box<P>
     }
 }
 
-/// A `BufferedStream` wraps an instance `StreamOnce`, allowing it to b used as a `Stream`
+/// A `BufferedStream` wraps an instance `StreamOnce`, allowing it to be used as a `Stream`.
 pub struct BufferedStream<'a, I>
     where I: StreamOnce + 'a,
           I::Item: 'a
@@ -1799,7 +1821,7 @@ impl<'a, I> BufferedStream<'a, I>
     /// Constructs a new `BufferedStream` froma a `StreamOnce` instance with a `lookahead` number
     /// of elements stored in the buffer.
     ///
-    /// `BufferedStream` always implement `Stream` allowing one-shot streams to used as if could
+    /// `BufferedStream` always implement `Stream` allowing one-shot streams to used as if it could
     /// be used multiple times.
     pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
         SharedBufferedStream {

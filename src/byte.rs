@@ -7,7 +7,7 @@ use self::ascii::AsciiChar;
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
 use primitives::{ConsumedResult, Info, Parser, ParseError, Stream};
 
-/// Parses a character and succeeds if the character is equal to `c`
+/// Parses a character and succeeds if the character is equal to `c`.
 ///
 /// ```
 /// # extern crate combine;
@@ -38,7 +38,7 @@ macro_rules! byte_parser {
     })
 }
 
-/// Parses a digit from a stream containing characters
+/// Parses a base-10 digit (0–9).
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
     where I: Stream<Item = u8>
@@ -48,7 +48,7 @@ pub fn digit<I>() -> Digit<I>
 
 impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
-/// Parses whitespace
+/// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 #[inline(always)]
 pub fn space<I>() -> Space<I>
     where I: Stream<Item = u8>
@@ -57,7 +57,9 @@ pub fn space<I>() -> Space<I>
 }
 
 impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
-/// Skips over zero or more spaces
+/// Skips over [`space`] zero or more times
+///
+/// [`space`]: fn.space.html
 #[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
     where I: Stream<Item = u8>
@@ -67,7 +69,7 @@ pub fn spaces<I>() -> Spaces<I>
 
 impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
-/// Parses a newline character
+/// Parses a newline character (`b'\n'`).
 #[inline(always)]
 pub fn newline<I>() -> Newline<I>
     where I: Stream<Item = u8>
@@ -78,7 +80,7 @@ pub fn newline<I>() -> Newline<I>
 
 impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newline<I>>> }
 
-/// Parses carriage return and newline, returning the newline character.
+/// Parses carriage return and newline (`b"\r\n"`), returning the newline character.
 #[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
     where I: Stream<Item = u8>
@@ -90,7 +92,7 @@ pub fn crlf<I>() -> CrLf<I>
 }
 
 impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses a tab character
+/// Parses a tab character (`b'\t'`).
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
     where I: Stream<Item = u8>
@@ -100,7 +102,7 @@ pub fn tab<I>() -> Tab<I>
 }
 
 impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses an uppercase letter
+/// Parses an uppercase ASCII letter (A–Z).
 #[inline(always)]
 pub fn upper<I>() -> Upper<I>
     where I: Stream<Item = u8>
@@ -109,7 +111,7 @@ pub fn upper<I>() -> Upper<I>
 }
 
 impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses an lowercase letter
+/// Parses an lowercase ASCII letter (a–z).
 #[inline(always)]
 pub fn lower<I>() -> Lower<I>
     where I: Stream<Item = u8>
@@ -118,7 +120,7 @@ pub fn lower<I>() -> Lower<I>
 }
 
 impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses either an alphabet letter or digit
+/// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
 #[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
     where I: Stream<Item = u8>
@@ -127,7 +129,7 @@ pub fn alpha_num<I>() -> AlphaNum<I>
 }
 
 impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses an alphabet letter
+/// Parses an ASCII alphabet letter (a–z, A–Z).
 #[inline(always)]
 pub fn letter<I>() -> Letter<I>
     where I: Stream<Item = u8>
@@ -136,7 +138,7 @@ pub fn letter<I>() -> Letter<I>
 }
 
 impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses a hexdecimal digit with uppercase and lowercase
+/// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
 #[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>
     where I: Stream<Item = u8>
@@ -163,8 +165,10 @@ impl<'a, I> Parser for Bytes<I>
     }
 }
 
-/// Parses the bytes `s`. If you have a stream implementing `RangeStream` such as `&[u8]` you can
-/// also use the `range` parser which may be more efficient.
+/// Parses the bytes `s`.
+///
+/// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
+/// [`range`] parser which may be more efficient.
 ///
 /// ```
 /// # extern crate combine;
@@ -177,6 +181,9 @@ impl<'a, I> Parser for Bytes<I>
 /// assert_eq!(result, Ok(&b"rust"[..]));
 /// # }
 /// ```
+///
+/// [`RangeStream`]: ../primitives/trait.RangeStream.html
+/// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
     where I: Stream<Item = u8, Range = &'a [u8]>
@@ -204,20 +211,26 @@ impl<'a, C, I> Parser for BytesCmp<C, I>
     }
 }
 
-/// Parses the bytes `s` using `cmp` to compare each token. If you have a stream implementing
-/// `RangeStream` such as `&[u8]` you can also use the `range` parser which may be more efficient.
+/// Parses the bytes `s` using `cmp` to compare each token.
 ///
+/// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
+/// [`range`] parser which may be more efficient.
+///
+/// ```
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::byte::bytes_cmp;
 /// # use combine::primitives::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
-/// let result = bytes_cmp(|l, r| l.eq_ignore_ascii_case(&r), Info::Range(b"abc"[..]), &b"abc"[..])
+/// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))
 ///     .parse(&b"AbC"[..]);
-/// assert_eq!(result, Ok(&b"abc"[..]));
+/// assert_eq!(result, Ok((&b"abc"[..], &b""[..])));
 /// # }
 /// ```
+///
+/// [`RangeStream`]: ../primitives/trait.RangeStream.html
+/// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
     where C: FnMut(u8, u8) -> bool,

@@ -50,7 +50,7 @@ impl<I> Parser for Any<I>
     }
 }
 
-/// Parses any token
+/// Parses any token.
 ///
 /// ```
 /// # extern crate combine;
@@ -111,7 +111,7 @@ impl<I, P> Parser for Satisfy<I, P>
     }
 }
 
-/// Parses a token and succeeds depending on the result of `predicate`
+/// Parses a token and succeeds depending on the result of `predicate`.
 ///
 /// ```
 /// # extern crate combine;
@@ -210,7 +210,7 @@ impl<I> Parser for Token<I>
     }
 }
 
-/// Parses a character and succeeds if the character is equal to `c`
+/// Parses a character and succeeds if the character is equal to `c`.
 ///
 /// ```
 /// # extern crate combine;
@@ -293,7 +293,11 @@ impl<C, T, I> Parser for Tokens<C, T, I>
     }
 }
 
-/// Parses `tokens`.
+/// Parses multiple tokens.
+///
+/// Consumes items from the input and compares them to the values from `tokens` using the
+/// comparison function `cmp`. Succeeds if all the items from `tokens` are matched in the input
+/// stream and fails otherwise with `expected` used as part of the error.
 ///
 /// ```
 /// # extern crate combine;
@@ -345,7 +349,7 @@ impl<I> Parser for Position<I>
     }
 }
 
-/// Parser which just returns the current position in the stream
+/// Parser which just returns the current position in the stream.
 ///
 /// ```
 /// # extern crate combine;
@@ -541,7 +545,7 @@ impl<P, F> Parser for Count<F, P>
     }
 }
 
-/// Parses up to `count` times using `parser`.
+/// Parses `parser` from zero up to `count` times.
 ///
 /// ```
 /// # extern crate combine;
@@ -677,6 +681,7 @@ impl<I, T> Parser for Value<I, T>
         EmptyOk((self.0.clone(), input))
     }
 }
+
 /// Always returns the value `v` without consuming any input.
 ///
 /// ```
@@ -865,9 +870,10 @@ impl<F, P> Parser for Many<F, P>
 }
 
 /// Parses `p` zero or more times returning a collection with the values from `p`.
+///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling many, `many::<Vec<_>, _>(...)`
+/// calling many, `many::<Vec<_>, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -918,7 +924,8 @@ impl<F, P> Parser for Many1<F, P>
 }
 
 impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<()>)> }
-/// Parses `p` zero or more times ignoring the result
+
+/// Parses `p` zero or more times ignoring the result.
 ///
 /// ```
 /// # extern crate combine;
@@ -941,7 +948,8 @@ pub fn skip_many<P>(p: P) -> SkipMany<P>
 }
 
 impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<()>)> }
-/// Parses `p` one or more times ignoring the result
+
+/// Parses `p` one or more times ignoring the result.
 ///
 /// ```
 /// # extern crate combine;
@@ -964,9 +972,10 @@ pub fn skip_many1<P>(p: P) -> SkipMany1<P>
 }
 
 /// Parses `p` one or more times returning a collection with the values from `p`.
+///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling many1 `many1::<Vec<_>, _>(...)`
+/// calling many1 `many1::<Vec<_>, _>(...)`.
 ///
 ///
 /// ```
@@ -1014,9 +1023,11 @@ impl<F, P, S> Parser for SepBy<F, P, S>
 }
 
 /// Parses `parser` zero or more time separated by `separator`, returning a collection with the
-/// values from `p`. If the returned collection cannot be inferred type annotations must be
-/// supplied, either by annotating the resulting type binding `let collection: Vec<_> = ...` or by
-/// specializing when calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
+/// values from `p`.
+///
+/// If the returned collection cannot be inferred type annotations must be supplied, either by
+/// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+/// calling sep_by, `sep_by::<Vec<_>, _, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1078,9 +1089,11 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
 }
 
 /// Parses `parser` one or more time separated by `separator`, returning a collection with the
-/// values from `p`. If the returned collection cannot be inferred type annotations must be
-/// supplied, either by annotating the resulting type binding `let collection: Vec<_> = ...` or by
-/// specializing when calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`
+/// values from `p`.
+///
+/// If the returned collection cannot be inferred type annotations must be supplied, either by
+/// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+/// calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1142,10 +1155,12 @@ impl<F, P, S> Parser for SepEndBy<F, P, S>
     }
 }
 
-/// Parses `parser` zero or more time separated by `separator`, returning a collection with the
-/// values from `p`. If the returned collection cannot be inferred type annotations must be
-/// supplied, either by annotating the resulting type binding `let collection: Vec<_> = ...` or by
-/// specializing when calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
+/// Parses `parser` zero or more times separated and ended by `separator`, returning a collection
+/// with the values from `p`.
+///
+/// If the returned collection cannot be inferred type annotations must be supplied, either by
+/// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+/// calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
 ///
 /// ```
 /// # extern crate combine;
@@ -1210,10 +1225,12 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
     }
 }
 
-/// Parses `parser` one or more time separated by `separator`, returning a collection with the
-/// values from `p`. If the returned collection cannot be inferred type annotations must be
+/// Parses `parser` one or more times separated and ended by `separator`, returning a collection
+/// with the values from `p`.
+///
+/// If the returned collection cannot be inferred type annotations must be
 /// supplied, either by annotating the resulting type binding `let collection: Vec<_> = ...` or by
-/// specializing when calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`
+/// specializing when calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1258,9 +1275,10 @@ impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
 #[derive(Clone)]
 pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 
-/// Wraps a function, turning it into a parser
+/// Wraps a function, turning it into a parser.
+///
 /// Mainly needed to turn closures into parsers as function types can be casted to function pointers
-/// to make them usable as a parser
+/// to make them usable as a parser.
 ///
 /// ```
 /// extern crate combine;
@@ -1336,18 +1354,18 @@ impl<P> Parser for Optional<P>
     }
 }
 
-/// Returns `Some(value)` and `None` on parse failure (always succeeds)
+/// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without
+/// consuming any input. Fails if `parser` fails after having consumed some input.
 ///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::char::string;
 /// # fn main() {
-/// let mut parser = optional(digit());
-/// let result1 = parser.parse("a");
-/// assert_eq!(result1, Ok((None, "a")));
-/// let result2 = parser.parse("1");
-/// assert_eq!(result2, Ok((Some('1'), "")));
+/// let mut parser = optional(string("hello"));
+/// assert_eq!(parser.parse("hello"), Ok((Some("hello"), "")));
+/// assert_eq!(parser.parse("world"), Ok((None, "world")));
+/// assert!(parser.parse("heya").is_err());
 /// # }
 /// ```
 #[inline(always)]
@@ -1358,8 +1376,8 @@ pub fn optional<P>(parser: P) -> Optional<P>
 }
 
 impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
-/// Parses `open` followed by `parser` followed by `close`
-/// Returns the value of `parser`
+/// Parses `open` followed by `parser` followed by `close`.
+/// Returns the value of `parser`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1414,8 +1432,8 @@ impl<I, P, Op> Parser for Chainl1<P, Op>
     }
 }
 
-/// Parses `p` 1 or more times separated by `op`
-/// The value returned is the one produced by the left associative application of `op`
+/// Parses `p` 1 or more times separated by `op`. The value returned is the one produced by the
+/// left associative application of the function returned by the parser `op`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1476,8 +1494,8 @@ impl<I, P, Op> Parser for Chainr1<P, Op>
     }
 }
 
-/// Parses `p` one or more times separated by `op`
-/// The value returned is the one produced by the right associative application of `op`
+/// Parses `p` one or more times separated by `op`. The value returned is the one produced by the
+/// right associative application of the function returned by `op`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1519,8 +1537,8 @@ impl<I, O, P> Parser for Try<P>
     }
 }
 
-/// Try acts as `p` except it acts as if the parser hadn't consumed any input
-/// if `p` returns an error after consuming input
+/// `try(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails after
+/// consuming input.
 ///
 /// ```
 /// # extern crate combine;
@@ -1563,20 +1581,20 @@ impl<I, O, P> Parser for LookAhead<P>
     }
 }
 
-/// look_ahead acts as p but doesn't consume input on success.
+/// `look_ahead(p)` acts as `p` but doesn't consume input on success.
 ///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::string;
 /// # fn main() {
-//        let mut p = look_ahead(string("test"));
-//
-//        let result = p.parse("test str");
-//        assert_eq!(result, Ok(("test", "test str")));
-//
-//        let result = p.parse("aet");
-//        assert!(result.is_err());
+/// let mut p = look_ahead(string("test"));
+///
+/// let result = p.parse("test str");
+/// assert_eq!(result, Ok(("test", "test str")));
+///
+/// let result = p.parse("aet");
+/// assert!(result.is_err());
 /// # }
 /// ```
 #[inline(always)]
@@ -1606,6 +1624,9 @@ impl<I, P1, P2> Parser for With<P1, P2>
     }
 }
 
+/// Equivalent to [`p1.with(p2)`].
+///
+/// [`p1.with(p2)`]: ../primitives/trait.Parser.html#method.with
 #[inline(always)]
 pub fn with<P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
     where P1: Parser,
@@ -1675,6 +1696,9 @@ impl<I, P> Parser for Message<P>
     }
 }
 
+/// Equivalent to [`p1.message(msg)`].
+///
+/// [`p1.message(msg)`]: ../primitives/trait.Parser.html#method.message
 #[inline(always)]
 pub fn message<P>(p: P,
                   msg: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
@@ -1717,6 +1741,12 @@ impl<I, O, P1, P2> Parser for Or<P1, P2>
     }
 }
 
+/// Equivalent to [`p1.or(p2)`].
+///
+/// If you are looking to chain 3 or more parsers using `or` you may consider using the
+/// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
+///
+/// [`p1.or(p2)`]: ../primitives/trait.Parser.html#method.or
 #[inline(always)]
 pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
     where P1: Parser,
@@ -1748,6 +1778,9 @@ impl<I, A, B, P, F> Parser for Map<P, F>
     }
 }
 
+/// Equivalent to [`p.map(f)`].
+///
+/// [`p.map(f)`]: ../primitives/trait.Parser.html#method.map
 #[inline(always)]
 pub fn map<P, F, B>(p: P, f: F) -> Map<P, F>
     where P: Parser,
@@ -1789,6 +1822,9 @@ impl<I, A, B, P, F> Parser for FlatMap<P, F>
     }
 }
 
+/// Equivalent to [`p.flat_map(f)`].
+///
+/// [`p.flat_map(f)`]: ../primitives/trait.Parser.html#method.flat_map
 #[inline(always)]
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
     where P: Parser,
@@ -1829,6 +1865,9 @@ impl<P, N, F> Parser for Then<P, F>
     }
 }
 
+/// Equivalent to [`p.then(f)`].
+///
+/// [`p.then(f)`]: ../primitives/trait.Parser.html#method.then
 #[inline(always)]
 pub fn then<P, F, N>(p: P, f: F) -> Then<P, F>
     where F: FnMut(P::Output) -> N,
@@ -1884,6 +1923,9 @@ impl<P> Parser for Expected<P>
     }
 }
 
+/// Equivalent to [`p.expected(info)`].
+///
+/// [`p.expected(info)`]: ../primitives/trait.Parser.html#method.expected
 #[inline(always)]
 pub fn expected<P>(p: P,
                    info: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>)
@@ -1926,6 +1968,9 @@ impl<P, F, O, E> Parser for AndThen<P, F>
     }
 }
 
+/// Equivalent to [`p.and_then(f)`].
+///
+/// [`p.and_then(f)`]: ../primitives/trait.Parser.html#method.and_then
 #[inline(always)]
 pub fn and_then<P, F, O, E>(p: P, f: F) -> AndThen<P, F>
     where P: Parser,
@@ -2044,29 +2089,29 @@ impl<E, I, O> Parser for EnvParser<E, I, O>
 /// # use combine::*;
 /// # use combine::char::letter;
 /// # fn main() {
-///     struct Interner(HashMap<String, u32>);
-///     impl Interner {
-///         fn string<I>(&self, input: I) -> ParseResult<u32, I>
-///             where I: Stream<Item=char>
-///         {
-///             many(letter())
-///                 .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
-///                 .parse_stream(input)
-///         }
+/// struct Interner(HashMap<String, u32>);
+/// impl Interner {
+///     fn string<I>(&self, input: I) -> ParseResult<u32, I>
+///         where I: Stream<Item=char>
+///     {
+///         many(letter())
+///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
+///             .parse_stream(input)
 ///     }
+/// }
 ///
-///     let mut map = HashMap::new();
-///     map.insert("hello".into(), 1);
-///     map.insert("test".into(), 2);
+/// let mut map = HashMap::new();
+/// map.insert("hello".into(), 1);
+/// map.insert("test".into(), 2);
 ///
-///     let env = Interner(map);
-///     let mut parser = env_parser(&env, Interner::string);
+/// let env = Interner(map);
+/// let mut parser = env_parser(&env, Interner::string);
 ///
-///     let result = parser.parse("hello");
-///     assert_eq!(result, Ok((1, "")));
+/// let result = parser.parse("hello");
+/// assert_eq!(result, Ok((1, "")));
 ///
-///     let result = parser.parse("world");
-///     assert_eq!(result, Ok((0, "")));
+/// let result = parser.parse("world");
+/// assert_eq!(result, Ok((0, "")));
 /// # }
 /// ```
 #[inline(always)]

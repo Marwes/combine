@@ -34,7 +34,7 @@ impl<I> Parser for Range<I>
 }
 
 /// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
-/// range
+/// range.
 ///
 /// ```
 /// # extern crate combine;
@@ -74,7 +74,7 @@ impl<I> Parser for Take<I>
     }
 }
 
-/// Zero-copy parser which reads a range of length `n`
+/// Zero-copy parser which reads a range of length `n`.
 ///
 /// ```
 /// # extern crate combine;
@@ -114,7 +114,7 @@ impl<I, F> Parser for TakeWhile<I, F>
     }
 }
 
-/// Zero-copy parser which reads a range of 0 or more tokens which satisfy `f`
+/// Zero-copy parser which reads a range of 0 or more tokens which satisfy `f`.
 ///
 /// ```
 /// # extern crate combine;
@@ -159,7 +159,7 @@ impl<I, F> Parser for TakeWhile1<I, F>
     }
 }
 
-/// Zero-copy parser which reads a range of 1 or more tokens which satisfy `f`
+/// Zero-copy parser which reads a range of 1 or more tokens which satisfy `f`.
 ///
 /// ```
 /// # extern crate combine;
