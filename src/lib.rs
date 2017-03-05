@@ -152,6 +152,9 @@
 //! [`Parser`]: primitives/trait.Parser.html
 //! [fn parser]: combinator/fn.parser.html
 
+// inline(always) is only used on trivial functions returning parsers
+#![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
+
 #[doc(inline)]
 pub use primitives::{Parser, ParseError, ConsumedResult, ParseResult, State, from_iter, Stream,
                      StreamOnce};
@@ -164,8 +167,7 @@ pub use combinator::{any, between, chainl1, chainr1, choice, count, eof, env_par
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
         fn temp($($arg: $arg_ty),*) -> $ret { $body }
-        let temp: fn (_) -> _ = temp;
-        temp
+        temp as fn(_) -> _
     } }
 }
 

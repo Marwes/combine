@@ -90,9 +90,9 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
             (&Info::Token(ref l), &Info::Token(ref r)) => l == r,
             (&Info::Range(ref l), &Info::Range(ref r)) => l == r,
             (&Info::Owned(ref l), &Info::Owned(ref r)) => l == r,
-            (&Info::Borrowed(ref l), &Info::Owned(ref r)) => l == r,
-            (&Info::Owned(ref l), &Info::Borrowed(ref r)) => l == r,
-            (&Info::Borrowed(ref l), &Info::Borrowed(ref r)) => l == r,
+            (&Info::Borrowed(l), &Info::Owned(ref r)) => l == r,
+            (&Info::Owned(ref l), &Info::Borrowed(r)) => l == r,
+            (&Info::Borrowed(l), &Info::Borrowed(r)) => l == r,
             _ => false,
         }
     }
@@ -167,8 +167,8 @@ impl<T, R> Error<T, R> {
 impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     fn eq(&self, other: &Error<T, R>) -> bool {
         match (self, other) {
-            (&Error::Unexpected(ref l), &Error::Unexpected(ref r)) => l == r,
-            (&Error::Expected(ref l), &Error::Expected(ref r)) => l == r,
+            (&Error::Unexpected(ref l), &Error::Unexpected(ref r)) |
+            (&Error::Expected(ref l), &Error::Expected(ref r)) |
             (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
             _ => false,
         }
@@ -275,19 +275,25 @@ pub enum Consumed<T> {
     Empty(T),
 }
 
-impl<T> Consumed<T> {
-    pub fn as_mut(&mut self) -> &mut T {
+impl<T> AsMut<T> for Consumed<T> {
+    fn as_mut(&mut self) -> &mut T {
         match *self {
-            Consumed::Empty(ref mut t) => t,
+            Consumed::Empty(ref mut t) |
             Consumed::Consumed(ref mut t) => t,
         }
     }
-    pub fn as_ref(&self) -> &T {
+}
+
+impl<T> AsRef<T> for Consumed<T> {
+    fn as_ref(&self) -> &T {
         match *self {
-            Consumed::Empty(ref t) => t,
+            Consumed::Empty(ref t) |
             Consumed::Consumed(ref t) => t,
         }
     }
+}
+
+impl<T> Consumed<T> {
     /// Returns true if `self` is empty.
     pub fn is_empty(&self) -> bool {
         match *self {
@@ -299,18 +305,30 @@ impl<T> Consumed<T> {
     /// Extracts the contained value.
     pub fn into_inner(self) -> T {
         match self {
-            Consumed::Empty(x) => x,
+            Consumed::Empty(x) |
             Consumed::Consumed(x) => x,
         }
     }
 
     /// Converts `self` into the `Consumed` state.
+    #[deprecated(since = "2.3.1", note = "Renamed to into_consumed")]
     pub fn as_consumed(self) -> Consumed<T> {
+        self.into_consumed()
+    }
+
+    /// Converts `self` into the `Consumed` state.
+    pub fn into_consumed(self) -> Consumed<T> {
         Consumed::Consumed(self.into_inner())
     }
 
     /// Converts `self` into the `Empty` state.
+    #[deprecated(since = "2.3.1", note = "Renamed to into_empty")]
     pub fn as_empty(self) -> Consumed<T> {
+        self.into_empty()
+    }
+
+    /// Converts `self` into the `Empty` state.
+    pub fn into_empty(self) -> Consumed<T> {
         Consumed::Empty(self.into_inner())
     }
 
@@ -327,7 +345,7 @@ impl<T> Consumed<T> {
     pub fn merge(&self, current: Consumed<T>) -> Consumed<T> {
         match *self {
             Consumed::Empty(_) => current,
-            Consumed::Consumed(_) => current.as_consumed(),
+            Consumed::Consumed(_) => current.into_consumed(),
         }
     }
 
@@ -478,7 +496,7 @@ impl<S: StreamOnce> ParseError<S> {
             Ordering::Less => other,
             Ordering::Greater => self,
             Ordering::Equal => {
-                for message in other.errors.into_iter() {
+                for message in other.errors {
                     self.add_error(message);
                 }
                 self
@@ -761,6 +779,11 @@ pub trait Range {
     /// Returns the remaining length of `self`.
     /// The returned length need not be the same as the number of items left in the stream.
     fn len(&self) -> usize;
+
+    /// Returns `true` if the range does not contain any elements (`Range::len() == 0`)
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<'a> RangeStream for &'a str {

@@ -79,19 +79,19 @@ pub struct Satisfy<I, P> {
     _marker: PhantomData<I>,
 }
 
-fn satisfy_impl<I, P, R>(input: I, mut predicate: P) -> ConsumedResult<R, I>
+fn satisfy_impl<I, P, R>(mut input: I, mut predicate: P) -> ConsumedResult<R, I>
     where I: Stream,
           P: FnMut(I::Item) -> Option<R>
 {
-    let mut next = input.clone();
-    match next.uncons() {
+    let position = input.position();
+    match input.uncons() {
         Ok(c) => {
             match predicate(c.clone()) {
-                Some(c) => ConsumedOk((c, next)),
-                None => EmptyErr(ParseError::empty(input.position())),
+                Some(c) => ConsumedOk((c, input)),
+                None => EmptyErr(ParseError::empty(position)),
             }
         }
-        Err(err) => EmptyErr(ParseError::new(input.position(), err)),
+        Err(err) => EmptyErr(ParseError::new(position, err)),
     }
 }
 
@@ -393,7 +393,7 @@ impl<I, O, S, P> Parser for Choice<S, P>
                         Some(prev_err) => Some(prev_err.merge(err)),
                     };
                 }
-                ok @ ConsumedOk(_) => return ok,
+                ok @ ConsumedOk(_) |
                 ok @ EmptyOk(_) => return ok,
             }
         }
@@ -1027,7 +1027,7 @@ impl<F, P, S> Parser for SepBy<F, P, S>
 ///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling sep_by, `sep_by::<Vec<_>, _, _>(...)`.
+/// calling `sep_by`, `sep_by::<Vec<_>, _, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1093,7 +1093,7 @@ impl<F, P, S> Parser for SepBy1<F, P, S>
 ///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`.
+/// calling `sep_by`, `sep_by1::<Vec<_>, _, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1160,7 +1160,7 @@ impl<F, P, S> Parser for SepEndBy<F, P, S>
 ///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling sep_by, `sep_by::<Vec<_>, _, _>(...)`
+/// calling `sep_by`, `sep_by::<Vec<_>, _, _>(...)`
 ///
 /// ```
 /// # extern crate combine;
@@ -1230,7 +1230,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
 ///
 /// If the returned collection cannot be inferred type annotations must be
 /// supplied, either by annotating the resulting type binding `let collection: Vec<_> = ...` or by
-/// specializing when calling sep_by, `sep_by1::<Vec<_>, _, _>(...)`.
+/// specializing when calling `sep_by`, `sep_by1::<Vec<_>, _, _>(...)`.
 ///
 /// ```
 /// # extern crate combine;
@@ -1529,7 +1529,7 @@ impl<I, O, P> Parser for Try<P>
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         self.0
             .parse_stream(input)
-            .map_err(Consumed::as_empty)
+            .map_err(Consumed::into_empty)
             .into()
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {

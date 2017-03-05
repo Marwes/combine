@@ -8,8 +8,8 @@ use std::fs::File;
 use std::path::Path;
 
 use pc::primitives::{Consumed, Parser, ParseError, ParseResult, State, Stream, BufferedStream};
-use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by,
-                     Expected, FnParser, Skip};
+use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by, Expected,
+                     FnParser, Skip};
 use pc::char::{char, digit, spaces, Spaces, string};
 use pc::from_iter;
 
@@ -23,7 +23,7 @@ enum Value {
     Array(Vec<Value>),
 }
 
-fn lex<'a, P>(p: P) -> Skip<P, Spaces<P::Input>>
+fn lex<P>(p: P) -> Skip<P, Spaces<P::Input>>
     where P: Parser,
           P::Input: Stream<Item = char>
 {
@@ -31,7 +31,8 @@ fn lex<'a, P>(p: P) -> Skip<P, Spaces<P::Input>>
 }
 struct Json<I>(::std::marker::PhantomData<fn(I) -> I>);
 
-type JsonParser<O, I> = Expected<FnParser<I, fn(I) -> ParseResult<O, I>>>;
+type FnPtrParser<O, I> = FnParser<I, fn(I) -> ParseResult<O, I>>;
+type JsonParser<O, I> = Expected<FnPtrParser<O, I>>;
 
 fn fn_parser<O, I>(f: fn(I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
     where I: Stream<Item = char>
@@ -76,18 +77,16 @@ impl<I> Json<I>
             .with(optional(char('-')).and(Json::<I>::integer()));
         lex(optional(char('-'))
                 .and(i)
-                .map(|(sign, n)| { if sign.is_some() { -n } else { n } })
+                .map(|(sign, n)| if sign.is_some() { -n } else { n })
                 .and(optional(char('.')).with(fractional))
-                .map(|(x, y)| { if x > 0.0 { x + y } else { x - y } })
+                .map(|(x, y)| if x > 0.0 { x + y } else { x - y })
                 .and(optional(exp))
-                .map(|(n, exp_option)| {
-                    match exp_option {
-                        Some((sign, e)) => {
-                            let e = if sign.is_some() { -e } else { e };
-                            n * 10.0f64.powi(e as i32)
-                        }
-                        None => n,
+                .map(|(n, exp_option)| match exp_option {
+                    Some((sign, e)) => {
+                        let e = if sign.is_some() { -e } else { e };
+                        n * 10.0f64.powi(e as i32)
                     }
+                    None => n,
                 }))
             .parse_lazy(input)
             .into()
@@ -98,20 +97,19 @@ impl<I> Json<I>
     }
     fn char_(input: I) -> ParseResult<char, I> {
         let (c, input) = try!(any().parse_lazy(input).into());
-        let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().find(|x| *x == c).is_some())
-            .map(|c| {
-                match c {
-                    '"' => '"',
-                    '\\' => '\\',
-                    '/' => '/',
-                    'b' => '\u{0008}',
-                    'f' => '\u{000c}',
-                    'n' => '\n',
-                    'r' => '\r',
-                    't' => '\t',
-                    c => c,//Should never happen
-                }
-            });
+        let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().any(|x| x == c)).map(|c| {
+            match c {
+                '"' => '"',
+                '\\' => '\\',
+                '/' => '/',
+                'b' => '\u{0008}',
+                'f' => '\u{000c}',
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                c => c,//Should never happen
+            }
+        });
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
             '"' => {
@@ -140,11 +138,8 @@ impl<I> Json<I>
             .into()
     }
 
-    fn value() -> FnParser<I, fn(I) -> ParseResult<Value, I>> {
-        parser({
-            let f: fn(_) -> _ = Json::<I>::value_;
-            f
-        })
+    fn value() -> FnPtrParser<Value, I> {
+        parser(Json::<I>::value_ as fn(_) -> _)
     }
     #[allow(unconditional_recursion)]
     fn value_(input: I) -> ParseResult<Value, I> {
@@ -153,20 +148,14 @@ impl<I> Json<I>
                                 sep_by(Json::<I>::value(), lex(char(','))))
             .map(Value::Array);
 
-        choice::<[&mut Parser<Input = I, Output = Value>; 7], _>([&mut Json::<I>::string()
-                                                                      .map(Value::String),
-                                                                  &mut Json::<I>::object(),
-                                                                  &mut array,
-                                                                  &mut Json::<I>::number()
-                                                                      .map(Value::Number),
-                                                                  &mut lex(string("false")
-                                                                      .map(|_| {
-                                                                          Value::Bool(false)
-                                                                      })),
-                                                                  &mut lex(string("true")
-                                                                      .map(|_| Value::Bool(true))),
-                                                                  &mut lex(string("null")
-                                                                      .map(|_| Value::Null))])
+        choice::<[&mut Parser<Input = I, Output = Value>; 7],
+                 _>([&mut Json::<I>::string().map(Value::String),
+                     &mut Json::<I>::object(),
+                     &mut array,
+                     &mut Json::<I>::number().map(Value::Number),
+                     &mut lex(string("false").map(|_| Value::Bool(false))),
+                     &mut lex(string("true").map(|_| Value::Bool(true))),
+                     &mut lex(string("null").map(|_| Value::Null))])
             .parse_lazy(input)
             .into()
     }
