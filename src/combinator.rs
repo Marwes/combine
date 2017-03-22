@@ -1357,6 +1357,37 @@ pub fn optional<P>(parser: P) -> Optional<P>
     Optional(parser)
 }
 
+impl_parser! { Exactly(P,), Map<(P, Eof<P::Input>), fn ((P::Output, ())) -> P::Output> }
+/// Parses `parser` followed by `eof()`
+/// Returns the value of `parser`.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::string;
+/// # use combine::primitives::{Error, Positioner, SourcePosition};
+/// # fn main() {
+/// let mut parser = exactly(string("rust"));
+/// assert_eq!(parser.parse(State::new("rust")),
+///     Ok(("rust", State { position: SourcePosition { line: 1, column: 5 }, input: "" })));
+/// assert_eq!(parser.parse(State::new("rust!")), Err(ParseError {
+///     position: SourcePosition { line: 1, column: 5 },
+///     errors: vec![
+///         Error::Unexpected('!'.into()),
+///         Error::Expected("end of input".into())
+///     ]
+/// }));
+/// # }
+/// ```
+#[inline(always)]
+pub fn exactly<I, P>(parser: P) -> Exactly<P>
+    where I: Stream,
+          P: Parser<Input = I>
+{
+    fn first<T>(pair: (T, ())) -> T { pair.0 }
+    Exactly((parser, eof()).map(first))
+}
+
 impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// Parses `open` followed by `parser` followed by `close`
 /// Returns the value of `parser`
