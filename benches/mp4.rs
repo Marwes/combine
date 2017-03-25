@@ -37,10 +37,10 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
     let filetype_box = (range(&b"ftyp"[..]), brand_name(), take(4), many(brand_name()))
         .map(|(_, m, v, c)| {
             MP4Box::Ftyp(FileType {
-                major_brand: m,
-                major_brand_version: v,
-                compatible_brands: c,
-            })
+                             major_brand: m,
+                             major_brand_version: v,
+                             compatible_brands: c,
+                         })
         });
 
     let mp4_box = take(4).map(BigEndian::read_u32).then(|offset| take(offset as usize - 4));
@@ -58,12 +58,10 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
 static MP4_SMALL: &'static [u8] = include_bytes!("small.mp4");
 
 fn run_test(b: &mut Bencher, data: &[u8]) {
-    b.iter(|| {
-        match parse_mp4(data) {
-            Ok(x) => black_box(x),
-            Err(err) => panic!("{:?}", err),
-        }
-    });
+    b.iter(|| match parse_mp4(data) {
+               Ok(x) => black_box(x),
+               Err(err) => panic!("{:?}", err),
+           });
 }
 
 #[bench]

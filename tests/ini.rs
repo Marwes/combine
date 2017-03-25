@@ -19,9 +19,9 @@ fn property<I>(input: I) -> ParseResult<(String, String), I>
     (many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
      token('='),
      many1(satisfy(|c| c != '\n' && c != ';')))
-        .map(|(key, _, value)| (key, value))
-        .expected("property")
-        .parse_stream(input)
+            .map(|(key, _, value)| (key, value))
+            .expected("property")
+            .parse_stream(input)
 }
 
 fn whitespace<I>(input: I) -> ParseResult<(), I>
@@ -46,9 +46,9 @@ fn section<I>(input: I) -> ParseResult<(String, HashMap<String, String>), I>
     (between(token('['), token(']'), many(satisfy(|c| c != ']'))),
      parser(whitespace),
      parser(properties))
-        .map(|(name, _, properties)| (name, properties))
-        .expected("section")
-        .parse_stream(input)
+            .map(|(name, _, properties)| (name, properties))
+            .expected("section")
+            .parse_stream(input)
 }
 
 fn ini<I>(input: I) -> ParseResult<Ini, I>
@@ -56,11 +56,11 @@ fn ini<I>(input: I) -> ParseResult<Ini, I>
 {
     (parser(whitespace), parser(properties), many(parser(section)))
         .map(|(_, global, sections)| {
-            Ini {
-                global: global,
-                sections: sections,
-            }
-        })
+                 Ini {
+                     global: global,
+                     sections: sections,
+                 }
+             })
         .parse_stream(input)
 }
 
@@ -85,27 +85,20 @@ type=LL(1)
     section.insert(String::from("type"), String::from("LL(1)"));
     expected.sections.insert(String::from("section"), section);
 
-    let result = parser(ini)
-        .parse(text)
-        .map(|t| t.0);
+    let result = parser(ini).parse(text).map(|t| t.0);
     assert_eq!(result, Ok(expected));
 }
 
 #[test]
 fn ini_error() {
     let text = "[error";
-    let result = parser(ini)
-        .parse(State::new(text))
-        .map(|t| t.0);
+    let result = parser(ini).parse(State::new(text)).map(|t| t.0);
     assert_eq!(result,
                Err(ParseError {
-                   position: SourcePosition {
-                       line: 1,
-                       column: 7,
-                   },
-                   errors: vec![
-            Error::end_of_input(),
-            Error::Expected("section".into()),
-        ],
-               }));
+                       position: SourcePosition {
+                           line: 1,
+                           column: 7,
+                       },
+                       errors: vec![Error::end_of_input(), Error::Expected("section".into())],
+                   }));
 }

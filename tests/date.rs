@@ -45,9 +45,7 @@ fn two_digits<I>() -> FnPtrParser<i32, I>
     fn two_digits_<I>(input: I) -> ParseResult<i32, I>
         where I: Stream<Item = char>
     {
-        (digit(), digit())
-            .map(two_digits_to_int)
-            .parse_stream(input)
+        (digit(), digit()).map(two_digits_to_int).parse_stream(input)
     }
     parser(two_digits_)
 }
@@ -64,13 +62,12 @@ fn time_zone<I>(input: I) -> ParseResult<i32, I>
     let offset = (choice([char('-'), char('+')]),
                   two_digits(),
                   optional(optional(char(':')).with(two_digits())))
-        .map(|(sign, hour, minute)| {
-            let offset = hour * 60 + minute.unwrap_or(0);
-            if sign == '-' { -offset } else { offset }
-        });
+            .map(|(sign, hour, minute)| {
+                     let offset = hour * 60 + minute.unwrap_or(0);
+                     if sign == '-' { -offset } else { offset }
+                 });
 
-    utc.or(offset)
-        .parse_stream(input)
+    utc.or(offset).parse_stream(input)
 }
 
 /// Parses a date
@@ -115,11 +112,11 @@ fn date_time<I>(input: I) -> ParseResult<DateTime, I>
 {
     (parser(date), char('T'), parser(time))
         .map(|(date, _, time)| {
-            DateTime {
-                date: date,
-                time: time,
-            }
-        })
+                 DateTime {
+                     date: date,
+                     time: time,
+                 }
+             })
         .parse_stream(input)
 }
 

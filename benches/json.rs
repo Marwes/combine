@@ -59,9 +59,7 @@ impl<I> Json<I>
         fn_parser(Json::<I>::number_, "number")
     }
     fn number_(input: I) -> ParseResult<f64, I> {
-        let i = char('0')
-            .map(|_| 0.0)
-            .or(Json::<I>::integer().map(|x| x as f64));
+        let i = char('0').map(|_| 0.0).or(Json::<I>::integer().map(|x| x as f64));
         let fractional = many(digit()).map(|digits: String| {
             let mut magnitude = 1.0;
             digits.chars().fold(0.0, |acc, d| {
@@ -73,8 +71,8 @@ impl<I> Json<I>
             })
         });
 
-        let exp = satisfy(|c| c == 'e' || c == 'E')
-            .with(optional(char('-')).and(Json::<I>::integer()));
+        let exp = satisfy(|c| c == 'e' || c == 'E').with(optional(char('-'))
+                                                             .and(Json::<I>::integer()));
         lex(optional(char('-'))
                 .and(i)
                 .map(|(sign, n)| if sign.is_some() { -n } else { n })
@@ -82,14 +80,14 @@ impl<I> Json<I>
                 .map(|(x, y)| if x >= 0.0 { x + y } else { x - y })
                 .and(optional(exp))
                 .map(|(n, exp_option)| match exp_option {
-                    Some((sign, e)) => {
-                        let e = if sign.is_some() { -e } else { e };
-                        n * 10.0f64.powi(e as i32)
-                    }
-                    None => n,
-                }))
-            .parse_lazy(input)
-            .into()
+                         Some((sign, e)) => {
+            let e = if sign.is_some() { -e } else { e };
+            n * 10.0f64.powi(e as i32)
+        }
+                         None => n,
+                     }))
+                .parse_lazy(input)
+                .into()
     }
 
     fn char() -> JsonParser<char, I> {
@@ -132,10 +130,7 @@ impl<I> Json<I>
     fn object_(input: I) -> ParseResult<Value, I> {
         let field = (Json::<I>::string(), lex(char(':')), Json::<I>::value()).map(|t| (t.0, t.2));
         let fields = sep_by(field, lex(char(',')));
-        between(lex(char('{')), lex(char('}')), fields)
-            .map(Value::Object)
-            .parse_lazy(input)
-            .into()
+        between(lex(char('{')), lex(char('}')), fields).map(Value::Object).parse_lazy(input).into()
     }
 
     fn value() -> FnPtrParser<Value, I> {
@@ -146,9 +141,10 @@ impl<I> Json<I>
         let mut array = between(lex(char('[')),
                                 lex(char(']')),
                                 sep_by(Json::<I>::value(), lex(char(','))))
-            .map(Value::Array);
+                .map(Value::Array);
 
-        choice::<[&mut Parser<Input = I, Output = Value>; 7],
+        choice::<[&mut Parser<Input = I, Output = Value>;
+                  7],
                  _>([&mut Json::<I>::string().map(Value::String),
                      &mut Json::<I>::object(),
                      &mut array,
@@ -156,8 +152,8 @@ impl<I> Json<I>
                      &mut lex(string("false").map(|_| Value::Bool(false))),
                      &mut lex(string("true").map(|_| Value::Bool(true))),
                      &mut lex(string("null").map(|_| Value::Null))])
-            .parse_lazy(input)
-            .into()
+                .parse_lazy(input)
+                .into()
     }
 }
 
@@ -187,9 +183,9 @@ fn json_test() {
                                ("true", Bool(true)),
                                ("false", Bool(false)),
                                ("null", Null)]
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v))
-        .collect());
+                                  .into_iter()
+                                  .map(|(k, v)| (k.to_string(), v))
+                                  .collect());
     match result {
         Ok(result) => assert_eq!(result, (expected, "")),
         Err(e) => {
@@ -215,9 +211,9 @@ fn bench_json(bencher: &mut ::test::Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.parse(State::new(&data[..]));
-        ::test::black_box(result)
-    });
+                     let result = parser.parse(State::new(&data[..]));
+                     ::test::black_box(result)
+                 });
 }
 
 #[bench]

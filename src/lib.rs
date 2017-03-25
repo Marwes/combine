@@ -217,9 +217,7 @@ mod tests {
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
         where I: Stream<Item = char>
     {
-        let (s, input) = try!(many1::<String, _>(digit())
-            .expected("integer")
-            .parse_stream(input));
+        let (s, input) = try!(many1::<String, _>(digit()).expected("integer").parse_stream(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -240,18 +238,18 @@ mod tests {
     }
     #[test]
     fn iterator() {
-        let result = parser(integer)
-            .parse(from_iter("123".chars()))
-            .map(|(i, mut input)| (i, input.uncons().is_err()));
+        let result =
+            parser(integer).parse(from_iter("123".chars())).map(|(i, mut input)| {
+                                                                    (i, input.uncons().is_err())
+                                                                });
         assert_eq!(result, Ok((123i64, true)));
     }
     #[test]
     fn field() {
         let word = || many(alpha_num());
         let spaces = spaces();
-        let c_decl = (word(), spaces.clone(), char(':'), spaces, word())
-            .map(|t| (t.0, t.4))
-            .parse("x: int");
+        let c_decl =
+            (word(), spaces.clone(), char(':'), spaces, word()).map(|t| (t.0, t.4)).parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
     #[test]
@@ -259,16 +257,15 @@ mod tests {
         let source = r"
 123
 ";
-        let result = (spaces(), parser(integer), spaces())
-            .map(|t| t.1)
-            .parse_stream(State::new(source));
+        let result =
+            (spaces(), parser(integer), spaces()).map(|t| t.1).parse_stream(State::new(source));
         let state = Consumed::Consumed(State {
-            position: SourcePosition {
-                line: 3,
-                column: 1,
-            },
-            input: "",
-        });
+                                           position: SourcePosition {
+                                               line: 3,
+                                               column: 1,
+                                           },
+                                           input: "",
+                                       });
         assert_eq!(result, Ok((123i64, state)));
     }
 
@@ -292,9 +289,9 @@ mod tests {
         let spaces = spaces();
         spaces.clone()
             .with(word.map(Expr::Id)
-                .or(integer.map(Expr::Int))
-                .or(array.map(Expr::Array))
-                .or(paren_expr))
+                      .or(integer.map(Expr::Int))
+                      .or(array.map(Expr::Array))
+                      .or(paren_expr))
             .skip(spaces)
             .parse_stream(input)
     }
@@ -348,9 +345,7 @@ mod tests {
         let input = r"
 1 * 2 + 3 * test
 ";
-        let (result, _) = parser(term)
-            .parse(State::new(input))
-            .unwrap();
+        let (result, _) = parser(term).parse(State::new(input)).unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
         let e2 = Expr::Times(Box::new(Expr::Int(3)),
@@ -374,10 +369,7 @@ mod tests {
     }
     #[test]
     fn error_position() {
-        let mut p = string("let")
-            .skip(parser(follow))
-            .map(|x| x.to_string())
-            .or(many1(digit()));
+        let mut p = string("let").skip(parser(follow)).map(|x| x.to_string()).or(many1(digit()));
         match p.parse(State::new("le123")) {
             Ok(_) => assert!(false),
             Err(err) => {
@@ -403,9 +395,7 @@ mod tests {
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
-        let err = p.parse(State::new("ab,abc"))
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
+        let err = p.parse(State::new("ab,abc")).map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(err.position,
                    SourcePosition {
                        line: 1,
@@ -416,9 +406,7 @@ mod tests {
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.parse(State::new("ab"))
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
+        let err = p.parse(State::new("ab")).map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(err.position,
                    SourcePosition {
                        line: 1,
@@ -439,8 +427,7 @@ mod tests {
         let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
         let result = p.parse(State::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
-        let error = result.map(|x| format!("{:?}", x))
-            .unwrap_err();
+        let error = result.map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(error.position,
                    SourcePosition {
                        line: 1,
@@ -493,15 +480,14 @@ mod tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<&str>> = string("abc")
-            .and_then(|_| Err(Error))
-            .parse("abc");
+        let result: Result<((), _), ParseError<&str>> =
+            string("abc").and_then(|_| Err(Error)).parse("abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {
-            let err: Box<StdError> = Box::new(err);
-            err
-        });
+                                   let err: Box<StdError> = Box::new(err);
+                                   err
+                               });
     }
 
     #[test]
@@ -556,9 +542,11 @@ mod tests {
             .map_err(|e| {
                 ExtractedError(e.position,
                                DisplayVec(e.errors
-                                   .into_iter()
-                                   .map(|e| e.map_range(|r| DisplayVec(r.to_owned())))
-                                   .collect()))
+                                              .into_iter()
+                                              .map(|e| {
+                                                       e.map_range(|r| DisplayVec(r.to_owned()))
+                                                   })
+                                              .collect()))
             });
 
         assert!(result.is_err());

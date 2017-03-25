@@ -217,11 +217,10 @@ impl<T, R> Error<T, R> {
         // First print the token that we did not expect
         // There should really just be one unexpected message at this point though we print them
         // all to be safe
-        let unexpected = errors.iter()
-            .filter(|e| match **e {
-                Error::Unexpected(_) => true,
-                _ => false,
-            });
+        let unexpected = errors.iter().filter(|e| match **e {
+                                                  Error::Unexpected(_) => true,
+                                                  _ => false,
+                                              });
         for error in unexpected {
             try!(writeln!(f, "{}", error));
         }
@@ -229,11 +228,10 @@ impl<T, R> Error<T, R> {
         // Then we print out all the things that were expected in a comma separated list
         // 'Expected 'a', 'expression' or 'let'
         let iter = || {
-            errors.iter()
-                .filter_map(|e| match *e {
-                    Error::Expected(ref err) => Some(err),
-                    _ => None,
-                })
+            errors.iter().filter_map(|e| match *e {
+                                         Error::Expected(ref err) => Some(err),
+                                         _ => None,
+                                     })
         };
         let expected_count = iter().count();
         for (i, message) in iter().enumerate() {
@@ -249,12 +247,11 @@ impl<T, R> Error<T, R> {
             try!(writeln!(f, ""));
         }
         // If there are any generic messages we print them out last
-        let messages = errors.iter()
-            .filter(|e| match **e {
-                Error::Message(_) |
-                Error::Other(_) => true,
-                _ => false,
-            });
+        let messages = errors.iter().filter(|e| match **e {
+                                                Error::Message(_) |
+                                                Error::Other(_) => true,
+                                                _ => false,
+                                            });
         for error in messages {
             try!(writeln!(f, "{}", error));
         }
@@ -480,9 +477,9 @@ impl<S: StreamOnce> ParseError<S> {
     pub fn set_expected(&mut self, info: Info<S::Item, S::Range>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {
-            Error::Expected(_) => false,
-            _ => true,
-        });
+                               Error::Expected(_) => false,
+                               _ => true,
+                           });
         self.errors.push(Error::Expected(info));
     }
 
@@ -680,12 +677,10 @@ impl<I, E> RangeStream for State<I>
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
         let position = &mut self.position;
-        self.input
-            .uncons_range(size)
-            .map(|value| {
-                value.update(position);
-                value
-            })
+        self.input.uncons_range(size).map(|value| {
+                                              value.update(position);
+                                              value
+                                          })
     }
 
     #[inline]
@@ -694,11 +689,11 @@ impl<I, E> RangeStream for State<I>
     {
         let position = &mut self.position;
         self.input.uncons_while(|t| if predicate(t.clone()) {
-            t.update(position);
-            true
-        } else {
-            false
-        })
+                                    t.update(position);
+                                    true
+                                } else {
+                                    false
+                                })
     }
 }
 
@@ -861,9 +856,7 @@ impl<'a, T> RangeStream for &'a [T]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Error<T, &'a [T]>>
         where F: FnMut(Self::Item) -> bool
     {
-        let len = self.iter()
-            .take_while(|c| f((**c).clone()))
-            .count();
+        let len = self.iter().take_while(|c| f((**c).clone())).count();
         let (result, remaining) = self.split_at(len);
         *self = remaining;
         Ok(result)
@@ -1841,7 +1834,11 @@ impl<I> BufferedStreamInner<I>
         if offset >= self.offset {
             self.iter.position()
         } else if offset < self.offset - self.buffer.len() {
-            self.buffer.front().expect("Atleast 1 element in the buffer").1.clone()
+            self.buffer
+                .front()
+                .expect("Atleast 1 element in the buffer")
+                .1
+                .clone()
         } else {
             self.buffer[self.buffer.len() - (self.offset - offset)].1.clone()
         }
@@ -1880,10 +1877,10 @@ impl<'a, I> BufferedStream<'a, I>
     pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
         SharedBufferedStream {
             buffer: UnsafeCell::new(BufferedStreamInner {
-                offset: 0,
-                iter: iter,
-                buffer: VecDeque::with_capacity(lookahead),
-            }),
+                                        offset: 0,
+                                        iter: iter,
+                                        buffer: VecDeque::with_capacity(lookahead),
+                                    }),
         }
     }
 }

@@ -259,13 +259,13 @@ impl<C, T, I> Parser for Tokens<C, T, I>
                 Ok((other, rest)) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
-                            let errors = vec![Error::Unexpected(Info::Token(other)),
+                                   let errors = vec![Error::Unexpected(Info::Token(other)),
                                               Error::Expected(self.expected.clone())];
-                            let error = ParseError::from_errors(start, errors);
-                            ConsumedErr(error)
-                        } else {
-                            EmptyErr(ParseError::empty(start))
-                        };
+                                   let error = ParseError::from_errors(start, errors);
+                                   ConsumedErr(error)
+                               } else {
+                                   EmptyErr(ParseError::empty(start))
+                               };
                     }
                     consumed = true;
                     input = rest.into_inner();
@@ -398,12 +398,12 @@ impl<I, O, S, P> Parser for Choice<S, P>
             }
         }
         EmptyErr(match empty_err {
-            None => {
-                ParseError::new(input.position(),
-                                Error::Message("parser choice is empty".into()))
-            }
-            Some(err) => err,
-        })
+                     None => {
+                         ParseError::new(input.position(),
+                                         Error::Message("parser choice is empty".into()))
+                     }
+                     Some(err) => err,
+                 })
     }
     fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
         for p in self.0.as_mut() {
@@ -430,7 +430,13 @@ impl<T, I> Parser for OneOf<T, I>
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
-        satisfy(|c| self.tokens.clone().into_iter().any(|t| t == c)).parse_lazy(input)
+        satisfy(|c| {
+                    self.tokens
+                        .clone()
+                        .into_iter()
+                        .any(|t| t == c)
+                })
+                .parse_lazy(input)
     }
 
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -482,7 +488,13 @@ impl<T, I> Parser for NoneOf<T, I>
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
-        satisfy(|c| self.tokens.clone().into_iter().all(|t| t != c)).parse_lazy(input)
+        satisfy(|c| {
+                    self.tokens
+                        .clone()
+                        .into_iter()
+                        .all(|t| t != c)
+                })
+                .parse_lazy(input)
     }
 }
 
@@ -730,9 +742,7 @@ pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
         unexpected(format!("{}", t))
     }
     let f: fn(P::Output) -> Unexpected<P::Input> = f;
-    NotFollowedBy(try(parser)
-        .then(f)
-        .or(value(())))
+    NotFollowedBy(try(parser).then(f).or(value(())))
 }
 
 #[derive(Clone)]
@@ -912,10 +922,7 @@ impl<F, P> Parser for Many1<F, P>
             input: input.into_inner(),
             state: State::Ok,
         };
-        let result = Some(first)
-            .into_iter()
-            .chain(iter.by_ref())
-            .collect();
+        let result = Some(first).into_iter().chain(iter.by_ref()).collect();
         iter.into_result_fast(result)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1212,10 +1219,7 @@ impl<F, P, S> Parser for SepEndBy1<F, P, S>
             // `iter` yields Option<P::Output>, by using flat map we make sure that we stop
             // iterating once a None element is received, i.e `self.parser` did not parse
             // successfully
-            let result = Some(first)
-                .into_iter()
-                .chain(iter.by_ref().flat_map(|x| x))
-                .collect();
+            let result = Some(first).into_iter().chain(iter.by_ref().flat_map(|x| x)).collect();
             iter.into_result_fast(result)
         })
     }
@@ -1889,14 +1893,12 @@ impl<P> Parser for Expected<P>
     fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         // add_error is only called on unconsumed inputs but we want this expected message to always
         // replace the ones always present in the ParseError
-        self.0
-            .parse_stream(input)
-            .map_err(|errors| {
-                errors.map(|mut errors| {
-                    errors.set_expected(self.1.clone());
-                    errors
-                })
-            })
+        self.0.parse_stream(input).map_err(|errors| {
+                                               errors.map(|mut errors| {
+                                                              errors.set_expected(self.1.clone());
+                                                              errors
+                                                          })
+                                           })
     }
 
     #[inline]
@@ -1911,14 +1913,14 @@ impl<P> Parser for Expected<P>
         // with this expected error
         let mut i = 0;
         errors.errors.retain(|e| if i < start {
-            i += 1;
-            true
-        } else {
-            match *e {
-                Error::Expected(_) => false,
-                _ => true,
-            }
-        });
+                                 i += 1;
+                                 true
+                             } else {
+                                 match *e {
+                                     Error::Expected(_) => false,
+                                     _ => true,
+                                 }
+                             });
         errors.add_error(Error::Expected(self.1.clone()));
     }
 }
@@ -2153,17 +2155,14 @@ mod tests {
     /// The expected combinator should retain only errors that are not `Expected`
     #[test]
     fn expected_retain_errors() {
-        let mut parser = digit()
-            .message("message")
-            .expected("N/A")
-            .expected("my expected digit");
+        let mut parser = digit().message("message").expected("N/A").expected("my expected digit");
         assert_eq!(parser.parse(State::new("a")),
                    Err(ParseError {
-                       position: <char as Positioner>::start(),
-                       errors: vec![Error::Unexpected('a'.into()),
-                                    Error::Message("message".into()),
-                                    Error::Expected("my expected digit".into())],
-                   }));
+                           position: <char as Positioner>::start(),
+                           errors: vec![Error::Unexpected('a'.into()),
+                                        Error::Message("message".into()),
+                                        Error::Expected("my expected digit".into())],
+                       }));
     }
 
     #[test]
@@ -2172,9 +2171,10 @@ mod tests {
         let result = parser.parse(State::new("a"));
         assert_eq!(result,
                    Err(ParseError {
-                       position: <char as Positioner>::start(),
-                       errors: vec![Error::Unexpected('a'.into()), Error::Expected("digit".into())],
-                   }));
+                           position: <char as Positioner>::start(),
+                           errors: vec![Error::Unexpected('a'.into()),
+                                        Error::Expected("digit".into())],
+                       }));
     }
 
     #[derive(Clone, PartialEq, Debug)]
