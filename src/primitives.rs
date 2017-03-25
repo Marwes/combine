@@ -418,34 +418,40 @@ impl<T> Consumed<T> {
         }
     }
 }
-/// Struct which hold information about an error that occurred at a specific position.
-/// Can hold multiple instances of `Error` if more that one error occurred in the same position.
-pub struct ParseError<S: StreamOnce> {
+
+/// Alias over `ParseError` for `StreamOnce` types
+pub type StreamError<S> = ParseError<
+    <S as StreamOnce>::Position,
+    <S as StreamOnce>::Item,
+    <S as StreamOnce>::Range,
+>;
+
+/// Struct which hold information about an error that occured at a specific position.
+/// Can hold multiple instances of `Error` if more that one error occured in the same position.
+#[derive(Debug, PartialEq)]
+pub struct ParseError<P, I, R> {
     /// The position where the error occurred
-    pub position: S::Position,
+    pub position: P,
     /// A vector containing specific information on what errors occurred at `position`. Usually
     /// a fully formed message contains one `Unexpected` error and one or more `Expected` errors.
     /// `Message` and `Other` may also appear (`combine` never generates these errors on its own)
     /// and may warrant custom handling.
-    pub errors: Vec<Error<S::Item, S::Range>>,
+    pub errors: Vec<Error<I, R>>,
 }
 
-impl<S: StreamOnce> ParseError<S> {
+impl<P, I, R> ParseError<P, I, R> {
     /// Constructs a new `ParseError` which occurred at `position`.
-    pub fn new(position: S::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
+    pub fn new(position: P, error: Error<I, R>) -> ParseError<P, I, R> {
         ParseError::from_errors(position, vec![error])
     }
 
     /// Constructs an error with no other information than the position it occurred at.
-    pub fn empty(position: S::Position) -> ParseError<S> {
+    pub fn empty(position: P) -> ParseError<P, I, R> {
         ParseError::from_errors(position, vec![])
     }
 
     /// Constructs a `ParseError` with multiple causes.
-    pub fn from_errors(
-        position: S::Position,
-        errors: Vec<Error<S::Item, S::Range>>,
-    ) -> ParseError<S> {
+    pub fn from_errors(position: P, errors: Vec<Error<I, R>>) -> ParseError<P, I, R> {
         ParseError {
             position: position,
             errors: errors,
@@ -454,7 +460,7 @@ impl<S: StreamOnce> ParseError<S> {
 
     /// Constructs an end of input error. Should be returned by parsers which encounter end of
     /// input unexpectedly.
-    pub fn end_of_input(position: S::Position) -> ParseError<S> {
+    pub fn end_of_input(position: P) -> ParseError<P, I, R> {
         ParseError::new(position, Error::end_of_input())
     }
 
@@ -462,14 +468,20 @@ impl<S: StreamOnce> ParseError<S> {
     #[deprecated(since = "2.3.0", note = "Use `add_error(Error::Message())` instead")]
     pub fn add_message<M>(&mut self, message: M)
     where
-        M: Into<Info<S::Item, S::Range>>,
+        M: Into<Info<I, R>>,
+        I: PartialEq,
+        R: PartialEq,
     {
         self.add_error(Error::Message(message.into()));
     }
 
     /// Adds an error if `error` does not exist in this `ParseError` already (as determined byte
     /// `PartialEq`).
-    pub fn add_error(&mut self, error: Error<S::Item, S::Range>) {
+    pub fn add_error(&mut self, error: Error<I, R>)
+    where
+        I: PartialEq,
+        R: PartialEq,
+    {
         // Don't add duplicate errors
         if self.errors.iter().all(|err| *err != error) {
             self.errors.push(error);
@@ -477,7 +489,7 @@ impl<S: StreamOnce> ParseError<S> {
     }
 
     /// Remvoes all `Expected` errors in `self` and adds `info` instead.
-    pub fn set_expected(&mut self, info: Info<S::Item, S::Range>) {
+    pub fn set_expected(&mut self, info: Info<I, R>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {
             Error::Expected(_) => false,
@@ -489,7 +501,12 @@ impl<S: StreamOnce> ParseError<S> {
     /// Merges two `ParseError`s. If they exist at the same position the errors of `other` are
     /// added to `self` (using `add_error` to skip duplicates). If they are not at the same
     /// position the error furthest ahead are returned, ignoring the other `ParseError`.
-    pub fn merge(mut self, other: ParseError<S>) -> ParseError<S> {
+    pub fn merge(mut self, other: ParseError<P, I, R>) -> ParseError<P, I, R>
+    where
+        P: Ord,
+        I: PartialEq,
+        R: PartialEq,
+    {
         use std::cmp::Ordering;
         // Only keep the errors which occurred after consuming the most amount of data
         match self.position.cmp(&other.position) {
@@ -505,7 +522,7 @@ impl<S: StreamOnce> ParseError<S> {
     }
 }
 
-impl<'s> ParseError<&'s str> {
+impl<'s> StreamError<&'s str> {
     /// Converts the pointer-based position into an indexed position.
     ///
     /// ```rust
@@ -518,15 +535,16 @@ impl<'s> ParseError<&'s str> {
     /// assert_eq!(err.translate_position(text).position, 0);
     /// # }
     /// ```
-    pub fn translate_position(mut self, initial_string: &'s str) -> ParseError<&'s str> {
+    pub fn translate_position(mut self, initial_string: &'s str) -> StreamError<&'s str> {
         self.position -= initial_string.as_ptr() as usize;
         self
     }
 }
 
-impl<'s, T: 's> ParseError<&'s [T]>
+impl<'s, T: 's>
+    ParseError<<&'s [T] as StreamOnce>::Position, <&'s [T] as StreamOnce>::Item, &'s [T]>
 where
-    T: Clone + PartialEq,
+    T: PartialEq + Clone,
 {
     /// Converts the pointer-based position into an indexed position.
     ///
@@ -540,57 +558,28 @@ where
     /// assert_eq!(err.translate_position(text).position, 0);
     /// # }
     /// ```
-    pub fn translate_position(mut self, initial_string: &'s [T]) -> ParseError<&'s [T]> {
+    pub fn translate_position(mut self, initial_string: &'s [T]) -> Self {
         self.position -= initial_string.as_ptr() as usize;
         self
     }
 }
 
-impl<S> StdError for ParseError<S>
+impl<P, I, R> StdError for ParseError<P, I, R>
 where
-    S: Stream,
-    S::Range: fmt::Display + fmt::Debug + Any,
-    S::Item: fmt::Display + fmt::Debug + Any,
-    S::Position: fmt::Display + fmt::Debug + Any,
+    P: fmt::Display + fmt::Debug + Any,
+    I: fmt::Display + fmt::Debug + Any,
+    R: fmt::Display + fmt::Debug + Any,
 {
     fn description(&self) -> &str {
         "parse error"
     }
 }
 
-impl<S> PartialEq for ParseError<S>
+impl<P, I, R> fmt::Display for ParseError<P, I, R>
 where
-    S: Stream,
-    S::Position: PartialEq,
-{
-    fn eq(&self, other: &ParseError<S>) -> bool {
-        self.position == other.position && self.errors == other.errors
-    }
-}
-
-impl<S> fmt::Debug for ParseError<S>
-where
-    S: Stream,
-    S::Range: fmt::Debug,
-    S::Item: fmt::Debug,
-    S::Position: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "ParseError {{ position: {:?}, errors: {:?} }}",
-            self.position,
-            self.errors
-        )
-    }
-}
-
-impl<S> fmt::Display for ParseError<S>
-where
-    S: Stream,
-    S::Item: fmt::Display,
-    S::Range: fmt::Display,
-    S::Position: fmt::Display,
+    P: fmt::Display,
+    I: fmt::Display,
+    R: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(writeln!(f, "Parse error at {}", self.position));
@@ -731,7 +720,7 @@ where
 /// successful or not.
 /// `O` is the type that is output on success.
 /// `I` is the specific stream type used in the parser.
-pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<ParseError<I>>>;
+pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<StreamError<I>>>;
 
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {
@@ -1325,7 +1314,7 @@ where
 /// A `Result` type which has the consumed status flattened into the result.
 /// Conversions to and from `std::result::Result` can be done using `result.into()` or
 /// `From::from(result)`
-pub type ConsumedResult<O, I> = FastResult<(O, I), ParseError<I>>;
+pub type ConsumedResult<O, I> = FastResult<(O, I), StreamError<I>>;
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<E>>> for FastResult<T, E> {
     fn into(self) -> Result<Consumed<T>, Consumed<E>> {
@@ -1396,7 +1385,7 @@ pub trait Parser {
     fn parse(
         &mut self,
         input: Self::Input,
-    ) -> Result<(Self::Output, Self::Input), ParseError<Self::Input>> {
+    ) -> Result<(Self::Output, Self::Input), StreamError<Self::Input>> {
         match self.parse_stream(input) {
             Ok((v, state)) => Ok((v, state.into_inner())),
             Err(error) => Err(error.into_inner()),
@@ -1471,7 +1460,7 @@ pub trait Parser {
     /// See [`parse_lazy`] for details.
     ///
     /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
-    fn add_error(&mut self, _error: &mut ParseError<Self::Input>) {}
+    fn add_error(&mut self, _error: &mut StreamError<Self::Input>) {}
 
     /// Borrows a parser instead of consuming it.
     ///
@@ -1681,7 +1670,8 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output) -> Result<B, ParseError<Self::Input>>,
+        F: FnMut(Self::Output)
+            -> Result<B, StreamError<Self::Input>>,
     {
         flat_map(self, f)
     }
@@ -1845,7 +1835,7 @@ where
     }
 
     #[inline(always)]
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         (**self).add_error(error)
     }
 }
@@ -1873,7 +1863,7 @@ where
     }
 
     #[inline(always)]
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         (**self).add_error(error)
     }
 }

@@ -57,7 +57,7 @@
 //! ```
 //! extern crate combine;
 //! use combine::char::{spaces, digit, char};
-//! use combine::{many1, sep_by, Parser, ParseError};
+//! use combine::{many1, sep_by, Parser, StreamError};
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -70,7 +70,7 @@
 //!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
-//!     let result: Result<(Vec<i32>, &str), ParseError<&str>> = integer_list.parse(input);
+//!     let result: Result<(Vec<i32>, &str), StreamError<&str>> = integer_list.parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -159,7 +159,7 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, State, Stream, StreamOnce};
+pub use primitives::{Parser, ParseError, StreamError, ConsumedResult, ParseResult, State, Stream, StreamOnce};
 
 // import this one separately, so we can set the allow(deprecated) for just this item
 // TODO: remove this when a new major version is released
@@ -195,7 +195,7 @@ macro_rules! impl_token_parser {
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
             self.0.add_error(errors)
         }
     }
@@ -759,7 +759,7 @@ mod tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<&str>> =
+        let result: Result<((), _), ParseError<usize, char, &str>> =
             string("abc").and_then(|_| Err(Error)).parse("abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream};
+use primitives::{ConsumedResult, Error, Info, ParseError, StreamError, Parser, RangeStream};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -28,7 +28,7 @@ where
             Err(err) => EmptyErr(ParseError::new(position, err)),
         }
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
         // TODO Add unexpected message?
         errors.add_error(Error::Expected(Info::Range(self.0.clone())));
     }
