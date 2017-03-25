@@ -79,7 +79,7 @@ impl<I> Json<I>
                 .and(i)
                 .map(|(sign, n)| if sign.is_some() { -n } else { n })
                 .and(optional(char('.')).with(fractional))
-                .map(|(x, y)| if x > 0.0 { x + y } else { x - y })
+                .map(|(x, y)| if x >= 0.0 { x + y } else { x - y })
                 .and(optional(exp))
                 .map(|(n, exp_option)| match exp_option {
                     Some((sign, e)) => {
@@ -164,11 +164,11 @@ impl<I> Json<I>
 #[test]
 fn json_test() {
     use self::Value::*;
-    let input = r#"
-{
+    let input = r#"{
     "array": [1, ""],
     "object": {},
     "number": 3.14,
+    "small_number": 0.59,
     "int": -100,
     "exp": -1e2,
     "exp_neg": 23e-2,
@@ -180,6 +180,7 @@ fn json_test() {
     let expected = Object(vec![("array", Array(vec![Number(1.0), String("".to_string())])),
                                ("object", Object(HashMap::new())),
                                ("number", Number(3.14)),
+                               ("small_number", Number(0.59)),
                                ("int", Number(-100.)),
                                ("exp", Number(-1e2)),
                                ("exp_neg", Number(23E-2)),
