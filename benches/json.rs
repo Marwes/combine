@@ -164,8 +164,7 @@ impl<I> Json<I>
 #[test]
 fn json_test() {
     use self::Value::*;
-    let input = r#"
-{
+    let input = r#"{
     "array": [1, ""],
     "object": {},
     "number": 3.14,
