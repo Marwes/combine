@@ -1675,7 +1675,7 @@ impl<I, P> Parser for Message<P>
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
-        match self.0.parse_lazy(input.clone()) {
+        match self.0.parse_lazy(input) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
 
