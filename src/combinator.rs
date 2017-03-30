@@ -1673,21 +1673,21 @@ impl<I, P> Parser for Message<P>
     type Input = I;
     type Output = P::Output;
 
-    fn parse_stream(&mut self, input: I) -> ParseResult<Self::Output, I> {
-        // The message should always be added even if some input was consumed before failing
-        self.0
-            .parse_stream(input.clone())
-            .map_err(|errors| {
-                errors.map(|mut errors| {
-                    errors.add_error(Error::Message(self.1.clone()));
-                    errors
-                })
-            })
-    }
-
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
-        self.0.parse_lazy(input.clone())
+        match self.0.parse_lazy(input.clone()) {
+            ConsumedOk(x) => ConsumedOk(x),
+            EmptyOk(x) => EmptyOk(x),
+
+            // The message should always be added even if some input was consumed before failing
+            ConsumedErr(mut err) => {
+                err.add_error(Error::Message(self.1.clone()));
+                ConsumedErr(err)
+            },
+
+            // The message will be added in `add_error`
+            EmptyErr(err) => EmptyErr(err),
+        }
     }
 
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
