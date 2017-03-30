@@ -125,7 +125,7 @@ impl<T, R> From<&'static str> for Info<T, R> {
     }
 }
 
-/// Enum used to store information about an error that has occured during parsing.
+/// Enum used to store information about an error that has occurred during parsing.
 #[derive(Debug)]
 pub enum Error<T, R> {
     /// Error indicating an unexpected token has been encountered in the stream
@@ -264,7 +264,7 @@ impl<T, R> Error<T, R> {
 
 /// Enum used to indicate if a parser consumed any items of the stream it was given as an input.
 ///
-/// This is used by parsers such as `or` and `choice` to determine if they should try to parser
+/// This is used by parsers such as `or` and `choice` to determine if they should try to parse
 /// with another parser as they will only be able to provide good error reporting if the preceding
 /// parser did not consume any tokens.
 #[derive(Clone, PartialEq, Debug, Copy)]
@@ -420,12 +420,12 @@ impl<T> Consumed<T> {
         }
     }
 }
-/// Struct which hold information about an error that occured at a specific position.
-/// Can hold multiple instances of `Error` if more that one error occured in the same position.
+/// Struct which hold information about an error that occurred at a specific position.
+/// Can hold multiple instances of `Error` if more that one error occurred in the same position.
 pub struct ParseError<S: StreamOnce> {
-    /// The position where the error occured
+    /// The position where the error occurred
     pub position: S::Position,
-    /// A vector containing specific information on what errors occured at `position`. Usually
+    /// A vector containing specific information on what errors occurred at `position`. Usually
     /// a fully formed message contains one `Unexpected` error and one or more `Expected` errors.
     /// `Message` and `Other` may also appear (`combine` never generates these errors on its own)
     /// and may warrant custom handling.
@@ -433,12 +433,12 @@ pub struct ParseError<S: StreamOnce> {
 }
 
 impl<S: StreamOnce> ParseError<S> {
-    /// Constructs a new `ParseError` which occured at `position`.
+    /// Constructs a new `ParseError` which occurred at `position`.
     pub fn new(position: S::Position, error: Error<S::Item, S::Range>) -> ParseError<S> {
         ParseError::from_errors(position, vec![error])
     }
 
-    /// Constructs an error with no other information than the position it occured at.
+    /// Constructs an error with no other information than the position it occurred at.
     pub fn empty(position: S::Position) -> ParseError<S> {
         ParseError::from_errors(position, vec![])
     }
@@ -491,7 +491,7 @@ impl<S: StreamOnce> ParseError<S> {
     /// position the error furthest ahead are returned, ignoring the other `ParseError`.
     pub fn merge(mut self, other: ParseError<S>) -> ParseError<S> {
         use std::cmp::Ordering;
-        // Only keep the errors which occured after consuming the most amount of data
+        // Only keep the errors which occurred after consuming the most amount of data
         match self.position.cmp(&other.position) {
             Ordering::Less => other,
             Ordering::Greater => self,
@@ -1271,8 +1271,8 @@ impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
     }
 }
 
-/// By implementing the `Parser` trait a type says that it can be used to parse an input stream into
-/// the type `Output`.
+/// By implementing the `Parser` trait a type says that it can be used to parse an input stream
+/// into the type `Output`.
 ///
 /// All methods have a default implementation but there needs to be at least an implementation of
 /// [`parse_stream`] or [`parse_lazy`]. If [`parse_lazy`] is implemented an implementation of
@@ -1282,8 +1282,8 @@ impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
 /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
 /// [`add_error`]: trait.Parser.html#method.add_error
 pub trait Parser {
-    /// The type which is take as input for the parser. The type must implement the `Stream` trait
-    /// which allows the parser to read item from the type.
+    /// The type which is taken as input for the parser. The type must implement the `Stream` trait
+    /// which allows the parser to read items from the type.
     type Input: Stream;
     /// The type which is returned if the parser is successful.
     type Output;
@@ -1292,7 +1292,7 @@ pub trait Parser {
     /// Takes some input and tries to parse it returning the parsed result and the remaining input
     /// if the parser succeeds or returns a [`ParseError`] if the parser fails.
     ///
-    /// [`ParseError`]: type.ParseError.html
+    /// [`ParseError`]: primitives/struct.ParseError.html
     fn parse(&mut self,
              input: Self::Input)
              -> Result<(Self::Output, Self::Input), ParseError<Self::Input>> {
