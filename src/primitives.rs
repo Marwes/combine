@@ -1275,10 +1275,12 @@ impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
 /// into the type `Output`.
 ///
 /// All methods have a default implementation but there needs to be at least an implementation of
-/// [`parse_stream`] or [`parse_lazy`]. If [`parse_lazy`] is implemented an implementation of
-/// [`add_error`] is also recommended to improve error reporting.
+/// [`parse_stream`], [`parse_stream_consumed`], or [`parse_lazy`]. If the last is implemented, an
+/// implementation of [`add_error`] may also be required. See the documentation for
+/// [`parse_lazy`] for details.
 ///
 /// [`parse_stream`]: trait.Parser.html#method.parse_stream
+/// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
 /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
 /// [`add_error`]: trait.Parser.html#method.add_error
 pub trait Parser {
@@ -1288,9 +1290,10 @@ pub trait Parser {
     /// The type which is returned if the parser is successful.
     type Output;
 
-    /// Entry point of the parser.
-    /// Takes some input and tries to parse it returning the parsed result and the remaining input
-    /// if the parser succeeds or returns a [`ParseError`] if the parser fails.
+    /// Entry point of the parser. Takes some input and tries to parse it.
+    ///
+    /// Returns the parsed result and the remaining input if the parser succeeds, or a
+    /// [`ParseError`] otherwise.
     ///
     /// [`ParseError`]: primitives/struct.ParseError.html
     fn parse(&mut self,
@@ -1303,18 +1306,27 @@ pub trait Parser {
     }
 
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
-    /// On success returns `Ok((value, new_state))` and on failure it returns `Err(error)`.
+    ///
+    /// On success returns `Ok((value, new_state))`, and on failure returns `Err(error)`.
+    /// Furthermore `new_state` and `error` are wrapped in [`Consumed`], providing information on
+    /// whether this parser consumed any input data or not.
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
+    /// [`Consumed`]: primitives/enum.Consumed.html
     #[inline(always)]
     fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.parse_stream_consumed(input).into()
     }
 
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
-    /// On success returns `Ok((value, new_state))` on failure it returns `Err(error)`.
+    ///
+    /// Semantically equivalent to [`parse_stream`], except this method returns a flattened result
+    /// type, combining `Result` and [`Consumed`] into a single [`FastResult`].
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
+    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
+    /// [`Consumed`]: primitives/enum.Consumed.html
+    /// [`FastResult`]: primitives/enum.FastResult.html
     #[inline]
     fn parse_stream_consumed(&mut self,
                              mut input: Self::Input)
@@ -1329,18 +1341,37 @@ pub trait Parser {
         result
     }
 
-    /// Specialized version of [`parse_stream`] where the parser does not need to add an error to
-    /// the `ParseError` when it does not consume any input before encountering the error. Instead
-    /// the error can be added later through the [`add_error`] method
+    /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
     ///
-    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
+    /// Specialized version of [`parse_stream_consumed`] which permits error value creation to be
+    /// skipped in the common case.
+    ///
+    /// When this parser returns `EmptyErr`, this method is allowed to return an empty
+    /// [`ParseError`]. The error value that would have been returned can instead be obtained by
+    /// calling [`add_error`]. This allows a parent parser such as `choice` to skip the creation of
+    /// an unnecessary error value, if an alternative parser succeeds.
+    ///
+    /// External callers should never have to call this function directly.
+    ///
+    /// Parsers should seek to implement this function instead of the above two, if errors can be
+    /// encountered before consuming input. The default implementation always returns all errors,
+    /// with [`add_error`] being a no-op.
+    ///
+    /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
+    /// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
+    /// [`ParseError`]: struct.ParseError.html
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.parse_stream(input).into()
     }
 
-    /// Adds the first error that would normally be returned by this parser if it failed.
+    /// Adds the first error that would normally be returned by this parser if it failed with an
+    /// `EmptyErr` result.
+    ///
+    /// See [`parse_lazy`] for details.
+    ///
+    /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
     fn add_error(&mut self, _error: &mut ParseError<Self::Input>) {}
 
     /// Borrows a parser instead of consuming it.
