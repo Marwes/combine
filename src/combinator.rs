@@ -1882,19 +1882,6 @@ impl<P> Parser for Expected<P>
     type Input = P::Input;
     type Output = P::Output;
 
-    fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        // add_error is only called on unconsumed inputs but we want this expected message to always
-        // replace the ones always present in the ParseError
-        self.0
-            .parse_stream(input)
-            .map_err(|errors| {
-                errors.map(|mut errors| {
-                    errors.set_expected(self.1.clone());
-                    errors
-                })
-            })
-    }
-
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.0.parse_lazy(input)
@@ -1903,7 +1890,7 @@ impl<P> Parser for Expected<P>
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         let start = errors.errors.len();
         self.0.add_error(errors);
-        // Replace all expected errors that where added from the previous add_error
+        // Replace all expected errors that were added from the previous add_error
         // with this expected error
         let mut i = 0;
         errors.errors.retain(|e| if i < start {
@@ -2218,6 +2205,45 @@ mod tests {
                errors: vec![Error::Unexpected('i'.into()),
                             Error::Expected('o'.into()),
                             Error::Message("expected message".into())],
+            });
+
+        assert_eq!(empty0.parse(State::new(input)), empty_expected);
+        assert_eq!(empty1.parse(State::new(input)), empty_expected);
+        assert_eq!(empty2.parse(State::new(input)), empty_expected);
+
+        assert_eq!(consumed0.parse(State::new(input)), consumed_expected);
+        assert_eq!(consumed1.parse(State::new(input)), consumed_expected);
+        assert_eq!(consumed2.parse(State::new(input)), consumed_expected);
+    }
+
+    #[test]
+    fn expected_tests() {
+        // Ensure `expected` replaces only empty errors, interacting with parse_lazy and
+        // parse_stream correctly on either side
+        let input = "hi";
+
+        let mut ok        = char('h').expected("not expected");
+        let mut empty0    = char('o').expected("expected message");
+        let mut empty1    = char('o').expected("expected message").map(|x| x);
+        let mut empty2    = char('o').map(|x| x).expected("expected message");
+        let mut consumed0 = char('h').with(char('o')).expected("expected message");
+        let mut consumed1 = char('h').with(char('o')).expected("expected message").map(|x| x);
+        let mut consumed2 = char('h').with(char('o')).map(|x| x).expected("expected message");
+
+        assert!(ok.parse(State::new(input)).is_ok());
+
+        let empty_expected =
+            Err(ParseError {
+               position: SourcePosition { line: 1, column: 1 },
+               errors: vec![Error::Unexpected('h'.into()),
+                            Error::Expected("expected message".into())],
+            });
+
+        let consumed_expected =
+            Err(ParseError {
+               position: SourcePosition { line: 1, column: 2 },
+               errors: vec![Error::Unexpected('i'.into()),
+                            Error::Expected('o'.into())],
             });
 
         assert_eq!(empty0.parse(State::new(input)), empty_expected);
