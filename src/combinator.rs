@@ -2128,8 +2128,8 @@ pub fn env_parser<E, I, O>(env: E, parser: fn(E, I) -> ParseResult<O, I>) -> Env
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Positioner, Parser, State};
-    use char::{digit, letter};
+    use primitives::{Error, ParseError, Positioner, Parser, SourcePosition, State};
+    use char::{char, digit, letter};
 
     #[test]
     fn choice_empty() {
@@ -2190,5 +2190,46 @@ mod tests {
         let result = token(CloneOnly { s: "x".to_string() }).parse(input);
         assert_eq!(result,
                    Ok((CloneOnly { s: "x".to_string() }, &[CloneOnly { s: "y".to_string() }][..])));
+    }
+
+    #[test]
+    fn message_tests() {
+        // Ensure message adds to both consumed and empty errors, interacting with parse_lazy and
+        // parse_stream correctly on either side
+        let input = "hi";
+
+        let mut ok        = char('h').message("not expected");
+        let mut empty0    = char('o').message("expected message");
+        let mut empty1    = char('o').message("expected message").map(|x| x);
+        let mut empty2    = char('o').map(|x| x).message("expected message");
+        let mut consumed0 = char('h').with(char('o')).message("expected message");
+        let mut consumed1 = char('h').with(char('o')).message("expected message").map(|x| x);
+        let mut consumed2 = char('h').with(char('o')).map(|x| x).message("expected message");
+
+        assert!(ok.parse(State::new(input)).is_ok());
+
+        let empty_expected =
+            Err(ParseError {
+               position: SourcePosition { line: 1, column: 1 },
+               errors: vec![Error::Unexpected('h'.into()),
+                            Error::Expected('o'.into()),
+                            Error::Message("expected message".into())],
+            });
+
+        let consumed_expected =
+            Err(ParseError {
+               position: SourcePosition { line: 1, column: 2 },
+               errors: vec![Error::Unexpected('i'.into()),
+                            Error::Expected('o'.into()),
+                            Error::Message("expected message".into())],
+            });
+
+        assert_eq!(empty0.parse(State::new(input)), empty_expected);
+        assert_eq!(empty1.parse(State::new(input)), empty_expected);
+        assert_eq!(empty2.parse(State::new(input)), empty_expected);
+
+        assert_eq!(consumed0.parse(State::new(input)), consumed_expected);
+        assert_eq!(consumed1.parse(State::new(input)), consumed_expected);
+        assert_eq!(consumed2.parse(State::new(input)), consumed_expected);
     }
 }
