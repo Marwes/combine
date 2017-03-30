@@ -1526,14 +1526,10 @@ impl<I, O, P> Parser for Try<P>
     type Input = I;
     type Output = O;
     #[inline]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         self.0
             .parse_stream(input)
             .map_err(Consumed::into_empty)
-            .into()
-    }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        self.0.add_error(errors)
     }
 }
 
@@ -2231,5 +2227,22 @@ mod tests {
         assert_eq!(consumed0.parse(State::new(input)), consumed_expected);
         assert_eq!(consumed1.parse(State::new(input)), consumed_expected);
         assert_eq!(consumed2.parse(State::new(input)), consumed_expected);
+    }
+
+    #[test]
+    fn try_tests() {
+        // Ensure try adds error messages exactly once
+        assert_eq!(try(unexpected("test")).parse(State::new("hi")),
+            Err(ParseError {
+               position: SourcePosition { line: 1, column: 1 },
+               errors: vec![Error::Unexpected('h'.into()),
+                            Error::Unexpected("test".into())],
+            }));
+        assert_eq!(try(char('h').with(unexpected("test"))).parse(State::new("hi")),
+            Err(ParseError {
+               position: SourcePosition { line: 1, column: 2 },
+               errors: vec![Error::Unexpected('i'.into()),
+                            Error::Unexpected("test".into())],
+            }));
     }
 }
