@@ -20,7 +20,7 @@ fn property<I>(input: I) -> ParseResult<(String, String), I>
      token('='),
      many1(satisfy(|c| c != '\n' && c != ';')))
         .map(|(key, _, value)| (key, value))
-        .expected("property")
+        .message("while parsing property")
         .parse_stream(input)
 }
 
@@ -47,7 +47,7 @@ fn section<I>(input: I) -> ParseResult<(String, HashMap<String, String>), I>
      parser(whitespace),
      parser(properties))
         .map(|(name, _, properties)| (name, properties))
-        .expected("section")
+        .message("while parsing section")
         .parse_stream(input)
 }
 
@@ -105,7 +105,8 @@ fn ini_error() {
                    },
                    errors: vec![
             Error::end_of_input(),
-            Error::Expected("section".into()),
+            Error::Expected(']'.into()),
+            Error::Message("while parsing section".into()),
         ],
                }));
 }
