@@ -7,7 +7,7 @@ authors = ["Markus Westerlind <marwes91@gmail.com>"]
 description = "Fast parser combinators on arbitrary streams with zero-copy support."
 
 repository = "https://github.com/Marwes/combine"
-documentation = "https://marwes.github.io/combine/combine/index.html"
+documentation = "https://docs.rs/combine"
 
 readme = "README.md"
 
