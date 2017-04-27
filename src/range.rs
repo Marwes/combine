@@ -182,6 +182,74 @@ pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
     TakeWhile1(f, PhantomData)
 }
 
+pub struct TakeUntilRange<I>(I::Range) where I: RangeStream;
+impl<I> Parser for TakeUntilRange<I>
+    where I: RangeStream,
+          I::Range: PartialEq + ::primitives::Range
+{
+    type Input = I;
+    type Output = I::Range;
+
+    #[inline]
+    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        use ::primitives::Range;
+
+        let len = self.0.len();
+        let mut to_consume = 0;
+        let mut look_ahead_input = input.clone();
+
+        loop {
+            match look_ahead_input.clone().uncons_range(len) {
+                Ok(xs) => {
+                    if xs == self.0 {
+                        if let Ok(consumed) = input.uncons_range(to_consume) {
+                            if to_consume == 0 {
+                                return EmptyOk((consumed, input));
+                            } else {
+                                return ConsumedOk((consumed, input));
+                            }
+                        }
+                        
+                        // We are guaranteed able to uncons to_consume characters here
+                        // because we've already done it on look_ahead_input.
+                        unreachable!();
+                    } else {
+                        to_consume += 1;
+                        if look_ahead_input.uncons().is_err() {
+                            unreachable!();
+                        }
+                    }
+                }
+                Err(e) => return EmptyErr(ParseError::new(look_ahead_input.position(), e)),
+            };
+        }
+    }
+}
+
+
+/// Zero-copy parser which reads a range of 0 or more tokens until `r` is found.
+///
+/// The range `r` will not be consumed. If `r` is not found, the parser will
+/// return an error.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::range::{range, take_until_range};
+/// # use combine::*;
+/// # fn main() {
+/// let mut parser = take_until_range("\r\n");
+/// let result = parser.parse("To: user@example.com\r\n");
+/// assert_eq!(result, Ok(("To: user@example.com", "\r\n")));
+/// let result = parser.parse("Hello, world\n");
+/// assert!(result.is_err());
+/// # }
+/// ```
+#[inline(always)]
+pub fn take_until_range<I>(r: I::Range) -> TakeUntilRange<I> where I: RangeStream
+{
+    TakeUntilRange(r)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
