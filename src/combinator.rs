@@ -45,7 +45,7 @@ impl<I> Parser for Any<I>
         let position = input.position();
         match input.uncons() {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => ConsumedErr(ParseError::new(position, err)),
+            Err(err) => EmptyErr(ParseError::new(position, err)),
         }
     }
 }
@@ -2237,5 +2237,10 @@ mod tests {
         assert_eq!(consumed0.parse(State::new(input)), consumed_expected);
         assert_eq!(consumed1.parse(State::new(input)), consumed_expected);
         assert_eq!(consumed2.parse(State::new(input)), consumed_expected);
+    }
+
+    #[test]
+    fn issue_99() {
+        assert!(any().map(|_| ()).or(eof()).parse("").is_ok());
     }
 }
