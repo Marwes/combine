@@ -7,8 +7,8 @@ use std::io::{Read, Bytes};
 
 use self::FastResult::*;
 
-use combinator::{AndThen, and_then, Expected, expected, FlatMap, flat_map, Iter, Map, map, Message,
-                 message, Or, or, Skip, skip, Then, then, With, with};
+use combinator::{AndThen, and_then, Expected, expected, FlatMap, flat_map, Iter, Map, map,
+                 Message, message, Or, or, Skip, skip, Then, then, With, with};
 
 #[macro_export]
 macro_rules! ctry {
@@ -217,10 +217,12 @@ impl<T, R> Error<T, R> {
         // First print the token that we did not expect
         // There should really just be one unexpected message at this point though we print them
         // all to be safe
-        let unexpected = errors.iter().filter(|e| match **e {
-                                                  Error::Unexpected(_) => true,
-                                                  _ => false,
-                                              });
+        let unexpected = errors
+            .iter()
+            .filter(|e| match **e {
+                        Error::Unexpected(_) => true,
+                        _ => false,
+                    });
         for error in unexpected {
             try!(writeln!(f, "{}", error));
         }
@@ -228,10 +230,12 @@ impl<T, R> Error<T, R> {
         // Then we print out all the things that were expected in a comma separated list
         // 'Expected 'a', 'expression' or 'let'
         let iter = || {
-            errors.iter().filter_map(|e| match *e {
-                                         Error::Expected(ref err) => Some(err),
-                                         _ => None,
-                                     })
+            errors
+                .iter()
+                .filter_map(|e| match *e {
+                                Error::Expected(ref err) => Some(err),
+                                _ => None,
+                            })
         };
         let expected_count = iter().count();
         for (i, message) in iter().enumerate() {
@@ -247,11 +251,13 @@ impl<T, R> Error<T, R> {
             try!(writeln!(f, ""));
         }
         // If there are any generic messages we print them out last
-        let messages = errors.iter().filter(|e| match **e {
-                                                Error::Message(_) |
-                                                Error::Other(_) => true,
-                                                _ => false,
-                                            });
+        let messages = errors
+            .iter()
+            .filter(|e| match **e {
+                        Error::Message(_) |
+                        Error::Other(_) => true,
+                        _ => false,
+                    });
         for error in messages {
             try!(writeln!(f, "{}", error));
         }
@@ -476,10 +482,11 @@ impl<S: StreamOnce> ParseError<S> {
     /// Remvoes all `Expected` errors in `self` and adds `info` instead.
     pub fn set_expected(&mut self, info: Info<S::Item, S::Range>) {
         // Remove all other expected messages
-        self.errors.retain(|e| match *e {
-                               Error::Expected(_) => false,
-                               _ => true,
-                           });
+        self.errors
+            .retain(|e| match *e {
+                        Error::Expected(_) => false,
+                        _ => true,
+                    });
         self.errors.push(Error::Expected(info));
     }
 
@@ -677,10 +684,12 @@ impl<I, E> RangeStream for State<I>
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
         let position = &mut self.position;
-        self.input.uncons_range(size).map(|value| {
-                                              value.update(position);
-                                              value
-                                          })
+        self.input
+            .uncons_range(size)
+            .map(|value| {
+                     value.update(position);
+                     value
+                 })
     }
 
     #[inline]
@@ -688,12 +697,13 @@ impl<I, E> RangeStream for State<I>
         where F: FnMut(I::Item) -> bool
     {
         let position = &mut self.position;
-        self.input.uncons_while(|t| if predicate(t.clone()) {
-                                    t.update(position);
-                                    true
-                                } else {
-                                    false
-                                })
+        self.input
+            .uncons_while(|t| if predicate(t.clone()) {
+                              t.update(position);
+                              true
+                          } else {
+                              false
+                          })
     }
 }
 
@@ -735,7 +745,9 @@ pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
     where I: Stream
 {
     let position = input.position();
-    let x = try!(input.uncons().map_err(|err| Consumed::Empty(ParseError::new(position, err))));
+    let x = try!(input
+                     .uncons()
+                     .map_err(|err| Consumed::Empty(ParseError::new(position, err))));
     Ok((x, Consumed::Consumed(input)))
 }
 
@@ -962,10 +974,7 @@ impl<'a, T> RangeStream for SliceStream<'a, T>
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Error<&'a T, &'a [T]>>
         where F: FnMut(Self::Item) -> bool
     {
-        let len = self.0
-            .iter()
-            .take_while(|c| f(*c))
-            .count();
+        let len = self.0.iter().take_while(|c| f(*c)).count();
         let (range, rest) = self.0.split_at(len);
         self.0 = rest;
         Ok(range)
@@ -1143,10 +1152,7 @@ impl Positioner for str {
 impl Positioner for char {
     type Position = SourcePosition;
     fn start() -> SourcePosition {
-        SourcePosition {
-            line: 1,
-            column: 1,
-        }
+        SourcePosition { line: 1, column: 1 }
     }
     fn update(&self, position: &mut SourcePosition) {
         position.column += 1;
@@ -1825,7 +1831,9 @@ impl<I> BufferedStreamInner<I>
             // We have backtracked to far
             Err(Error::Message("Backtracked to far".into()))
         } else {
-            Ok(self.buffer[self.buffer.len() - (self.offset - offset)].0.clone())
+            Ok(self.buffer[self.buffer.len() - (self.offset - offset)]
+                   .0
+                   .clone())
         }
     }
 
@@ -1840,7 +1848,9 @@ impl<I> BufferedStreamInner<I>
                 .1
                 .clone()
         } else {
-            self.buffer[self.buffer.len() - (self.offset - offset)].1.clone()
+            self.buffer[self.buffer.len() - (self.offset - offset)]
+                .1
+                .clone()
         }
     }
 }
@@ -1928,7 +1938,9 @@ mod tests {
     #[test]
     fn parse_clone_but_not_copy() {
         // This verifies we can parse slice references with an item type that is Clone but not Copy.
-        let input = &[CloneOnly { s: "x".to_string() }, CloneOnly { s: "y".to_string() }][..];
+        let input = &[CloneOnly { s: "x".to_string() },
+                      CloneOnly { s: "y".to_string() }]
+                         [..];
         let result = ::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
         assert_eq!(result,
                    Ok((&[CloneOnly { s: "x".to_string() }][..],
