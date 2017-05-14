@@ -45,7 +45,9 @@ fn two_digits<I>() -> FnPtrParser<i32, I>
     fn two_digits_<I>(input: I) -> ParseResult<i32, I>
         where I: Stream<Item = char>
     {
-        (digit(), digit()).map(two_digits_to_int).parse_stream(input)
+        (digit(), digit())
+            .map(two_digits_to_int)
+            .parse_stream(input)
     }
     parser(two_digits_)
 }
@@ -77,13 +79,13 @@ fn date<I>(input: I) -> ParseResult<Date, I>
 {
     (many::<String, _>(digit()), char('-'), two_digits(), char('-'), two_digits())
         .map(|(year, _, month, _, day)| {
-            // Its ok to just unwrap since we only parsed digits
-            Date {
-                year: year.parse().unwrap(),
-                month: month,
-                day: day,
-            }
-        })
+                 // Its ok to just unwrap since we only parsed digits
+                 Date {
+                     year: year.parse().unwrap(),
+                     month: month,
+                     day: day,
+                 }
+             })
         .parse_stream(input)
 }
 

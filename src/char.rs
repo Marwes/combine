@@ -187,7 +187,9 @@ impl<I> Parser for Str<I>
     type Output = &'static str;
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        tokens(eq, self.0.into(), self.0.chars()).parse_lazy(input).map(|_| self.0)
+        tokens(eq, self.0.into(), self.0.chars())
+            .parse_lazy(input)
+            .map(|_| self.0)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         tokens(eq, self.0.into(), self.0.chars()).add_error(errors)
@@ -224,7 +226,9 @@ impl<C, I> Parser for StrCmp<C, I>
     type Output = &'static str;
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        tokens(&mut self.1, self.0.into(), self.0.chars()).parse_lazy(input).map(|_| self.0)
+        tokens(&mut self.1, self.0.into(), self.0.chars())
+            .parse_lazy(input)
+            .map(|_| self.0)
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         tokens(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
@@ -272,10 +276,7 @@ mod tests {
         let result = string("a").parse(State::new("b"));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().position,
-                   SourcePosition {
-                       line: 1,
-                       column: 1,
-                   });
+                   SourcePosition { line: 1, column: 1 });
     }
 
     #[test]
@@ -283,10 +284,7 @@ mod tests {
         let result = string("abc").parse(State::new("bc"));
         assert_eq!(result,
                    Err(ParseError {
-                           position: SourcePosition {
-                               line: 1,
-                               column: 1,
-                           },
+                           position: SourcePosition { line: 1, column: 1 },
                            errors: vec![Error::Unexpected('b'.into()),
                                         Error::Expected("abc".into())],
                        }));

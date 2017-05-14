@@ -42,7 +42,11 @@ fn is_http_version(c: u8) -> bool {
 
 fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), ParseError<&[u8]>> {
     // Making a closure, because parser instances cannot be reused
-    let end_of_line = || (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'));
+    let end_of_line = || {
+        (token(b'\r'), token(b'\n'))
+            .map(|_| b'\r')
+            .or(token(b'\n'))
+    };
 
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
@@ -52,12 +56,12 @@ fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), P
                         take_while1(is_space),
                         http_version)
             .map(|(method, _, uri, _, version)| {
-                Request {
-                    method: method,
-                    uri: uri,
-                    version: version,
-                }
-            });
+                     Request {
+                         method: method,
+                         uri: uri,
+                         version: version,
+                     }
+                 });
 
 
     let message_header_line = (take_while1(is_horizontal_space),

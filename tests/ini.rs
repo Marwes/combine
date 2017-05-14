@@ -78,12 +78,16 @@ type=LL(1)
         global: HashMap::new(),
         sections: HashMap::new(),
     };
-    expected.global.insert(String::from("language"), String::from("rust"));
+    expected
+        .global
+        .insert(String::from("language"), String::from("rust"));
 
     let mut section = HashMap::new();
     section.insert(String::from("name"), String::from("combine"));
     section.insert(String::from("type"), String::from("LL(1)"));
-    expected.sections.insert(String::from("section"), section);
+    expected
+        .sections
+        .insert(String::from("section"), section);
 
     let result = parser(ini).parse(text).map(|t| t.0);
     assert_eq!(result, Ok(expected));
@@ -95,10 +99,7 @@ fn ini_error() {
     let result = parser(ini).parse(State::new(text)).map(|t| t.0);
     assert_eq!(result,
                Err(ParseError {
-                       position: SourcePosition {
-                           line: 1,
-                           column: 7,
-                       },
+                       position: SourcePosition { line: 1, column: 7 },
                        errors: vec![Error::end_of_input(), Error::Expected("section".into())],
                    }));
 }
