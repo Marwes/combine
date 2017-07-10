@@ -156,8 +156,14 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseError, ConsumedResult, ParseResult, State, from_iter, Stream,
-                     StreamOnce};
+pub use primitives::{Parser, ParseError, ConsumedResult, ParseResult, State, Stream, StreamOnce};
+
+// import this one separately, so we can set the allow(deprecated) for just this item
+// TODO: remove this when a new major version is released
+#[doc(inline)]
+#[allow(deprecated)]
+pub use primitives::from_iter;
+
 #[doc(inline)]
 pub use combinator::{any, between, chainl1, chainr1, choice, count, eof, env_parser, many, many1,
                      none_of, one_of, optional, parser, position, satisfy, satisfy_map, sep_by,
@@ -239,6 +245,7 @@ mod tests {
         assert_eq!(result, Ok((vec![123i64, 4, 56], "")));
     }
     #[test]
+    #[allow(deprecated)]
     fn iterator() {
         let result = parser(integer)
             .parse(from_iter("123".chars()))
