@@ -1,7 +1,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Consumed, ConsumedResult, Error, Info, ParseError, ParseResult, Parser,
-                 Positioned, Stream, StreamError, StreamOnce};
+use primitives::{ErrorOffset, Info, Parser, ParseResult, ConsumedResult, ParseError, StreamError, Stream,
+                 StreamOnce, Error, Consumed, TrackedError, Positioned};
 use primitives::FastResult::*;
 
 macro_rules! impl_parser {
@@ -25,7 +25,7 @@ macro_rules! impl_parser {
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
+        fn add_error(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
             self.0.add_error(error)
         }
     }
@@ -46,7 +46,7 @@ where
         let position = input.position();
         match input.uncons() {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(ParseError::new(position, err)),
+            Err(err) => EmptyErr(ParseError::new(position, err).into()),
         }
     }
 }
@@ -88,11 +88,13 @@ where
 {
     let position = input.position();
     match input.uncons() {
-        Ok(c) => match predicate(c.clone()) {
-            Some(c) => ConsumedOk((c, input)),
-            None => EmptyErr(ParseError::empty(position)),
-        },
-        Err(err) => EmptyErr(ParseError::new(position, err)),
+        Ok(c) => {
+            match predicate(c.clone()) {
+                Some(c) => ConsumedOk((c, input)),
+                None => EmptyErr(ParseError::empty(position).into()),
+            }
+        }
+        Err(err) => EmptyErr(ParseError::new(position, err).into()),
     }
 }
 
@@ -212,8 +214,9 @@ where
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        errors
+            .error
             .errors
             .push(Error::Expected(Info::Token(self.c.clone())));
     }
@@ -278,7 +281,7 @@ where
                             let error = ParseError::from_errors(start, errors);
                             ConsumedErr(error)
                         } else {
-                            EmptyErr(ParseError::empty(start))
+                            EmptyErr(ParseError::empty(start).into())
                         };
                     }
                     consumed = true;
@@ -286,11 +289,11 @@ where
                 }
                 Err(error) => {
                     return error.combine_consumed(|mut error| {
-                        error.position = start;
+                        error.error.position = start;
                         if consumed {
-                            ConsumedErr(error)
+                            ConsumedErr(error.error)
                         } else {
-                            EmptyErr(error)
+                            EmptyErr(error.into())
                         }
                     })
                 }
@@ -302,8 +305,10 @@ where
             EmptyOk((self.tokens.clone(), input))
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
-        errors.add_error(Error::Expected(self.expected.clone()));
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        errors
+            .error
+            .add_error(Error::Expected(self.expected.clone()));
     }
 }
 
@@ -391,179 +396,6 @@ where
     }
 }
 
-/// Takes a number of parsers and tries to apply them each in order.
-/// Fails if all the parsers fails or if an applied parser consumes input before failing.
-///
-/// ```
-/// # #[macro_use]
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::char::{digit, letter, string};
-/// # use combine::primitives::Error;
-/// # fn main() {
-/// let mut parser = choice!(
-///     many1(digit()),
-///     string("let").map(|s| s.to_string()),
-///     many1(letter()));
-/// assert_eq!(parser.parse("let"), Ok(("let".to_string(), "")));
-/// assert_eq!(parser.parse("123abc"), Ok(("123".to_string(), "abc")));
-/// assert!(parser.parse(":123").is_err());
-/// # }
-/// ```
-#[macro_export]
-macro_rules! choice {
-    ($first : expr) => {
-        $first
-    };
-    ($first : expr, $($rest : expr),+) => {
-        $first.or(choice!($($rest),+))
-    }
-}
-
-/// `ChoiceParser` represents a parser which may parse one of several different choices depending
-/// on the input.
-///
-/// This is an internal trait used to overload the `choice` function.
-pub trait ChoiceParser {
-    type Input: Stream;
-    type Output;
-    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
-    fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>);
-}
-
-impl<'a, P> ChoiceParser for &'a mut P
-where
-    P: ?Sized + ChoiceParser,
-{
-    type Input = P::Input;
-    type Output = P::Output;
-
-    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        (**self).parse_choice(input)
-    }
-    fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
-        (**self).add_error_choice(error)
-    }
-}
-
-macro_rules! tuple_choice_parser {
-    ($head: ident) => {
-    };
-    ($head: ident $($id: ident)+) => {
-        tuple_choice_parser_inner!($head $($id)+);
-        tuple_choice_parser!($($id)+);
-    };
-}
-
-macro_rules! tuple_choice_parser_inner {
-    ($($id: ident)+) => {
-        #[allow(non_snake_case)]
-        impl<Input, Output $(,$id)+> ChoiceParser for ($($id),+)
-        where
-            Input: Stream,
-            $($id: Parser<Input = Input, Output = Output>),+
-        {
-            type Input = Input;
-            type Output = Output;
-            #[inline]
-            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-                let ($(ref mut $id),+) = *self;
-                choice!($($id),+).parse_lazy(input)
-            }
-            fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
-                let ($(ref mut $id),+) = *self;
-                choice!($($id),+).add_error(error)
-            }
-        }
-    }
-}
-
-tuple_choice_parser!(A B C D E F G H I J K L M N O P Q R S T U V X Y Z);
-
-macro_rules! array_choice_parser {
-    ($($t: tt)+) => {
-        $(
-        impl<P> ChoiceParser for [P; $t]
-        where
-            P: Parser,
-        {
-            type Input = P::Input;
-            type Output = P::Output;
-
-            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-                self[..].parse_choice(input)
-            }
-            fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
-                self[..].add_error_choice(error)
-            }
-        }
-        )+
-    };
-}
-
-array_choice_parser!(
-    0 1 2 3 4 5 6 7 8 9
-    10 11 12 13 14 15 16 17 18 19
-    20 21 22 23 24 25 26 27 28 29
-    30 31 32
-    );
-
-#[derive(Clone)]
-pub struct Choice<P>(P);
-
-impl<P> Parser for Choice<P>
-where
-    P: ChoiceParser,
-{
-    type Input = P::Input;
-    type Output = P::Output;
-
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.0.parse_choice(input)
-    }
-
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        self.0.add_error_choice(error)
-    }
-}
-
-impl<I, O, P> ChoiceParser for [P]
-where
-    I: Stream,
-    P: Parser<Input = I, Output = O>,
-{
-    type Input = I;
-    type Output = O;
-    #[inline]
-    fn parse_choice(&mut self, input: I) -> ConsumedResult<O, I> {
-        let mut empty_err = None;
-        for p in self {
-            match p.parse_lazy(input.clone()) {
-                consumed_err @ ConsumedErr(_) => return consumed_err,
-                EmptyErr(err) => {
-                    empty_err = match empty_err {
-                        None => Some(err),
-                        Some(prev_err) => Some(prev_err.merge(err)),
-                    };
-                }
-                ok @ ConsumedOk(_) | ok @ EmptyOk(_) => return ok,
-            }
-        }
-        EmptyErr(match empty_err {
-            None => ParseError::new(
-                input.position(),
-                Error::Message("parser choice is empty".into()),
-            ),
-            Some(err) => err,
-        })
-    }
-    fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
-        for p in self {
-            p.add_error(error);
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct OneOf<T, I>
 where
@@ -587,9 +419,11 @@ where
         satisfy(|c| self.tokens.clone().into_iter().any(|t| t == c)).parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         for expected in self.tokens.clone() {
-            errors.add_error(Error::Expected(Info::Token(expected)));
+            errors
+                .error
+                .add_error(Error::Expected(Info::Token(expected)));
         }
     }
 }
@@ -649,6 +483,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::primitives::{Error, Info};
+/// # use combine::state::State;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
 /// let result = parser.parse(State::new(&b"xyb"[..]))
@@ -699,7 +534,7 @@ where
         iter.into_result_fast(value)
     }
 
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
         self.parser.add_error(error)
     }
 }
@@ -727,6 +562,180 @@ where
         parser: parser,
         count: count,
         _marker: PhantomData,
+    }
+}
+
+
+/// Takes a number of parsers and tries to apply them each in order.
+/// Fails if all the parsers fails or if an applied parser consumes input before failing.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::{digit, letter, string};
+/// # use combine::primitives::Error;
+/// # fn main() {
+/// let mut parser = choice!(
+///     many1(digit()),
+///     string("let").map(|s| s.to_string()),
+///     many1(letter()));
+/// assert_eq!(parser.parse("let"), Ok(("let".to_string(), "")));
+/// assert_eq!(parser.parse("123abc"), Ok(("123".to_string(), "abc")));
+/// assert!(parser.parse(":123").is_err());
+/// # }
+/// ```
+#[macro_export]
+macro_rules! choice {
+    ($first : expr) => {
+        $first
+    };
+    ($first : expr, $($rest : expr),+) => {
+        $first.or(choice!($($rest),+))
+    }
+}
+
+/// `ChoiceParser` represents a parser which may parse one of several different choices depending
+/// on the input.
+///
+/// This is an internal trait used to overload the `choice` function.
+pub trait ChoiceParser {
+    type Input: Stream;
+    type Output;
+    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
+    fn add_error_choice(&mut self, error: &mut TrackedError<StreamError<Self::Input>>);
+}
+
+impl<'a, P> ChoiceParser for &'a mut P
+where
+    P: ?Sized + ChoiceParser,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+
+    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_choice(input)
+    }
+    fn add_error_choice(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
+        (**self).add_error_choice(error)
+    }
+}
+
+macro_rules! tuple_choice_parser {
+    ($head: ident) => {
+    };
+    ($head: ident $($id: ident)+) => {
+        tuple_choice_parser_inner!($head $($id)+);
+        tuple_choice_parser!($($id)+);
+    };
+}
+
+macro_rules! tuple_choice_parser_inner {
+    ($($id: ident)+) => {
+        #[allow(non_snake_case)]
+        impl<Input, Output $(,$id)+> ChoiceParser for ($($id),+)
+        where
+            Input: Stream,
+            $($id: Parser<Input = Input, Output = Output>),+
+        {
+            type Input = Input;
+            type Output = Output;
+            #[inline]
+            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+                let ($(ref mut $id),+) = *self;
+                choice!($($id),+).parse_lazy(input)
+            }
+            fn add_error_choice(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
+                let ($(ref mut $id),+) = *self;
+                choice!($($id),+).add_error(error)
+            }
+        }
+    }
+}
+
+tuple_choice_parser!(A B C D E F G H I J K L M N O P Q R S T U V X Y Z);
+
+macro_rules! array_choice_parser {
+    ($($t: tt)+) => {
+        $(
+        impl<P> ChoiceParser for [P; $t]
+        where
+            P: Parser,
+        {
+            type Input = P::Input;
+            type Output = P::Output;
+
+            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+                self[..].parse_choice(input)
+            }
+            fn add_error_choice(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
+                self[..].add_error_choice(error)
+            }
+        }
+        )+
+    };
+}
+
+array_choice_parser!(
+    0 1 2 3 4 5 6 7 8 9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
+    );
+
+#[derive(Clone)]
+pub struct Choice<P>(P);
+
+impl<P> Parser for Choice<P>
+where
+    P: ChoiceParser,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_choice(input)
+    }
+
+    fn add_error(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
+        self.0.add_error_choice(error)
+    }
+}
+
+impl<I, O, P> ChoiceParser for [P]
+where
+    I: Stream,
+    P: Parser<Input = I, Output = O>,
+{
+    type Input = I;
+    type Output = O;
+    #[inline]
+    fn parse_choice(&mut self, input: I) -> ConsumedResult<O, I> {
+        let mut empty_err = None;
+        for p in self {
+            match p.parse_lazy(input.clone()) {
+                consumed_err @ ConsumedErr(_) => return consumed_err,
+                EmptyErr(err) => {
+                    empty_err = match empty_err {
+                        None => Some(err),
+                        Some(prev_err) => Some(TrackedError { error: prev_err.error.merge(err.error), offset: prev_err.offset }),
+                    };
+                }
+                ok @ ConsumedOk(_) | ok @ EmptyOk(_) => return ok,
+            }
+        }
+        EmptyErr(match empty_err {
+            None => ParseError::new(
+                input.position(),
+                Error::Message("parser choice is empty".into()),
+            ).into(),
+            Some(err) => err,
+        })
+    }
+    fn add_error_choice(&mut self, error: &mut TrackedError<StreamError<Self::Input>>) {
+        for p in self {
+            p.add_error(error);
+        }
     }
 }
 
@@ -908,10 +917,10 @@ where
     type Output = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
-        EmptyErr(ParseError::empty(input.position()))
+        EmptyErr(ParseError::empty(input.position()).into())
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error.errors.push(Error::Unexpected(self.0.clone()));
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        errors.error.errors.push(Error::Unexpected(self.0.clone()));
     }
 }
 /// Always fails with `message` as an unexpected error.
@@ -1018,12 +1027,14 @@ where
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
         match input.clone().uncons() {
             Err(ref err) if *err == Error::end_of_input() => EmptyOk(((), input)),
-            _ => EmptyErr(ParseError::empty(input.position())),
+            _ => EmptyErr(ParseError::empty(input.position()).into()),
         }
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
-        errors.add_error(Error::Expected("end of input".into()))
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        errors
+            .error
+            .add_error(Error::Expected("end of input".into()))
     }
 }
 
@@ -1061,7 +1072,7 @@ pub struct Iter<P: Parser> {
     state: State<P::Input>,
 }
 
-enum State<I: StreamOnce + Positioned> {
+enum State<I: Stream> {
     Ok,
     EmptyErr,
     ConsumedErr(StreamError<I>),
@@ -1084,11 +1095,13 @@ impl<P: Parser> Iter<P> {
 
     fn into_result_fast<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => if self.consumed {
-                ConsumedOk((value, self.input))
-            } else {
-                EmptyOk((value, self.input))
-            },
+            State::Ok | State::EmptyErr => {
+                if self.consumed {
+                    ConsumedOk((value, self.input))
+                } else {
+                    EmptyOk((value, self.input))
+                }
+            }
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
@@ -1098,25 +1111,27 @@ impl<P: Parser> Iterator for Iter<P> {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
         match self.state {
-            State::Ok => match self.parser.parse_lazy(self.input.clone()) {
-                EmptyOk((v, input)) => {
-                    self.input = input;
-                    Some(v)
+            State::Ok => {
+                match self.parser.parse_lazy(self.input.clone()) {
+                    EmptyOk((v, input)) => {
+                        self.input = input;
+                        Some(v)
+                    }
+                    ConsumedOk((v, input)) => {
+                        self.input = input;
+                        self.consumed = true;
+                        Some(v)
+                    }
+                    EmptyErr(_) => {
+                        self.state = State::EmptyErr;
+                        None
+                    }
+                    ConsumedErr(e) => {
+                        self.state = State::ConsumedErr(e);
+                        None
+                    }
                 }
-                ConsumedOk((v, input)) => {
-                    self.input = input;
-                    self.consumed = true;
-                    Some(v)
-                }
-                EmptyErr(_) => {
-                    self.state = State::EmptyErr;
-                    None
-                }
-                ConsumedErr(e) => {
-                    self.state = State::ConsumedErr(e);
-                    None
-                }
-            },
+            }
             State::ConsumedErr(_) | State::EmptyErr => None,
         }
     }
@@ -1188,7 +1203,7 @@ where
         let result = Some(first).into_iter().chain(iter.by_ref()).collect();
         iter.into_result_fast(result)
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
@@ -1293,7 +1308,7 @@ where
             .parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.parser.add_error(errors)
     }
 }
@@ -1358,7 +1373,7 @@ where
         })
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.parser.add_error(errors)
     }
 }
@@ -1430,7 +1445,7 @@ where
             .parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.parser.add_error(errors)
     }
 }
@@ -1502,7 +1517,7 @@ where
         })
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.parser.add_error(errors)
     }
 }
@@ -1583,7 +1598,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///     else {
 ///         //Return an empty error since we only tested the first token of the stream
 ///         let errors = ParseError::new(position, Error::Expected(From::from("even number")));
-///         Err(Consumed::Empty(errors))
+///         Err(Consumed::Empty(errors.into()))
 ///     }
 /// });
 /// let result = even_digit
@@ -1709,20 +1724,19 @@ where
         loop {
             match (&mut self.1, &mut self.0)
                 .parse_lazy(input.clone().into_inner())
-                .into()
-            {
+                .into() {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
                     input = input.merge(rest);
                 }
-                Err(Consumed::Consumed(err)) => return ConsumedErr(err),
+                Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => break,
             }
         }
         Ok((l, input)).into()
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
@@ -1772,7 +1786,7 @@ where
                     input = input.merge(rest);
                     x
                 }
-                Err(Consumed::Consumed(err)) => return ConsumedErr(err),
+                Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => break,
             };
             match self.parse_lazy(input.clone().into_inner()).into() {
@@ -1780,13 +1794,13 @@ where
                     l = op(l, r);
                     input = input.merge(rest);
                 }
-                Err(Consumed::Consumed(err)) => return ConsumedErr(err),
+                Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => break,
             }
         }
         Ok((l, input)).into()
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
@@ -1871,7 +1885,7 @@ where
         EmptyOk((o, input))
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
     }
 }
@@ -1917,7 +1931,7 @@ where
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input).map(|(_, b)| b)
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
@@ -1951,7 +1965,7 @@ where
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input).map(|(a, _)| a)
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
@@ -1997,9 +2011,9 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
-        errors.add_error(Error::Message(self.1.clone()));
+        errors.error.add_error(Error::Message(self.1.clone()));
     }
 }
 
@@ -2036,15 +2050,20 @@ where
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(error1) => match self.1.parse_lazy(input) {
-                ConsumedOk(x) => ConsumedOk(x),
-                EmptyOk(x) => EmptyOk(x),
-                ConsumedErr(err) => ConsumedErr(err),
-                EmptyErr(error2) => EmptyErr(error1.merge(error2)),
-            },
+            EmptyErr(error1) => {
+                match self.1.parse_lazy(input) {
+                    ConsumedOk(x) => ConsumedOk(x),
+                    EmptyOk(x) => EmptyOk(x),
+                    ConsumedErr(err) => ConsumedErr(err),
+                    EmptyErr(error2) => EmptyErr(TrackedError {
+                        error: error1.error.merge(error2.error),
+                        offset: error1.offset,
+                    }),
+                }
+            }
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
         self.1.add_error(errors);
     }
@@ -2084,7 +2103,7 @@ where
             EmptyErr(err) => EmptyErr(err),
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
     }
 }
@@ -2114,19 +2133,23 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
         match self.0.parse_lazy(input) {
-            EmptyOk((o, input)) => match (self.1)(o) {
-                Ok(x) => EmptyOk((x, input)),
-                Err(err) => EmptyErr(err),
-            },
-            ConsumedOk((o, input)) => match (self.1)(o) {
-                Ok(x) => ConsumedOk((x, input)),
-                Err(err) => ConsumedErr(err),
-            },
+            EmptyOk((o, input)) => {
+                match (self.1)(o) {
+                    Ok(x) => EmptyOk((x, input)),
+                    Err(err) => EmptyErr(err.into()),
+                }
+            }
+            ConsumedOk((o, input)) => {
+                match (self.1)(o) {
+                    Ok(x) => ConsumedOk((x, input)),
+                    Err(err) => ConsumedErr(err),
+                }
+            }
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
     }
 }
@@ -2164,14 +2187,15 @@ where
                 let mut next = (self.1)(value);
                 match next.parse_stream_consumed(input) {
                     EmptyOk(x) | ConsumedOk(x) => ConsumedOk(x),
-                    EmptyErr(x) | ConsumedErr(x) => ConsumedErr(x),
+                    EmptyErr(x) => ConsumedErr(x.error),
+                    ConsumedErr(x) => ConsumedErr(x),
                 }
             }
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
     }
 }
@@ -2208,13 +2232,13 @@ where
         self.0.parse_lazy(input)
     }
 
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
-        let start = errors.errors.len();
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        let start = errors.error.errors.len();
         self.0.add_error(errors);
         // Replace all expected errors that were added from the previous add_error
         // with this expected error
         let mut i = 0;
-        errors.errors.retain(|e| if i < start {
+        errors.error.errors.retain(|e| if i < start {
             i += 1;
             true
         } else {
@@ -2223,7 +2247,7 @@ where
                 _ => true,
             }
         });
-        errors.add_error(Error::Expected(self.1.clone()));
+        errors.error.add_error(Error::Expected(self.1.clone()));
     }
 }
 
@@ -2267,7 +2291,7 @@ where
             ConsumedErr(err) => ConsumedErr(err),
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors);
     }
 }
@@ -2287,6 +2311,7 @@ where
 
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
+        #[allow(non_snake_case)]
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
             where Input: Stream,
                   $h: Parser<Input=Input>,
@@ -2294,13 +2319,13 @@ macro_rules! tuple_parser {
         {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
-            #[allow(non_snake_case)]
             fn parse_lazy(&mut self,
                           mut input: Input)
                           -> ConsumedResult<($h::Output, $($id::Output),+), Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
                 let mut consumed = false;
-                let $h = match $h.parse_lazy(input) {
+                let first_parser = $h;
+                let $h = match first_parser.parse_lazy(input) {
                     ConsumedOk((x, new_input)) => {
                         consumed = true;
                         input = new_input;
@@ -2313,21 +2338,24 @@ macro_rules! tuple_parser {
                         x
                     }
                 };
+                let mut offset = first_parser.parser_count();
                 $(
-                    let $id = match $id.parse_lazy(input.clone()) {
+                    let current = $id;
+                    let $id = match current.parse_lazy(input.clone()) {
                         ConsumedOk((x, new_input)) => {
                             consumed = true;
                             input = new_input;
                             x
                         }
                         EmptyErr(mut err) => {
-                            if let Ok(t) = input.uncons() {
-                                err.add_error(Error::Unexpected(Info::Token(t)));
-                            }
-                            $id.add_error(&mut err);
                             if consumed {
-                                return ConsumedErr(err)
+                                if let Ok(t) = input.uncons() {
+                                    err.error.add_error(Error::Unexpected(Info::Token(t)));
+                                }
+                                current.add_error(&mut err);
+                                return ConsumedErr(err.error)
                             } else {
+                                err.offset = offset;
                                 return EmptyErr(err)
                             }
                         }
@@ -2337,6 +2365,7 @@ macro_rules! tuple_parser {
                             x
                         }
                     };
+                    offset = offset.saturating_add(current.parser_count());
                 )+
                 if consumed {
                     ConsumedOk((($h, $($id),+), input))
@@ -2344,8 +2373,24 @@ macro_rules! tuple_parser {
                     EmptyOk((($h, $($id),+), input))
                 }
             }
-            fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
-                self.0.add_error(errors);
+
+            fn parser_count(&self) -> ErrorOffset {
+                let (ref $h, $(ref $id),+) = *self;
+                $h.parser_count() $( + $id.parser_count())+
+            }
+
+            fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+                let (ref mut $h, $(ref mut $id),+) = *self;
+                $h.add_error(errors);
+                if errors.offset == 0 {
+                    return;
+                }
+                $(
+                    $id.add_error(errors);
+                    if errors.offset == 0 {
+                        return;
+                    }
+                )+
             }
         }
     }
@@ -2627,7 +2672,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser};
+    use primitives::{Error, StreamError, Parser};
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
 
@@ -2640,8 +2685,7 @@ mod tests {
     #[test]
     fn sep_by_consumed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(Vec<(char, char)>, &str), ParseError<_, char, &str>> =
-            parser2.parse("a,bc");
+        let result_err: Result<(Vec<(char, char)>, &str), StreamError<&str>> = parser2.parse("a,bc");
         assert!(result_err.is_err());
     }
 
@@ -2661,7 +2705,7 @@ mod tests {
         assert_eq!(
             parser.parse(State::new("a")),
             Err(ParseError {
-                position: Default::default(),
+                position: SourcePosition::default(),
                 errors: vec![
                     Error::Unexpected('a'.into()),
                     Error::Message("message".into()),
@@ -2678,7 +2722,7 @@ mod tests {
         assert_eq!(
             result,
             Err(ParseError {
-                position: Default::default(),
+                position: SourcePosition::default(),
                 errors: vec![
                     Error::Unexpected('a'.into()),
                     Error::Expected("digit".into()),
@@ -2699,7 +2743,8 @@ mod tests {
         let input = &[
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
-        ][..];
+        ]
+            [..];
         let result = token(CloneOnly { s: "x".to_string() }).parse(input);
         assert_eq!(
             result,

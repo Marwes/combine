@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError,
-                 StreamOnce};
+use primitives::{ConsumedResult, Error, Info, StreamError, ParseError, Parser, RangeStream, TrackedError, StreamOnce};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -21,17 +20,21 @@ where
         use primitives::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
-            Ok(other) => if other == self.0 {
-                ConsumedOk((other, input))
-            } else {
-                EmptyErr(ParseError::empty(position))
-            },
-            Err(err) => EmptyErr(ParseError::new(position, err)),
+            Ok(other) => {
+                if other == self.0 {
+                    ConsumedOk((other, input))
+                } else {
+                    EmptyErr(ParseError::empty(position).into())
+                }
+            }
+            Err(err) => EmptyErr(ParseError::new(position, err).into()),
         }
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         // TODO Add unexpected message?
-        errors.add_error(Error::Expected(Info::Range(self.0.clone())));
+        errors
+            .error
+            .add_error(Error::Expected(Info::Range(self.0.clone())));
     }
 }
 
@@ -52,7 +55,7 @@ where
         let distance = input.distance(&new_input.into_inner());
         take(distance).parse_lazy(input)
     }
-    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
@@ -117,7 +120,7 @@ where
         let position = input.position();
         match input.uncons_range(self.0) {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(ParseError::new(position, err)),
+            Err(err) => EmptyErr(ParseError::new(position, err).into()),
         }
     }
 }
@@ -203,7 +206,7 @@ where
             ConsumedOk((v, input)) => ConsumedOk((v, input)),
             EmptyOk((_, input)) => {
                 let position = input.position();
-                EmptyErr(ParseError::empty(position))
+                EmptyErr(ParseError::empty(position).into())
             }
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
@@ -276,7 +279,7 @@ where
                         }
                     }
                 }
-                Err(e) => return EmptyErr(ParseError::new(look_ahead_input.position(), e)),
+                Err(e) => return EmptyErr(ParseError::new(look_ahead_input.position(), e).into()),
             };
         }
     }

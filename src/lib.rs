@@ -200,7 +200,7 @@ macro_rules! impl_token_parser {
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+        fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
             self.0.add_error(errors)
         }
     }
@@ -665,12 +665,14 @@ mod tests {
 
     fn follow(input: State<&str, SourcePosition>) -> ParseResult<(), State<&str, SourcePosition>> {
         match input.clone().uncons() {
-            Ok(c) => if c.is_alphanumeric() {
-                let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(ParseError::new(input.position(), e)))
-            } else {
-                Ok(((), Consumed::Empty(input)))
-            },
+            Ok(c) => {
+                if c.is_alphanumeric() {
+                    let e = Error::Unexpected(c.into());
+                    Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
+                } else {
+                    Ok(((), Consumed::Empty(input)))
+                }
+            }
             Err(_) => Ok(((), Consumed::Empty(input))),
         }
     }
