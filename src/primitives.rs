@@ -989,11 +989,21 @@ impl<'a, T> RangeStream for SliceStream<'a, T>
 pub struct IteratorStream<I>(I, usize) where I: Iterator;
 
 
-/// Converts an `Iterator` into a stream.
+impl<I> IteratorStream<I>
+    where I: Iterator
+{
+    /// Converts an `Iterator` into a stream.
+    pub fn new(iter: I) -> IteratorStream<I>
+    {
+        IteratorStream(iter, 0)
+    }
+}
+
+#[deprecated(since="2.4.0", note="please use `IteratorStream::new` instead")]
 pub fn from_iter<I>(iter: I) -> IteratorStream<I>
     where I: Iterator
 {
-    IteratorStream(iter, 0)
+    IteratorStream::new(iter)
 }
 
 impl<I> Iterator for IteratorStream<I>
@@ -1060,31 +1070,40 @@ impl<R: Read> StreamOnce for ReadStream<R> {
     }
 }
 
-/// Creates a `StreamOnce` instance from a value implementing `std::io::Read`.
-///
-/// ```rust
-/// # extern crate combine;
-/// use combine::*;
-/// use combine::byte::*;
-/// use combine::primitives::{BufferedStream, from_read};
-/// use std::io::Read;
-///
-/// # fn main() {
-/// let mut input: &[u8] = b"123,";
-/// let stream = BufferedStream::new(from_read(&mut input), 1);
-/// let result = (many(digit()), byte(b','))
-///     .parse(stream.as_stream())
-///     .map(|t| t.0);
-/// assert_eq!(result, Ok((vec![b'1', b'2', b'3'], b',')));
-/// # }
-/// ```
+impl<R> ReadStream<R>
+    where R: Read
+{
+    /// Creates a `StreamOnce` instance from a value implementing `std::io::Read`.
+    ///
+    /// ```rust
+    /// # extern crate combine;
+    /// use combine::*;
+    /// use combine::byte::*;
+    /// use combine::primitives::{BufferedStream, ReadStream};
+    /// use std::io::Read;
+    ///
+    /// # fn main() {
+    /// let mut input: &[u8] = b"123,";
+    /// let stream = BufferedStream::new(ReadStream::new(&mut input), 1);
+    /// let result = (many(digit()), byte(b','))
+    ///     .parse(stream.as_stream())
+    ///     .map(|t| t.0);
+    /// assert_eq!(result, Ok((vec![b'1', b'2', b'3'], b',')));
+    /// # }
+    /// ```
+    pub fn new(read: R) -> ReadStream<R> {
+        ReadStream {
+            bytes: read.bytes(),
+            offset: 0,
+        }
+    }
+}
+
+#[deprecated(since="2.4.0", note="please use `ReadStream::new` instead")]
 pub fn from_read<R>(read: R) -> ReadStream<R>
     where R: Read
 {
-    ReadStream {
-        bytes: read.bytes(),
-        offset: 0,
-    }
+    ReadStream::new(read)
 }
 
 /// Trait for updating the position for types which can be yielded from a `Stream`.

@@ -2,9 +2,13 @@
 extern crate combine;
 use combine::primitives::{BufferedStream, Error};
 use combine::char::{char, digit, spaces, string};
-use combine::{StreamOnce, Parser, choice, from_iter, many, many1, sep_by, try};
+use combine::{StreamOnce, Parser, choice, many, many1, sep_by, try};
+
+#[allow(deprecated)]
+use combine::from_iter;
 
 #[test]
+#[allow(deprecated)]
 fn shared_stream_buffer() {
     // Iterator that can't be cloned
     let text = "10,222,3,44"
@@ -24,6 +28,7 @@ fn shared_stream_buffer() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn shared_stream_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
@@ -40,6 +45,7 @@ fn shared_stream_backtrack() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn shared_stream_insufficent_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
@@ -63,6 +69,7 @@ fn shared_stream_insufficent_backtrack() {
 /// Test which checks that a stream which has ended does not repeat the last token in some cases in
 /// which case this test would loop forever
 #[test]
+#[allow(deprecated)]
 fn always_output_end_of_input_after_end_of_input() {
     let text = "10".chars();
     let buffer = BufferedStream::new(from_iter(text), 1);
@@ -74,6 +81,7 @@ fn always_output_end_of_input_after_end_of_input() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn position() {
     let text = "10abc".chars();
     let buffer = BufferedStream::new(from_iter(text), 3);
