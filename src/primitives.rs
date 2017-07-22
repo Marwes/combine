@@ -425,13 +425,11 @@ impl<T> Consumed<T> {
     {
         use self::FastResult::*;
         match self {
-            Consumed::Consumed(x) => {
-                match f(x) {
-                    EmptyOk((v, rest)) => ConsumedOk((v, rest)),
-                    EmptyErr(err) => ConsumedErr(err.error),
-                    y => y,
-                }
-            }
+            Consumed::Consumed(x) => match f(x) {
+                EmptyOk((v, rest)) => ConsumedOk((v, rest)),
+                EmptyErr(err) => ConsumedErr(err.error),
+                y => y,
+            },
             Consumed::Empty(x) => f(x),
         }
     }
@@ -713,13 +711,11 @@ where
 {
     match input.uncons_while(predicate) {
         Err(err) => EmptyErr(ParseError::new(input.position(), err).into()),
-        Ok(x) => {
-            if x.len() == 0 {
-                EmptyOk((x, input))
-            } else {
-                ConsumedOk((x, input))
-            }
-        }
+        Ok(x) => if x.len() == 0 {
+            EmptyOk((x, input))
+        } else {
+            ConsumedOk((x, input))
+        },
     }
 }
 
@@ -1139,13 +1135,11 @@ impl<T, E> FastResult<T, E> {
         F: FnOnce(T) -> FastResult<T2, E>,
     {
         match self {
-            ConsumedOk(t) => {
-                match f(t) {
-                    ConsumedOk(t2) | EmptyOk(t2) => ConsumedOk(t2),
-                    EmptyErr(e) => ConsumedErr(e.error),
-                    ConsumedErr(e) => ConsumedErr(e),
-                }
-            }
+            ConsumedOk(t) => match f(t) {
+                ConsumedOk(t2) | EmptyOk(t2) => ConsumedOk(t2),
+                EmptyErr(e) => ConsumedErr(e.error),
+                ConsumedErr(e) => ConsumedErr(e),
+            },
             EmptyOk(t) => f(t),
             ConsumedErr(e) => ConsumedErr(e),
             EmptyErr(e) => EmptyErr(e),

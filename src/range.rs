@@ -20,13 +20,11 @@ where
         use primitives::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
-            Ok(other) => {
-                if other == self.0 {
-                    ConsumedOk((other, input))
-                } else {
-                    EmptyErr(ParseError::empty(position).into())
-                }
-            }
+            Ok(other) => if other == self.0 {
+                ConsumedOk((other, input))
+            } else {
+                EmptyErr(ParseError::empty(position).into())
+            },
             Err(err) => EmptyErr(ParseError::new(position, err).into()),
         }
     }

@@ -1,7 +1,10 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{ErrorOffset, Info, Parser, ParseResult, ConsumedResult, ParseError, StreamError, Stream,
-                 StreamOnce, Error, Consumed, TrackedError, Positioned};
+
+use frunk::hlist::HCons;
+
+use primitives::{Consumed, ConsumedResult, Error, ErrorOffset, Info, ParseError, StreamError, Positioned, ParseResult,
+                 Parser, Stream, StreamOnce, TrackedError};
 use primitives::FastResult::*;
 
 macro_rules! impl_parser {
@@ -88,12 +91,10 @@ where
 {
     let position = input.position();
     match input.uncons() {
-        Ok(c) => {
-            match predicate(c.clone()) {
-                Some(c) => ConsumedOk((c, input)),
-                None => EmptyErr(ParseError::empty(position).into()),
-            }
-        }
+        Ok(c) => match predicate(c.clone()) {
+            Some(c) => ConsumedOk((c, input)),
+            None => EmptyErr(ParseError::empty(position).into()),
+        },
         Err(err) => EmptyErr(ParseError::new(position, err).into()),
     }
 }
@@ -1095,13 +1096,11 @@ impl<P: Parser> Iter<P> {
 
     fn into_result_fast<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => {
-                if self.consumed {
-                    ConsumedOk((value, self.input))
-                } else {
-                    EmptyOk((value, self.input))
-                }
-            }
+            State::Ok | State::EmptyErr => if self.consumed {
+                ConsumedOk((value, self.input))
+            } else {
+                EmptyOk((value, self.input))
+            },
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
@@ -1111,27 +1110,25 @@ impl<P: Parser> Iterator for Iter<P> {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
         match self.state {
-            State::Ok => {
-                match self.parser.parse_lazy(self.input.clone()) {
-                    EmptyOk((v, input)) => {
-                        self.input = input;
-                        Some(v)
-                    }
-                    ConsumedOk((v, input)) => {
-                        self.input = input;
-                        self.consumed = true;
-                        Some(v)
-                    }
-                    EmptyErr(_) => {
-                        self.state = State::EmptyErr;
-                        None
-                    }
-                    ConsumedErr(e) => {
-                        self.state = State::ConsumedErr(e);
-                        None
-                    }
+            State::Ok => match self.parser.parse_lazy(self.input.clone()) {
+                EmptyOk((v, input)) => {
+                    self.input = input;
+                    Some(v)
                 }
-            }
+                ConsumedOk((v, input)) => {
+                    self.input = input;
+                    self.consumed = true;
+                    Some(v)
+                }
+                EmptyErr(_) => {
+                    self.state = State::EmptyErr;
+                    None
+                }
+                ConsumedErr(e) => {
+                    self.state = State::ConsumedErr(e);
+                    None
+                }
+            },
             State::ConsumedErr(_) | State::EmptyErr => None,
         }
     }
@@ -1152,6 +1149,10 @@ where
         let mut iter = (&mut self.0).iter(input);
         let result = iter.by_ref().collect();
         iter.into_result_fast(result)
+    }
+
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        self.0.add_error(errors)
     }
 }
 
@@ -1656,6 +1657,10 @@ where
             EmptyErr(_) => EmptyOk((None, input)),
         }
     }
+
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        self.0.add_error(errors)
+    }
 }
 
 /// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without
@@ -1724,7 +1729,8 @@ where
         loop {
             match (&mut self.1, &mut self.0)
                 .parse_lazy(input.clone().into_inner())
-                .into() {
+                .into()
+            {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
                     input = input.merge(rest);
@@ -2050,17 +2056,15 @@ where
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(error1) => {
-                match self.1.parse_lazy(input) {
-                    ConsumedOk(x) => ConsumedOk(x),
-                    EmptyOk(x) => EmptyOk(x),
-                    ConsumedErr(err) => ConsumedErr(err),
-                    EmptyErr(error2) => EmptyErr(TrackedError {
-                        error: error1.error.merge(error2.error),
-                        offset: error1.offset,
-                    }),
-                }
-            }
+            EmptyErr(error1) => match self.1.parse_lazy(input) {
+                ConsumedOk(x) => ConsumedOk(x),
+                EmptyOk(x) => EmptyOk(x),
+                ConsumedErr(err) => ConsumedErr(err),
+                EmptyErr(error2) => EmptyErr(TrackedError {
+                    error: error1.error.merge(error2.error),
+                    offset: error1.offset,
+                }),
+            },
         }
     }
     fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
@@ -2133,18 +2137,14 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
         match self.0.parse_lazy(input) {
-            EmptyOk((o, input)) => {
-                match (self.1)(o) {
-                    Ok(x) => EmptyOk((x, input)),
-                    Err(err) => EmptyErr(err.into()),
-                }
-            }
-            ConsumedOk((o, input)) => {
-                match (self.1)(o) {
-                    Ok(x) => ConsumedOk((x, input)),
-                    Err(err) => ConsumedErr(err),
-                }
-            }
+            EmptyOk((o, input)) => match (self.1)(o) {
+                Ok(x) => EmptyOk((x, input)),
+                Err(err) => EmptyErr(err.into()),
+            },
+            ConsumedOk((o, input)) => match (self.1)(o) {
+                Ok(x) => ConsumedOk((x, input)),
+                Err(err) => ConsumedErr(err),
+            },
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
         }
@@ -2309,6 +2309,135 @@ where
     AndThen(p, f)
 }
 
+struct HNilInput<Input>(::std::marker::PhantomData<Input>);
+impl<Input> Parser for HNilInput<Input>
+where
+    Input: Stream,
+{
+    type Input = Input;
+    type Output = ();
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Input) -> ConsumedResult<Self::Output, Input> {
+        EmptyOk(((), input))
+    }
+}
+
+impl<Input, H, T> Parser for HCons<H, T>
+where
+    H: Parser<Input = Input>,
+    T: Parser<Input = Input>,
+    Input: Stream,
+{
+    type Input = Input;
+    type Output = HCons<H::Output, T::Output>;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Input) -> ConsumedResult<Self::Output, Input> {
+        match self.head.parse_lazy(input) {
+            ConsumedOk((x, mut new_input)) => {
+                match self.tail.parse_lazy(new_input.clone()) {
+                    EmptyErr(mut err) => {
+                        if let Ok(t) = new_input.uncons() {
+                            err.error.add_error(Error::Unexpected(Info::Token(t)));
+                        }
+                        self.tail.add_error(&mut err);
+                        ConsumedErr(err.error)
+                    }
+                    ConsumedErr(err) => return ConsumedErr(err),
+                    EmptyOk(y) | ConsumedOk(y) => {
+                        let (tail, input) = y;
+                        ConsumedOk((
+                            HCons {
+                                head: x,
+                                tail: tail,
+                            },
+                            input,
+                        ))
+                    }
+                }
+            }
+            EmptyErr(err) => return EmptyErr(err),
+            ConsumedErr(err) => return ConsumedErr(err),
+            EmptyOk((x, new_input)) => {
+                match self.tail.parse_lazy(new_input) {
+                    EmptyOk((tail, input)) => EmptyOk((
+                        HCons {
+                            head: x,
+                            tail: tail,
+                        },
+                        input,
+                    )),
+                    ConsumedOk((tail, input)) => ConsumedOk((
+                        HCons {
+                            head: x,
+                            tail: tail,
+                        },
+                        input,
+                    )),
+                    EmptyErr(mut err) => {
+                        err.offset = err.offset.saturating_add(self.head.parser_count());
+                        EmptyErr(err)
+                    }
+                    ConsumedErr(err) => ConsumedErr(err),
+                }
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn parser_count(&self) -> ErrorOffset {
+        self.head.parser_count() + self.tail.parser_count()
+    }
+
+    #[inline]
+    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        self.head.add_error(errors);
+        if errors.offset == 0 {
+            return;
+        }
+        errors.offset = errors.offset.saturating_sub(self.head.parser_count());
+        self.tail.add_error(errors);
+    }
+}
+
+macro_rules! hlist {
+
+    // Nothing
+    () => { HNilInput(::std::marker::PhantomData) };
+
+    // Just a single item
+    ($single: expr) => {
+        HCons { head: $single, tail:  HNilInput(::std::marker::PhantomData) } 
+    };
+
+    ($first: expr, $( $repeated: expr ), +) => {
+        HCons { head: $first, tail: hlist!($($repeated), *)}
+    };
+
+    // <-- Forwarding of trailing comma variants
+    ($first: expr, $( $repeated: expr, ) +) => {
+        hlist!($first, $($repeated),*)
+    };
+
+    ($first: expr, ) => {
+        hlist!($first)
+    };
+    // Forwarding of trailing comma variants -->
+
+}
+
+macro_rules! hlist_pat {
+    {} => { _ };
+    { $head:pat, $($tail:tt), +} => { HCons{ head: $head, tail: hlist_pat!($($tail),*) } };
+    { $head:pat } => { HCons { head: $head, tail: _ } };
+
+    // <-- Forward trailing comma variants
+    { $head:pat, $($tail:tt,) +} => { hlist_pat!($head, $($tail),*) };
+    { $head:pat, } => { hlist_pat!($head) };
+    // Forward trailing comma variants -->
+}
+
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
         #[allow(non_snake_case)]
@@ -2319,78 +2448,27 @@ macro_rules! tuple_parser {
         {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
+
+            #[inline]
             fn parse_lazy(&mut self,
-                          mut input: Input)
+                          input: Input)
                           -> ConsumedResult<($h::Output, $($id::Output),+), Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
-                let mut consumed = false;
-                let first_parser = $h;
-                let $h = match first_parser.parse_lazy(input) {
-                    ConsumedOk((x, new_input)) => {
-                        consumed = true;
-                        input = new_input;
-                        x
-                    }
-                    EmptyErr(err) => return EmptyErr(err),
-                    ConsumedErr(err) => return ConsumedErr(err),
-                    EmptyOk((x, new_input)) => {
-                        input = new_input;
-                        x
-                    }
-                };
-                let mut offset = first_parser.parser_count();
-                $(
-                    let current = $id;
-                    let $id = match current.parse_lazy(input.clone()) {
-                        ConsumedOk((x, new_input)) => {
-                            consumed = true;
-                            input = new_input;
-                            x
-                        }
-                        EmptyErr(mut err) => {
-                            if consumed {
-                                if let Ok(t) = input.uncons() {
-                                    err.error.add_error(Error::Unexpected(Info::Token(t)));
-                                }
-                                current.add_error(&mut err);
-                                return ConsumedErr(err.error)
-                            } else {
-                                err.offset = offset;
-                                return EmptyErr(err)
-                            }
-                        }
-                        ConsumedErr(err) => return ConsumedErr(err),
-                        EmptyOk((x, new_input)) => {
-                            input = new_input;
-                            x
-                        }
-                    };
-                    offset = offset.saturating_add(current.parser_count());
-                )+
-                if consumed {
-                    ConsumedOk((($h, $($id),+), input))
-                } else {
-                    EmptyOk((($h, $($id),+), input))
-                }
+                hlist![$h, $($id),+]
+                    .parse_lazy(input)
+                    .map(|hlist_pat![$h, $($id),+]| ($h, $($id),+))
             }
 
+            #[inline(always)]
             fn parser_count(&self) -> ErrorOffset {
                 let (ref $h, $(ref $id),+) = *self;
                 $h.parser_count() $( + $id.parser_count())+
             }
 
+            #[inline(always)]
             fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
                 let (ref mut $h, $(ref mut $id),+) = *self;
-                $h.add_error(errors);
-                if errors.offset == 0 {
-                    return;
-                }
-                $(
-                    $id.add_error(errors);
-                    if errors.offset == 0 {
-                        return;
-                    }
-                )+
+                hlist![$h, $($id),+].add_error(errors)
             }
         }
     }
@@ -2743,8 +2821,7 @@ mod tests {
         let input = &[
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
-        ]
-            [..];
+        ][..];
         let result = token(CloneOnly { s: "x".to_string() }).parse(input);
         assert_eq!(
             result,
@@ -2873,6 +2950,40 @@ mod tests {
                 errors: vec![
                     Error::Unexpected('i'.into()),
                     Error::Unexpected("test".into()),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn optional_empty_ok_then_error() {
+        let mut parser = (optional(char('a')), char('b'));
+
+        assert_eq!(
+            parser.parse(State::new("c")),
+            Err(ParseError {
+                position: SourcePosition { line: 1, column: 1 },
+                errors: vec![
+                    Error::Unexpected('c'.into()),
+                    Error::Expected('a'.into()),
+                    Error::Expected('b'.into()),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn consumed_then_optional_empty_ok_then_error() {
+        let mut parser = (char('b'), optional(char('a')), char('b'));
+
+        assert_eq!(
+            parser.parse(State::new("bc")),
+            Err(ParseError {
+                position: SourcePosition { line: 1, column: 2 },
+                errors: vec![
+                    Error::Unexpected('c'.into()),
+                    Error::Expected('a'.into()),
+                    Error::Expected('b'.into()),
                 ],
             })
         );

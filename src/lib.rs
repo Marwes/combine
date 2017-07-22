@@ -159,6 +159,8 @@
 // inline(always) is only used on trivial functions returning parsers
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
+extern crate frunk;
+
 #[doc(inline)]
 pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
                      StreamError, StreamOnce};
@@ -665,14 +667,12 @@ mod tests {
 
     fn follow(input: State<&str, SourcePosition>) -> ParseResult<(), State<&str, SourcePosition>> {
         match input.clone().uncons() {
-            Ok(c) => {
-                if c.is_alphanumeric() {
-                    let e = Error::Unexpected(c.into());
-                    Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
-                } else {
-                    Ok(((), Consumed::Empty(input)))
-                }
-            }
+            Ok(c) => if c.is_alphanumeric() {
+                let e = Error::Unexpected(c.into());
+                Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
+            } else {
+                Ok(((), Consumed::Empty(input)))
+            },
             Err(_) => Ok(((), Consumed::Empty(input))),
         }
     }
