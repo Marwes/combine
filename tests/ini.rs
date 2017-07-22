@@ -14,18 +14,21 @@ pub struct Ini {
 }
 
 fn property<I>(input: I) -> ParseResult<(String, String), I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
-    (many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
-     token('='),
-     many1(satisfy(|c| c != '\n' && c != ';')))
-        .map(|(key, _, value)| (key, value))
+    (
+        many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
+        token('='),
+        many1(satisfy(|c| c != '\n' && c != ';')),
+    ).map(|(key, _, value)| (key, value))
         .message("while parsing property")
         .parse_stream(input)
 }
 
 fn whitespace<I>(input: I) -> ParseResult<(), I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
     let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
     // Wrap the `spaces().or(comment)` in `skip_many` so that it skips alternating whitespace and
@@ -34,28 +37,35 @@ fn whitespace<I>(input: I) -> ParseResult<(), I>
 }
 
 fn properties<I>(input: I) -> ParseResult<HashMap<String, String>, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
     // After each property we skip any whitespace that followed it
     many(parser(property).skip(parser(whitespace))).parse_stream(input)
 }
 
 fn section<I>(input: I) -> ParseResult<(String, HashMap<String, String>), I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
-    (between(token('['), token(']'), many(satisfy(|c| c != ']'))),
-     parser(whitespace),
-     parser(properties))
-        .map(|(name, _, properties)| (name, properties))
+    (
+        between(token('['), token(']'), many(satisfy(|c| c != ']'))),
+        parser(whitespace),
+        parser(properties),
+    ).map(|(name, _, properties)| (name, properties))
         .message("while parsing section")
         .parse_stream(input)
 }
 
 fn ini<I>(input: I) -> ParseResult<Ini, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
-    (parser(whitespace), parser(properties), many(parser(section)))
-        .map(|(_, global, sections)| {
+    (
+        parser(whitespace),
+        parser(properties),
+        many(parser(section)),
+    ).map(|(_, global, sections)| {
             Ini {
                 global: global,
                 sections: sections,
@@ -78,35 +88,32 @@ type=LL(1)
         global: HashMap::new(),
         sections: HashMap::new(),
     };
-    expected.global.insert(String::from("language"), String::from("rust"));
+    expected
+        .global
+        .insert(String::from("language"), String::from("rust"));
 
     let mut section = HashMap::new();
     section.insert(String::from("name"), String::from("combine"));
     section.insert(String::from("type"), String::from("LL(1)"));
     expected.sections.insert(String::from("section"), section);
 
-    let result = parser(ini)
-        .parse(text)
-        .map(|t| t.0);
+    let result = parser(ini).parse(text).map(|t| t.0);
     assert_eq!(result, Ok(expected));
 }
 
 #[test]
 fn ini_error() {
     let text = "[error";
-    let result = parser(ini)
-        .parse(State::new(text))
-        .map(|t| t.0);
-    assert_eq!(result,
-               Err(ParseError {
-                   position: SourcePosition {
-                       line: 1,
-                       column: 7,
-                   },
-                   errors: vec![
-            Error::end_of_input(),
-            Error::Expected(']'.into()),
-            Error::Message("while parsing section".into()),
-        ],
-               }));
+    let result = parser(ini).parse(State::new(text)).map(|t| t.0);
+    assert_eq!(
+        result,
+        Err(ParseError {
+            position: SourcePosition { line: 1, column: 7 },
+            errors: vec![
+                Error::end_of_input(),
+                Error::Expected(']'.into()),
+                Error::Message("while parsing section".into()),
+            ],
+        })
+    );
 }

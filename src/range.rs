@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream};
 use primitives::FastResult::*;
 
-pub struct Range<I>(I::Range) where I: RangeStream;
+pub struct Range<I>(I::Range)
+where
+    I: RangeStream;
 
 impl<I> Parser for Range<I>
-    where I: RangeStream,
-          I::Range: PartialEq + ::primitives::Range
+where
+    I: RangeStream,
+    I::Range: PartialEq + ::primitives::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -50,16 +53,18 @@ impl<I> Parser for Range<I>
 /// ```
 #[inline(always)]
 pub fn range<I>(i: I::Range) -> Range<I>
-    where I: RangeStream,
-          I::Range: PartialEq + ::primitives::Range
+where
+    I: RangeStream,
+    I::Range: PartialEq + ::primitives::Range,
 {
     Range(i)
 }
 
 pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
 impl<I> Parser for Take<I>
-    where I: RangeStream,
-          I::Range: ::primitives::Range
+where
+    I: RangeStream,
+    I::Range: ::primitives::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -93,17 +98,19 @@ impl<I> Parser for Take<I>
 /// ```
 #[inline(always)]
 pub fn take<I>(n: usize) -> Take<I>
-    where I: RangeStream,
-          I::Range: ::primitives::Range
+where
+    I: RangeStream,
+    I::Range: ::primitives::Range,
 {
     Take(n, PhantomData)
 }
 
 pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile<I, F>
-    where I: RangeStream,
-          I::Range: ::primitives::Range,
-          F: FnMut(I::Item) -> bool
+where
+    I: RangeStream,
+    I::Range: ::primitives::Range,
+    F: FnMut(I::Item) -> bool,
 {
     type Input = I;
     type Output = I::Range;
@@ -130,17 +137,19 @@ impl<I, F> Parser for TakeWhile<I, F>
 /// ```
 #[inline(always)]
 pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
-    where I: RangeStream,
-          F: FnMut(I::Item) -> bool
+where
+    I: RangeStream,
+    F: FnMut(I::Item) -> bool,
 {
     TakeWhile(f, PhantomData)
 }
 
 pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile1<I, F>
-    where I: RangeStream,
-          I::Range: ::primitives::Range,
-          F: FnMut(I::Item) -> bool
+where
+    I: RangeStream,
+    I::Range: ::primitives::Range,
+    F: FnMut(I::Item) -> bool,
 {
     type Input = I;
     type Output = I::Range;
@@ -175,24 +184,28 @@ impl<I, F> Parser for TakeWhile1<I, F>
 /// ```
 #[inline(always)]
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
-    where I: RangeStream,
-          I::Range: ::primitives::Range,
-          F: FnMut(I::Item) -> bool
+where
+    I: RangeStream,
+    I::Range: ::primitives::Range,
+    F: FnMut(I::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)
 }
 
-pub struct TakeUntilRange<I>(I::Range) where I: RangeStream;
+pub struct TakeUntilRange<I>(I::Range)
+where
+    I: RangeStream;
 impl<I> Parser for TakeUntilRange<I>
-    where I: RangeStream,
-          I::Range: PartialEq + ::primitives::Range
+where
+    I: RangeStream,
+    I::Range: PartialEq + ::primitives::Range,
 {
     type Input = I;
     type Output = I::Range;
 
     #[inline]
     fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        use ::primitives::Range;
+        use primitives::Range;
 
         let len = self.0.len();
         let mut to_consume = 0;
@@ -209,7 +222,7 @@ impl<I> Parser for TakeUntilRange<I>
                                 return ConsumedOk((consumed, input));
                             }
                         }
-                        
+
                         // We are guaranteed able to uncons to_consume characters here
                         // because we've already done it on look_ahead_input.
                         unreachable!();
@@ -245,7 +258,9 @@ impl<I> Parser for TakeUntilRange<I>
 /// # }
 /// ```
 #[inline(always)]
-pub fn take_until_range<I>(r: I::Range) -> TakeUntilRange<I> where I: RangeStream
+pub fn take_until_range<I>(r: I::Range) -> TakeUntilRange<I>
+where
+    I: RangeStream,
 {
     TakeUntilRange(r)
 }
