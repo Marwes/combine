@@ -404,18 +404,14 @@ mod tests {
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
-        let err = p.parse(State::new("ab,abc"))
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
+        let err = p.parse(State::new("ab,abc")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.parse(State::new("ab"))
-            .map(|x| format!("{:?}", x))
-            .unwrap_err();
+        let err = p.parse(State::new("ab")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
     #[test]

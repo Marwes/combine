@@ -7,18 +7,14 @@ use self::ascii::AsciiChar;
 use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
 use primitives::{ConsumedResult, Info, Parser, ParseError, Stream};
 
-/// Parses a character and succeeds if the character is equal to `c`.
+/// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
 /// ```
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::byte::byte;
-/// # fn main() {
-/// let result = byte(b'!')
-///     .parse(&b"!"[..])
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(b'!'));
-/// # }
+/// use combine::Parser;
+/// use combine::byte::byte;
+/// assert_eq!(byte(b'!').parse(&b"!"[..]), Ok((b'!', &b""[..])));
+/// assert!(byte(b'A').parse(&b""[..]).is_err());
+/// assert!(byte(b'A').parse(&b"!"[..]).is_err());
 /// ```
 #[inline(always)]
 pub fn byte<I>(c: u8) -> Token<I>
@@ -40,6 +36,13 @@ macro_rules! byte_parser {
 }
 
 /// Parses a base-10 digit (0–9).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::digit;
+/// assert_eq!(digit().parse(&b"9"[..]), Ok((b'9', &b""[..])));
+/// assert!(digit().parse(&b"A"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
 where
@@ -51,6 +54,15 @@ where
 impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::space;
+/// assert_eq!(space().parse(&b" "[..]), Ok((b' ', &b""[..])));
+/// assert_eq!(space().parse(&b"  "[..]), Ok((b' ', &b" "[..])));
+/// assert!(space().parse(&b"!"[..]).is_err());
+/// assert!(space().parse(&b""[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn space<I>() -> Space<I>
 where
@@ -63,6 +75,13 @@ impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
 /// Skips over [`space`] zero or more times
 ///
 /// [`space`]: fn.space.html
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::spaces;
+/// assert_eq!(spaces().parse(&b""[..]), Ok(((), &b""[..])));
+/// assert_eq!(spaces().parse(&b"   "[..]), Ok(((), &b""[..])));
+/// ```
 #[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
 where
@@ -73,7 +92,14 @@ where
 
 impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
-/// Parses a newline character (`b'\n'`).
+/// Parses a newline byteacter (`b'\n'`).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::newline;
+/// assert_eq!(newline().parse(&b"\n"[..]), Ok((b'\n', &b""[..])));
+/// assert!(newline().parse(&b"\r"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn newline<I>() -> Newline<I>
 where
@@ -87,7 +113,15 @@ where
 
 impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newline<I>>> }
 
-/// Parses carriage return and newline (`b"\r\n"`), returning the newline character.
+/// Parses carriage return and newline (`&b"\r\n"`), returning the newline byteacter.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::crlf;
+/// assert_eq!(crlf().parse(&b"\r\n"[..]), Ok((b'\n', &b""[..])));
+/// assert!(crlf().parse(&b"\r"[..]).is_err());
+/// assert!(crlf().parse(&b"\n"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
 where
@@ -102,7 +136,14 @@ where
 }
 
 impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses a tab character (`b'\t'`).
+/// Parses a tab byteacter (`b'\t'`).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::tab;
+/// assert_eq!(tab().parse(&b"\t"[..]), Ok((b'\t', &b""[..])));
+/// assert!(tab().parse(&b" "[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
 where
@@ -116,6 +157,13 @@ where
 
 impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an uppercase ASCII letter (A–Z).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::upper;
+/// assert_eq!(upper().parse(&b"A"[..]), Ok((b'A', &b""[..])));
+/// assert!(upper().parse(&b"a"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn upper<I>() -> Upper<I>
 where
@@ -126,6 +174,13 @@ where
 
 impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an lowercase ASCII letter (a–z).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::lower;
+/// assert_eq!(lower().parse(&b"a"[..]), Ok((b'a', &b""[..])));
+/// assert!(lower().parse(&b"A"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn lower<I>() -> Lower<I>
 where
@@ -136,6 +191,14 @@ where
 
 impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::alpha_num;
+/// assert_eq!(alpha_num().parse(&b"A"[..]), Ok((b'A', &b""[..])));
+/// assert_eq!(alpha_num().parse(&b"1"[..]), Ok((b'1', &b""[..])));
+/// assert!(alpha_num().parse(&b"!"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
 where
@@ -146,6 +209,14 @@ where
 
 impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::letter;
+/// assert_eq!(letter().parse(&b"a"[..]), Ok((b'a', &b""[..])));
+/// assert_eq!(letter().parse(&b"A"[..]), Ok((b'A', &b""[..])));
+/// assert!(letter().parse(&b"9"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn letter<I>() -> Letter<I>
 where
@@ -154,8 +225,36 @@ where
     byte_parser!(letter, Letter, is_alphabetic)
 }
 
+impl_token_parser! { OctDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+
+/// Parses an octal digit.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::oct_digit;
+/// assert_eq!(oct_digit().parse(&b"7"[..]), Ok((b'7', &b""[..])));
+/// assert!(oct_digit().parse(&b"8"[..]).is_err());
+/// ```
+#[inline(always)]
+pub fn oct_digit<I>() -> OctDigit<I>
+where
+    I: Stream<Item = u8>,
+{
+    OctDigit(
+        satisfy(static_fn!((ch, u8) -> bool { ch >= b'0' && ch <= b'7' })).expected("octal digit"),
+        PhantomData,
+    )
+}
+
 impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
+///
+/// ```
+/// use combine::Parser;
+/// use combine::byte::hex_digit;
+/// assert_eq!(hex_digit().parse(&b"F"[..]), Ok((b'F', &b""[..])));
+/// assert!(hex_digit().parse(&b"H"[..]).is_err());
+/// ```
 #[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>
 where
@@ -179,7 +278,7 @@ where
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
             .parse_lazy(input)
-            .map(|chars| chars.as_slice())
+            .map(|bytes| bytes.as_slice())
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
@@ -196,7 +295,7 @@ where
 /// # use combine::*;
 /// # use combine::byte::bytes;
 /// # fn main() {
-/// let result = bytes(b"rust")
+/// let result = bytes(&b"rust"[..])
 ///     .parse(&b"rust"[..])
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok(&b"rust"[..]));

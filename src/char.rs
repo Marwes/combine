@@ -5,15 +5,10 @@ use std::marker::PhantomData;
 /// Parses a character and succeeds if the character is equal to `c`.
 ///
 /// ```
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::char::char;
-/// # fn main() {
-/// let result = char('!')
-///     .parse("!")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok('!'));
-/// # }
+/// use combine::Parser;
+/// use combine::char::char;
+/// assert_eq!(char('!').parse("!"), Ok(('!', "")));
+/// assert!(char('A').parse("!").is_err());
 /// ```
 #[inline(always)]
 pub fn char<I>(c: char) -> Token<I>
@@ -26,6 +21,13 @@ where
 impl_token_parser! { Digit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
 /// Parses a base-10 digit.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::digit;
+/// assert_eq!(digit().parse("9"), Ok(('9', "")));
+/// assert!(digit().parse("A").is_err());
+/// ```
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
 where
@@ -44,6 +46,15 @@ impl_token_parser! { Space(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// This includes space characters, tabs and newlines.
 ///
 /// [`std::char::is_whitespace`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_whitespace
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::space;
+/// assert_eq!(space().parse(" "), Ok((' ', "")));
+/// assert_eq!(space().parse("  "), Ok((' ', " ")));
+/// assert!(space().parse("!").is_err());
+/// assert!(space().parse("").is_err());
+/// ```
 #[inline(always)]
 pub fn space<I>() -> Space<I>
 where
@@ -60,6 +71,13 @@ impl_token_parser! { Spaces(), char, Expected<SkipMany<Space<I>>> }
 /// This includes space characters, tabs and newlines.
 ///
 /// [`std::char::is_whitespace`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_whitespace
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::spaces;
+/// assert_eq!(spaces().parse(""), Ok(((), "")));
+/// assert_eq!(spaces().parse("   "), Ok(((), "")));
+/// ```
 #[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
 where
@@ -71,6 +89,13 @@ where
 impl_token_parser! { Newline(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
 /// Parses a newline character.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::newline;
+/// assert_eq!(newline().parse("\n"), Ok(('\n', "")));
+/// assert!(newline().parse("\r").is_err());
+/// ```
 #[inline(always)]
 pub fn newline<I>() -> Newline<I>
 where
@@ -85,6 +110,14 @@ where
 impl_token_parser! { CrLf(), char, Expected<With<Satisfy<I, fn (char) -> bool>, Newline<I>>> }
 
 /// Parses carriage return and newline, returning the newline character.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::crlf;
+/// assert_eq!(crlf().parse("\r\n"), Ok(('\n', "")));
+/// assert!(crlf().parse("\r").is_err());
+/// assert!(crlf().parse("\n").is_err());
+/// ```
 #[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
 where
@@ -101,6 +134,13 @@ where
 impl_token_parser! { Tab(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
 /// Parses a tab character.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::tab;
+/// assert_eq!(tab().parse("\t"), Ok(('\t', "")));
+/// assert!(tab().parse(" ").is_err());
+/// ```
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
 where
@@ -117,6 +157,13 @@ impl_token_parser! { Upper(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an uppercase letter according to [`std::char::is_uppercase`].
 ///
 /// [`std::char::is_uppercase`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_uppercase
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::upper;
+/// assert_eq!(upper().parse("A"), Ok(('A', "")));
+/// assert!(upper().parse("a").is_err());
+/// ```
 #[inline(always)]
 pub fn upper<I>() -> Upper<I>
 where
@@ -133,6 +180,13 @@ impl_token_parser! { Lower(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an lowercase letter according to [`std::char::is_lowercase`].
 ///
 /// [`std::char::is_lowercase`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_lowercase
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::lower;
+/// assert_eq!(lower().parse("a"), Ok(('a', "")));
+/// assert!(lower().parse("A").is_err());
+/// ```
 #[inline(always)]
 pub fn lower<I>() -> Lower<I>
 where
@@ -149,6 +203,14 @@ impl_token_parser! { AlphaNum(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses either an alphabet letter or digit according to [`std::char::is_alphanumeric`].
 ///
 /// [`std::char::is_alphanumeric`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_alphanumeric
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::alpha_num;
+/// assert_eq!(alpha_num().parse("A"), Ok(('A', "")));
+/// assert_eq!(alpha_num().parse("1"), Ok(('1', "")));
+/// assert!(alpha_num().parse("!").is_err());
+/// ```
 #[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
 where
@@ -166,6 +228,14 @@ impl_token_parser! { Letter(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 /// Parses an alphabet letter according to [`std::char::is_alphabetic`].
 ///
 /// [`std::char::is_alphabetic`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_alphabetic
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::letter;
+/// assert_eq!(letter().parse("a"), Ok(('a', "")));
+/// assert_eq!(letter().parse("A"), Ok(('A', "")));
+/// assert!(letter().parse("9").is_err());
+/// ```
 #[inline(always)]
 pub fn letter<I>() -> Letter<I>
 where
@@ -180,6 +250,13 @@ where
 impl_token_parser! { OctDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
 /// Parses an octal digit.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::oct_digit;
+/// assert_eq!(oct_digit().parse("7"), Ok(('7', "")));
+/// assert!(oct_digit().parse("8").is_err());
+/// ```
 #[inline(always)]
 pub fn oct_digit<I>() -> OctDigit<I>
 where
@@ -194,6 +271,13 @@ where
 impl_token_parser! { HexDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
 /// Parses a hexdecimal digit with uppercase and lowercase.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::char::hex_digit;
+/// assert_eq!(hex_digit().parse("F"), Ok(('F', "")));
+/// assert!(hex_digit().parse("H").is_err());
+/// ```
 #[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>
 where
