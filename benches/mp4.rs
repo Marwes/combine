@@ -34,17 +34,24 @@ enum MP4Box<'a> {
 
 fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
     let brand_name = || take(4).and_then(from_utf8);
-    let filetype_box = (range(&b"ftyp"[..]), brand_name(), take(4), many(brand_name()))
-        .map(|(_, m, v, c)| {
+    let filetype_box = (
+        range(&b"ftyp"[..]),
+        brand_name(),
+        take(4),
+        many(brand_name()),
+    ).map(|(_, m, v, c)| {
             MP4Box::Ftyp(FileType {
-                             major_brand: m,
-                             major_brand_version: v,
-                             compatible_brands: c,
-                         })
+                major_brand: m,
+                major_brand_version: v,
+                compatible_brands: c,
+            })
         });
 
-    let mp4_box = take(4).map(BigEndian::read_u32).then(|offset| take(offset as usize - 4));
-    let mut box_parser = filetype_box.or(range(&b"moov"[..]).map(|_| MP4Box::Moov))
+    let mp4_box = take(4)
+        .map(BigEndian::read_u32)
+        .then(|offset| take(offset as usize - 4));
+    let mut box_parser = filetype_box
+        .or(range(&b"moov"[..]).map(|_| MP4Box::Moov))
         .or(range(&b"mdat"[..]).map(|_| MP4Box::Mdat))
         .or(range(&b"free"[..]).map(|_| MP4Box::Free))
         .or(range(&b"skip"[..]).map(|_| MP4Box::Skip))
@@ -59,9 +66,9 @@ static MP4_SMALL: &'static [u8] = include_bytes!("small.mp4");
 
 fn run_test(b: &mut Bencher, data: &[u8]) {
     b.iter(|| match parse_mp4(data) {
-               Ok(x) => black_box(x),
-               Err(err) => panic!("{:?}", err),
-           });
+        Ok(x) => black_box(x),
+        Err(err) => panic!("{:?}", err),
+    });
 }
 
 #[bench]

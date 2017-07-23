@@ -221,11 +221,14 @@ mod tests {
 
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
-        where I: Stream<Item = char>
+    where
+        I: Stream<Item = char>,
     {
-        let (s, input) = try!(many1::<String, _>(digit())
-                                  .expected("integer")
-                                  .parse_stream(input));
+        let (s, input) = try!(
+            many1::<String, _>(digit())
+                .expected("integer")
+                .parse_stream(input)
+        );
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -270,9 +273,9 @@ mod tests {
             .map(|t| t.1)
             .parse_stream(State::new(source));
         let state = Consumed::Consumed(State {
-                                           position: SourcePosition { line: 3, column: 1 },
-                                           input: "",
-                                       });
+            position: SourcePosition { line: 3, column: 1 },
+            input: "",
+        });
         assert_eq!(result, Ok((123i64, state)));
     }
 
@@ -287,7 +290,8 @@ mod tests {
 
     #[allow(unconditional_recursion)]
     fn expr<I>(input: I) -> ParseResult<Expr, I>
-        where I: Stream<Item = char>
+    where
+        I: Stream<Item = char>,
     {
         let word = many1(letter()).expected("identifier");
         let integer = parser(integer);
@@ -296,10 +300,12 @@ mod tests {
         let spaces = spaces();
         spaces
             .clone()
-            .with(word.map(Expr::Id)
-                      .or(integer.map(Expr::Int))
-                      .or(array.map(Expr::Array))
-                      .or(paren_expr))
+            .with(
+                word.map(Expr::Id)
+                    .or(integer.map(Expr::Int))
+                    .or(array.map(Expr::Array))
+                    .or(paren_expr),
+            )
             .skip(spaces)
             .parse_stream(input)
     }
@@ -307,9 +313,11 @@ mod tests {
     #[test]
     fn expression() {
         let result = sep_by(parser(expr), char(',')).parse("int, 100, [[], 123]");
-        let exprs = vec![Expr::Id("int".to_string()),
-                         Expr::Int(100),
-                         Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)])];
+        let exprs = vec![
+            Expr::Id("int".to_string()),
+            Expr::Int(100),
+            Expr::Array(vec![Expr::Array(vec![]), Expr::Int(123)]),
+        ];
         assert_eq!(result, Ok((exprs, "")));
     }
 
@@ -321,17 +329,20 @@ mod tests {
         let result = parser(expr).parse(State::new(input));
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
-            errors: vec![Error::Unexpected(','.into()),
-                         Error::Expected("integer".into()),
-                         Error::Expected("identifier".into()),
-                         Error::Expected("[".into()),
-                         Error::Expected("(".into())],
+            errors: vec![
+                Error::Unexpected(','.into()),
+                Error::Expected("integer".into()),
+                Error::Expected("identifier".into()),
+                Error::Expected("[".into()),
+                Error::Expected("(".into()),
+            ],
         };
         assert_eq!(result, Err(err));
     }
 
     fn term<I>(input: I) -> ParseResult<Expr, I>
-        where I: Stream<Item = char>
+    where
+        I: Stream<Item = char>,
     {
         fn times(l: Expr, r: Expr) -> Expr {
             Expr::Times(Box::new(l), Box::new(r))
@@ -353,8 +364,10 @@ mod tests {
         let (result, _) = parser(term).parse(State::new(input)).unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
-        let e2 = Expr::Times(Box::new(Expr::Int(3)),
-                             Box::new(Expr::Id("test".to_string())));
+        let e2 = Expr::Times(
+            Box::new(Expr::Int(3)),
+            Box::new(Expr::Id("test".to_string())),
+        );
         assert_eq!(result, Expr::Plus(Box::new(e1), Box::new(e2)));
     }
 
@@ -437,12 +450,14 @@ mod tests {
 
     #[test]
     fn choice_strings() {
-        let mut fruits = [try(string("Apple")),
-                          try(string("Banana")),
-                          try(string("Cherry")),
-                          try(string("Date")),
-                          try(string("Fig")),
-                          try(string("Grape"))];
+        let mut fruits = [
+            try(string("Apple")),
+            try(string("Banana")),
+            try(string("Cherry")),
+            try(string("Date")),
+            try(string("Fig")),
+            try(string("Grape")),
+        ];
         let mut parser = choice(&mut fruits);
         assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));
         assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
@@ -473,9 +488,9 @@ mod tests {
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {
-                                   let err: Box<StdError> = Box::new(err);
-                                   err
-                               });
+            let err: Box<StdError> = Box::new(err);
+            err
+        });
     }
 
     #[test]
@@ -528,24 +543,26 @@ mod tests {
             .parse(input)
             .map_err(|e| e.translate_position(input))
             .map_err(|e| {
-                ExtractedError(e.position,
-                               DisplayVec(e.errors
-                                              .into_iter()
-                                              .map(|e| {
-                                                       e.map_range(|r| DisplayVec(r.to_owned()))
-                                                   })
-                                              .collect()))
+                ExtractedError(
+                    e.position,
+                    DisplayVec(
+                        e.errors
+                            .into_iter()
+                            .map(|e| e.map_range(|r| DisplayVec(r.to_owned())))
+                            .collect(),
+                    ),
+                )
             });
 
         assert!(result.is_err());
         // Test that the fresh ExtractedError is Display, so that the internal errors can be
         // inspected by consuming code; and that the ExtractedError can be coerced to StdError.
         let _ = result.map_err(|err| {
-                                   let s = format!("{}", err);
-                                   assert!(s.starts_with("Parse error at 0"));
-                                   assert!(s.contains("Expected"));
-                                   let err: Box<StdError> = Box::new(err);
-                                   err
-                               });
+            let s = format!("{}", err);
+            assert!(s.starts_with("Parse error at 0"));
+            assert!(s.contains("Expected"));
+            let err: Box<StdError> = Box::new(err);
+            err
+        });
     }
 }

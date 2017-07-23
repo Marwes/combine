@@ -22,7 +22,8 @@ use primitives::{ConsumedResult, Info, Parser, ParseError, Stream};
 /// ```
 #[inline(always)]
 pub fn byte<I>(c: u8) -> Token<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     token(c)
 }
@@ -41,7 +42,8 @@ macro_rules! byte_parser {
 /// Parses a base-10 digit (0–9).
 #[inline(always)]
 pub fn digit<I>() -> Digit<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(digit, Digit, is_digit)
 }
@@ -51,7 +53,8 @@ impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 #[inline(always)]
 pub fn space<I>() -> Space<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(space, Space, is_whitespace)
 }
@@ -62,7 +65,8 @@ impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
 /// [`space`]: fn.space.html
 #[inline(always)]
 pub fn spaces<I>() -> Spaces<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
@@ -72,10 +76,13 @@ impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses a newline character (`b'\n'`).
 #[inline(always)]
 pub fn newline<I>() -> Newline<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
-    Newline(satisfy(static_fn!((ch, u8) -> bool { ch == b'\n' })).expected("lf newline"),
-            PhantomData)
+    Newline(
+        satisfy(static_fn!((ch, u8) -> bool { ch == b'\n' })).expected("lf newline"),
+        PhantomData,
+    )
 }
 
 impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newline<I>>> }
@@ -83,29 +90,36 @@ impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newl
 /// Parses carriage return and newline (`b"\r\n"`), returning the newline character.
 #[inline(always)]
 pub fn crlf<I>() -> CrLf<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
-    CrLf(satisfy(static_fn!((ch, u8) -> bool { ch == b'\r' }))
-             .with(newline())
-             .expected("crlf newline"),
-         PhantomData)
+    CrLf(
+        satisfy(static_fn!((ch, u8) -> bool { ch == b'\r' }))
+            .with(newline())
+            .expected("crlf newline"),
+        PhantomData,
+    )
 }
 
 impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses a tab character (`b'\t'`).
 #[inline(always)]
 pub fn tab<I>() -> Tab<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
-    Tab(satisfy(static_fn!((ch, u8) -> bool { ch == b'\t' })).expected("tab"),
-        PhantomData)
+    Tab(
+        satisfy(static_fn!((ch, u8) -> bool { ch == b'\t' })).expected("tab"),
+        PhantomData,
+    )
 }
 
 impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an uppercase ASCII letter (A–Z).
 #[inline(always)]
 pub fn upper<I>() -> Upper<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(upper, Upper, is_uppercase)
 }
@@ -114,7 +128,8 @@ impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an lowercase ASCII letter (a–z).
 #[inline(always)]
 pub fn lower<I>() -> Lower<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(lower, Lower, is_lowercase)
 }
@@ -123,7 +138,8 @@ impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
 #[inline(always)]
 pub fn alpha_num<I>() -> AlphaNum<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
@@ -132,7 +148,8 @@ impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
 #[inline(always)]
 pub fn letter<I>() -> Letter<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(letter, Letter, is_alphabetic)
 }
@@ -141,16 +158,20 @@ impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
 #[inline(always)]
 pub fn hex_digit<I>() -> HexDigit<I>
-    where I: Stream<Item = u8>
+where
+    I: Stream<Item = u8>,
 {
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
 
 #[derive(Clone)]
-pub struct Bytes<I>(&'static [u8], PhantomData<I>) where I: Stream<Item = u8>;
+pub struct Bytes<I>(&'static [u8], PhantomData<I>)
+where
+    I: Stream<Item = u8>;
 
 impl<'a, I> Parser for Bytes<I>
-    where I: Stream<Item = u8, Range = &'a [u8]>
+where
+    I: Stream<Item = u8, Range = &'a [u8]>,
 {
     type Input = I;
     type Output = &'static [u8];
@@ -186,17 +207,21 @@ impl<'a, I> Parser for Bytes<I>
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
-    where I: Stream<Item = u8, Range = &'a [u8]>
+where
+    I: Stream<Item = u8, Range = &'a [u8]>,
 {
     Bytes(s, PhantomData)
 }
 
 #[derive(Clone)]
-pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>) where I: Stream<Item = u8>;
+pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>)
+where
+    I: Stream<Item = u8>;
 
 impl<'a, C, I> Parser for BytesCmp<C, I>
-    where C: FnMut(u8, u8) -> bool,
-          I: Stream<Item = u8, Range = &'a [u8]>
+where
+    C: FnMut(u8, u8) -> bool,
+    I: Stream<Item = u8, Range = &'a [u8]>,
 {
     type Input = I;
     type Output = &'static [u8];
@@ -233,8 +258,9 @@ impl<'a, C, I> Parser for BytesCmp<C, I>
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
-    where C: FnMut(u8, u8) -> bool,
-          I: Stream<Item = u8, Range = &'a [u8]>
+where
+    C: FnMut(u8, u8) -> bool,
+    I: Stream<Item = u8, Range = &'a [u8]>,
 {
     BytesCmp(s, cmp, PhantomData)
 }

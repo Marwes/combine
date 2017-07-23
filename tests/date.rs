@@ -40,10 +40,12 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 // Parsers which are used frequntly can be wrapped like this to avoid writing parser(fn_name) in
 // several places.
 fn two_digits<I>() -> FnPtrParser<i32, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
     fn two_digits_<I>(input: I) -> ParseResult<i32, I>
-        where I: Stream<Item = char>
+    where
+        I: Stream<Item = char>,
     {
         (digit(), digit())
             .map(two_digits_to_int)
@@ -58,16 +60,22 @@ fn two_digits<I>() -> FnPtrParser<i32, I>
 /// -01
 /// Z
 fn time_zone<I>(input: I) -> ParseResult<i32, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
     let utc = char('Z').map(|_| 0);
-    let offset = (choice([char('-'), char('+')]),
-                  two_digits(),
-                  optional(optional(char(':')).with(two_digits())))
-            .map(|(sign, hour, minute)| {
-                     let offset = hour * 60 + minute.unwrap_or(0);
-                     if sign == '-' { -offset } else { offset }
-                 });
+    let offset = (
+        choice([char('-'), char('+')]),
+        two_digits(),
+        optional(optional(char(':')).with(two_digits())),
+    ).map(|(sign, hour, minute)| {
+            let offset = hour * 60 + minute.unwrap_or(0);
+            if sign == '-' {
+                -offset
+            } else {
+                offset
+            }
+        });
 
     utc.or(offset).parse_stream(input)
 }
@@ -75,27 +83,40 @@ fn time_zone<I>(input: I) -> ParseResult<i32, I>
 /// Parses a date
 /// 2010-01-30
 fn date<I>(input: I) -> ParseResult<Date, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
-    (many::<String, _>(digit()), char('-'), two_digits(), char('-'), two_digits())
-        .map(|(year, _, month, _, day)| {
-                 // Its ok to just unwrap since we only parsed digits
-                 Date {
-                     year: year.parse().unwrap(),
-                     month: month,
-                     day: day,
-                 }
-             })
+    (
+        many::<String, _>(digit()),
+        char('-'),
+        two_digits(),
+        char('-'),
+        two_digits(),
+    ).map(|(year, _, month, _, day)| {
+            // Its ok to just unwrap since we only parsed digits
+            Date {
+                year: year.parse().unwrap(),
+                month: month,
+                day: day,
+            }
+        })
         .parse_stream(input)
 }
 
 /// Parses a time
 /// 12:30:02
 fn time<I>(input: I) -> ParseResult<Time, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
-    (two_digits(), char(':'), two_digits(), char(':'), two_digits(), parser(time_zone))
-        .map(|(hour, _, minute, _, second, time_zone)| {
+    (
+        two_digits(),
+        char(':'),
+        two_digits(),
+        char(':'),
+        two_digits(),
+        parser(time_zone),
+    ).map(|(hour, _, minute, _, second, time_zone)| {
             // Its ok to just unwrap since we only parsed digits
             Time {
                 hour: hour,
@@ -110,15 +131,16 @@ fn time<I>(input: I) -> ParseResult<Time, I>
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
 fn date_time<I>(input: I) -> ParseResult<DateTime, I>
-    where I: Stream<Item = char>
+where
+    I: Stream<Item = char>,
 {
     (parser(date), char('T'), parser(time))
         .map(|(date, _, time)| {
-                 DateTime {
-                     date: date,
-                     time: time,
-                 }
-             })
+            DateTime {
+                date: date,
+                time: time,
+            }
+        })
         .parse_stream(input)
 }
 
