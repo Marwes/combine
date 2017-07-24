@@ -520,6 +520,54 @@ impl<P, I, R> ParseError<P, I, R> {
             }
         }
     }
+
+    /// Maps the position to a new value
+    pub fn map_position<F, Q>(self, f: F) -> ParseError<Q, I, R>
+    where
+        F: FnOnce(P) -> Q,
+    {
+        ParseError::from_errors(f(self.position), self.errors)
+    }
+
+    /// Maps all token variants to a new value
+    pub fn map_token<F, U>(self, mut f: F) -> ParseError<P, U, R>
+    where
+        F: FnMut(I) -> U,
+    {
+        ParseError::from_errors(
+            self.position,
+            self.errors
+                .into_iter()
+                .map(|error| error.map_token(&mut f))
+                .collect(),
+        )
+    }
+
+    /// Maps all range variants to a new value.
+    ///
+    /// ```
+    /// use combine::Parser;
+    /// use combine::range::range;
+    /// println!(
+    ///     "{}",
+    ///     range(&"HTTP"[..])
+    ///         .parse("HTT")
+    ///         .unwrap_err()
+    ///         .map_range(|bytes| format!("{:?}", bytes))
+    /// );
+    /// ```
+    pub fn map_range<F, S>(self, mut f: F) -> ParseError<P, I, S>
+    where
+        F: FnMut(R) -> S,
+    {
+        ParseError::from_errors(
+            self.position,
+            self.errors
+                .into_iter()
+                .map(|error| error.map_range(&mut f))
+                .collect(),
+        )
+    }
 }
 
 impl<'s> StreamError<&'s str> {
