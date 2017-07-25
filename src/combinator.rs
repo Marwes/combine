@@ -2424,18 +2424,15 @@ macro_rules! hlist {
         hlist!($first)
     };
     // Forwarding of trailing comma variants -->
-
 }
 
-macro_rules! hlist_pat {
-    {} => { _ };
-    { $head:pat, $($tail:tt), +} => { HCons{ head: $head, tail: hlist_pat!($($tail),*) } };
-    { $head:pat } => { HCons { head: $head, tail: _ } };
-
-    // <-- Forward trailing comma variants
-    { $head:pat, $($tail:tt,) +} => { hlist_pat!($head, $($tail),*) };
-    { $head:pat, } => { hlist_pat!($head) };
-    // Forward trailing comma variants -->
+macro_rules! dispatch_on {
+    ($i: expr, $f: expr;) => {
+    };
+    ($i: expr, $f: expr; $first: ident $(, $id: ident)*) => { {
+        $f($i, $first);
+        dispatch_on!($i + 1, $f; $($id),*);
+    } }
 }
 
 macro_rules! tuple_parser {
@@ -2450,13 +2447,73 @@ macro_rules! tuple_parser {
             type Output = ($h::Output, $($id::Output),+);
 
             #[inline]
+            #[allow(unused_assignments)]
             fn parse_lazy(&mut self,
-                          input: Input)
+                          mut input: Input)
                           -> ConsumedResult<($h::Output, $($id::Output),+), Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
-                hlist![$h, $($id),+]
-                    .parse_lazy(input)
-                    .map(|hlist_pat![$h, $($id),+]| ($h, $($id),+))
+                let mut first_empty_parser = 0;
+                let mut current_parser = 0;
+
+                macro_rules! add_error {
+                    ($err: expr) => {
+                        dispatch_on!(0, |i, p| {
+                            if i >= first_empty_parser {
+                                Parser::add_error(p, &mut $err);
+                            }
+                        }; $h, $($id),*);
+                    }
+                }
+
+                let temp = match $h.parse_lazy(input) {
+                    ConsumedOk((x, new_input)) => {
+                        first_empty_parser = current_parser + 1;
+                        input = new_input;
+                        x
+                    }
+                    EmptyErr(err) => return EmptyErr(err),
+                    ConsumedErr(err) => return ConsumedErr(err),
+                    EmptyOk((x, new_input)) => {
+                        input = new_input;
+                        x
+                    }
+                };
+                let mut offset = $h.parser_count();
+                let $h = temp;
+                $(
+                    current_parser += 1;
+                    let temp = match $id.parse_lazy(input.clone()) {
+                        ConsumedOk((x, new_input)) => {
+                            first_empty_parser = current_parser + 1;
+                            input = new_input;
+                            x
+                        }
+                        EmptyErr(mut err) => {
+                            if first_empty_parser != 0 {
+                                if let Ok(t) = input.uncons() {
+                                    err.error.add_error(Error::Unexpected(Info::Token(t)));
+                                }
+                                add_error!(err);
+                                return ConsumedErr(err.error)
+                            } else {
+                                err.offset = offset;
+                                return EmptyErr(err)
+                            }
+                        }
+                        ConsumedErr(err) => return ConsumedErr(err),
+                        EmptyOk((x, new_input)) => {
+                            input = new_input;
+                            x
+                        }
+                    };
+                    offset = offset.saturating_add($id.parser_count());
+                    let $id = temp;
+                )+
+                if first_empty_parser != 0 {
+                    ConsumedOk((($h, $($id),+), input))
+                } else {
+                    EmptyOk((($h, $($id),+), input))
+                }
             }
 
             #[inline(always)]
