@@ -1,7 +1,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Info, Parser, ParseResult, ConsumedResult, ParseError, StreamError, Stream,
-                 StreamOnce, Error, Consumed};
+use primitives::{Consumed, ConsumedResult, Error, Info, ParseError, ParseResult, Parser, Stream,
+                 StreamError, StreamOnce};
 use primitives::FastResult::*;
 
 macro_rules! impl_parser {
@@ -2527,7 +2527,7 @@ mod tests {
     #[test]
     fn sep_by_consumed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(Vec<(char, char)>, &str), ParseError<usize, char, &str>> =
+        let result_err: Result<(Vec<(char, char)>, &str), ParseError<_, char, &str>> =
             parser2.parse("a,bc");
         assert!(result_err.is_err());
     }

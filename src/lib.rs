@@ -159,7 +159,7 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{Parser, ParseError, StreamError, ConsumedResult, ParseResult, State, Stream,
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, State, Stream, StreamError,
                      StreamOnce};
 
 // import this one separately, so we can set the allow(deprecated) for just this item
@@ -760,7 +760,7 @@ mod tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<usize, char, &str>> =
+        let result: Result<((), _), ParseError<_, char, &str>> =
             string("abc").and_then(|_| Err(Error)).parse("abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
@@ -818,7 +818,7 @@ mod tests {
         let input = &[CloneOnly("x".to_string()), CloneOnly("y".to_string())][..];
         let result = token(CloneOnly("z".to_string()))
             .parse(input)
-            .map_err(|e| e.translate_position(input))
+            .map_err(|e| e.map_position(|p| p.translate_position(input)))
             .map_err(|e| {
                 ExtractedError(
                     e.position,
