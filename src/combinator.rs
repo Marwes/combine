@@ -1,8 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use frunk::hlist::HCons;
-
 use primitives::{Consumed, ConsumedResult, Error, ErrorOffset, Info, ParseError, StreamError, Positioned, ParseResult,
                  Parser, Stream, StreamOnce, TrackedError};
 use primitives::FastResult::*;
@@ -2309,123 +2307,6 @@ where
     AndThen(p, f)
 }
 
-struct HNilInput<Input>(::std::marker::PhantomData<Input>);
-impl<Input> Parser for HNilInput<Input>
-where
-    Input: Stream,
-{
-    type Input = Input;
-    type Output = ();
-
-    #[inline]
-    fn parse_lazy(&mut self, input: Input) -> ConsumedResult<Self::Output, Input> {
-        EmptyOk(((), input))
-    }
-}
-
-impl<Input, H, T> Parser for HCons<H, T>
-where
-    H: Parser<Input = Input>,
-    T: Parser<Input = Input>,
-    Input: Stream,
-{
-    type Input = Input;
-    type Output = HCons<H::Output, T::Output>;
-
-    #[inline]
-    fn parse_lazy(&mut self, input: Input) -> ConsumedResult<Self::Output, Input> {
-        match self.head.parse_lazy(input) {
-            ConsumedOk((x, mut new_input)) => {
-                match self.tail.parse_lazy(new_input.clone()) {
-                    EmptyErr(mut err) => {
-                        if let Ok(t) = new_input.uncons() {
-                            err.error.add_error(Error::Unexpected(Info::Token(t)));
-                        }
-                        self.tail.add_error(&mut err);
-                        ConsumedErr(err.error)
-                    }
-                    ConsumedErr(err) => return ConsumedErr(err),
-                    EmptyOk(y) | ConsumedOk(y) => {
-                        let (tail, input) = y;
-                        ConsumedOk((
-                            HCons {
-                                head: x,
-                                tail: tail,
-                            },
-                            input,
-                        ))
-                    }
-                }
-            }
-            EmptyErr(err) => return EmptyErr(err),
-            ConsumedErr(err) => return ConsumedErr(err),
-            EmptyOk((x, new_input)) => {
-                match self.tail.parse_lazy(new_input) {
-                    EmptyOk((tail, input)) => EmptyOk((
-                        HCons {
-                            head: x,
-                            tail: tail,
-                        },
-                        input,
-                    )),
-                    ConsumedOk((tail, input)) => ConsumedOk((
-                        HCons {
-                            head: x,
-                            tail: tail,
-                        },
-                        input,
-                    )),
-                    EmptyErr(mut err) => {
-                        err.offset = err.offset.saturating_add(self.head.parser_count());
-                        EmptyErr(err)
-                    }
-                    ConsumedErr(err) => ConsumedErr(err),
-                }
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn parser_count(&self) -> ErrorOffset {
-        self.head.parser_count() + self.tail.parser_count()
-    }
-
-    #[inline]
-    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
-        self.head.add_error(errors);
-        if errors.offset == 0 {
-            return;
-        }
-        errors.offset = errors.offset.saturating_sub(self.head.parser_count());
-        self.tail.add_error(errors);
-    }
-}
-
-macro_rules! hlist {
-
-    // Nothing
-    () => { HNilInput(::std::marker::PhantomData) };
-
-    // Just a single item
-    ($single: expr) => {
-        HCons { head: $single, tail:  HNilInput(::std::marker::PhantomData) } 
-    };
-
-    ($first: expr, $( $repeated: expr ), +) => {
-        HCons { head: $first, tail: hlist!($($repeated), *)}
-    };
-
-    // <-- Forwarding of trailing comma variants
-    ($first: expr, $( $repeated: expr, ) +) => {
-        hlist!($first, $($repeated),*)
-    };
-
-    ($first: expr, ) => {
-        hlist!($first)
-    };
-    // Forwarding of trailing comma variants -->
-}
-
 macro_rules! dispatch_on {
     ($i: expr, $f: expr;) => {
     };
@@ -2525,7 +2406,18 @@ macro_rules! tuple_parser {
             #[inline(always)]
             fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
                 let (ref mut $h, $(ref mut $id),+) = *self;
-                hlist![$h, $($id),+].add_error(errors)
+                $h.add_error(errors);
+                if errors.offset == 0 {
+                    return;
+                }
+                errors.offset = errors.offset.saturating_sub($h.parser_count());
+                $(
+                    $id.add_error(errors);
+                    if errors.offset == 0 {
+                        return;
+                    }
+                    errors.offset = errors.offset.saturating_sub($id.parser_count());
+                )*
             }
         }
     }
@@ -3015,6 +2907,23 @@ mod tests {
     #[test]
     fn optional_empty_ok_then_error() {
         let mut parser = (optional(char('a')), char('b'));
+
+        assert_eq!(
+            parser.parse(State::new("c")),
+            Err(ParseError {
+                position: SourcePosition { line: 1, column: 1 },
+                errors: vec![
+                    Error::Unexpected('c'.into()),
+                    Error::Expected('a'.into()),
+                    Error::Expected('b'.into()),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn nested_optional_empty_ok_then_error() {
+        let mut parser = ((optional(char('a')), char('b')), char('c'));
 
         assert_eq!(
             parser.parse(State::new("c")),
