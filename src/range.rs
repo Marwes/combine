@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError};
+use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError, StreamOnce};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -32,6 +32,50 @@ where
         // TODO Add unexpected message?
         errors.add_error(Error::Expected(Info::Range(self.0.clone())));
     }
+}
+
+pub struct RangeOf<P>(P);
+
+impl<P> Parser for RangeOf<P>
+where
+    P: Parser,
+    P::Input: RangeStream,
+    <P::Input as StreamOnce>::Range: ::primitives::Range,
+{
+    type Input = P::Input;
+    type Output = <P::Input as StreamOnce>::Range;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let (_, new_input) = ctry!(self.0.parse_lazy(input.clone()));
+        let distance = input.distance(&new_input.into_inner());
+        take(distance).parse_lazy(input)
+    }
+    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
+        self.0.add_error(errors)
+    }
+}
+
+/// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
+/// range.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::range::range_of;
+/// # use combine::char::letter;
+/// # use combine::*;
+/// # fn main() {
+/// let mut parser = range_of(skip_many1(letter()));
+/// assert_eq!(parser.parse("hello world"), Ok(("hello", " world")));
+/// assert!(parser.parse("!").is_err());
+/// # }
+/// ```
+#[inline(always)]
+pub fn range_of<P>(parser: P) -> RangeOf<P>
+where
+    P: Parser
+{
+    RangeOf(parser)
 }
 
 /// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that

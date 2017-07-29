@@ -740,6 +740,11 @@ where
             false
         })
     }
+
+    #[inline]
+    fn distance(&self, end: &Self) -> usize {
+        self.input.distance(&end.input)
+    }
 }
 
 impl<I, E> FullRangeStream for State<I>
@@ -816,6 +821,15 @@ pub trait RangeStream: Stream {
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Error<Self::Item, Self::Range>>
     where
         F: FnMut(Self::Item) -> bool;
+
+    /// Returns the distance between `self` and `end`. The returned `usize` must be so that
+    ///
+    /// ```ignore
+    /// let start = stream.clone();
+    /// stream.uncons_range(distance);
+    /// start.distance() == distance
+    /// ```
+    fn distance(&self, end: &Self) -> usize;
 }
 
 /// A `RangeStream` which is capable of providing it's entire range.
@@ -898,6 +912,11 @@ impl<'a> RangeStream for &'a str {
             Err(Error::end_of_input())
         }
     }
+
+    #[inline]
+    fn distance(&self, end: &Self) -> usize {
+        end.position().0 - self.position().0
+    }
 }
 
 impl<'a> FullRangeStream for &'a str {
@@ -934,6 +953,7 @@ where
             Err(Error::end_of_input())
         }
     }
+
     #[inline]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Error<T, &'a [T]>>
     where
@@ -943,6 +963,11 @@ where
         let (result, remaining) = self.split_at(len);
         *self = remaining;
         Ok(result)
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self) -> usize {
+        end.position().0 - self.position().0
     }
 }
 
@@ -1062,6 +1087,11 @@ where
         let (range, rest) = self.0.split_at(len);
         self.0 = rest;
         Ok(range)
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self) -> usize {
+        self.0.distance(&end.0)
     }
 }
 
