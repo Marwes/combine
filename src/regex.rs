@@ -37,7 +37,7 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, FullRangeStream, ParseError, Parser};
+use primitives::{ConsumedResult, Error, FullRangeStream, StreamError, ParseError, Parser};
 use primitives::FastResult::*;
 use range::take;
 
@@ -221,7 +221,7 @@ where
             EmptyErr(ParseError::empty(input.position()))
         }
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
@@ -272,7 +272,7 @@ where
             None => EmptyErr(ParseError::empty(input.position())),
         }
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
@@ -325,7 +325,7 @@ where
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
@@ -380,7 +380,7 @@ where
             None => EmptyErr(ParseError::empty(input.position())),
         }
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
@@ -440,7 +440,7 @@ where
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }

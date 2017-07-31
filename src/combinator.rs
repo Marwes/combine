@@ -1,6 +1,6 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Consumed, ConsumedResult, Error, Info, ParseError, ParseResult, Parser, Stream,
+use primitives::{Consumed, ConsumedResult, Error, Info, ParseError, ParseResult, Parser, Positioned, Stream,
                  StreamError, StreamOnce};
 use primitives::FastResult::*;
 
@@ -653,7 +653,7 @@ where
         }
     }
 
-    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
         self.parser.add_error(error)
     }
 }
@@ -951,7 +951,7 @@ pub struct Iter<P: Parser> {
     state: State<P::Input>,
 }
 
-enum State<I: StreamOnce> {
+enum State<I: StreamOnce + Positioned> {
     Ok,
     EmptyErr,
     ConsumedErr(StreamError<I>),
@@ -2486,7 +2486,7 @@ where
     }
 
     #[inline]
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut StreamError<Self::Input>) {
         self.0.add_error(errors)
     }
 }
