@@ -5,7 +5,7 @@ extern crate combine;
 
 use combine::combinator::FnParser;
 use combine::char::{char, digit};
-use combine::{Stream, Parser, ParseResult, choice, many, optional, parser};
+use combine::{choice, many, optional, parser, ParseResult, Parser, Stream};
 
 type FnPtrParser<O, I> = FnParser<I, fn(I) -> ParseResult<O, I>>;
 

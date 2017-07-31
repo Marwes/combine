@@ -3,12 +3,12 @@ use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::error::Error as StdError;
 use std::fmt;
-use std::io::{Read, Bytes};
+use std::io::{Bytes, Read};
 
 use self::FastResult::*;
 
-use combinator::{AndThen, and_then, Expected, expected, FlatMap, flat_map, Iter, Map, map,
-                 Message, message, Or, or, Skip, skip, Then, then, With, with};
+use combinator::{and_then, expected, flat_map, map, message, or, skip, then, with, AndThen,
+                 Expected, FlatMap, Iter, Map, Message, Or, Skip, Then, With};
 
 #[macro_export]
 macro_rules! ctry {
@@ -394,13 +394,11 @@ impl<T> Consumed<T> {
         I: StreamOnce,
     {
         match self {
-            Consumed::Consumed(x) => {
-                match f(x) {
-                    Ok((v, Consumed::Empty(rest))) => Ok((v, Consumed::Consumed(rest))),
-                    Err(Consumed::Empty(err)) => Err(Consumed::Consumed(err)),
-                    y => y,
-                }
-            }
+            Consumed::Consumed(x) => match f(x) {
+                Ok((v, Consumed::Empty(rest))) => Ok((v, Consumed::Consumed(rest))),
+                Err(Consumed::Empty(err)) => Err(Consumed::Consumed(err)),
+                y => y,
+            },
             Consumed::Empty(x) => f(x),
         }
     }
@@ -411,13 +409,11 @@ impl<T> Consumed<T> {
     {
         use self::FastResult::*;
         match self {
-            Consumed::Consumed(x) => {
-                match f(x) {
-                    EmptyOk((v, rest)) => ConsumedOk((v, rest)),
-                    EmptyErr(err) => ConsumedErr(err),
-                    y => y,
-                }
-            }
+            Consumed::Consumed(x) => match f(x) {
+                EmptyOk((v, rest)) => ConsumedOk((v, rest)),
+                EmptyErr(err) => ConsumedErr(err),
+                y => y,
+            },
             Consumed::Empty(x) => f(x),
         }
     }
@@ -793,13 +789,11 @@ where
 {
     match input.uncons_while(predicate) {
         Err(err) => EmptyErr(ParseError::new(input.position(), err)),
-        Ok(x) => {
-            if x.len() == 0 {
-                EmptyOk((x, input))
-            } else {
-                ConsumedOk((x, input))
-            }
-        }
+        Ok(x) => if x.len() == 0 {
+            EmptyOk((x, input))
+        } else {
+            ConsumedOk((x, input))
+        },
     }
 }
 
@@ -1257,12 +1251,10 @@ impl<T, E> FastResult<T, E> {
         F: FnOnce(T) -> FastResult<T2, E>,
     {
         match self {
-            ConsumedOk(t) => {
-                match f(t) {
-                    ConsumedOk(t2) | EmptyOk(t2) => ConsumedOk(t2),
-                    EmptyErr(e) | ConsumedErr(e) => ConsumedErr(e),
-                }
-            }
+            ConsumedOk(t) => match f(t) {
+                ConsumedOk(t2) | EmptyOk(t2) => ConsumedOk(t2),
+                EmptyErr(e) | ConsumedErr(e) => ConsumedErr(e),
+            },
             EmptyOk(t) => f(t),
             ConsumedErr(e) => ConsumedErr(e),
             EmptyErr(e) => EmptyErr(e),
@@ -2035,8 +2027,7 @@ mod tests {
         let input = &[
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
-        ]
-            [..];
+        ][..];
         let result = ::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
         assert_eq!(
             result,

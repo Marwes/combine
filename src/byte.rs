@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
-use primitives::{ConsumedResult, Info, Parser, ParseError, Stream};
+use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
+use primitives::{ConsumedResult, Info, ParseError, Parser, Stream};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///

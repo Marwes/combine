@@ -1,5 +1,5 @@
-use primitives::{Parser, ParseError, ConsumedResult, Stream};
-use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
+use primitives::{ConsumedResult, ParseError, Parser, Stream};
+use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use std::marker::PhantomData;
 
 /// Parses a character and succeeds if the character is equal to `c`.

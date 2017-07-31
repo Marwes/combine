@@ -1,7 +1,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use primitives::{Info, Parser, ParseResult, ConsumedResult, ParseError, Stream, StreamOnce, Error,
-                 Consumed};
+use primitives::{Consumed, ConsumedResult, Error, Info, ParseError, ParseResult, Parser, Stream,
+                 StreamOnce};
 use primitives::FastResult::*;
 
 macro_rules! impl_parser {
@@ -88,12 +88,10 @@ where
 {
     let position = input.position();
     match input.uncons() {
-        Ok(c) => {
-            match predicate(c.clone()) {
-                Some(c) => ConsumedOk((c, input)),
-                None => EmptyErr(ParseError::empty(position)),
-            }
-        }
+        Ok(c) => match predicate(c.clone()) {
+            Some(c) => ConsumedOk((c, input)),
+            None => EmptyErr(ParseError::empty(position)),
+        },
         Err(err) => EmptyErr(ParseError::new(position, err)),
     }
 }
@@ -420,12 +418,10 @@ where
             }
         }
         EmptyErr(match empty_err {
-            None => {
-                ParseError::new(
-                    input.position(),
-                    Error::Message("parser choice is empty".into()),
-                )
-            }
+            None => ParseError::new(
+                input.position(),
+                Error::Message("parser choice is empty".into()),
+            ),
             Some(err) => err,
         })
     }
@@ -851,13 +847,11 @@ impl<P: Parser> Iter<P> {
 
     fn into_result_fast<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => {
-                if self.consumed {
-                    ConsumedOk((value, self.input))
-                } else {
-                    EmptyOk((value, self.input))
-                }
-            }
+            State::Ok | State::EmptyErr => if self.consumed {
+                ConsumedOk((value, self.input))
+            } else {
+                EmptyOk((value, self.input))
+            },
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
@@ -867,27 +861,25 @@ impl<P: Parser> Iterator for Iter<P> {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
         match self.state {
-            State::Ok => {
-                match self.parser.parse_lazy(self.input.clone()) {
-                    EmptyOk((v, input)) => {
-                        self.input = input;
-                        Some(v)
-                    }
-                    ConsumedOk((v, input)) => {
-                        self.input = input;
-                        self.consumed = true;
-                        Some(v)
-                    }
-                    EmptyErr(_) => {
-                        self.state = State::EmptyErr;
-                        None
-                    }
-                    ConsumedErr(e) => {
-                        self.state = State::ConsumedErr(e);
-                        None
-                    }
+            State::Ok => match self.parser.parse_lazy(self.input.clone()) {
+                EmptyOk((v, input)) => {
+                    self.input = input;
+                    Some(v)
                 }
-            }
+                ConsumedOk((v, input)) => {
+                    self.input = input;
+                    self.consumed = true;
+                    Some(v)
+                }
+                EmptyErr(_) => {
+                    self.state = State::EmptyErr;
+                    None
+                }
+                ConsumedErr(e) => {
+                    self.state = State::ConsumedErr(e);
+                    None
+                }
+            },
             State::ConsumedErr(_) | State::EmptyErr => None,
         }
     }
@@ -1477,7 +1469,8 @@ where
         loop {
             match (&mut self.1, &mut self.0)
                 .parse_lazy(input.clone().into_inner())
-                .into() {
+                .into()
+            {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
                     input = input.merge(rest);
@@ -1803,14 +1796,12 @@ where
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(error1) => {
-                match self.1.parse_lazy(input) {
-                    ConsumedOk(x) => ConsumedOk(x),
-                    EmptyOk(x) => EmptyOk(x),
-                    ConsumedErr(err) => ConsumedErr(err),
-                    EmptyErr(error2) => EmptyErr(error1.merge(error2)),
-                }
-            }
+            EmptyErr(error1) => match self.1.parse_lazy(input) {
+                ConsumedOk(x) => ConsumedOk(x),
+                EmptyOk(x) => EmptyOk(x),
+                ConsumedErr(err) => ConsumedErr(err),
+                EmptyErr(error2) => EmptyErr(error1.merge(error2)),
+            },
         }
     }
     fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
@@ -1883,18 +1874,14 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
         match self.0.parse_lazy(input) {
-            EmptyOk((o, input)) => {
-                match (self.1)(o) {
-                    Ok(x) => EmptyOk((x, input)),
-                    Err(err) => EmptyErr(err),
-                }
-            }
-            ConsumedOk((o, input)) => {
-                match (self.1)(o) {
-                    Ok(x) => ConsumedOk((x, input)),
-                    Err(err) => ConsumedErr(err),
-                }
-            }
+            EmptyOk((o, input)) => match (self.1)(o) {
+                Ok(x) => EmptyOk((x, input)),
+                Err(err) => EmptyErr(err),
+            },
+            ConsumedOk((o, input)) => match (self.1)(o) {
+                Ok(x) => ConsumedOk((x, input)),
+                Err(err) => ConsumedErr(err),
+            },
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
         }
@@ -2027,18 +2014,14 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<O, Self::Input> {
         match self.0.parse_lazy(input) {
-            EmptyOk((o, input)) => {
-                match (self.1)(o) {
-                    Ok(o) => EmptyOk((o, input)),
-                    Err(err) => EmptyErr(ParseError::new(input.position(), err.into())),
-                }
-            }
-            ConsumedOk((o, input)) => {
-                match (self.1)(o) {
-                    Ok(o) => ConsumedOk((o, input)),
-                    Err(err) => ConsumedErr(ParseError::new(input.position(), err.into())),
-                }
-            }
+            EmptyOk((o, input)) => match (self.1)(o) {
+                Ok(o) => EmptyOk((o, input)),
+                Err(err) => EmptyErr(ParseError::new(input.position(), err.into())),
+            },
+            ConsumedOk((o, input)) => match (self.1)(o) {
+                Ok(o) => ConsumedOk((o, input)),
+                Err(err) => ConsumedErr(ParseError::new(input.position(), err.into())),
+            },
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
         }
@@ -2212,7 +2195,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Positioner, Parser, SourcePosition, State};
+    use primitives::{Error, ParseError, Parser, Positioner, SourcePosition, State};
     use char::{char, digit, letter};
 
     #[test]
@@ -2282,8 +2265,7 @@ mod tests {
         let input = &[
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
-        ]
-            [..];
+        ][..];
         let result = token(CloneOnly { s: "x".to_string() }).parse(input);
         assert_eq!(
             result,

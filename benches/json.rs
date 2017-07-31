@@ -7,10 +7,10 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use pc::primitives::{Consumed, Parser, ParseError, ParseResult, State, Stream, BufferedStream};
-use pc::combinator::{any, between, choice, many, many1, optional, parser, satisfy, sep_by,
-                     Expected, FnParser, Skip};
-use pc::char::{char, digit, spaces, Spaces, string};
+use pc::primitives::{BufferedStream, Consumed, ParseError, ParseResult, Parser, State, Stream};
+use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
+                     FnParser, Skip, many1};
+use pc::char::{char, digit, spaces, string, Spaces};
 use pc::from_iter;
 
 #[derive(PartialEq, Debug)]
@@ -116,12 +116,10 @@ where
         });
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
-            '"' => {
-                Err(Consumed::Empty(ParseError::from_errors(
-                    input.into_inner().position(),
-                    Vec::new(),
-                )))
-            }
+            '"' => Err(Consumed::Empty(ParseError::from_errors(
+                input.into_inner().position(),
+                Vec::new(),
+            ))),
             _ => Ok((c, input)),
         }
     }

@@ -5,7 +5,7 @@ extern crate test;
 extern crate combine;
 extern crate byteorder;
 
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 
 use std::str::from_utf8;
 
