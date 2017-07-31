@@ -159,6 +159,12 @@ impl<T, R> From<&'static str> for Info<T, R> {
     }
 }
 
+impl<R> From<u8> for Info<u8, R> {
+    fn from(s: u8) -> Info<u8, R> {
+        Info::Token(s)
+    }
+}
+
 /// Enum used to store information about an error that has occurred during parsing.
 #[derive(Debug)]
 pub enum Error<T, R> {
