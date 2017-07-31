@@ -11,10 +11,11 @@ use std::path::Path;
 use bencher::{black_box, Bencher};
 
 use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseError, ParseResult, Parser,
-                     State, Stream};
+                     Stream};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
 use pc::char::{char, digit, spaces, string, Spaces};
+use pc::state::{SourcePosition, State};
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -238,9 +239,9 @@ fn bench_buffered_json(bencher: &mut Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     bencher.iter(|| {
-        let buffer = BufferedStream::new(IteratorStream::new(data.chars()), 1);
+        let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
-        match parser.parse(State::new(buffer.as_stream())) {
+        match parser.parse(State::with_positioner(buffer.as_stream(), SourcePosition::default())) {
             Ok((Value::Array(v), _)) => {
                 black_box(v);
             }

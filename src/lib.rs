@@ -542,7 +542,7 @@ mod tests {
     #[allow(deprecated)]
     fn iterator() {
         let result = parser(integer)
-            .parse(from_iter("123".chars()))
+            .parse(State::new(from_iter("123".chars())))
             .map(|(i, mut input)| (i, input.uncons().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }

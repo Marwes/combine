@@ -3,6 +3,7 @@ extern crate combine;
 use combine::primitives::{BufferedStream, Error};
 use combine::char::{char, digit, spaces, string};
 use combine::{choice, many, sep_by, try, Parser, Positioned, many1};
+use combine::state::State;
 
 #[allow(deprecated)]
 use combine::from_iter;
@@ -16,7 +17,7 @@ fn shared_stream_buffer() {
     } else {
         c
     });
-    let buffer = BufferedStream::new(from_iter(text), 1);
+    let buffer = BufferedStream::new(State::new(from_iter(text)), 1);
     let int: &mut Parser<Input = _, Output = _> =
         &mut many(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = sep_by(int, char(','))
@@ -31,7 +32,7 @@ fn shared_stream_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
     // Iterator that can't be cloned
-    let buffer = BufferedStream::new(from_iter(&mut iter), 2);
+    let buffer = BufferedStream::new(State::new(from_iter(&mut iter)), 2);
     let stream = buffer.as_stream();
 
     let value: &mut Parser<Input = _, Output = _> = &mut choice([
@@ -50,7 +51,7 @@ fn shared_stream_insufficent_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
     // Iterator that can't be cloned
-    let buffer = BufferedStream::new(from_iter(&mut iter), 1);
+    let buffer = BufferedStream::new(State::new(from_iter(&mut iter)), 1);
     let stream = buffer.as_stream();
 
     let value: &mut Parser<Input = _, Output = _> = &mut choice([
@@ -76,7 +77,7 @@ fn shared_stream_insufficent_backtrack() {
 #[allow(deprecated)]
 fn always_output_end_of_input_after_end_of_input() {
     let text = "10".chars();
-    let buffer = BufferedStream::new(from_iter(text), 1);
+    let buffer = BufferedStream::new(State::new(from_iter(text)), 1);
     let int = many1(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = many(spaces().with(int))
         .parse(buffer.as_stream())
@@ -88,7 +89,7 @@ fn always_output_end_of_input_after_end_of_input() {
 #[allow(deprecated)]
 fn position() {
     let text = "10abc".chars();
-    let buffer = BufferedStream::new(from_iter(text), 3);
+    let buffer = BufferedStream::new(State::new(from_iter(text)), 3);
     let stream = buffer.as_stream();
     println!("{:?}", stream);
     assert_eq!(stream.position(), 0);

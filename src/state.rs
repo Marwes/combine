@@ -1,6 +1,6 @@
 use std::fmt;
 
-use primitives::{Error, FullRangeStream, Positioned, RangeStream, SliceStream, StreamOnce};
+use primitives::{Error, FullRangeStream, Positioned, RangeStream, IteratorStream, ReadStream, SliceStream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -18,6 +18,7 @@ pub trait RangePositioner<Item, Range>: Positioner<Item> {
     fn update_range(&mut self, range: &Range);
 }
 
+/// Defines a default `Positioner` type for a particular `Stream` type.
 pub trait DefaultPositioned {
     type Positioner: Default;
 }
@@ -31,6 +32,14 @@ impl<'a, T> DefaultPositioned for &'a [T] {
 }
 
 impl<'a, T> DefaultPositioned for SliceStream<'a, T> {
+    type Positioner = IndexPositioner;
+}
+
+impl<T> DefaultPositioned for IteratorStream<T> {
+    type Positioner = IndexPositioner;
+}
+
+impl<R> DefaultPositioned for ReadStream<R> {
     type Positioner = IndexPositioner;
 }
 

@@ -54,19 +54,6 @@ impl PointerOffset {
     }
 }
 
-/// Struct which represents a position in a byte stream.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct BytePosition {
-    /// Current position
-    pub position: usize,
-}
-
-impl fmt::Display for BytePosition {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "position: {}", self.position)
-    }
-}
-
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding simple descriptions.
 ///
@@ -994,7 +981,7 @@ where
 ///
 /// [`from_iter`]: fn.from_iter.html
 #[derive(Clone, Debug)]
-pub struct IteratorStream<I>(I, usize);
+pub struct IteratorStream<I>(I);
 
 
 impl<I> IteratorStream<I>
@@ -1002,8 +989,11 @@ where
     I: Iterator,
 {
     /// Converts an `Iterator` into a stream.
+    ///
+    /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
+    ///     such as `BufferedStream` and `State` to become a `Stream` which can be parsed
     pub fn new(iter: I) -> IteratorStream<I> {
-        IteratorStream(iter, 0)
+        IteratorStream(iter)
     }
 }
 
@@ -1021,22 +1011,7 @@ where
 {
     type Item = I::Item;
     fn next(&mut self) -> Option<I::Item> {
-        match self.0.next() {
-            Some(x) => {
-                self.1 += 1;
-                Some(x)
-            }
-            None => None,
-        }
-    }
-}
-
-impl<I> Positioned for IteratorStream<I> {
-    type Position = usize;
-
-    #[inline(always)]
-    fn position(&self) -> Self::Position {
-        self.1
+        self.0.next()
     }
 }
 
@@ -1058,16 +1033,6 @@ where
 
 pub struct ReadStream<R> {
     bytes: Bytes<R>,
-    offset: usize,
-}
-
-impl<R> Positioned for ReadStream<R> {
-    type Position = usize;
-
-    #[inline(always)]
-    fn position(&self) -> Self::Position {
-        self.offset
-    }
 }
 
 impl<R: Read> StreamOnce for ReadStream<R> {
@@ -1078,7 +1043,6 @@ impl<R: Read> StreamOnce for ReadStream<R> {
     fn uncons(&mut self) -> Result<u8, Error<u8, u8>> {
         match self.bytes.next() {
             Some(Ok(b)) => {
-                self.offset += 1;
                 Ok(b)
             }
             Some(Err(err)) => Err(err.into()),
@@ -1093,16 +1057,20 @@ where
 {
     /// Creates a `StreamOnce` instance from a value implementing `std::io::Read`.
     ///
+    /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
+    ///     such as `BufferedStream` and `State` to become a `Stream` which can be parsed
+    ///
     /// ```rust
     /// # extern crate combine;
     /// use combine::*;
     /// use combine::byte::*;
     /// use combine::primitives::{BufferedStream, ReadStream};
+    /// use combine::state::State;
     /// use std::io::Read;
     ///
     /// # fn main() {
     /// let mut input: &[u8] = b"123,";
-    /// let stream = BufferedStream::new(ReadStream::new(&mut input), 1);
+    /// let stream = BufferedStream::new(State::new(ReadStream::new(&mut input)), 1);
     /// let result = (many(digit()), byte(b','))
     ///     .parse(stream.as_stream())
     ///     .map(|t| t.0);
@@ -1112,7 +1080,6 @@ where
     pub fn new(read: R) -> ReadStream<R> {
         ReadStream {
             bytes: read.bytes(),
-            offset: 0,
         }
     }
 }
@@ -1603,7 +1570,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::SourcePosition;
+    /// # use combine::state::SourcePosition;
     /// # use combine::char::digit;
     /// # fn main() {
     /// let mut parser = many1(digit())
