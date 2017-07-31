@@ -626,6 +626,45 @@ where
     }
 }
 
+macro_rules! merge {
+    ($head: ident) => {
+        $head.error
+    };
+    ($head: ident $($tail: ident)+) => {
+        $head.error.merge(merge!($($tail)+))
+    };
+}
+
+macro_rules! do_choice {
+    ($input: ident ( ) $($parser: ident $error: ident)+) => { {
+        let mut error = TrackedError::from(merge!($($error)+));
+        // If offset != 1 then the nested parser is a sequence of parsers where 1 or
+        // more parsers returned `EmptyOk` before the parser finally failed with
+        // `EmptyErr`. Since we lose the offsets of the nested parsers when we merge
+        // the errors we must first extract the errors before we do the merge.
+        // If the offset == 0 on the other hand (which should be the common case) then
+        // we can delay the addition of the error since we know for certain that only
+        // the first parser in the sequence were tried
+        $(
+            if $error.offset != ErrorOffset(1) {
+                error.offset = $error.offset;
+                $parser.add_error(&mut error);
+                error.offset = ErrorOffset(0);
+            }
+        )+
+        EmptyErr(error)
+    } };
+    ($input: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
+        let parser = $head;
+        match parser.parse_lazy($input.clone()) {
+            ConsumedOk(x) => ConsumedOk(x),
+            EmptyOk(x) => EmptyOk(x),
+            ConsumedErr(err) => ConsumedErr(err),
+            EmptyErr($head) => do_choice!($input ( $($tail)* ) $($all)* parser $head),
+        } }
+    }
+}
+
 macro_rules! tuple_choice_parser {
     ($head: ident) => {
     };
@@ -648,11 +687,15 @@ macro_rules! tuple_choice_parser_inner {
             #[inline]
             fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
                 let ($(ref mut $id),+) = *self;
-                choice!($($id),+).parse_lazy(input)
+                do_choice!(input ( $($id)+ ) )
             }
             fn add_error_choice(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-                let ($(ref mut $id),+) = *self;
-                choice!($($id),+).add_error(error)
+                if error.offset != ErrorOffset(0) {
+                    let ($(ref mut $id),+) = *self;
+                    $(
+                        $id.add_error(error);
+                    )+
+                }
             }
         }
     }
@@ -2080,7 +2123,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct Or<P1, P2>(P1, P2)
+pub struct Or<P1, P2>(Choice<(P1, P2)>)
 where
     P1: Parser,
     P2: Parser;
@@ -2094,43 +2137,11 @@ where
     type Output = O;
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
-        match self.0.parse_lazy(input.clone()) {
-            ConsumedOk(x) => ConsumedOk(x),
-            EmptyOk(x) => EmptyOk(x),
-            ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(error1) => match self.1.parse_lazy(input) {
-                ConsumedOk(x) => ConsumedOk(x),
-                EmptyOk(x) => EmptyOk(x),
-                ConsumedErr(err) => ConsumedErr(err),
-                EmptyErr(error2) => {
-                    let mut error = Tracked::from(error1.error.merge(error2.error));
-                    // If offset != 1 then the nested parser is a sequence of parsers where 1 or
-                    // more parsers returned `EmptyOk` before the parser finally failed with
-                    // `EmptyErr`. Since we lose the offsets of the nested parsers when we merge
-                    // the errors we must first extract the errors before we do the merge.
-                    // If the offset == 0 on the other hand (which should be the common case) then
-                    // we can delay the addition of the error since we know for certain that only
-                    // the first parser in the sequence were tried
-                    if error1.offset != ErrorOffset(1) {
-                        error.offset = error1.offset;
-                        self.0.add_error(&mut error);
-                        error.offset = ErrorOffset(0);
-                    }
-                    if error2.offset != ErrorOffset(1) {
-                        error.offset = error2.offset;
-                        self.1.add_error(&mut error);
-                        error.offset = ErrorOffset(0);
-                    }
-                    EmptyErr(error)
-                }
-            },
-        }
+        self.0.parse_lazy(input)
     }
+    #[inline]
     fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
-        if errors.offset != ErrorOffset(0) {
-            self.0.add_error(errors);
-            self.1.add_error(errors);
-        }
+        self.0.add_error(errors);
     }
 }
 
@@ -2146,7 +2157,7 @@ where
     P1: Parser,
     P2: Parser<Input = P1::Input, Output = P1::Output>,
 {
-    Or(p1, p2)
+    Or(choice((p1, p2)))
 }
 
 #[derive(Clone)]
