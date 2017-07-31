@@ -158,15 +158,15 @@ where
             sep_by(Json::<I>::value(), lex(char(','))),
         ).map(Value::Array);
 
-        choice::<[&mut Parser<Input = I, Output = Value>; 7], _>([
-            &mut Json::<I>::string().map(Value::String),
-            &mut Json::<I>::object(),
-            &mut array,
-            &mut Json::<I>::number().map(Value::Number),
-            &mut lex(string("false").map(|_| Value::Bool(false))),
-            &mut lex(string("true").map(|_| Value::Bool(true))),
-            &mut lex(string("null").map(|_| Value::Null)),
-        ]).parse_lazy(input)
+        choice((
+            Json::<I>::string().map(Value::String),
+            Json::<I>::object(),
+            array,
+            Json::<I>::number().map(Value::Number),
+            lex(string("false").map(|_| Value::Bool(false))),
+            lex(string("true").map(|_| Value::Bool(true))),
+            lex(string("null").map(|_| Value::Null)),
+        )).parse_lazy(input)
             .into()
     }
 }

@@ -391,21 +391,153 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Choice<S, P>(S, PhantomData<P>);
+/// Takes a number of parsers and tries to apply them each in order.
+/// Fails if all the parsers fails or if an applied parser consumes input before failing.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::{digit, letter, string};
+/// # use combine::primitives::Error;
+/// # fn main() {
+/// let mut parser = choice!(
+///     many1(digit()),
+///     string("let").map(|s| s.to_string()),
+///     many1(letter()));
+/// assert_eq!(parser.parse("let"), Ok(("let".to_string(), "")));
+/// assert_eq!(parser.parse("123abc"), Ok(("123".to_string(), "abc")));
+/// assert!(parser.parse(":123").is_err());
+/// # }
+/// ```
+#[macro_export]
+macro_rules! choice {
+    ($first : expr) => {
+        $first
+    };
+    ($first : expr, $($rest : expr),+) => {
+        $first.or(choice!($($rest),+))
+    }
+}
 
-impl<I, O, S, P> Parser for Choice<S, P>
+/// `ChoiceParser` represents a parser which may parse one of several different choices depending
+/// on the input.
+///
+/// This is an internal trait used to overload the `choice` function.
+pub trait ChoiceParser {
+    type Input: Stream;
+    type Output;
+    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
+    fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>);
+}
+
+impl<'a, P> ChoiceParser for &'a mut P
+where
+    P: ?Sized + ChoiceParser,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+
+    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_choice(input)
+    }
+    fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
+        (**self).add_error_choice(error)
+    }
+}
+
+macro_rules! tuple_choice_parser {
+    ($head: ident) => {
+    };
+    ($head: ident $($id: ident)+) => {
+        tuple_choice_parser_inner!($head $($id)+);
+        tuple_choice_parser!($($id)+);
+    };
+}
+
+macro_rules! tuple_choice_parser_inner {
+    ($($id: ident)+) => {
+        #[allow(non_snake_case)]
+        impl<Input, Output $(,$id)+> ChoiceParser for ($($id),+)
+        where
+            Input: Stream,
+            $($id: Parser<Input = Input, Output = Output>),+
+        {
+            type Input = Input;
+            type Output = Output;
+            #[inline]
+            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+                let ($(ref mut $id),+) = *self;
+                choice!($($id),+).parse_lazy(input)
+            }
+            fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
+                let ($(ref mut $id),+) = *self;
+                choice!($($id),+).add_error(error)
+            }
+        }
+    }
+}
+
+tuple_choice_parser!(A B C D E F G H I J K L M N O P Q R S T U V X Y Z);
+
+macro_rules! array_choice_parser {
+    ($($t: tt)+) => {
+        $(
+        impl<P> ChoiceParser for [P; $t]
+        where
+            P: Parser,
+        {
+            type Input = P::Input;
+            type Output = P::Output;
+
+            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+                self[..].parse_choice(input)
+            }
+            fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
+                self[..].add_error_choice(error)
+            }
+        }
+        )+
+    };
+}
+
+array_choice_parser!(
+    0 1 2 3 4 5 6 7 8 9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
+    );
+
+#[derive(Clone)]
+pub struct Choice<P>(P);
+
+impl<P> Parser for Choice<P>
+where
+    P: ChoiceParser,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_choice(input)
+    }
+
+    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
+        self.0.add_error_choice(error)
+    }
+}
+
+impl<I, O, P> ChoiceParser for [P]
 where
     I: Stream,
-    S: AsMut<[P]>,
     P: Parser<Input = I, Output = O>,
 {
     type Input = I;
     type Output = O;
     #[inline]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+    fn parse_choice(&mut self, input: I) -> ConsumedResult<O, I> {
         let mut empty_err = None;
-        for p in AsMut::as_mut(&mut self.0) {
+        for p in self {
             match p.parse_lazy(input.clone()) {
                 consumed_err @ ConsumedErr(_) => return consumed_err,
                 EmptyErr(err) => {
@@ -425,8 +557,8 @@ where
             Some(err) => err,
         })
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        for p in self.0.as_mut() {
+    fn add_error_choice(&mut self, error: &mut StreamError<Self::Input>) {
+        for p in self {
             p.add_error(error);
         }
     }
@@ -725,21 +857,28 @@ parser!{
     }
 }
 
-/// Takes an array of parsers and tries to apply them each in order.
+/// Takes a tuple, a slice or an array of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
 ///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string;
-/// # use combine::primitives::Error;
+/// # use combine::char::{digit, string};
 /// # fn main() {
-/// let mut parser = choice([string("Apple"), string("Banana"), string("Orange")]);
-/// assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
-/// assert_eq!(parser.parse("Orangexx"), Ok(("Orange", "xx")));
+/// // `choice` is overloaded on tuples so that different types of parsers can be used
+/// // (each parser must still have the same input and output types)
+/// let mut parser = choice((
+///     string("Apple").map(|s| s.to_string()),
+///     many1(digit()),
+///     string("Orange").map(|s| s.to_string()),
+/// ));
+/// assert_eq!(parser.parse("1234"), Ok(("1234".to_string(), "")));
+/// assert_eq!(parser.parse("Orangexx"), Ok(("Orange".to_string(), "xx")));
 /// assert!(parser.parse("Appl").is_err());
 /// assert!(parser.parse("Pear").is_err());
 ///
+/// // If arrays or slices are used then all parsers must have the same type
+/// // (`string` in this case)
 /// let mut parser2 = choice([string("one"), string("two"), string("three")]);
 /// // Fails as the parser for "two" consumes the first 't' before failing
 /// assert!(parser2.parse("three").is_err());
@@ -750,41 +889,11 @@ parser!{
 /// # }
 /// ```
 #[inline(always)]
-pub fn choice<S, P>(ps: S) -> Choice<S, P>
+pub fn choice<P>(ps: P) -> Choice<P>
 where
-    S: AsMut<[P]>,
-    P: Parser,
+    P: ChoiceParser,
 {
-    Choice(ps, PhantomData)
-}
-
-/// Takes a number of parsers and tries to apply them each in order.
-/// Fails if all the parsers fails or if an applied parser consumes input before failing.
-///
-/// ```
-/// # #[macro_use]
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::char::{digit, letter, string};
-/// # use combine::primitives::Error;
-/// # fn main() {
-/// let mut parser = choice!(
-///     many1(digit()),
-///     string("let").map(|s| s.to_string()),
-///     many1(letter()));
-/// assert_eq!(parser.parse("let"), Ok(("let".to_string(), "")));
-/// assert_eq!(parser.parse("123abc"), Ok(("123".to_string(), "abc")));
-/// assert!(parser.parse(":123").is_err());
-/// # }
-/// ```
-#[macro_export]
-macro_rules! choice {
-    ($first : expr) => {
-        $first
-    };
-    ($first : expr, $($rest : expr),+) => {
-        $first.or(choice!($($rest),+))
-    }
+    Choice(ps)
 }
 
 #[derive(Clone)]
@@ -2520,7 +2629,7 @@ mod tests {
 
     #[test]
     fn choice_empty() {
-        let mut parser = choice::<&mut [Token<&str>], Token<&str>>(&mut []);
+        let mut parser = choice::<&mut [Token<&str>]>(&mut []);
         let result_err = parser.parse("a");
         assert!(result_err.is_err());
     }
