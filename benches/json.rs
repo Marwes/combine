@@ -152,7 +152,7 @@ where
     }
     #[allow(unconditional_recursion)]
     fn value_(input: I) -> ParseResult<Value, I> {
-        let mut array = between(
+        let array = between(
             lex(char('[')),
             lex(char(']')),
             sep_by(Json::<I>::value(), lex(char(','))),
