@@ -686,7 +686,11 @@ where
     }
 }
 
-impl<I> Positioned for State<I> where I: Stream, I::Item: Positioner {
+impl<I> Positioned for State<I>
+where
+    I: Stream,
+    I::Item: Positioner,
+{
     type Position = <I::Item as Positioner>::Position;
 
     #[inline(always)]
@@ -698,7 +702,7 @@ impl<I> Positioned for State<I> where I: Stream, I::Item: Positioner {
 impl<I> StreamOnce for State<I>
 where
     I: StreamOnce,
-    I::Item: Positioner
+    I::Item: Positioner,
 {
     type Item = I::Item;
     type Range = I::Range;
@@ -2101,8 +2105,10 @@ where
     }
 }
 
-impl<'a, I> Positioned for BufferedStream<'a, I> where I: StreamOnce + Positioned {
-
+impl<'a, I> Positioned for BufferedStream<'a, I>
+where
+    I: StreamOnce + Positioned,
+{
     type Position = I::Position;
 
     #[inline(always)]

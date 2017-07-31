@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError, StreamOnce};
+use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError,
+                 StreamOnce};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -73,7 +74,7 @@ where
 #[inline(always)]
 pub fn range_of<P>(parser: P) -> RangeOf<P>
 where
-    P: Parser
+    P: Parser,
 {
     RangeOf(parser)
 }

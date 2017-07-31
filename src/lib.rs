@@ -159,8 +159,8 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, State, Stream, StreamError,
-                     StreamOnce};
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, State, Stream,
+                     StreamError, StreamOnce};
 
 // import this one separately, so we can set the allow(deprecated) for just this item
 // TODO: remove this when a new major version is released

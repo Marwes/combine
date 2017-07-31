@@ -1,23 +1,19 @@
-use std::marker::PhantomData;
-
-use primitives::{Error, Positioned, RangeStream, Stream, StreamOnce};
+use primitives::{Error, Positioned, RangeStream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
-pub trait Positioner: PartialEq {
-    type Item;
+pub trait Positioner<Item> {
     /// The type which keeps track of the position
     type Position: Clone + Ord;
     /// Returns the current position
     fn position(&self) -> Self::Position;
     /// Updates the position given that `item` has been taken from the stream
-    fn update(&mut self, item: &Self::Item);
+    fn update(&mut self, item: &Item);
 }
 
 /// Trait for tracking the current position of a `RangeStream`.
-pub trait RangePositioner: Positioner {
-    type Range;
+pub trait RangePositioner<Item, Range>: Positioner<Item> {
     /// Updates the position given that `range` has been taken from the stream
-    fn update_range(&mut self, range: &Self::Range);
+    fn update_range(&mut self, range: &Range);
 }
 
 /// The `State<I>` struct maintains the current position in the stream `I` using
@@ -29,14 +25,14 @@ pub trait RangePositioner: Positioner {
 /// # use combine::primitives::{Error};
 /// # use combine::state::{State, IndexPositioner};
 /// # fn main() {
-///     let result = token('9')
+///     let result = token(b'9')
 ///         .message("Not a nine")
-///         .parse(State::new("8", IndexPositioner::<char, &str>::new()));
+///         .parse(State::new(&b"8"[..], IndexPositioner::new()));
 ///     assert_eq!(result, Err(ParseError {
 ///         position: 0,
 ///         errors: vec![
-///             Error::Unexpected('8'.into()),
-///             Error::Expected('9'.into()),
+///             Error::Unexpected(b'8'.into()),
+///             Error::Expected(b'9'.into()),
 ///             Error::Message("Not a nine".into())
 ///         ]
 ///     }));
@@ -51,9 +47,9 @@ pub struct State<I, X> {
 }
 
 impl<I, X> State<I, X>
-    where I: Stream,
-          X: Positioner,
-          I::Position: Clone + Ord
+where
+    I: StreamOnce,
+    X: Positioner<I::Item>,
 {
     /// Creates a new `State<I, X>` from an input stream and a positioner.
     pub fn new(input: I, positioner: X) -> State<I, X> {
@@ -64,7 +60,11 @@ impl<I, X> State<I, X>
     }
 }
 
-impl<I, X> Positioned for State<I, X> where I: StreamOnce, X: Positioner<Item = I::Item> {
+impl<I, X> Positioned for State<I, X>
+where
+    I: StreamOnce,
+    X: Positioner<I::Item>,
+{
     type Position = X::Position;
 
     #[inline(always)]
@@ -74,22 +74,19 @@ impl<I, X> Positioned for State<I, X> where I: StreamOnce, X: Positioner<Item = 
 }
 
 impl<I, X> StreamOnce for State<I, X>
-    where I: Stream,
-          X: Positioner<Item = I::Item>,
-          I::Position: Clone + Ord
+where
+    I: StreamOnce,
+    X: Positioner<I::Item>,
 {
     type Item = I::Item;
     type Range = I::Range;
 
     #[inline]
     fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
-        match self.input.uncons() {
-            Ok(c) => {
-                self.positioner.update(&c);
-                Ok(c)
-            }
-            Err(err) => Err(err),
-        }
+        self.input.uncons().map(|c| {
+            self.positioner.update(&c);
+            c
+        })
     }
 }
 
@@ -97,15 +94,12 @@ impl<I, X> StreamOnce for State<I, X>
 /// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
 /// increments the position by `range.len()`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct IndexPositioner<Item, Range>(usize,
-                                        PhantomData<Item>,
-                                        PhantomData<Range>);
+pub struct IndexPositioner(usize);
 
-impl<Item, Range> Positioner for IndexPositioner<Item, Range>
-    where Item: PartialEq + Clone,
-          Range: PartialEq + Clone + ::primitives::Range
+impl<Item> Positioner<Item> for IndexPositioner
+where
+    Item: PartialEq + Clone,
 {
-    type Item = Item;
     type Position = usize;
 
     #[inline(always)]
@@ -114,58 +108,56 @@ impl<Item, Range> Positioner for IndexPositioner<Item, Range>
     }
 
     #[inline]
-    fn update(&mut self, _item: &Self::Item) {
+    fn update(&mut self, _item: &Item) {
         self.0 += 1
     }
 }
 
-impl<Item, Range> IndexPositioner<Item, Range> {
-    pub fn new() -> IndexPositioner<Item, Range> {
-        IndexPositioner::<Item, Range>::new_with_position(0)
+impl IndexPositioner {
+    pub fn new() -> IndexPositioner {
+        IndexPositioner::new_with_position(0)
     }
 
-    pub fn new_with_position(position: usize) -> IndexPositioner<Item, Range> {
-        IndexPositioner(position, PhantomData, PhantomData)
+    pub fn new_with_position(position: usize) -> IndexPositioner {
+        IndexPositioner(position)
     }
 }
 
-impl<Item, Range> RangePositioner for IndexPositioner<Item, Range>
-    where Item: PartialEq + Clone,
-          Range: PartialEq + Clone + ::primitives::Range
+impl<Item, Range> RangePositioner<Item, Range> for IndexPositioner
+where
+    Item: PartialEq + Clone,
+    Range: PartialEq + Clone + ::primitives::Range,
 {
-    type Range = Range;
-    fn update_range(&mut self, range: &Self::Range) {
+    fn update_range(&mut self, range: &Range) {
         self.0 += range.len()
     }
 }
 
 impl<I, X> RangeStream for State<I, X>
-    where I: RangeStream,
-          X: Clone + RangePositioner<Item = I::Item, Range = I::Range>,
-          I::Position: Clone + Ord
+where
+    I: RangeStream,
+    X: Clone + RangePositioner<I::Item, I::Range>,
+    I::Position: Clone + Ord,
 {
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
-        self.input
-            .uncons_range(size)
-            .map(|range| {
-                self.positioner.update_range(&range);
-                range
-            })
+        self.input.uncons_range(size).map(|range| {
+            self.positioner.update_range(&range);
+            range
+        })
     }
 
     #[inline]
     fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, Error<I::Item, I::Range>>
-        where F: FnMut(I::Item) -> bool
+    where
+        F: FnMut(I::Item) -> bool,
     {
         let positioner = &mut self.positioner;
-        self.input.uncons_while(|t| {
-            if predicate(t.clone()) {
-                positioner.update(&t);
-                true
-            } else {
-                false
-            }
+        self.input.uncons_while(|t| if predicate(t.clone()) {
+            positioner.update(&t);
+            true
+        } else {
+            false
         })
     }
 
@@ -185,10 +177,16 @@ mod tests {
         let input = ["a".to_string(), "b".to_string()];
         let mut parser = ::any();
         let result = parser.parse(State::new(&input[..], IndexPositioner::new()));
-        assert_eq!(result,
-                   Ok(("a".to_string(),
-                       State::new(&["b".to_string()][..],
-                                  IndexPositioner::<String, &[String]>::new_with_position(1)))));
+        assert_eq!(
+            result,
+            Ok((
+                "a".to_string(),
+                State::new(
+                    &["b".to_string()][..],
+                    IndexPositioner::new_with_position(1)
+                )
+            ))
+        );
     }
 
     #[test]
@@ -196,9 +194,15 @@ mod tests {
         let input = ["a".to_string(), "b".to_string(), "c".to_string()];
         let mut parser = ::range::take(2);
         let result = parser.parse(State::new(&input[..], IndexPositioner::new()));
-        assert_eq!(result,
-                   Ok((&["a".to_string(), "b".to_string()][..],
-                       State::new(&["c".to_string()][..],
-                                  IndexPositioner::<String, &[String]>::new_with_position(2)))));
+        assert_eq!(
+            result,
+            Ok((
+                &["a".to_string(), "b".to_string()][..],
+                State::new(
+                    &["c".to_string()][..],
+                    IndexPositioner::new_with_position(2)
+                )
+            ))
+        );
     }
 }
