@@ -1,7 +1,6 @@
-use std::fmt;
 use std::marker::PhantomData;
 
-use primitives::{Error, RangeStream, Stream, StreamOnce};
+use primitives::{Error, Positioned, RangeStream, Stream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner: PartialEq {
@@ -43,34 +42,17 @@ pub trait RangePositioner: Positioner {
 ///     }));
 /// # }
 /// ```
-#[derive(Clone, PartialEq)]
-pub struct State<I, X>
-    where I: Stream,
-          X: Positioner<Position = I::Position>,
-          I::Position: Clone + Ord
-{
+#[derive(Clone, Debug, PartialEq)]
+pub struct State<I, X> {
     /// The input stream used when items are requested
     pub input: I,
     /// The positioner used to update the current position
     pub positioner: X,
 }
 
-impl<I, X> fmt::Debug for State<I, X>
-    where I: Stream + fmt::Debug,
-          X: Positioner<Position = I::Position>,
-          I::Position: Clone + Ord + fmt::Debug
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "State {{ position: {:?}, input: {:?} }}",
-               self.positioner.position(),
-               self.input)
-    }
-}
-
 impl<I, X> State<I, X>
     where I: Stream,
-          X: Positioner<Position = I::Position>,
+          X: Positioner,
           I::Position: Clone + Ord
 {
     /// Creates a new `State<I, X>` from an input stream and a positioner.
@@ -82,14 +64,22 @@ impl<I, X> State<I, X>
     }
 }
 
+impl<I, X> Positioned for State<I, X> where I: StreamOnce, X: Positioner<Item = I::Item> {
+    type Position = X::Position;
+
+    #[inline(always)]
+    fn position(&self) -> Self::Position {
+        self.positioner.position()
+    }
+}
+
 impl<I, X> StreamOnce for State<I, X>
     where I: Stream,
-          X: Positioner<Position = I::Position, Item = I::Item>,
+          X: Positioner<Item = I::Item>,
           I::Position: Clone + Ord
 {
     type Item = I::Item;
     type Range = I::Range;
-    type Position = I::Position;
 
     #[inline]
     fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
@@ -101,17 +91,12 @@ impl<I, X> StreamOnce for State<I, X>
             Err(err) => Err(err),
         }
     }
-
-    #[inline(always)]
-    fn position(&self) -> Self::Position {
-        self.positioner.position()
-    }
 }
 
 /// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `I`.  The
 /// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
 /// increments the position by `range.len()`.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct IndexPositioner<Item, Range>(usize,
                                         PhantomData<Item>,
                                         PhantomData<Range>);
@@ -156,7 +141,7 @@ impl<Item, Range> RangePositioner for IndexPositioner<Item, Range>
 
 impl<I, X> RangeStream for State<I, X>
     where I: RangeStream,
-          X: Clone + RangePositioner<Position = I::Position, Item = I::Item, Range = I::Range>,
+          X: Clone + RangePositioner<Item = I::Item, Range = I::Range>,
           I::Position: Clone + Ord
 {
     #[inline]
@@ -182,6 +167,11 @@ impl<I, X> RangeStream for State<I, X>
                 false
             }
         })
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self) -> usize {
+        self.input.distance(&end.input)
     }
 }
 
