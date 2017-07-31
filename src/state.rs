@@ -1,4 +1,6 @@
-use primitives::{Error, Positioned, RangeStream, StreamOnce};
+use std::fmt;
+
+use primitives::{Error, FullRangeStream, Positioned, RangeStream, SliceStream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -16,6 +18,22 @@ pub trait RangePositioner<Item, Range>: Positioner<Item> {
     fn update_range(&mut self, range: &Range);
 }
 
+pub trait DefaultPositioned {
+    type Positioner: Default;
+}
+
+impl<'a> DefaultPositioned for &'a str {
+    type Positioner = SourcePosition;
+}
+
+impl<'a, T> DefaultPositioned for &'a [T] {
+    type Positioner = IndexPositioner;
+}
+
+impl<'a, T> DefaultPositioned for SliceStream<'a, T> {
+    type Positioner = IndexPositioner;
+}
+
 /// The `State<I>` struct maintains the current position in the stream `I` using
 /// the `Positioner` trait to track the position.
 ///
@@ -27,7 +45,7 @@ pub trait RangePositioner<Item, Range>: Positioner<Item> {
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
-///         .parse(State::new(&b"8"[..], IndexPositioner::new()));
+///         .parse(State::new(&b"8"[..]));
 ///     assert_eq!(result, Err(ParseError {
 ///         position: 0,
 ///         errors: vec![
@@ -52,11 +70,22 @@ where
     X: Positioner<I::Item>,
 {
     /// Creates a new `State<I, X>` from an input stream and a positioner.
-    pub fn new(input: I, positioner: X) -> State<I, X> {
+    pub fn with_positioner(input: I, positioner: X) -> State<I, X> {
         State {
             input: input,
             positioner: positioner,
         }
+    }
+}
+
+impl<I> State<I, I::Positioner>
+where
+    I: StreamOnce + DefaultPositioned,
+    I::Positioner: Positioner<I::Item>,
+{
+    /// Creates a new `State<I, X>` from an input stream and its default positioner.
+    pub fn new(input: I) -> State<I, I::Positioner> {
+        State::with_positioner(input, I::Positioner::default())
     }
 }
 
@@ -93,7 +122,7 @@ where
 /// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `I`.  The
 /// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
 /// increments the position by `range.len()`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct IndexPositioner(usize);
 
 impl<Item> Positioner<Item> for IndexPositioner
@@ -133,6 +162,60 @@ where
     }
 }
 
+/// Struct which represents a position in a source file.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SourcePosition {
+    /// Current line of the input
+    pub line: i32,
+    /// Current column of the input
+    pub column: i32,
+}
+
+impl Default for SourcePosition {
+    fn default() -> Self {
+        SourcePosition { line: 1, column: 1 }
+    }
+}
+
+impl fmt::Display for SourcePosition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "line: {}, column: {}", self.line, self.column)
+    }
+}
+
+impl SourcePosition {
+    pub fn new() -> Self {
+        SourcePosition::default()
+    }
+}
+
+impl Positioner<char> for SourcePosition {
+    type Position = SourcePosition;
+
+    #[inline(always)]
+    fn position(&self) -> SourcePosition {
+        self.clone()
+    }
+
+    #[inline]
+    fn update(&mut self, item: &char) {
+        self.column += 1;
+        if *item == '\n' {
+            self.column = 1;
+            self.line += 1;
+        }
+    }
+}
+
+impl<'a> RangePositioner<char, &'a str> for SourcePosition {
+    fn update_range(&mut self, range: &&'a str) {
+        for c in range.chars() {
+            self.update(&c);
+        }
+    }
+}
+
+
 impl<I, X> RangeStream for State<I, X>
 where
     I: RangeStream,
@@ -167,6 +250,18 @@ where
     }
 }
 
+impl<I, X> FullRangeStream for State<I, X>
+where
+    I: FullRangeStream,
+    I::Position: Clone + Ord,
+    X: Clone + RangePositioner<I::Item, I::Range>,
+{
+    fn range(&self) -> Self::Range {
+        self.input.range()
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,12 +271,12 @@ mod tests {
     fn test_positioner() {
         let input = ["a".to_string(), "b".to_string()];
         let mut parser = ::any();
-        let result = parser.parse(State::new(&input[..], IndexPositioner::new()));
+        let result = parser.parse(State::new(&input[..]));
         assert_eq!(
             result,
             Ok((
                 "a".to_string(),
-                State::new(
+                State::with_positioner(
                     &["b".to_string()][..],
                     IndexPositioner::new_with_position(1)
                 )
@@ -193,12 +288,12 @@ mod tests {
     fn test_range_positioner() {
         let input = ["a".to_string(), "b".to_string(), "c".to_string()];
         let mut parser = ::range::take(2);
-        let result = parser.parse(State::new(&input[..], IndexPositioner::new()));
+        let result = parser.parse(State::new(&input[..]));
         assert_eq!(
             result,
             Ok((
                 &["a".to_string(), "b".to_string()][..],
-                State::new(
+                State::with_positioner(
                     &["c".to_string()][..],
                     IndexPositioner::new_with_position(2)
                 )

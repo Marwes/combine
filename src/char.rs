@@ -382,7 +382,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser, SourcePosition, State};
+    use primitives::{Error, ParseError, Parser};
+    use state::{SourcePosition, State};
 
     #[test]
     fn space_error() {

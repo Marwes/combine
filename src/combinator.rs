@@ -371,7 +371,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::SourcePosition;
+/// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let result = (position(), token('!'), position())
 ///     .parse(State::new("!"))
@@ -648,7 +648,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{BytePosition, Error, Info};
+/// # use combine::primitives::{Error, Info};
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
 /// let result = parser.parse(State::new(&b"xyb"[..]))
@@ -657,7 +657,7 @@ where
 ///
 /// let result = parser.parse(State::new(&b"ab"[..]));
 /// assert_eq!(result, Err(ParseError {
-///     position: BytePosition { position: 0 },
+///     position: 0,
 ///     errors: vec![
 ///         Error::Unexpected(Info::Token(b'a')),
 ///     ]
@@ -709,7 +709,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{BytePosition, Error, Info};
+/// # use combine::primitives::{Error, Info};
 /// # fn main() {
 /// let mut parser = count(2, token(b'a'));
 ///
@@ -1032,12 +1032,13 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{Error, Positioner};
+/// # use combine::primitives::Error;
+/// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = eof();
 /// assert_eq!(parser.parse(State::new("")), Ok(((), State::new(""))));
 /// assert_eq!(parser.parse(State::new("x")), Err(ParseError {
-///     position: <char as Positioner>::start(),
+///     position: SourcePosition::default(),
 ///     errors: vec![
 ///         Error::Unexpected('x'.into()),
 ///         Error::Expected("end of input".into())
@@ -1373,7 +1374,8 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::{Error, Positioner};
+/// # use combine::primitives::Error;
+/// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
 /// let result_ok = parser.parse(State::new("1,2,3"))
@@ -1381,7 +1383,7 @@ where
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
 /// let result_err = parser.parse(State::new(""));
 /// assert_eq!(result_err, Err(ParseError {
-///     position: <char as Positioner>::start(),
+///     position: SourcePosition::default(),
 ///     errors: vec![
 ///         Error::end_of_input(),
 ///         Error::Expected("digit".into())
@@ -1516,7 +1518,8 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::{Error, Positioner};
+/// # use combine::primitives::Error;
+/// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
 /// let result_ok = parser.parse(State::new("1;2;3;"))
@@ -1524,7 +1527,7 @@ where
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
 /// let result_err = parser.parse(State::new(""));
 /// assert_eq!(result_err, Err(ParseError {
-///     position: <char as Positioner>::start(),
+///     position: SourcePosition::default(),
 ///     errors: vec![
 ///         Error::end_of_input(),
 ///         Error::Expected("digit".into())
@@ -2624,8 +2627,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser, Positioner, SourcePosition, State};
+    use primitives::{Error, ParseError, Parser};
     use char::{char, digit, letter};
+    use state::{SourcePosition, State};
 
     #[test]
     fn choice_empty() {
@@ -2657,7 +2661,7 @@ mod tests {
         assert_eq!(
             parser.parse(State::new("a")),
             Err(ParseError {
-                position: <char as Positioner>::start(),
+                position: Default::default(),
                 errors: vec![
                     Error::Unexpected('a'.into()),
                     Error::Message("message".into()),
@@ -2674,7 +2678,7 @@ mod tests {
         assert_eq!(
             result,
             Err(ParseError {
-                position: <char as Positioner>::start(),
+                position: Default::default(),
                 errors: vec![
                     Error::Unexpected('a'.into()),
                     Error::Expected("digit".into()),

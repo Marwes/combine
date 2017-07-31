@@ -90,7 +90,8 @@
 //! extern crate combine;
 //! use combine::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
-//! use combine::primitives::{State, Stream, Positioned, ParseResult};
+//! use combine::primitives::{Stream, Positioned, ParseResult};
+//! use combine::state::State;
 //!
 //! #[derive(Debug, PartialEq)]
 //! pub enum Expr {
@@ -159,8 +160,11 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, State, Stream,
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
                      StreamError, StreamOnce};
+
+#[doc(inline)]
+pub use state::State;
 
 // import this one separately, so we can set the allow(deprecated) for just this item
 // TODO: remove this when a new major version is released
@@ -501,8 +505,10 @@ pub mod regex;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::primitives::{Consumed, Error, SourcePosition};
+    use super::primitives::{Consumed, Error};
     use char::{alpha_num, char, digit, letter, spaces, string};
+
+    use state::SourcePosition;
 
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
@@ -556,9 +562,9 @@ mod tests {
 ";
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
-            .parse_stream(State::new(source));
+            .parse_stream(State::with_positioner(source, SourcePosition::new()));
         let state = Consumed::Consumed(State {
-            position: SourcePosition { line: 3, column: 1 },
+            positioner: SourcePosition { line: 3, column: 1 },
             input: "",
         });
         assert_eq!(result, Ok((123i64, state)));
@@ -657,7 +663,7 @@ mod tests {
     }
 
 
-    fn follow(input: State<&str>) -> ParseResult<(), State<&str>> {
+    fn follow(input: State<&str, SourcePosition>) -> ParseResult<(), State<&str, SourcePosition>> {
         match input.clone().uncons() {
             Ok(c) => if c.is_alphanumeric() {
                 let e = Error::Unexpected(c.into());

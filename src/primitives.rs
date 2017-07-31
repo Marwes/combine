@@ -22,15 +22,6 @@ macro_rules! ctry {
     }
 }
 
-/// Struct which represents a position in a source file.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SourcePosition {
-    /// Current line of the input
-    pub line: i32,
-    /// Current column of the input
-    pub column: i32,
-}
-
 /// Newtype around a pointer offset into a slice stream (`&[T]`/`&str`).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PointerOffset(pub usize);
@@ -79,7 +70,7 @@ impl fmt::Display for BytePosition {
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding simple descriptions.
 ///
-/// As there is implementations of `From` for `T: Positioner`, `String` and `&'static str` the
+/// As there is implementations of `From` for `String` and `&'static str` the
 /// constructor need not be used directly as calling `msg.into()` should turn a message into the
 /// correct `Info` variant.
 #[derive(Clone, Debug)]
@@ -631,11 +622,6 @@ where
     }
 }
 
-impl fmt::Display for SourcePosition {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "line: {}, column: {}", self.line, self.column)
-    }
-}
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -644,131 +630,6 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
             Error::Message(ref msg) => msg.fmt(f),
             Error::Other(ref err) => err.fmt(f),
         }
-    }
-}
-
-/// The `State<I>` struct keeps track of the current position in the stream `I` using the
-/// `Positioner` trait to update the position.
-#[derive(Clone, PartialEq)]
-pub struct State<I>
-where
-    I: StreamOnce,
-    I::Item: Positioner,
-{
-    /// The current position
-    pub position: <I::Item as Positioner>::Position,
-    /// The input stream used when items are requested
-    pub input: I,
-}
-
-impl<I> fmt::Debug for State<I>
-where
-    I: Stream + fmt::Debug,
-    I::Item: Positioner,
-    <I::Item as Positioner>::Position: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "State {{ position: {:?}, input: {:?} }}",
-            self.position,
-            self.input
-        )
-    }
-}
-
-impl<I> State<I>
-where
-    I: StreamOnce,
-    I::Item: Positioner,
-{
-    /// Creates a new `State<I>` from an input stream. Initializes the position to
-    /// `Positioner::start()`.
-    pub fn new(input: I) -> State<I> {
-        State {
-            position: <I::Item as Positioner>::start(),
-            input: input,
-        }
-    }
-}
-
-impl<I> Positioned for State<I>
-where
-    I: Stream,
-    I::Item: Positioner,
-{
-    type Position = <I::Item as Positioner>::Position;
-
-    #[inline(always)]
-    fn position(&self) -> Self::Position {
-        self.position.clone()
-    }
-}
-
-impl<I> StreamOnce for State<I>
-where
-    I: StreamOnce,
-    I::Item: Positioner,
-{
-    type Item = I::Item;
-    type Range = I::Range;
-
-    #[inline]
-    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
-        match self.input.uncons() {
-            Ok(c) => {
-                c.update(&mut self.position);
-                Ok(c)
-            }
-            Err(err) => Err(err),
-        }
-    }
-}
-
-impl<I, E> RangeStream for State<I>
-where
-    I: RangeStream<Item = E>,
-    I::Range: Range + Positioner<Position = E::Position>,
-    E: Positioner + Clone,
-{
-    #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
-        let position = &mut self.position;
-        self.input.uncons_range(size).map(|value| {
-            value.update(position);
-            value
-        })
-    }
-
-    #[inline]
-    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, Error<I::Item, I::Range>>
-    where
-        F: FnMut(I::Item) -> bool,
-    {
-        let position = &mut self.position;
-        self.input.uncons_while(|t| if predicate(t.clone()) {
-            t.update(position);
-            true
-        } else {
-            false
-        })
-    }
-
-    #[inline]
-    fn distance(&self, end: &Self) -> usize {
-        self.input.distance(&end.input)
-    }
-}
-
-impl<I, E> FullRangeStream for State<I>
-where
-    I: RangeStream<Item = E>,
-    I::Range: Range + Positioner<Position = E::Position>,
-    E: Positioner + Clone,
-    I: FullRangeStream,
-{
-    fn range(&self) -> Self::Range {
-        self.input.range()
     }
 }
 
@@ -1264,97 +1125,6 @@ where
     ReadStream::new(read)
 }
 
-/// Trait for updating the position for types which can be yielded from a `Stream`.
-pub trait Positioner: PartialEq {
-    /// The type which keeps track of the position.
-    type Position: Clone + Ord;
-    /// Creates a start position
-    fn start() -> Self::Position;
-    /// Updates the position given that `self` has been taken from the stream
-    fn update(&self, position: &mut Self::Position);
-}
-
-impl<'a, T: ?Sized> Positioner for &'a T
-where
-    T: Positioner,
-{
-    type Position = T::Position;
-    fn start() -> T::Position {
-        T::start()
-    }
-    fn update(&self, position: &mut T::Position) {
-        (*self).update(position)
-    }
-}
-
-impl<T> Positioner for [T]
-where
-    T: Positioner,
-{
-    type Position = T::Position;
-    fn start() -> T::Position {
-        T::start()
-    }
-    fn update(&self, position: &mut T::Position) {
-        for t in self {
-            t.update(position);
-        }
-    }
-}
-
-impl<'a, T> Positioner for SliceStream<'a, T>
-where
-    T: Positioner + 'a,
-{
-    type Position = T::Position;
-    fn start() -> T::Position {
-        T::start()
-    }
-    fn update(&self, position: &mut T::Position) {
-        for t in self.0 {
-            t.update(position);
-        }
-    }
-}
-
-impl Positioner for str {
-    type Position = SourcePosition;
-    fn start() -> SourcePosition {
-        char::start()
-    }
-    fn update(&self, position: &mut SourcePosition) {
-        for t in self.chars() {
-            t.update(position);
-        }
-    }
-}
-
-impl Positioner for char {
-    type Position = SourcePosition;
-    fn start() -> SourcePosition {
-        SourcePosition { line: 1, column: 1 }
-    }
-    fn update(&self, position: &mut SourcePosition) {
-        position.column += 1;
-        if *self == '\n' {
-            position.column = 1;
-            position.line += 1;
-        }
-    }
-}
-
-impl Positioner for u8 {
-    type Position = BytePosition;
-
-    fn start() -> BytePosition {
-        BytePosition { position: 0 }
-    }
-
-    fn update(&self, b: &mut BytePosition) {
-        b.position += 1;
-    }
-}
-
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum FastResult<T, E> {
     ConsumedOk(T),
@@ -1777,13 +1547,14 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::{Error, Positioner};
+    /// # use combine::primitives::Error;
+    /// # use combine::state::SourcePosition;
     /// # fn main() {
     /// let result = token('9')
     ///     .message("Not a nine")
     ///     .parse(State::new("8"));
     /// assert_eq!(result, Err(ParseError {
-    ///     position: <char as Positioner>::start(),
+    ///     position: SourcePosition::default(),
     ///     errors: vec![
     ///         Error::Unexpected('8'.into()),
     ///         Error::Expected('9'.into()),
@@ -1806,13 +1577,14 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::{Error, Positioner};
+    /// # use combine::primitives::Error;
+    /// # use combine::state::SourcePosition;
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
     ///     .parse(State::new("8"));
     /// assert_eq!(result, Err(ParseError {
-    ///     position: <char as Positioner>::start(),
+    ///     position: SourcePosition::default(),
     ///     errors: vec![Error::Unexpected('8'.into()), Error::Expected("nine".into())]
     /// }));
     /// # }
