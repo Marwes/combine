@@ -1,7 +1,7 @@
 use std::fmt;
 
-use primitives::{Error, FullRangeStream, IteratorStream, Positioned, RangeStream, ReadStream,
-                 SliceStream, StreamOnce};
+use primitives::{FullRangeStream, IteratorStream, ParsingError, Positioned, RangeStream,
+                 ReadStream, SliceStream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -55,7 +55,7 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
-///         .parse(State::new(&b"8"[..]));
+///         .simple_parse(State::new(&b"8"[..]));
 ///     assert_eq!(result, Err(ParseError {
 ///         position: 0,
 ///         errors: vec![
@@ -103,9 +103,8 @@ impl<I, X> Positioned for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position>,
 {
-    type Position = X::Position;
-
     #[inline(always)]
     fn position(&self) -> Self::Position {
         self.positioner.position()
@@ -116,12 +115,15 @@ impl<I, X> StreamOnce for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position>,
 {
     type Item = I::Item;
     type Range = I::Range;
+    type Position = X::Position;
+    type Error = I::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
+    fn uncons(&mut self) -> Result<I::Item, I::Error> {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -230,10 +232,11 @@ impl<I, X> RangeStream for State<I, X>
 where
     I: RangeStream,
     X: Clone + RangePositioner<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position>,
     I::Position: Clone + Ord,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
+    fn uncons_range(&mut self, size: usize) -> Result<I::Range, I::Error> {
         self.input.uncons_range(size).map(|range| {
             self.positioner.update_range(&range);
             range
@@ -241,7 +244,7 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, Error<I::Item, I::Range>>
+    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, I::Error>
     where
         F: FnMut(I::Item) -> bool,
     {

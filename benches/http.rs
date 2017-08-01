@@ -101,7 +101,7 @@ fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), S
         end_of_line(),
     ).map(|(request, _, headers, _)| (request, headers));
 
-    request.parse(input)
+    request.simple_parse(input)
 }
 
 static REQUESTS: &'static [u8] = include_bytes!("http-requests.txt");

@@ -160,8 +160,8 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
-                     StreamError, StreamOnce};
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, ParsingError, Positioned,
+                     Stream, StreamError, StreamOnce};
 
 #[doc(inline)]
 pub use state::State;
@@ -184,9 +184,14 @@ macro_rules! impl_token_parser {
     ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
     #[derive(Clone)]
     pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
-        where I: Stream<Item=$ty> $(, $ty_var : Parser<Input=I>)*;
+        where I: Stream<Item=$ty>,
+              I::Error: ParsingError<$ty, I::Range, I::Position>
+              $(, $ty_var : Parser<Input=I>)*;
     impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
-        where I: Stream<Item=$ty> $(, $ty_var : Parser<Input=I>)* {
+        where I: Stream<Item=$ty>,
+              I::Error: ParsingError<$ty, I::Range, I::Position>
+              $(, $ty_var : Parser<Input=I>)*
+    {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
         #[inline]
@@ -194,7 +199,7 @@ macro_rules! impl_token_parser {
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+        fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
             self.0.add_error(errors)
         }
     }
@@ -509,6 +514,14 @@ pub mod state;
 
 #[cfg(feature = "regex")]
 pub mod regex;
+pub fn simple_parse<P, I>(mut parser: P, input: I) -> Result<(P::Output, I), StreamError<I>>
+where
+    P: Parser<Input = ::primitives::SimpleStream<I>>,
+    I: Stream,
+    I::Position: Default,
+{
+    parser.simple_parse(input)
+}
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
@@ -527,6 +540,7 @@ mod tests {
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
     where
         I: Stream<Item = char>,
+        I::Error: ParsingError<I::Item, I::Range, I::Position>,
     {
         let (s, input) = try!(
             many1::<String, _>(digit())
@@ -646,6 +660,7 @@ mod tests {
     fn term<I>(input: I) -> ParseResult<Expr, I>
     where
         I: Stream<Item = char>,
+        I::Error: ParsingError<I::Item, I::Range, I::Position>,
     {
         fn times(l: Expr, r: Expr) -> Expr {
             Expr::Times(Box::new(l), Box::new(r))
@@ -675,7 +690,11 @@ mod tests {
     }
 
 
-    fn follow(input: State<&str, SourcePosition>) -> ParseResult<(), State<&str, SourcePosition>> {
+    fn follow<I>(input: I) -> ParseResult<(), I>
+    where
+        I: Stream<Item = char, Error = StreamError<I>>,
+        I::Position: Default,
+    {
         match input.clone().uncons() {
             Ok(c) => if c.is_alphanumeric() {
                 let e = Error::Unexpected(c.into());
@@ -692,11 +711,11 @@ mod tests {
             .skip(parser(follow))
             .map(|x| x.to_string())
             .or(many1(digit()));
-        match p.parse(State::new("le123")) {
+        match p.simple_parse(State::new("le123")) {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 }),
         }
-        match p.parse(State::new("let1")) {
+        match p.simple_parse(State::new("let1")) {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 4 }),
         }
@@ -705,14 +724,14 @@ mod tests {
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
-        let err = p.parse(State::new("ab,abc")).unwrap_err();
+        let err = p.simple_parse(State::new("ab,abc")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.parse(State::new("ab")).unwrap_err();
+        let err = p.simple_parse(State::new("ab")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
     #[test]
@@ -727,7 +746,7 @@ mod tests {
     #[test]
     fn inner_error_consume() {
         let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
-        let result = p.parse(State::new("[1][2][]"));
+        let result = p.simple_parse(State::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
@@ -740,7 +759,7 @@ mod tests {
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<Input = &str, Output = char>> = Box::new(digit());
+        let mut parser: Box<Parser<Input = _, Output = char>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
@@ -780,8 +799,10 @@ mod tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<_, char, &str>> =
-            string("abc").and_then(|_| Err(Error)).parse("abc");
+        let result: Result<((), _), ParseError<_, char, &str>> = Parser::simple_parse(
+            &mut string("abc").and_then(|_| Err(ParseError::new(Default::default(), Error.into()))),
+            "abc",
+        );
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {
@@ -837,7 +858,7 @@ mod tests {
 
         let input = &[CloneOnly("x".to_string()), CloneOnly("y".to_string())][..];
         let result = token(CloneOnly("z".to_string()))
-            .parse(input)
+            .simple_parse(input)
             .map_err(|e| e.map_position(|p| p.translate_position(input)))
             .map_err(|e| {
                 ExtractedError(

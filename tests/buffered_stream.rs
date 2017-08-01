@@ -54,7 +54,7 @@ fn shared_stream_insufficent_backtrack() {
         try(string("ananas")),
     ]);
     let mut parser = sep_by(value, char(','));
-    let result: Result<Vec<&str>, _> = parser.parse(stream).map(|t| t.0);
+    let result: Result<Vec<&str>, _> = parser.simple_parse(stream).map(|t| t.0);
     assert!(result.is_err());
     assert!(
         result

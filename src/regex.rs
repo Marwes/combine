@@ -220,7 +220,7 @@ where
             EmptyErr(ParseError::empty(input.position()).into())
         }
     }
-    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         error
             .error
             .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
@@ -273,7 +273,7 @@ where
             None => EmptyErr(ParseError::empty(input.position()).into()),
         }
     }
-    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         error
             .error
             .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
@@ -328,7 +328,7 @@ where
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         error
             .error
             .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
@@ -385,7 +385,7 @@ where
             None => EmptyErr(ParseError::empty(input.position()).into()),
         }
     }
-    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         error
             .error
             .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
@@ -447,7 +447,7 @@ where
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         error
             .error
             .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))

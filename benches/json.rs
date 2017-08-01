@@ -11,7 +11,8 @@ use std::path::Path;
 use bencher::{black_box, Bencher};
 
 use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseError, ParseResult, Parser,
-                     Stream};
+ParsingError,
+                     Stream, StreamOnce, StreamError};
 use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
@@ -31,6 +32,7 @@ fn lex<P>(p: P) -> Skip<P, Spaces<P::Input>>
 where
     P: Parser,
     P::Input: Stream<Item = char>,
+    <P::Input as StreamOnce>::Error: ParsingError<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range, <P::Input as StreamOnce>::Position>,
 {
     p.skip(spaces())
 }
@@ -42,13 +44,15 @@ type JsonParser<O, I> = Expected<FnPtrParser<O, I>>;
 fn fn_parser<O, I>(f: fn(I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     parser(f).expected(err)
 }
 
 impl<I> Json<I>
 where
-    I: Stream<Item = char>,
+    I: Stream<Item = char, Error = StreamError<I>>,
+    I::Position: Default,
 {
     fn integer() -> JsonParser<i64, I> {
         fn_parser(Json::<I>::integer_, "integer")
@@ -186,7 +190,7 @@ fn json_test() {
     "false"  : false,
     "null" : null
 }"#;
-    let result = Json::value().parse(input);
+    let result = Json::value().simple_parse(input);
     let expected = Object(
         vec![
             ("array", Array(vec![Number(1.0), String("".to_string())])),
@@ -218,7 +222,7 @@ fn bench_json(bencher: &mut Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     let mut parser = Json::value();
-    match parser.parse(State::new(&data[..])) {
+    match parser.simple_parse(State::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -227,7 +231,7 @@ fn bench_json(bencher: &mut Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.parse(State::new(&data[..]));
+        let result = parser.simple_parse(State::new(&data[..]));
         black_box(result)
     });
 }
@@ -240,7 +244,7 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     bencher.iter(|| {
         let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
-        match parser.parse(State::with_positioner(
+        match parser.simple_parse(State::with_positioner(
             buffer.as_stream(),
             SourcePosition::default(),
         )) {

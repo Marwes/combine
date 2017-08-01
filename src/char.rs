@@ -1,4 +1,4 @@
-use primitives::{ConsumedResult, Parser, Stream, StreamError, Tracked};
+use primitives::{ConsumedResult, Parser, ParsingError, Stream, StreamOnce, Tracked};
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use std::marker::PhantomData;
 
@@ -14,6 +14,7 @@ use std::marker::PhantomData;
 pub fn char<I>(c: char) -> Token<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     token(c)
 }
@@ -57,6 +58,7 @@ impl_token_parser! { Space(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn space<I>() -> Space<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     let f: fn(char) -> bool = char::is_whitespace;
     Space(satisfy(f).expected("whitespace"), PhantomData)
@@ -80,6 +82,7 @@ impl_token_parser! { Spaces(), char, Expected<SkipMany<Space<I>>> }
 pub fn spaces<I>() -> Spaces<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
@@ -98,6 +101,7 @@ impl_token_parser! { Newline(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn newline<I>() -> Newline<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Newline(
         satisfy(static_fn!((ch, char) -> bool { ch == '\n' })).expected("lf newline"),
@@ -120,6 +124,7 @@ impl_token_parser! { CrLf(), char, Expected<With<Satisfy<I, fn (char) -> bool>, 
 pub fn crlf<I>() -> CrLf<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     CrLf(
         satisfy(static_fn!((ch, char) -> bool { ch == '\r' }))
@@ -143,6 +148,7 @@ impl_token_parser! { Tab(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn tab<I>() -> Tab<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Tab(
         satisfy(static_fn!((ch, char) -> bool { ch == '\t' })).expected("tab"),
@@ -166,6 +172,7 @@ impl_token_parser! { Upper(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn upper<I>() -> Upper<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Upper(
         satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()})).expected("uppercase letter"),
@@ -189,6 +196,7 @@ impl_token_parser! { Lower(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn lower<I>() -> Lower<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Lower(
         satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() })).expected("lowercase letter"),
@@ -213,6 +221,7 @@ impl_token_parser! { AlphaNum(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn alpha_num<I>() -> AlphaNum<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     AlphaNum(
         satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() }))
@@ -238,6 +247,7 @@ impl_token_parser! { Letter(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn letter<I>() -> Letter<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Letter(
         satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() })).expected("letter"),
@@ -259,6 +269,7 @@ impl_token_parser! { OctDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn oct_digit<I>() -> OctDigit<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     OctDigit(
         satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) })).expected("octal digit"),
@@ -280,6 +291,7 @@ impl_token_parser! { HexDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 pub fn hex_digit<I>() -> HexDigit<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     HexDigit(
         satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) })).expected("hexadecimal digit"),
@@ -294,10 +306,12 @@ fn eq(l: char, r: char) -> bool {
 #[derive(Copy, Clone)]
 pub struct Str<I>(&'static str, PhantomData<fn(I) -> I>)
 where
-    I: Stream<Item = char>;
+    I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>;
 impl<I> Parser for Str<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
     type Output = &'static str;
@@ -307,7 +321,7 @@ where
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         tokens::<_, _, I>(eq, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
@@ -329,6 +343,7 @@ where
 pub fn string<I>(s: &'static str) -> Str<I>
 where
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     Str(s, PhantomData)
 }
@@ -336,11 +351,13 @@ where
 #[derive(Copy, Clone)]
 pub struct StrCmp<C, I>(&'static str, C, PhantomData<fn(I) -> I>)
 where
-    I: Stream<Item = char>;
+    I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>;
 impl<C, I> Parser for StrCmp<C, I>
 where
     C: FnMut(char, char) -> bool,
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
     type Output = &'static str;
@@ -350,7 +367,7 @@ where
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         tokens::<_, _, I>(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
@@ -374,6 +391,7 @@ pub fn string_cmp<C, I>(s: &'static str, cmp: C) -> StrCmp<C, I>
 where
     C: FnMut(char, char) -> bool,
     I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     StrCmp(s, cmp, PhantomData)
 }
@@ -381,12 +399,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser};
+    use simple_parse;
+    use primitives::{Error, ParseError};
     use state::{SourcePosition, State};
 
     #[test]
     fn space_error() {
-        let result = space().parse("");
+        let result = simple_parse(space(), "");
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().errors,
@@ -397,7 +416,7 @@ mod tests {
 
     #[test]
     fn string_consumed() {
-        let result = string("a").parse(State::new("b"));
+        let result = simple_parse(string("a"), State::new("b"));
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().position,
@@ -407,7 +426,7 @@ mod tests {
 
     #[test]
     fn string_error() {
-        let result = string("abc").parse(State::new("bc"));
+        let result = simple_parse(string("abc"), State::new("bc"));
         assert_eq!(
             result,
             Err(ParseError {
