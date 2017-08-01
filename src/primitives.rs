@@ -991,7 +991,7 @@ where
     /// Converts an `Iterator` into a stream.
     ///
     /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
-    ///     such as `BufferedStream` and `State` to become a `Stream` which can be parsed
+    ///     such as `BufferedStreamRef` and `State` to become a `Stream` which can be parsed
     pub fn new(iter: I) -> IteratorStream<I> {
         IteratorStream(iter)
     }
@@ -1058,7 +1058,7 @@ where
     /// Creates a `StreamOnce` instance from a value implementing `std::io::Read`.
     ///
     /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
-    ///     such as `BufferedStream` and `State` to become a `Stream` which can be parsed
+    ///     such as `BufferedStreamRef` and `State` to become a `Stream` which can be parsed
     ///
     /// ```rust
     /// # extern crate combine;
@@ -1703,17 +1703,17 @@ where
     }
 }
 
-/// A `BufferedStream` wraps an instance `StreamOnce`, allowing it to be used as a `Stream`.
-pub struct BufferedStream<'a, I>
+/// A `BufferedStreamRef` wraps an instance `StreamOnce`, allowing it to be used as a `Stream`.
+pub struct BufferedStreamRef<'a, I>
 where
     I: StreamOnce + Positioned + 'a,
     I::Item: 'a,
 {
     offset: usize,
-    buffer: &'a SharedBufferedStream<I>,
+    buffer: &'a BufferedStream<I>,
 }
 
-impl<'a, I> fmt::Debug for BufferedStream<'a, I>
+impl<'a, I> fmt::Debug for BufferedStreamRef<'a, I>
 where
     I: StreamOnce + Positioned + 'a,
     I::Item: 'a,
@@ -1722,28 +1722,28 @@ where
         let buffer_offset = unsafe { (*self.buffer.buffer.get()).offset };
         write!(
             f,
-            "BufferedStream {{ offset: {:?} buffer_offset: {:?} }}",
+            "BufferedStreamRef {{ offset: {:?} buffer_offset: {:?} }}",
             self.offset,
             buffer_offset
         )
     }
 }
 
-impl<'a, I> Clone for BufferedStream<'a, I>
+impl<'a, I> Clone for BufferedStreamRef<'a, I>
 where
     I: StreamOnce + Positioned + 'a,
     I::Position: Clone,
     I::Item: 'a,
 {
-    fn clone(&self) -> BufferedStream<'a, I> {
-        BufferedStream {
+    fn clone(&self) -> BufferedStreamRef<'a, I> {
+        BufferedStreamRef {
             offset: self.offset,
             buffer: self.buffer,
         }
     }
 }
 
-pub struct SharedBufferedStream<I>
+pub struct BufferedStream<I>
 where
     I: StreamOnce + Positioned,
 {
@@ -1808,14 +1808,33 @@ where
     }
 }
 
-impl<I> SharedBufferedStream<I>
+impl<I> BufferedStream<I>
 where
     I: StreamOnce + Positioned,
     I::Position: Clone,
     I::Item: Clone,
 {
-    pub fn as_stream(&self) -> BufferedStream<I> {
+    /// Constructs a new `BufferedStream` froma a `StreamOnce` instance with a `lookahead`
+    /// number of elements that can be stored in the buffer.
+    ///
+    /// `BufferedStream` do not implement `Stream` itself. To retrieve a value which implement
+    /// `Stream`, `as_stream` must be called.
+    pub fn new(iter: I, lookahead: usize) -> BufferedStream<I> {
         BufferedStream {
+            buffer: UnsafeCell::new(BufferedStreamInner {
+                offset: 0,
+                iter: iter,
+                buffer: VecDeque::with_capacity(lookahead),
+            }),
+        }
+    }
+
+    /// Creates a `BufferedStreamRef` which implements `Stream`.
+    ///
+    /// `BufferedStreamRef` always implement `Stream` allowing one-shot streams to used as if it could
+    /// be used multiple times.
+    pub fn as_stream(&self) -> BufferedStreamRef<I> {
+        BufferedStreamRef {
             offset: 0,
             buffer: self,
         }
@@ -1830,27 +1849,13 @@ where
     }
 }
 
-impl<'a, I> BufferedStream<'a, I>
+impl<'a, I> BufferedStreamRef<'a, I>
 where
     I: StreamOnce + Positioned,
 {
-    /// Constructs a new `BufferedStream` froma a `StreamOnce` instance with a `lookahead` number
-    /// of elements stored in the buffer.
-    ///
-    /// `BufferedStream` always implement `Stream` allowing one-shot streams to used as if it could
-    /// be used multiple times.
-    pub fn new(iter: I, lookahead: usize) -> SharedBufferedStream<I> {
-        SharedBufferedStream {
-            buffer: UnsafeCell::new(BufferedStreamInner {
-                offset: 0,
-                iter: iter,
-                buffer: VecDeque::with_capacity(lookahead),
-            }),
-        }
-    }
 }
 
-impl<'a, I> Positioned for BufferedStream<'a, I>
+impl<'a, I> Positioned for BufferedStreamRef<'a, I>
 where
     I: StreamOnce + Positioned,
 {
@@ -1862,7 +1867,7 @@ where
     }
 }
 
-impl<'a, I> StreamOnce for BufferedStream<'a, I>
+impl<'a, I> StreamOnce for BufferedStreamRef<'a, I>
 where
     I: StreamOnce + Positioned + 'a,
     I::Item: Clone + PartialEq + 'a,
