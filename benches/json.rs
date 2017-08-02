@@ -1,11 +1,14 @@
-#![feature(test)]
+#[macro_use]
+extern crate bencher;
+
 extern crate combine as pc;
-extern crate test;
 
 use std::collections::HashMap;
 use std::io::Read;
 use std::fs::File;
 use std::path::Path;
+
+use bencher::{Bencher, black_box};
 
 use pc::primitives::{BufferedStream, Consumed, ParseError, ParseResult, Parser, State, Stream};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
@@ -209,8 +212,7 @@ fn json_test() {
     }
 }
 
-#[bench]
-fn bench_json(bencher: &mut ::test::Bencher) {
+fn bench_json(bencher: &mut Bencher) {
     let mut data = String::new();
     File::open(&Path::new(&"benches/data.json"))
         .and_then(|mut file| file.read_to_string(&mut data))
@@ -226,12 +228,11 @@ fn bench_json(bencher: &mut ::test::Bencher) {
     }
     bencher.iter(|| {
         let result = parser.parse(State::new(&data[..]));
-        ::test::black_box(result)
+        black_box(result)
     });
 }
 
-#[bench]
-fn bench_buffered_json(bencher: &mut ::test::Bencher) {
+fn bench_buffered_json(bencher: &mut Bencher) {
     let mut data = String::new();
     File::open(&Path::new(&"benches/data.json"))
         .and_then(|mut file| file.read_to_string(&mut data))
@@ -241,7 +242,7 @@ fn bench_buffered_json(bencher: &mut ::test::Bencher) {
         let mut parser = Json::value();
         match parser.parse(State::new(buffer.as_stream())) {
             Ok((Value::Array(v), _)) => {
-                ::test::black_box(v);
+                black_box(v);
             }
             Ok(_) => assert!(false),
             Err(err) => {
@@ -251,3 +252,6 @@ fn bench_buffered_json(bencher: &mut ::test::Bencher) {
         }
     });
 }
+
+benchmark_group!(json, bench_json, bench_buffered_json);
+benchmark_main!(json);

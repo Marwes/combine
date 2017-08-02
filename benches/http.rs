@@ -1,6 +1,8 @@
-#![feature(test)]
-extern crate test;
+#[macro_use]
+extern crate bencher;
 extern crate combine;
+
+use bencher::{Bencher, black_box};
 
 use combine::*;
 use combine::primitives::Error;
@@ -108,13 +110,11 @@ fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), P
 
 static REQUESTS: &'static [u8] = include_bytes!("http-requests.txt");
 
-#[bench]
-fn http_requests_small(b: &mut ::test::Bencher) {
+fn http_requests_small(b: &mut Bencher) {
     http_requests_bench(b, REQUESTS)
 }
 
-#[bench]
-fn http_requests_large(b: &mut ::test::Bencher) {
+fn http_requests_large(b: &mut Bencher) {
     use std::iter;
 
     let mut buffer = Vec::with_capacity(REQUESTS.len() * 5);
@@ -124,10 +124,10 @@ fn http_requests_large(b: &mut ::test::Bencher) {
     http_requests_bench(b, &buffer)
 }
 
-fn http_requests_bench(b: &mut ::test::Bencher, buffer: &[u8]) {
+fn http_requests_bench(b: &mut Bencher, buffer: &[u8]) {
     b.iter(|| {
         let mut i = 0;
-        let mut buf = test::black_box(buffer);
+        let mut buf = black_box(buffer);
 
         while !buf.is_empty() {
             // Needed for inferrence for many(message_header)
@@ -138,7 +138,7 @@ fn http_requests_bench(b: &mut ::test::Bencher, buffer: &[u8]) {
                     buf = b
                 }
                 Err(ref err) if err.errors[0] == Error::end_of_input() => {
-                    test::black_box(i);
+                    black_box(i);
                     return;
                 }
                 Err(err) => panic!("{:?}", err),
@@ -146,3 +146,6 @@ fn http_requests_bench(b: &mut ::test::Bencher, buffer: &[u8]) {
         }
     });
 }
+
+benchmark_group!(http, http_requests_small, http_requests_large);
+benchmark_main!(http);

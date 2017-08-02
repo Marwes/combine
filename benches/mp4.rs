@@ -1,11 +1,11 @@
 #![cfg(feature = "mp4")]
-#![feature(test)]
-extern crate test;
+#[macro_use]
+extern crate bencher;
 
 extern crate combine;
 extern crate byteorder;
 
-use test::{black_box, Bencher};
+use bencher::{black_box, Bencher};
 
 use std::str::from_utf8;
 
@@ -71,7 +71,9 @@ fn run_test(b: &mut Bencher, data: &[u8]) {
     });
 }
 
-#[bench]
 fn mp4_small_test(b: &mut Bencher) {
     run_test(b, MP4_SMALL)
 }
+
+benchmark_group!(mp4, mp4_small_test);
+benchmark_main!(mp4);
