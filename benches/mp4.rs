@@ -8,6 +8,8 @@ extern crate byteorder;
 use bencher::{black_box, Bencher};
 
 use std::str::from_utf8;
+use std::fs::File;
+use std::io::Read;
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -62,8 +64,6 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
     many(data_interpreter).parse(data)
 }
 
-static MP4_SMALL: &'static [u8] = include_bytes!("small.mp4");
-
 fn run_test(b: &mut Bencher, data: &[u8]) {
     b.iter(|| match parse_mp4(data) {
         Ok(x) => black_box(x),
@@ -72,7 +72,11 @@ fn run_test(b: &mut Bencher, data: &[u8]) {
 }
 
 fn mp4_small_test(b: &mut Bencher) {
-    run_test(b, MP4_SMALL)
+    let mut mp4_small = Vec::new();
+    File::open("benches/small.mp4")
+        .and_then(|mut f| f.read_to_end(&mut mp4_small))
+        .expect("Unable to read benches/small.mp4");
+    run_test(b, &mp4_small)
 }
 
 benchmark_group!(mp4, mp4_small_test);

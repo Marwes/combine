@@ -21,7 +21,8 @@ before_script:
 script:
 - cargo build
 - cargo test
-- cargo bench --features mp4
+- cargo bench
+- cargo check --bench mp4 --features mp4
 - travis-cargo --only stable doc
 after_success: |
     if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
