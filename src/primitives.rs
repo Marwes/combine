@@ -331,20 +331,8 @@ impl<T> Consumed<T> {
     }
 
     /// Converts `self` into the `Consumed` state.
-    #[deprecated(since = "2.3.1", note = "Renamed to into_consumed")]
-    pub fn as_consumed(self) -> Consumed<T> {
-        self.into_consumed()
-    }
-
-    /// Converts `self` into the `Consumed` state.
     pub fn into_consumed(self) -> Consumed<T> {
         Consumed::Consumed(self.into_inner())
-    }
-
-    /// Converts `self` into the `Empty` state.
-    #[deprecated(since = "2.3.1", note = "Renamed to into_empty")]
-    pub fn as_empty(self) -> Consumed<T> {
-        self.into_empty()
     }
 
     /// Converts `self` into the `Empty` state.
@@ -483,17 +471,6 @@ impl<P, I, R> ParseError<P, I, R> {
     /// input unexpectedly.
     pub fn end_of_input(position: P) -> ParseError<P, I, R> {
         ParseError::new(position, Error::end_of_input())
-    }
-
-    /// Adds a `Message` error, taking care not to add duplicated errors.
-    #[deprecated(since = "2.3.0", note = "Use `add_error(Error::Message())` instead")]
-    pub fn add_message<M>(&mut self, message: M)
-    where
-        M: Into<Info<I, R>>,
-        I: PartialEq,
-        R: PartialEq,
-    {
-        self.add_error(Error::Message(message.into()));
     }
 
     /// Adds an error if `error` does not exist in this `ParseError` already (as determined byte
@@ -1002,14 +979,6 @@ where
     }
 }
 
-#[deprecated(since = "2.4.0", note = "please use `IteratorStream::new` instead")]
-pub fn from_iter<I>(iter: I) -> IteratorStream<I>
-where
-    I: Iterator,
-{
-    IteratorStream::new(iter)
-}
-
 impl<I> Iterator for IteratorStream<I>
 where
     I: Iterator,
@@ -1085,14 +1054,6 @@ where
             bytes: read.bytes(),
         }
     }
-}
-
-#[deprecated(since = "2.4.0", note = "please use `ReadStream::new` instead")]
-pub fn from_read<R>(read: R) -> ReadStream<R>
-where
-    R: Read,
-{
-    ReadStream::new(read)
 }
 
 /// Error wrapper which lets parsers track which parser in a sequence of sub-parsers has emitted

@@ -166,12 +166,6 @@ pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned
 #[doc(inline)]
 pub use state::State;
 
-// import this one separately, so we can set the allow(deprecated) for just this item
-// TODO: remove this when a new major version is released
-#[doc(inline)]
-#[allow(deprecated)]
-pub use primitives::from_iter;
-
 #[doc(inline)]
 pub use combinator::{any, between, choice, count, count_min_max, env_parser, eof, look_ahead,
                      many, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
@@ -511,7 +505,7 @@ pub struct ErrorOffset(u8);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::primitives::{Consumed, Error};
+    use super::primitives::{Consumed, Error, IteratorStream};
     use char::{alpha_num, char, digit, letter, spaces, string};
 
     use state::SourcePosition;
@@ -545,10 +539,9 @@ mod tests {
         assert_eq!(result, Ok((vec![123i64, 4, 56], "")));
     }
     #[test]
-    #[allow(deprecated)]
     fn iterator() {
         let result = parser(integer)
-            .parse(State::new(from_iter("123".chars())))
+            .parse(State::new(IteratorStream::new("123".chars())))
             .map(|(i, mut input)| (i, input.uncons().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
