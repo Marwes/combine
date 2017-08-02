@@ -39,12 +39,12 @@
 //!
 //! * [`combinator`] contains the before mentioned parser combinators and thus contains the main
 //! building exprs for creating any sort of complex parsers. It consists of free functions such
-//! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a few
-//! functions such as [`or`] which are more natural to use method calls.
+//! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a
+//! few functions such as [`or`] which are more natural to use method calls.
 //!
-//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions in
-//! combine as well as various structs dealing with input streams and errors. You usually only need
-//! to use this module if you want more control over parsing and input streams.
+//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
+//! in combine as well as various structs dealing with input streams and errors. You usually only
+//! need to use this module if you want more control over parsing and input streams.
 //!
 //! * [`char`] and [`byte`] provides parsers specifically working with streams of characters
 //! (`char`) and bytes (`u8`) respectively. As a few examples it has parsers for accepting digits,
@@ -79,11 +79,11 @@
 //! ```
 //!
 //! If we need a parser that is mutually recursive we can define a free function which internally
-//! can in turn be used as a parser by using the [`parser`][fn parser] function which turns a function with the
-//! correct signature into a parser. In this case we define `expr` to work on any type of [`Stream`]
-//! which is combine's way of abstracting over different data sources such as array slices, string
-//! slices, iterators etc. If instead you would only need to parse string already in memory you
-//! could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
+//! can in turn be used as a parser by using the [`parser`][fn parser] function which turns a
+//! function with the correct signature into a parser. In this case we define `expr` to work on any
+//! type of [`Stream`] which is combine's way of abstracting over different data sources such as
+//! array slices, string slices, iterators etc. If instead you would only need to parse string
+//! already in memory you could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
 //!
 //! ```
 //! #[macro_use]
@@ -174,10 +174,10 @@ pub use primitives::from_iter;
 
 #[doc(inline)]
 pub use combinator::{any, between, choice, count, count_min_max, env_parser, eof, look_ahead,
-                     many, none_of, not_followed_by, one_of, optional, parser, position,
-                     satisfy, satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max,
-                     skip_many, token, tokens, try, unexpected, value, chainl1, chainr1, many1,
-                     sep_by1, sep_end_by1, skip_many1};
+                     many, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
+                     satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max, skip_many,
+                     token, tokens, try, unexpected, value, chainl1, chainr1, many1, sep_by1,
+                     sep_end_by1, skip_many1};
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
@@ -200,7 +200,7 @@ macro_rules! impl_token_parser {
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+        fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
             self.0.add_error(errors)
         }
     }
@@ -447,7 +447,10 @@ macro_rules! combine_parser_impl {
                 }
 
                 #[inline]
-                fn add_error(&mut self, errors: &mut $crate::StreamError<$input_type>) {
+                fn add_error(
+                    &mut self,
+                    errors: &mut $crate::primitives::Tracked<$crate::StreamError<$input_type>>)
+                {
                     let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
                     combine_add_error!(errors ($input_type, $output_type) $($parser)*)
                 }
@@ -500,6 +503,9 @@ pub mod state;
 #[cfg(feature = "regex")]
 pub mod regex;
 
+#[doc(hidden)]
+#[derive(Clone, PartialEq, Debug, Copy)]
+pub struct ErrorOffset(u8);
 
 
 #[cfg(test)]

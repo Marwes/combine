@@ -1,5 +1,5 @@
-use primitives::{Parser, StreamError, ConsumedResult, Stream, TrackedError};
-use combinator::{Expected, satisfy, Satisfy, skip_many, SkipMany, token, Token, tokens, With};
+use primitives::{ConsumedResult, Parser, Stream, StreamError, Tracked};
+use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use std::marker::PhantomData;
 
 /// Parses a character and succeeds if the character is equal to `c`.
@@ -308,7 +308,7 @@ where
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
         tokens::<_, _, I>(eq, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
@@ -351,7 +351,7 @@ where
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut TrackedError<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
         tokens::<_, _, I>(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
     }
 }

@@ -37,17 +37,16 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, FullRangeStream, StreamError, ParseError, Parser};
+use primitives::{ConsumedResult, Error, FullRangeStream, ParseError, Parser, StreamError, Tracked};
 use primitives::FastResult::*;
 use range::take;
 
 struct First<T>(Option<T>);
 
-impl<A> FromIterator<A> for First<A>
-{
+impl<A> FromIterator<A> for First<A> {
     fn from_iter<T>(iter: T) -> Self
     where
-        T: IntoIterator<Item = A>
+        T: IntoIterator<Item = A>,
     {
         First(iter.into_iter().next())
     }
@@ -218,11 +217,11 @@ where
         if self.0.is_match(input.range()) {
             EmptyOk((input.range(), input))
         } else {
-            EmptyErr(ParseError::empty(input.position()))
+            EmptyErr(ParseError::empty(input.position()).into())
         }
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -269,11 +268,11 @@ where
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
-            None => EmptyErr(ParseError::empty(input.position())),
+            None => EmptyErr(ParseError::empty(input.position()).into()),
         }
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -325,8 +324,8 @@ where
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -377,11 +376,11 @@ where
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
-            None => EmptyErr(ParseError::empty(input.position())),
+            None => EmptyErr(ParseError::empty(input.position()).into()),
         }
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -440,8 +439,8 @@ where
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut StreamError<Self::Input>) {
-        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+    fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
+        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 

@@ -120,10 +120,9 @@ where
         });
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
-            '"' => Err(Consumed::Empty(ParseError::from_errors(
-                input.into_inner().position(),
-                Vec::new(),
-            ).into())),
+            '"' => Err(Consumed::Empty(
+                ParseError::from_errors(input.into_inner().position(), Vec::new()).into(),
+            )),
             _ => Ok((c, input)),
         }
     }
@@ -241,7 +240,10 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     bencher.iter(|| {
         let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
-        match parser.parse(State::with_positioner(buffer.as_stream(), SourcePosition::default())) {
+        match parser.parse(State::with_positioner(
+            buffer.as_stream(),
+            SourcePosition::default(),
+        )) {
             Ok((Value::Array(v), _)) => {
                 black_box(v);
             }

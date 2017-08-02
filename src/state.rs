@@ -1,6 +1,7 @@
 use std::fmt;
 
-use primitives::{Error, FullRangeStream, Positioned, RangeStream, IteratorStream, ReadStream, SliceStream, StreamOnce};
+use primitives::{Error, FullRangeStream, IteratorStream, Positioned, RangeStream, ReadStream,
+                 SliceStream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
