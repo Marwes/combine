@@ -2,7 +2,7 @@
 extern crate bencher;
 extern crate combine;
 
-use bencher::{Bencher, black_box};
+use bencher::{black_box, Bencher};
 
 use combine::*;
 use combine::primitives::Error;
