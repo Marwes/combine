@@ -10,9 +10,8 @@ use std::path::Path;
 
 use bencher::{black_box, Bencher};
 
-use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseError, ParseResult, Parser,
-ParsingError,
-                     Stream, StreamOnce, StreamError};
+use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseResult, Parser, ParsingError,
+                     Stream, StreamOnce};
 use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
@@ -32,7 +31,11 @@ fn lex<P>(p: P) -> Skip<P, Spaces<P::Input>>
 where
     P: Parser,
     P::Input: Stream<Item = char>,
-    <P::Input as StreamOnce>::Error: ParsingError<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range, <P::Input as StreamOnce>::Position>,
+    <P::Input as StreamOnce>::Error: ParsingError<
+        <P::Input as StreamOnce>::Item,
+        <P::Input as StreamOnce>::Range,
+        <P::Input as StreamOnce>::Position,
+    >,
 {
     p.skip(spaces())
 }
@@ -51,8 +54,8 @@ where
 
 impl<I> Json<I>
 where
-    I: Stream<Item = char, Error = StreamError<I>>,
-    I::Position: Default,
+    I: Stream<Item = char>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     fn integer() -> JsonParser<i64, I> {
         fn_parser(Json::<I>::integer_, "integer")
@@ -125,7 +128,7 @@ where
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
             '"' => Err(Consumed::Empty(
-                ParseError::from_errors(input.into_inner().position(), Vec::new()).into(),
+                I::Error::empty(input.into_inner().position()).into(),
             )),
             _ => Ok((c, input)),
         }
@@ -216,11 +219,16 @@ fn json_test() {
     }
 }
 
-fn bench_json(bencher: &mut Bencher) {
+fn test_data() -> String {
     let mut data = String::new();
     File::open(&Path::new(&"benches/data.json"))
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
+    data
+}
+
+fn bench_json(bencher: &mut Bencher) {
+    let data = test_data();
     let mut parser = Json::value();
     match parser.simple_parse(State::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
@@ -236,11 +244,42 @@ fn bench_json(bencher: &mut Bencher) {
     });
 }
 
+fn bench_json_core_error(bencher: &mut Bencher) {
+    let data = test_data();
+    let mut parser = Json::value();
+    match parser.parse(State::new(&data[..])) {
+        Ok((Value::Array(_), _)) => (),
+        Ok(_) => assert!(false),
+        Err(err) => {
+            println!("{}", err);
+            assert!(false);
+        }
+    }
+    bencher.iter(|| {
+        let result = parser.parse(State::new(&data[..]));
+        black_box(result)
+    });
+}
+
+fn bench_json_core_error_no_position(bencher: &mut Bencher) {
+    let data = test_data();
+    let mut parser = Json::value();
+    match parser.parse(&data[..]) {
+        Ok((Value::Array(_), _)) => (),
+        Ok(_) => assert!(false),
+        Err(err) => {
+            println!("{}", err);
+            assert!(false);
+        }
+    }
+    bencher.iter(|| {
+        let result = parser.parse(&data[..]);
+        black_box(result)
+    });
+}
+
 fn bench_buffered_json(bencher: &mut Bencher) {
-    let mut data = String::new();
-    File::open(&Path::new(&"benches/data.json"))
-        .and_then(|mut file| file.read_to_string(&mut data))
-        .unwrap();
+    let data = test_data();
     bencher.iter(|| {
         let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
@@ -260,5 +299,11 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     });
 }
 
-benchmark_group!(json, bench_json, bench_buffered_json);
+benchmark_group!(
+    json,
+    bench_json,
+    bench_json_core_error,
+    bench_json_core_error_no_position,
+    bench_buffered_json
+);
 benchmark_main!(json);

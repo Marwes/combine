@@ -903,6 +903,20 @@ pub enum UnexpectedParse {
     Unexpected,
 }
 
+impl fmt::Display for UnexpectedParse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::UnexpectedParse::*;
+        write!(
+            f,
+            "{}",
+            match *self {
+                Unexpected => "unexpected parse",
+                Eoi => "unexpected end of input",
+            }
+        )
+    }
+}
+
 impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedParse {
     fn empty(_: Position) -> Self {
         UnexpectedParse::Unexpected
@@ -1246,6 +1260,22 @@ pub enum StringStreamError {
     Eoi,
     CharacterBoundary,
 }
+
+impl fmt::Display for StringStreamError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::StringStreamError::*;
+        write!(
+            f,
+            "{}",
+            match *self {
+                UnexpectedParse => "unexpected parse",
+                Eoi => "unexpected end of input",
+                CharacterBoundary => "unexpected slice on character boundary",
+            }
+        )
+    }
+}
+
 
 impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStreamError {
     fn empty(_: Position) -> Self {
