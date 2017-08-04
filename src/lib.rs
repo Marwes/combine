@@ -197,6 +197,8 @@ macro_rules! impl_token_parser {
 }
 }
 
+pub extern crate byteorder;
+
 /// Module containing the primitive types which is used to create and compose more advanced
 /// parsers.
 #[macro_use]

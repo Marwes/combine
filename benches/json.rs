@@ -8,7 +8,7 @@ use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 
-use bencher::{Bencher, black_box};
+use bencher::{black_box, Bencher};
 
 use pc::primitives::{BufferedStream, Consumed, ParseError, ParseResult, Parser, State, Stream};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
