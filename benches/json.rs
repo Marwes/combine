@@ -12,9 +12,9 @@ use bencher::{black_box, Bencher};
 
 use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseError, ParseResult, Parser,
                      Stream};
+use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
-use pc::char::{char, digit, spaces, string, Spaces};
 use pc::state::{SourcePosition, State};
 
 #[derive(PartialEq, Debug)]
