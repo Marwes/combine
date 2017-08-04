@@ -498,7 +498,7 @@ pub mod state;
 pub mod regex;
 
 #[doc(hidden)]
-#[derive(Clone, PartialEq, Debug, Copy)]
+#[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
 pub struct ErrorOffset(u8);
 
 

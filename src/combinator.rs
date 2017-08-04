@@ -716,33 +716,67 @@ where
     type Output = O;
     #[inline]
     fn parse_choice(&mut self, input: I) -> ConsumedResult<O, I> {
-        let mut empty_err = None;
-        for p in self {
-            match p.parse_lazy(input.clone()) {
+        let mut prev_err = None;
+        let mut last_parser_having_non_1_offset = 0;
+        for i in 0..self.len() {
+            match self[i].parse_lazy(input.clone()) {
                 consumed_err @ ConsumedErr(_) => return consumed_err,
                 EmptyErr(err) => {
-                    empty_err = match empty_err {
+                    prev_err = match prev_err {
                         None => Some(err),
-                        Some(prev_err) => Some(Tracked {
-                            error: prev_err.error.merge(err.error),
-                            offset: prev_err.offset,
-                        }),
+                        Some(mut prev_err) => {
+                            if prev_err.offset != ErrorOffset(1) {
+                                // First add the errors of all the preceding parsers which did not
+                                // have a sequence of parsers returning `EmptyOk` before failing
+                                // with `EmptyErr`.
+                                let offset = prev_err.offset;
+                                for p in &mut self[last_parser_having_non_1_offset..(i - 1)] {
+                                    prev_err.offset = ErrorOffset(1);
+                                    p.add_error(&mut prev_err);
+                                }
+                                // Then add the errors if the current parser
+                                prev_err.offset = offset;
+                                self[i - 1].add_error(&mut prev_err);
+                                last_parser_having_non_1_offset = i;
+                            }
+                            Some(
+                                Tracked {
+                                    error: prev_err.error.merge(err.error),
+                                    offset: err.offset,
+                                }
+                            )
+                        }
                     };
                 }
                 ok @ ConsumedOk(_) | ok @ EmptyOk(_) => return ok,
             }
         }
-        EmptyErr(match empty_err {
+        EmptyErr(match prev_err {
             None => ParseError::new(
                 input.position(),
                 Error::Message("parser choice is empty".into()),
             ).into(),
-            Some(err) => err,
+            Some(mut prev_err) => {
+                if prev_err.offset != ErrorOffset(1) {
+                    let offset = prev_err.offset;
+                    let len = self.len();
+                    for p in &mut self[last_parser_having_non_1_offset..(len - 1)] {
+                        prev_err.offset = ErrorOffset(1);
+                        p.add_error(&mut prev_err);
+                    }
+                    prev_err.offset = offset;
+                    self.last_mut().unwrap().add_error(&mut prev_err);
+                    prev_err.offset = ErrorOffset(0);
+                }
+                prev_err
+            }
         })
     }
     fn add_error_choice(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-        for p in self {
-            p.add_error(error);
+        if error.offset != ErrorOffset(0) {
+            for p in self {
+                p.add_error(error);
+            }
         }
     }
 }
@@ -2068,16 +2102,35 @@ where
                 ConsumedOk(x) => ConsumedOk(x),
                 EmptyOk(x) => EmptyOk(x),
                 ConsumedErr(err) => ConsumedErr(err),
-                EmptyErr(error2) => EmptyErr(Tracked {
-                    error: error1.error.merge(error2.error),
-                    offset: error1.offset,
-                }),
+                EmptyErr(error2) => {
+                    let mut error = Tracked::from(error1.error.merge(error2.error));
+                    // If offset != 1 then the nested parser is a sequence of parsers where 1 or
+                    // more parsers returned `EmptyOk` before the parser finally failed with
+                    // `EmptyErr`. Since we lose the offsets of the nested parsers when we merge
+                    // the errors we must first extract the errors before we do the merge.
+                    // If the offset == 0 on the other hand (which should be the common case) then
+                    // we can delay the addition of the error since we know for certain that only
+                    // the first parser in the sequence were tried
+                    if error1.offset != ErrorOffset(1) {
+                        error.offset = error1.offset;
+                        self.0.add_error(&mut error);
+                        error.offset = ErrorOffset(0);
+                    }
+                    if error2.offset != ErrorOffset(1) {
+                        error.offset = error2.offset;
+                        self.1.add_error(&mut error);
+                        error.offset = ErrorOffset(0);
+                    }
+                    EmptyErr(error)
+                }
             },
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
-        self.0.add_error(errors);
-        self.1.add_error(errors);
+        if errors.offset != ErrorOffset(0) {
+            self.0.add_error(errors);
+            self.1.add_error(errors);
+        }
     }
 }
 
@@ -2369,7 +2422,7 @@ macro_rules! tuple_parser {
                         x
                     }
                 };
-                let mut offset = $h.parser_count().0;
+                let mut offset = $h.parser_count().0.saturating_add(1);
                 let $h = temp;
                 $(
                     current_parser += 1;
@@ -2417,13 +2470,13 @@ macro_rules! tuple_parser {
             fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
                 let (ref mut $h, $(ref mut $id),+) = *self;
                 $h.add_error(errors);
-                if errors.offset.0 == 0 {
+                if errors.offset <= ErrorOffset(1) {
                     return;
                 }
                 errors.offset = ErrorOffset(errors.offset.0.saturating_sub($h.parser_count().0));
                 $(
                     $id.add_error(errors);
-                    if errors.offset.0 == 0 {
+                    if errors.offset <= ErrorOffset(1) {
                         return;
                     }
                     errors.offset = ErrorOffset(
@@ -2963,6 +3016,73 @@ mod tests {
                     Error::Unexpected('c'.into()),
                     Error::Expected('a'.into()),
                     Error::Expected('b'.into()),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn sequence_in_choice_parser_empty_err() {
+        let mut parser = choice((
+            (optional(char('a')), char('1')),
+            (optional(char('b')), char('2')).skip(char('d')),
+        ));
+
+        assert_eq!(
+            parser.parse(State::new("c")),
+            Err(ParseError {
+                position: SourcePosition { line: 1, column: 1 },
+                errors: vec![
+                    Error::Expected('a'.into()),
+                    Error::Expected('1'.into()),
+                    Error::Expected('b'.into()),
+                    Error::Expected('2'.into()),
+                    Error::Unexpected('c'.into()),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn sequence_in_choice_array_parser_empty_err() {
+        let mut parser = choice([
+            (optional(char('a')), char('1')),
+            (optional(char('b')), char('2')),
+        ]);
+
+        assert_eq!(
+            parser.parse(State::new("c")),
+            Err(ParseError {
+                position: SourcePosition { line: 1, column: 1 },
+                errors: vec![
+                    Error::Expected('a'.into()),
+                    Error::Expected('1'.into()),
+                    Error::Expected('b'.into()),
+                    Error::Expected('2'.into()),
+                    Error::Unexpected('c'.into()),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {
+        let mut p1 = char('1');
+        let mut p2 = (optional(char('b')), char('2')).map(|t| t. 1);
+        let mut parser = choice::<[&mut Parser<Input = _, Output = _>; 2]>([
+            &mut p1,
+            &mut p2,
+        ]);
+
+        assert_eq!(
+            parser.parse(State::new("c")),
+            Err(ParseError {
+                position: SourcePosition { line: 1, column: 1 },
+                errors: vec![
+                    Error::Expected('1'.into()),
+                    Error::Expected('b'.into()),
+                    Error::Expected('2'.into()),
+                    Error::Unexpected('c'.into()),
                 ],
             })
         );
