@@ -1350,7 +1350,7 @@ pub trait Parser {
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
     /// [`ParseError`] otherwise.
     ///
-    /// [`ParseError`]: primitives/struct.ParseError.html
+    /// [`ParseError`]: struct.ParseError.html
     fn parse(
         &mut self,
         input: Self::Input,
@@ -1368,7 +1368,7 @@ pub trait Parser {
     /// whether this parser consumed any input data or not.
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
-    /// [`Consumed`]: primitives/enum.Consumed.html
+    /// [`Consumed`]: enum.Consumed.html
     #[inline(always)]
     fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.parse_stream_consumed(input).into()
@@ -1381,8 +1381,8 @@ pub trait Parser {
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Consumed`]: primitives/enum.Consumed.html
-    /// [`FastResult`]: primitives/enum.FastResult.html
+    /// [`Consumed`]: enum.Consumed.html
+    /// [`FastResult`]: enum.FastResult.html
     #[inline]
     fn parse_stream_consumed(
         &mut self,
