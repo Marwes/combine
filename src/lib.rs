@@ -38,7 +38,7 @@
 //! This library currently contains five modules:
 //!
 //! * [`combinator`] contains the before mentioned parser combinators and thus contains the main
-//! building blocks for creating any sort of complex parsers. It consists of free functions such
+//! building exprs for creating any sort of complex parsers. It consists of free functions such
 //! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a few
 //! functions such as [`or`] which are more natural to use method calls.
 //!
@@ -245,33 +245,33 @@ macro_rules! impl_token_parser {
 macro_rules! parser {
     (
         pub $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
-            $parser: block
+            { $($parser: tt)* }
     ) => {
         parser!{
             pub $name [$($type_params)*]($input_type) -> $output_type
                 where []
-            $parser
+            { $($parser)* }
         }
     };
     (
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
-            $parser: block
+            { $($parser: tt)* }
     ) => {
         parser!{
             $name [$($type_params)*]($input_type) -> $output_type
                 where []
-            $parser
+            { $($parser)* }
         }
     };
     (
         pub $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        $parser: block
+        { $($parser: tt)* }
     ) => {
-        parser!{@define_mod
+        parser!{impl define_mod
             $name [$($type_params)*]($input_type) -> $output_type
                 where [$($where_clause)*]
-            $parser
+            { $($parser)* }
         }
         #[inline(always)]
         pub fn $name< $($type_params)* >(
@@ -284,12 +284,12 @@ macro_rules! parser {
     (
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        $parser: block
+        { $($parser: tt)* }
     ) => {
-        parser!{@define_mod
+        parser!{impl define_mod
             $name [$($type_params)*]($input_type) -> $output_type
                 where [$($where_clause)*]
-            $parser
+            { $($parser)* }
         }
         #[inline(always)]
         fn $name< $($type_params)* >(
@@ -299,10 +299,34 @@ macro_rules! parser {
             self::$name::P(::std::marker::PhantomData)
         }
     };
-    (@define_mod
+    (impl parse_lazy $input: ident
+        $stmt: stmt; $($parser: tt)*
+    ) => { {
+        $stmt;
+        parser!{impl parse_lazy $input $($parser)*}
+    } };
+    (impl parse_lazy $input: ident
+        $parser: expr
+    ) => {
+        $parser.parse_lazy($input)
+    };
+    (impl add_error $errors: ident
+        $stmt: stmt; $($parser: tt)*
+    ) => { {
+        $stmt;
+        parser!{impl add_error $errors $($parser)*}
+    } };
+    (impl add_error $errors: ident
+        $parser: expr
+    ) => { {
+        let mut parser = $parser;
+        __infer(&mut parser);
+        parser.add_error($errors)
+    } };
+    (impl define_mod
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        $parser: block
+        { $($parser: tt)* }
     ) => {
         mod $name {
             use super::*;
@@ -322,19 +346,16 @@ macro_rules! parser {
                     input: $input_type
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
-                    $parser.parse_lazy(input)
+                    parser!(impl parse_lazy input $($parser)*)
                 }
 
                 #[inline]
                 fn add_error(&mut self, errors: &mut $crate::ParseError<$input_type>) {
-                    fn infer<__Parser, $($type_params)*>(_: &mut __Parser)
+                    fn __infer<__Parser, $($type_params)*>(_: &mut __Parser)
                         where __Parser: Parser<Input = $input_type, Output = $output_type>,
                             $($where_clause)*
                     {}
-
-                    let mut parser = $parser;
-                    infer(&mut parser);
-                    parser.add_error(errors)
+                    parser!(impl add_error errors $($parser)*)
                 }
             }
         }

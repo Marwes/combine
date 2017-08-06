@@ -36,7 +36,7 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 
 
 parser!{
-    two_digits [I](I) -> i32
+    two_digits[I](I) -> i32
     where
         [I: Stream<Item = char>,]
     {
