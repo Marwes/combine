@@ -260,7 +260,10 @@ macro_rules! impl_token_parser {
 ///     assert!(integer().parse("!").is_err());
 ///
 ///     assert_eq!(integer_or_string().parse("123"), Ok((IntOrString::Int(123), "")));
-///     assert_eq!(integer_or_string().parse("abc"), Ok((IntOrString::String("abc".to_string()), "")));
+///     assert_eq!(
+///         integer_or_string().parse("abc"),
+///         Ok((IntOrString::String("abc".to_string()), ""))
+///     );
 ///     assert_eq!(twice(|| digit()).parse("123"), Ok((('1', '2'), "3")));
 /// }
 /// ```
