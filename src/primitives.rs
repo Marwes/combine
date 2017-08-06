@@ -715,6 +715,18 @@ where
     }
 }
 
+impl<I, E> FullRangeStream for State<I>
+where
+    I: RangeStream<Item = E>,
+    I::Range: Range + Positioner<Position = E::Position>,
+    E: Positioner + Clone,
+    I: FullRangeStream,
+{
+    fn range(&self) -> Self::Range {
+        self.input.range()
+    }
+}
+
 /// A type alias over the specific `Result` type used by parsers to indicate wether they were
 /// successful or not.
 /// `O` is the type that is output on success.
@@ -777,6 +789,12 @@ pub trait RangeStream: Stream {
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Error<Self::Item, Self::Range>>
     where
         F: FnMut(Self::Item) -> bool;
+}
+
+/// A `RangeStream` which is capable of providing it's entire range.
+pub trait FullRangeStream: RangeStream {
+    /// Returns the entire range of `self`
+    fn range(&self) -> Self::Range;
 }
 
 /// Removes items from the input while `predicate` returns `true`.
@@ -855,6 +873,12 @@ impl<'a> RangeStream for &'a str {
     }
 }
 
+impl<'a> FullRangeStream for &'a str {
+    fn range(&self) -> Self::Range {
+        self
+    }
+}
+
 impl<'a> Range for &'a str {
     #[inline]
     fn len(&self) -> usize {
@@ -892,6 +916,15 @@ where
         let (result, remaining) = self.split_at(len);
         *self = remaining;
         Ok(result)
+    }
+}
+
+impl<'a, T> FullRangeStream for &'a [T]
+where
+    T: Clone + PartialEq,
+{
+    fn range(&self) -> Self::Range {
+        self
     }
 }
 
@@ -1002,6 +1035,15 @@ where
         let (range, rest) = self.0.split_at(len);
         self.0 = rest;
         Ok(range)
+    }
+}
+
+impl<'a, T> FullRangeStream for SliceStream<'a, T>
+where
+    T: Clone + PartialEq + 'a,
+{
+    fn range(&self) -> Self::Range {
+        self.0
     }
 }
 

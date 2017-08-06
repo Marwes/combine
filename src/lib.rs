@@ -490,6 +490,10 @@ pub mod byte;
 /// Module containing parsers specialized on character streams.
 pub mod char;
 
+#[cfg(feature = "regex")]
+/// Module containing regex parsers on streams returning ranges of `&str` or `&[u8]`.
+pub mod regex;
+
 
 
 #[cfg(test)]
