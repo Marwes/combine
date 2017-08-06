@@ -212,7 +212,10 @@ macro_rules! impl_token_parser {
 ///     integer[I](I) -> i32
 ///         where [I: Stream<Item = char>]
 ///     {
-///         many1(digit()).and_then(|s: String| s.parse())
+///         // The body must be a block body ( `{ <block body> }`) which ends with an expression
+///         // which evaluates to a parser
+///         let digits = many1(digit());
+///         digits.and_then(|s: String| s.parse())
 ///     }
 /// }
 ///
