@@ -19,7 +19,7 @@ where
     token(c)
 }
 
-pub type Digit<I> = digit::P<I>;
+pub type Digit<I> = digit::__Parser<I>;
 parser!{
     /// Parses a base-10 digit.
     ///
@@ -29,7 +29,7 @@ parser!{
     /// assert_eq!(digit().parse("9"), Ok(('9', "")));
     /// assert!(digit().parse("A").is_err());
     /// ```
-    pub digit[I](I) -> char
+    pub digit[I]()(I) -> char
     where
         [I: Stream<Item = char>,]
     {

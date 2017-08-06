@@ -36,11 +36,13 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 
 
 parser!{
-    two_digits[I](I) -> i32
+    two[F, P](d: F)(P::Input) -> i32
     where
-        [I: Stream<Item = char>,]
+        [P::Input: Stream<Item = char>,
+         P: Parser<Output = char>,
+         F: FnMut() -> P]
     {
-        (digit(), digit())
+        (d(), d())
             .map(two_digits_to_int)
     }
 }
@@ -51,15 +53,15 @@ parser!{
 /// -01
 /// Z
 parser!{
-    time_zone[I](I) -> i32
+    time_zone[I]()(I) -> i32
     where
         [I: Stream<Item = char>,]
     {
         let utc = char('Z').map(|_| 0);
         let offset = (
             choice([char('-'), char('+')]),
-            two_digits(),
-            optional(optional(char(':')).with(two_digits())),
+            two(|| digit()),
+            optional(optional(char(':')).with(two(|| digit()))),
         ).map(|(sign, hour, minute)| {
                 let offset = hour * 60 + minute.unwrap_or(0);
                 if sign == '-' {
@@ -76,16 +78,16 @@ parser!{
 /// Parses a date
 /// 2010-01-30
 parser!{
-    date[I](I) -> Date
+    date[I]()(I) -> Date
     where
         [I: Stream<Item = char>,]
     {
         (
             many::<String, _>(digit()),
             char('-'),
-            two_digits(),
+            two(|| digit()),
             char('-'),
-            two_digits(),
+            two(|| digit()),
         ).map(|(year, _, month, _, day)| {
                 // Its ok to just unwrap since we only parsed digits
                 Date {
@@ -100,16 +102,16 @@ parser!{
 /// Parses a time
 /// 12:30:02
 parser!{
-    time[I](I) -> Time
+    time[I]()(I) -> Time
     where
         [I: Stream<Item = char>,]
     {
         (
-            two_digits(),
+            two(|| digit()),
             char(':'),
-            two_digits(),
+            two(|| digit()),
             char(':'),
-            two_digits(),
+            two(|| digit()),
             time_zone(),
         ).map(|(hour, _, minute, _, second, time_zone)| {
                 // Its ok to just unwrap since we only parsed digits
@@ -126,7 +128,7 @@ parser!{
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
 parser!{
-    date_time [I](I) -> DateTime
+    date_time[I]()(I) -> DateTime
     where
         [I: Stream<Item = char>,]
     {

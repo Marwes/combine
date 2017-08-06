@@ -15,7 +15,7 @@ pub struct Ini {
 }
 
 parser!{
-    property[I](I) -> (String, String)
+    property[I]()(I) -> (String, String)
         where [I: Stream<Item = char>]
     {
         (
@@ -27,7 +27,7 @@ parser!{
     }
 }
 parser!{
-    whitespace[I](I) -> ()
+    whitespace[I]()(I) -> ()
     where
         [I: Stream<Item = char>,]
     {
@@ -39,7 +39,7 @@ parser!{
 }
 
 parser!{
-    properties[I](I) -> HashMap<String, String>
+    properties[I]()(I) -> HashMap<String, String>
     where
         [I: Stream<Item = char>,]
     {
@@ -49,7 +49,7 @@ parser!{
 }
 
 parser!{
-    section[I](I) -> (String, HashMap<String, String>)
+    section[I]()(I) -> (String, HashMap<String, String>)
     where
         [I: Stream<Item = char>,]
     {
@@ -63,7 +63,7 @@ parser!{
 }
 
 parser!{
-    ini[I](I) -> Ini
+    ini[I]()(I) -> Ini
     where
         [I: Stream<Item = char>,]
     {
