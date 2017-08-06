@@ -618,6 +618,7 @@ where
     type Input = P::Input;
     type Output = P::Output;
 
+    #[inline(always)]
     fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         (**self).parse_choice(input)
     }
@@ -637,7 +638,7 @@ macro_rules! merge {
 
 macro_rules! do_choice {
     ($input: ident ( ) $($parser: ident $error: ident)+) => { {
-        let mut error = TrackedError::from(merge!($($error)+));
+        let mut error = Tracked::from(merge!($($error)+));
         // If offset != 1 then the nested parser is a sequence of parsers where 1 or
         // more parsers returned `EmptyOk` before the parser finally failed with
         // `EmptyErr`. Since we lose the offsets of the nested parsers when we merge
@@ -713,6 +714,7 @@ macro_rules! array_choice_parser {
             type Input = P::Input;
             type Output = P::Output;
 
+            #[inline(always)]
             fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
                 self[..].parse_choice(input)
             }
@@ -741,6 +743,7 @@ where
     type Input = P::Input;
     type Output = P::Output;
 
+    #[inline(always)]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.0.parse_choice(input)
     }
@@ -2135,7 +2138,7 @@ where
 {
     type Input = I;
     type Output = O;
-    #[inline]
+    #[inline(always)]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         self.0.parse_lazy(input)
     }
