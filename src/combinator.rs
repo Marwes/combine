@@ -1319,68 +1319,6 @@ impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
 }
 
 #[derive(Clone)]
-pub struct LazyParser<I, F, G>(F, G, PhantomData<fn(I) -> I>);
-
-impl<I, O, F, G> Parser for LazyParser<I, F, G>
-where
-    I: Stream,
-    F: FnMut(I) -> ConsumedResult<O, I>,
-    G: FnMut(&mut ParseError<I>),
-{
-    type Input = I;
-    type Output = O;
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
-        (self.0)(input)
-    }
-
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        (self.1)(errors)
-    }
-}
-
-
-/// Wraps a function, turning it into a parser.
-///
-/// Mainly used through the `parser!` macro.
-///
-/// ```
-/// extern crate combine;
-/// # use combine::*;
-/// # use combine::char::digit;
-/// # use combine::primitives::{Consumed, Error};
-/// # fn main() {
-/// let mut even_digit = parser(|input| {
-///     // Help type inference out
-///     let _: &str = input;
-///     let position = input.position();
-///     let (char_digit, input) = try!(digit().parse_stream(input));
-///     let d = (char_digit as i32) - ('0' as i32);
-///     if d % 2 == 0 {
-///         Ok((d, input))
-///     }
-///     else {
-///         //Return an empty error since we only tested the first token of the stream
-///         let errors = ParseError::new(position, Error::Expected(From::from("even number")));
-///         Err(Consumed::Empty(errors))
-///     }
-/// });
-/// let result = even_digit
-///     .parse("8")
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(8));
-/// # }
-/// ```
-#[inline(always)]
-pub fn lazy_parser<I, O, F, G>(parse: F, add_error: G) -> LazyParser<I, F, G>
-where
-    I: Stream,
-    F: FnMut(I) -> ConsumedResult<O, I>,
-    G: FnMut(&mut ParseError<I>),
-{
-    LazyParser(parse, add_error, PhantomData)
-}
-
-#[derive(Clone)]
 pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 
 /// Wraps a function, turning it into a parser.

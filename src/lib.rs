@@ -197,7 +197,30 @@ macro_rules! impl_token_parser {
 }
 }
 
-/// Declares a named parser which can easily be reused
+/// Declares a named parser which can easily be reused.
+///
+/// The expression which creates the parser should have no side effects as it may be called
+/// multiple times even during a single parse attempt.
+///
+/// ```
+/// #[macro_use]
+/// extern crate combine;
+/// use combine::char::digit;
+/// use combine::{many1, Parser, Stream};
+///
+/// parser!{
+///     integer[I](I) -> i32
+///         where [I: Stream<Item = char>]
+///     {
+///         many1(digit()).and_then(|s: String| s.parse())
+///     }
+/// }
+///
+/// fn main() {
+///     assert_eq!(integer().parse("123"), Ok((123, "")));
+///     assert!(integer().parse("!").is_err());
+/// }
+/// ```
 #[macro_export]
 macro_rules! parser {
     (
