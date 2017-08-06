@@ -261,19 +261,6 @@ macro_rules! impl_token_parser {
 macro_rules! parser {
     (
         $(#[$attr:meta])*
-        pub $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-            { $($parser: tt)* }
-    ) => {
-        parser!{
-            $(#[$attr])*
-            pub $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
-                where []
-            { $($parser)* }
-        }
-    };
-    (
-        $(#[$attr:meta])*
         $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             { $($parser: tt)* }
@@ -292,23 +279,10 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
-        parser!{impl define_mod
-            $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+        combine_parser_impl!{
+            (pub) $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             { $($parser)* }
-        }
-
-        $(#[$attr])*
-        #[inline(always)]
-        pub fn $name< $($type_params)* >(
-                $($arg : $arg_type),*
-            ) -> self::$name::__Parser<$($type_params)*>
-            where $($where_clause)*
-        {
-            self::$name::__Parser {
-                $($arg : $arg,)*
-                __marker: ::std::marker::PhantomData
-            }
         }
     };
     (
@@ -317,43 +291,40 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
-        parser!{impl define_mod
-            $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+        combine_parser_impl!{
+            () $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             { $($parser)* }
         }
-
-        $(#[$attr])*
-        #[inline(always)]
-        fn $name< $($type_params)* >(
-                $($arg : $arg_type),*
-            ) -> self::$name::__Parser<$($type_params)*>
-            where $($where_clause)*
-        {
-            self::$name::__Parser {
-                $($arg : $arg,)*
-                __marker: ::std::marker::PhantomData
-            }
-        }
     };
-    (impl parse_lazy $input: ident
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! combine_parse_lazy {
+    ($input: ident
         $stmt: stmt; $($parser: tt)*
     ) => { {
         $stmt;
-        parser!{impl parse_lazy $input $($parser)*}
+        combine_parse_lazy!{$input $($parser)*}
     } };
-    (impl parse_lazy $input: ident
+    ($input: ident
         $parser: expr
     ) => {
         $parser.parse_lazy($input)
     };
-    (impl add_error $errors: ident ($input_type : ty, $output_type : ty)
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! combine_add_error {
+    ($errors: ident ($input_type : ty, $output_type : ty)
         $stmt: stmt; $($parser: tt)*
     ) => { {
         $stmt;
-        parser!{impl add_error $errors ($input_type, $output_type) $($parser)*}
+        combine_add_error!{$errors ($input_type, $output_type) $($parser)*}
     } };
-    (impl add_error $errors: ident ($input_type : ty, $output_type : ty)
+    ($errors: ident ($input_type : ty, $output_type : ty)
         $parser: expr
     ) => { {
         let mut parser = $parser;
@@ -361,10 +332,16 @@ macro_rules! parser {
             let _: &mut Parser<Input = $input_type, Output = $output_type> = &mut parser;
         }
         parser.add_error($errors)
-    } };
-    (impl define_mod
-        $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-        ($input_type: ty) -> $output_type: ty
+    } }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! combine_parser_impl {
+    (
+        $(#[$attr:meta])*
+        ( $($pub_: tt)* )
+        $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
@@ -393,18 +370,32 @@ macro_rules! parser {
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
                     let __Parser { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                    parser!(impl parse_lazy input $($parser)*)
+                    combine_parse_lazy!(input $($parser)*)
                 }
 
                 #[inline]
                 fn add_error(&mut self, errors: &mut $crate::ParseError<$input_type>) {
                     let __Parser { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
-                    parser!(impl add_error errors ($input_type, $output_type) $($parser)*)
+                    combine_add_error!(errors ($input_type, $output_type) $($parser)*)
                 }
+            }
+        }
+
+        $(#[$attr])*
+        #[inline(always)]
+        $($pub_)* fn $name< $($type_params)* >(
+                $($arg : $arg_type),*
+            ) -> self::$name::__Parser<$($type_params)*>
+            where $($where_clause)*
+        {
+            self::$name::__Parser {
+                $($arg : $arg,)*
+                __marker: ::std::marker::PhantomData
             }
         }
     };
 }
+
 
 pub extern crate byteorder;
 
