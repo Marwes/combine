@@ -197,6 +197,53 @@ macro_rules! impl_token_parser {
 }
 }
 
+#[macro_export]
+macro_rules! parser {
+    (
+        $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
+            $parser: block
+    ) => {
+        parser!{
+            $name [$($type_params)*]($input_type) -> $output_type
+                where []
+            $parser
+        }
+    };
+    (
+        $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        fn $name< $($type_params)* >(
+            ) -> $crate::combinator::LazyParser<$input_type,
+                                              fn ($input_type) -> $crate::ConsumedResult<$output_type, $input_type>,
+                                              fn (&mut $crate::ParseError<$input_type>)>
+            where $($where_clause)*
+        {
+            fn parse< $($type_params)* >(
+                input: $input_type
+                ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
+                where $($where_clause)*
+            {
+                $parser.parse_lazy(input)
+            }
+            fn add_error< $($type_params)* >(errors: &mut $crate::ParseError<$input_type>)
+                where $($where_clause)*
+            {
+                fn infer<__Parser, $($type_params)*>(_: &mut __Parser)
+                    where __Parser: Parser<Input = $input_type, Output = $output_type>,
+                          $($where_clause)*
+                {}
+
+                let mut parser = $parser;
+                infer(&mut parser);
+                parser.add_error(errors)
+            }
+            $crate::combinator::lazy_parser(parse, add_error)
+        }
+    };
+}
+
 pub extern crate byteorder;
 
 /// Module containing the primitive types which is used to create and compose more advanced
