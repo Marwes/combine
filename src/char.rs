@@ -29,7 +29,7 @@ parser!{
     /// assert_eq!(digit().parse("9"), Ok(('9', "")));
     /// assert!(digit().parse("A").is_err());
     /// ```
-    pub digit[I]()(I) -> char
+    pub fn digit[I]()(I) -> char
     where
         [I: Stream<Item = char>,]
     {

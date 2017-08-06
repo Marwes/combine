@@ -209,7 +209,7 @@ macro_rules! impl_token_parser {
 /// use combine::{any, choice, many1, Parser, Stream};
 ///
 /// parser!{
-///     integer[I]()(I) -> i32
+///     fn integer[I]()(I) -> i32
 ///         where [I: Stream<Item = char>]
 ///     {
 ///         // The body must be a block body ( `{ <block body> }`) which ends with an expression
@@ -229,7 +229,7 @@ macro_rules! impl_token_parser {
 ///     // Documentation comments works as well
 ///
 ///     /// Parses an integer or a string (any characters)
-///     pub integer_or_string[I]()(I) -> IntOrString
+///     pub fn integer_or_string[I]()(I) -> IntOrString
 ///         where [I: Stream<Item = char>]
 ///     {
 ///         choice!(
@@ -240,7 +240,7 @@ macro_rules! impl_token_parser {
 /// }
 ///
 /// parser!{
-///     pub twice[F, P](f: F)(P::Input) -> (P::Output, P::Output)
+///     pub fn twice[F, P](f: F)(P::Input) -> (P::Output, P::Output)
 ///         where [P: Parser,
 ///                F: FnMut() -> P]
 ///     {
@@ -261,38 +261,38 @@ macro_rules! impl_token_parser {
 macro_rules! parser {
     (
         $(#[$attr:meta])*
-        $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             { $($parser: tt)* }
     ) => {
         parser!{
             $(#[$attr])*
-            $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+            fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
                 where []
             { $($parser)* }
         }
     };
     (
         $(#[$attr:meta])*
-        pub $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
         combine_parser_impl!{
-            (pub) $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            (pub) fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             { $($parser)* }
         }
     };
     (
         $(#[$attr:meta])*
-        $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
         combine_parser_impl!{
-            () $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            () fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             { $($parser)* }
         }
@@ -341,7 +341,7 @@ macro_rules! combine_parser_impl {
     (
         $(#[$attr:meta])*
         ( $($pub_: tt)* )
-        $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
