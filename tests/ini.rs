@@ -15,7 +15,9 @@ pub struct Ini {
 }
 
 parser!{
-    property[I: Stream<Item = char>](I) -> (String, String) {
+    property[I](I) -> (String, String)
+        where [I: Stream<Item = char>]
+    {
         (
             many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
             token('='),

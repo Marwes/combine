@@ -197,6 +197,7 @@ macro_rules! impl_token_parser {
 }
 }
 
+/// Declares a named parser which can easily be reused
 #[macro_export]
 macro_rules! parser {
     (
@@ -214,32 +215,47 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
+        mod $name {
+            use super::*;
+
+            pub struct P<$($type_params)*>(pub ::std::marker::PhantomData<fn ($input_type) -> $output_type>)
+                where $($where_clause)*;
+
+            impl<$($type_params)*> $crate::Parser for P<$($type_params)*>
+                where $($where_clause)*
+            {
+                type Input = $input_type;
+                type Output = $output_type;
+
+                #[inline]
+                fn parse_lazy(
+                    &mut self,
+                    input: $input_type
+                    ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
+                {
+                    $parser.parse_lazy(input)
+                }
+
+                #[inline]
+                fn add_error(&mut self, errors: &mut $crate::ParseError<$input_type>) {
+                    fn infer<__Parser, $($type_params)*>(_: &mut __Parser)
+                        where __Parser: Parser<Input = $input_type, Output = $output_type>,
+                            $($where_clause)*
+                    {}
+
+                    let mut parser = $parser;
+                    infer(&mut parser);
+                    parser.add_error(errors)
+                }
+            }
+        }
+
+        #[inline(always)]
         fn $name< $($type_params)* >(
-            ) -> $crate::combinator::LazyParser<$input_type,
-                                              fn ($input_type) -> $crate::ConsumedResult<$output_type, $input_type>,
-                                              fn (&mut $crate::ParseError<$input_type>)>
+            ) -> self::$name::P<$($type_params)*>
             where $($where_clause)*
         {
-            fn parse< $($type_params)* >(
-                input: $input_type
-                ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
-                where $($where_clause)*
-            {
-                $parser.parse_lazy(input)
-            }
-            fn add_error< $($type_params)* >(errors: &mut $crate::ParseError<$input_type>)
-                where $($where_clause)*
-            {
-                fn infer<__Parser, $($type_params)*>(_: &mut __Parser)
-                    where __Parser: Parser<Input = $input_type, Output = $output_type>,
-                          $($where_clause)*
-                {}
-
-                let mut parser = $parser;
-                infer(&mut parser);
-                parser.add_error(errors)
-            }
-            $crate::combinator::lazy_parser(parse, add_error)
+            self::$name::P(::std::marker::PhantomData)
         }
     };
 }

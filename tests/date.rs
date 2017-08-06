@@ -36,7 +36,7 @@ fn two_digits_to_int((x, y): (char, char)) -> i32 {
 
 
 parser!{
-    two_digits[I](I) -> i32
+    two_digits [I](I) -> i32
     where
         [I: Stream<Item = char>,]
     {
@@ -126,7 +126,7 @@ parser!{
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
 parser!{
-    date_time[I](I) -> DateTime
+    date_time [I](I) -> DateTime
     where
         [I: Stream<Item = char>,]
     {
