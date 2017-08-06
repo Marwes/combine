@@ -206,7 +206,7 @@ macro_rules! impl_token_parser {
 /// #[macro_use]
 /// extern crate combine;
 /// use combine::char::digit;
-/// use combine::{many1, Parser, Stream};
+/// use combine::{any, choice, many1, Parser, Stream};
 ///
 /// parser!{
 ///     integer[I](I) -> i32
@@ -216,13 +216,43 @@ macro_rules! impl_token_parser {
 ///     }
 /// }
 ///
+/// #[derive(Debug, PartialEq)]
+/// pub enum IntOrString {
+///     Int(i32),
+///     String(String),
+/// }
+/// parser!{
+///     // prefix with `pub` to declare a public parser
+///     pub integer_or_string[I](I) -> IntOrString
+///         where [I: Stream<Item = char>]
+///     {
+///         choice!(
+///             integer().map(IntOrString::Int),
+///             many1(any()).map(IntOrString::String)
+///         )
+///     }
+/// }
+///
 /// fn main() {
 ///     assert_eq!(integer().parse("123"), Ok((123, "")));
 ///     assert!(integer().parse("!").is_err());
+///
+///     assert_eq!(integer_or_string().parse("123"), Ok((IntOrString::Int(123), "")));
+///     assert_eq!(integer_or_string().parse("abc"), Ok((IntOrString::String("abc".to_string()), "")));
 /// }
 /// ```
 #[macro_export]
 macro_rules! parser {
+    (
+        pub $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
+            $parser: block
+    ) => {
+        parser!{
+            pub $name [$($type_params)*]($input_type) -> $output_type
+                where []
+            $parser
+        }
+    };
     (
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             $parser: block
@@ -234,6 +264,42 @@ macro_rules! parser {
         }
     };
     (
+        pub $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        parser!{@define_mod
+            $name [$($type_params)*]($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+        #[inline(always)]
+        pub fn $name< $($type_params)* >(
+            ) -> self::$name::P<$($type_params)*>
+            where $($where_clause)*
+        {
+            self::$name::P(::std::marker::PhantomData)
+        }
+    };
+    (
+        $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        parser!{@define_mod
+            $name [$($type_params)*]($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+        #[inline(always)]
+        fn $name< $($type_params)* >(
+            ) -> self::$name::P<$($type_params)*>
+            where $($where_clause)*
+        {
+            self::$name::P(::std::marker::PhantomData)
+        }
+    };
+    (@define_mod
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         $parser: block
@@ -271,14 +337,6 @@ macro_rules! parser {
                     parser.add_error(errors)
                 }
             }
-        }
-
-        #[inline(always)]
-        fn $name< $($type_params)* >(
-            ) -> self::$name::P<$($type_params)*>
-            where $($where_clause)*
-        {
-            self::$name::P(::std::marker::PhantomData)
         }
     };
 }
