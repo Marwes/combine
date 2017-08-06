@@ -261,6 +261,19 @@ macro_rules! impl_token_parser {
 macro_rules! parser {
     (
         $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            { $($parser: tt)* }
+    ) => {
+        parser!{
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$attr:meta])*
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             { $($parser: tt)* }
