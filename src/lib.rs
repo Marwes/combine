@@ -126,7 +126,7 @@
 //! }
 //!
 //! fn main() {
-//!     let result = parser(expr)
+//!     let result = expr()
 //!         .parse("[[], (hello, world), [rust]]");
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
@@ -365,7 +365,7 @@ macro_rules! combine_parser_impl {
                 where $($where_clause)*
             {
                 $(pub $arg : $arg_type,)*
-                pub __marker: ::std::marker::PhantomData<fn ($input_type) -> $output_type>
+                __marker: ::std::marker::PhantomData<fn ($input_type) -> $output_type>
             }
 
             // We want this to work on older compilers, at least for a while
@@ -392,6 +392,17 @@ macro_rules! combine_parser_impl {
                     combine_add_error!(errors ($input_type, $output_type) $($parser)*)
                 }
             }
+            #[inline(always)]
+            pub fn parse< $($type_params)* >(
+                    $($arg : $arg_type),*
+                ) -> self::$name::__Parser<$($type_params)*>
+                where $($where_clause)*
+            {
+                __Parser {
+                    $($arg : $arg,)*
+                    __marker: ::std::marker::PhantomData
+                }
+            }
         }
 
         $(#[$attr])*
@@ -401,10 +412,9 @@ macro_rules! combine_parser_impl {
             ) -> self::$name::__Parser<$($type_params)*>
             where $($where_clause)*
         {
-            self::$name::__Parser {
-                $($arg : $arg,)*
-                __marker: ::std::marker::PhantomData
-            }
+            self::$name::parse(
+                $($arg,)*
+            )
         }
     };
 }
@@ -494,7 +504,7 @@ mod tests {
     }
 
     #[derive(Debug, PartialEq)]
-    enum Expr {
+    pub enum Expr {
         Id(String),
         Int(i64),
         Array(Vec<Expr>),
@@ -502,31 +512,31 @@ mod tests {
         Times(Box<Expr>, Box<Expr>),
     }
 
-    #[allow(unconditional_recursion)]
-    fn expr<I>(input: I) -> ParseResult<Expr, I>
-    where
-        I: Stream<Item = char>,
-    {
-        let word = many1(letter()).expected("identifier");
-        let integer = parser(integer);
-        let array = between(char('['), char(']'), sep_by(parser(expr), char(','))).expected("[");
-        let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
-        let spaces = spaces();
-        spaces
-            .clone()
-            .with(
-                word.map(Expr::Id)
-                    .or(integer.map(Expr::Int))
-                    .or(array.map(Expr::Array))
-                    .or(paren_expr),
-            )
-            .skip(spaces)
-            .parse_stream(input)
+    parser!{
+        fn expr[I]()(I) -> Expr
+        where
+            [I: Stream<Item = char>,]
+        {
+            let word = many1(letter()).expected("identifier");
+            let integer = parser(integer);
+            let array = between(char('['), char(']'), sep_by(expr(), char(','))).expected("[");
+            let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
+            let spaces = spaces();
+            spaces
+                .clone()
+                .with(
+                    word.map(Expr::Id)
+                        .or(integer.map(Expr::Int))
+                        .or(array.map(Expr::Array))
+                        .or(paren_expr),
+                )
+                .skip(spaces)
+        }
     }
 
     #[test]
     fn expression() {
-        let result = sep_by(parser(expr), char(',')).parse("int, 100, [[], 123]");
+        let result = sep_by(expr(), char(',')).parse("int, 100, [[], 123]");
         let exprs = vec![
             Expr::Id("int".to_string()),
             Expr::Int(100),
@@ -540,7 +550,7 @@ mod tests {
         let input = r"
 ,123
 ";
-        let result = parser(expr).parse(State::new(input));
+        let result = expr().parse(State::new(input));
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
@@ -566,7 +576,7 @@ mod tests {
         }
         let mul = char('*').map(|_| times);
         let add = char('+').map(|_| plus);
-        let factor = chainl1(parser(expr), mul);
+        let factor = chainl1(expr(), mul);
         chainl1(factor, add).parse_stream(input)
     }
 
