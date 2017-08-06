@@ -37,9 +37,9 @@ where
     }
 }
 
-pub struct RangeOf<P>(P);
+pub struct Recognize<P>(P);
 
-impl<P> Parser for RangeOf<P>
+impl<P> Parser for Recognize<P>
 where
     P: Parser,
     P::Input: RangeStream,
@@ -64,21 +64,21 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::range_of;
+/// # use combine::range::recognize;
 /// # use combine::char::letter;
 /// # use combine::*;
 /// # fn main() {
-/// let mut parser = range_of(skip_many1(letter()));
+/// let mut parser = recognize(skip_many1(letter()));
 /// assert_eq!(parser.parse("hello world"), Ok(("hello", " world")));
 /// assert!(parser.parse("!").is_err());
 /// # }
 /// ```
 #[inline(always)]
-pub fn range_of<P>(parser: P) -> RangeOf<P>
+pub fn recognize<P>(parser: P) -> Recognize<P>
 where
     P: Parser,
 {
-    RangeOf(parser)
+    Recognize(parser)
 }
 
 /// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
