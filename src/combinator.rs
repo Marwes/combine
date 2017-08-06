@@ -2193,6 +2193,75 @@ where
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
+
+impl<P, F> Parser for Recognize<F, P>
+where
+    P: Parser,
+    F: FromIterator<<P::Input as StreamOnce>::Item>,
+{
+    type Input = P::Input;
+    type Output = F;
+
+    #[inline]
+    fn parse_lazy(&mut self, mut input: P::Input) -> ConsumedResult<F, P::Input> {
+        match self.0.parse_lazy(input.clone()) {
+            EmptyOk((_, rest)) => {
+                let result = (0..)
+                    .scan((), |_, _| if input.position() != rest.position() {
+                        Some(input.uncons())
+                    } else {
+                        None
+                    })
+                    .collect::<Result<_, _>>();
+                match result {
+                    Ok(x) => EmptyOk((x, rest)),
+                    Err(err) => EmptyErr(ParseError::new(input.position(), err)),
+                }
+            }
+            ConsumedOk((_, rest)) => {
+                let result = (0..)
+                    .scan((), |_, _| if input.position() != rest.position() {
+                        Some(input.uncons())
+                    } else {
+                        None
+                    })
+                    .collect::<Result<_, _>>();
+                match result {
+                    Ok(x) => ConsumedOk((x, rest)),
+                    Err(err) => ConsumedErr(ParseError::new(input.position(), err)),
+                }
+            }
+            ConsumedErr(err) => ConsumedErr(err),
+            EmptyErr(err) => EmptyErr(err),
+        }
+    }
+
+    #[inline]
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        self.0.add_error(errors)
+    }
+}
+
+/// Constructs a parser which returns the tokens parsed by `parser` accumulated in
+/// `F: FromIterator<P::Input::Item>` instead of `P::Output`.
+///
+/// ```
+/// use combine::Parser;
+/// use combine::combinator::{skip_many1, token, recognize};
+/// use combine::char::digit;
+///
+/// let mut parser = recognize((skip_many1(digit()), token('.'), skip_many1(digit())));
+/// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
+/// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
+/// ```
+#[inline(always)]
+pub fn recognize<F, P>(parser: P) -> Recognize<F, P> where
+{
+    Recognize(parser, PhantomData)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
