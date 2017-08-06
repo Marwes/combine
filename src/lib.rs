@@ -221,8 +221,11 @@ macro_rules! impl_token_parser {
 ///     Int(i32),
 ///     String(String),
 /// }
+/// // prefix with `pub` to declare a public parser
 /// parser!{
-///     // prefix with `pub` to declare a public parser
+///     // Documentation comments works as well
+///
+///     /// Parses an integer or a string (any characters)
 ///     pub integer_or_string[I](I) -> IntOrString
 ///         where [I: Stream<Item = char>]
 ///     {
@@ -244,26 +247,31 @@ macro_rules! impl_token_parser {
 #[macro_export]
 macro_rules! parser {
     (
+        $(#[$attr:meta])*
         pub $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             { $($parser: tt)* }
     ) => {
         parser!{
+            $(#[$attr])*
             pub $name [$($type_params)*]($input_type) -> $output_type
                 where []
             { $($parser)* }
         }
     };
     (
+        $(#[$attr:meta])*
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             { $($parser: tt)* }
     ) => {
         parser!{
+            $(#[$attr])*
             $name [$($type_params)*]($input_type) -> $output_type
                 where []
             { $($parser)* }
         }
     };
     (
+        $(#[$attr:meta])*
         pub $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
@@ -273,6 +281,8 @@ macro_rules! parser {
                 where [$($where_clause)*]
             { $($parser)* }
         }
+
+        $(#[$attr])*
         #[inline(always)]
         pub fn $name< $($type_params)* >(
             ) -> self::$name::P<$($type_params)*>
@@ -282,6 +292,7 @@ macro_rules! parser {
         }
     };
     (
+        $(#[$attr:meta])*
         $name: ident [$($type_params: tt)*]($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
@@ -291,6 +302,8 @@ macro_rules! parser {
                 where [$($where_clause)*]
             { $($parser)* }
         }
+
+        $(#[$attr])*
         #[inline(always)]
         fn $name< $($type_params)* >(
             ) -> self::$name::P<$($type_params)*>
