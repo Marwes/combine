@@ -28,22 +28,17 @@ pub struct DateTime {
     pub time: Time,
 }
 
-fn two_digits_to_int((x, y): (char, char)) -> i32 {
-    let x = x.to_digit(10).expect("digit");
-    let y = y.to_digit(10).expect("digit");
-    (x * 10 + y) as i32
-}
-
-
 parser!{
-    fn two[F, P](d: F)(P::Input) -> i32
+    fn two_digits[I]()(I) -> i32
     where
-        [P::Input: Stream<Item = char>,
-         P: Parser<Output = char>,
-         F: FnMut() -> P]
+        [I: Stream<Item = char>,]
     {
-        (d(), d())
-            .map(two_digits_to_int)
+        (digit(), digit())
+            .map(|(x, y): (char, char)| {
+                let x = x.to_digit(10).expect("digit");
+                let y = y.to_digit(10).expect("digit");
+                (x * 10 + y) as i32
+            })
     }
 }
 
@@ -60,8 +55,8 @@ parser!{
         let utc = char('Z').map(|_| 0);
         let offset = (
             choice([char('-'), char('+')]),
-            two(|| digit()),
-            optional(optional(char(':')).with(two(|| digit()))),
+            two_digits(),
+            optional(optional(char(':')).with(two_digits())),
         ).map(|(sign, hour, minute)| {
                 let offset = hour * 60 + minute.unwrap_or(0);
                 if sign == '-' {
@@ -85,9 +80,9 @@ parser!{
         (
             many::<String, _>(digit()),
             char('-'),
-            two(|| digit()),
+            two_digits(),
             char('-'),
-            two(|| digit()),
+            two_digits(),
         ).map(|(year, _, month, _, day)| {
                 // Its ok to just unwrap since we only parsed digits
                 Date {
@@ -107,11 +102,11 @@ parser!{
         [I: Stream<Item = char>,]
     {
         (
-            two(|| digit()),
+            two_digits(),
             char(':'),
-            two(|| digit()),
+            two_digits(),
             char(':'),
-            two(|| digit()),
+            two_digits(),
             time_zone(),
         ).map(|(hour, _, minute, _, second, time_zone)| {
                 // Its ok to just unwrap since we only parsed digits

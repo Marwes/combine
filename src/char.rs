@@ -19,8 +19,10 @@ where
     token(c)
 }
 
-pub type Digit<I> = digit::__Parser<I>;
+pub use self::digit::Digit;
 parser!{
+    #[derive(Clone)]
+    pub struct Digit;
     /// Parses a base-10 digit.
     ///
     /// ```

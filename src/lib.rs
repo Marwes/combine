@@ -86,35 +86,39 @@
 //! could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
 //!
 //! ```
+//! #[macro_use]
 //! extern crate combine;
 //! use combine::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
 //! use combine::primitives::{State, Stream, ParseResult};
 //!
 //! #[derive(Debug, PartialEq)]
-//! enum Expr {
+//! pub enum Expr {
 //!     Id(String),
 //!     Array(Vec<Expr>),
 //!     Pair(Box<Expr>, Box<Expr>)
 //! }
 //!
-//! fn expr<I>(input: I) -> ParseResult<Expr, I>
-//!     where I: Stream<Item=char>
+//! // The `parser!` macro can be used to define parser producing functions in most cases
+//! // (for more advanced uses standalone functions can be defined to handle parsing)
+//! parser!{
+//!    fn expr[I]()(I) -> Expr
+//!     where [I: Stream<Item=char>]
 //! {
 //!     let word = many1(letter());
 //!
 //!     //Creates a parser which parses a char and skips any trailing whitespace
 //!     let lex_char = |c| char(c).skip(spaces());
 //!
-//!     let comma_list = sep_by(parser(expr::<I>), lex_char(','));
+//!     let comma_list = sep_by(expr(), lex_char(','));
 //!     let array = between(lex_char('['), lex_char(']'), comma_list);
 //!
 //!     //We can use tuples to run several parsers in sequence
 //!     //The resulting type is a tuple containing each parsers output
 //!     let pair = (lex_char('('),
-//!                 parser(expr::<I>),
+//!                 expr(),
 //!                 lex_char(','),
-//!                 parser(expr::<I>),
+//!                 expr(),
 //!                 lex_char(')'))
 //!                    .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
 //!
@@ -122,7 +126,7 @@
 //!         .or(array.map(Expr::Array))
 //!         .or(pair)
 //!         .skip(spaces())
-//!         .parse_stream(input)
+//! }
 //! }
 //!
 //! fn main() {
@@ -240,6 +244,9 @@ macro_rules! impl_token_parser {
 /// }
 ///
 /// parser!{
+///     // Give the created type a unique name
+///     #[derive(Clone)]
+///     pub struct Twice;
 ///     pub fn twice[F, P](f: F)(P::Input) -> (P::Output, P::Output)
 ///         where [P: Parser,
 ///                F: FnMut() -> P]
@@ -292,8 +299,10 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
-        combine_parser_impl!{
-            (pub) fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+        parser!{
+            pub struct __Parser;
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             { $($parser)* }
         }
@@ -304,8 +313,47 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
+        parser!{
+            struct __Parser;
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        pub struct $type_name: ident;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
         combine_parser_impl!{
-            () fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            (pub)
+            $(#[$derive])*
+            struct $type_name;
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        struct $type_name: ident;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
+        combine_parser_impl!{
+            ()
+            $(#[$derive])*
+            struct $type_name;
+            $(#[$attr:meta])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             { $($parser)* }
         }
@@ -352,8 +400,10 @@ macro_rules! combine_add_error {
 #[macro_export]
 macro_rules! combine_parser_impl {
     (
-        $(#[$attr:meta])*
         ( $($pub_: tt)* )
+        $(#[$derive:meta])*
+        struct $type_name: ident;
+        $(#[$attr:meta])*
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
@@ -361,7 +411,8 @@ macro_rules! combine_parser_impl {
         mod $name {
             use super::*;
 
-            pub struct __Parser<$($type_params)*>
+            $(#[$derive])*
+            pub struct $type_name<$($type_params)*>
                 where $($where_clause)*
             {
                 $(pub $arg : $arg_type,)*
@@ -370,7 +421,7 @@ macro_rules! combine_parser_impl {
 
             // We want this to work on older compilers, at least for a while
             #[allow(non_shorthand_field_patterns)]
-            impl<$($type_params)*> $crate::Parser for __Parser<$($type_params)*>
+            impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
                 where $($where_clause)*
             {
                 type Input = $input_type;
@@ -382,23 +433,23 @@ macro_rules! combine_parser_impl {
                     input: $input_type
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
-                    let __Parser { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                    let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
                     combine_parse_lazy!(input $($parser)*)
                 }
 
                 #[inline]
                 fn add_error(&mut self, errors: &mut $crate::ParseError<$input_type>) {
-                    let __Parser { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                    let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
                     combine_add_error!(errors ($input_type, $output_type) $($parser)*)
                 }
             }
             #[inline(always)]
             pub fn parse< $($type_params)* >(
                     $($arg : $arg_type),*
-                ) -> self::$name::__Parser<$($type_params)*>
+                ) -> self::$type_name<$($type_params)*>
                 where $($where_clause)*
             {
-                __Parser {
+                $type_name {
                     $($arg : $arg,)*
                     __marker: ::std::marker::PhantomData
                 }
@@ -409,7 +460,7 @@ macro_rules! combine_parser_impl {
         #[inline(always)]
         $($pub_)* fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
-            ) -> self::$name::__Parser<$($type_params)*>
+            ) -> self::$name::$type_name<$($type_params)*>
             where $($where_clause)*
         {
             self::$name::parse(
