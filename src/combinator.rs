@@ -2257,7 +2257,10 @@ where
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
 /// ```
 #[inline(always)]
-pub fn recognize<F, P>(parser: P) -> Recognize<F, P> where
+pub fn recognize<F, P>(parser: P) -> Recognize<F, P>
+where
+    P: Parser,
+    F: FromIterator<<P::Input as StreamOnce>::Item>,
 {
     Recognize(parser, PhantomData)
 }
