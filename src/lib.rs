@@ -38,7 +38,7 @@
 //! This library currently contains five modules:
 //!
 //! * [`combinator`] contains the before mentioned parser combinators and thus contains the main
-//! building blocks for creating any sort of complex parsers. It consists of free functions such
+//! building exprs for creating any sort of complex parsers. It consists of free functions such
 //! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a few
 //! functions such as [`or`] which are more natural to use method calls.
 //!
@@ -86,35 +86,39 @@
 //! could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
 //!
 //! ```
+//! #[macro_use]
 //! extern crate combine;
 //! use combine::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
 //! use combine::primitives::{State, Stream, ParseResult};
 //!
 //! #[derive(Debug, PartialEq)]
-//! enum Expr {
+//! pub enum Expr {
 //!     Id(String),
 //!     Array(Vec<Expr>),
 //!     Pair(Box<Expr>, Box<Expr>)
 //! }
 //!
-//! fn expr<I>(input: I) -> ParseResult<Expr, I>
-//!     where I: Stream<Item=char>
+//! // The `parser!` macro can be used to define parser producing functions in most cases
+//! // (for more advanced uses standalone functions can be defined to handle parsing)
+//! parser!{
+//!    fn expr[I]()(I) -> Expr
+//!     where [I: Stream<Item=char>]
 //! {
 //!     let word = many1(letter());
 //!
 //!     //Creates a parser which parses a char and skips any trailing whitespace
 //!     let lex_char = |c| char(c).skip(spaces());
 //!
-//!     let comma_list = sep_by(parser(expr::<I>), lex_char(','));
+//!     let comma_list = sep_by(expr(), lex_char(','));
 //!     let array = between(lex_char('['), lex_char(']'), comma_list);
 //!
 //!     //We can use tuples to run several parsers in sequence
 //!     //The resulting type is a tuple containing each parsers output
 //!     let pair = (lex_char('('),
-//!                 parser(expr::<I>),
+//!                 expr(),
 //!                 lex_char(','),
-//!                 parser(expr::<I>),
+//!                 expr(),
 //!                 lex_char(')'))
 //!                    .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
 //!
@@ -122,11 +126,11 @@
 //!         .or(array.map(Expr::Array))
 //!         .or(pair)
 //!         .skip(spaces())
-//!         .parse_stream(input)
+//! }
 //! }
 //!
 //! fn main() {
-//!     let result = parser(expr)
+//!     let result = expr()
 //!         .parse("[[], (hello, world), [rust]]");
 //!     let expr = Expr::Array(vec![
 //!           Expr::Array(Vec::new())
@@ -196,6 +200,279 @@ macro_rules! impl_token_parser {
     }
 }
 }
+
+/// Declares a named parser which can easily be reused.
+///
+/// The expression which creates the parser should have no side effects as it may be called
+/// multiple times even during a single parse attempt.
+///
+/// ```
+/// #[macro_use]
+/// extern crate combine;
+/// use combine::char::digit;
+/// use combine::{any, choice, many1, Parser, Stream};
+///
+/// parser!{
+///     fn integer[I]()(I) -> i32
+///         where [I: Stream<Item = char>]
+///     {
+///         // The body must be a block body ( `{ <block body> }`) which ends with an expression
+///         // which evaluates to a parser
+///         let digits = many1(digit());
+///         digits.and_then(|s: String| s.parse())
+///     }
+/// }
+///
+/// #[derive(Debug, PartialEq)]
+/// pub enum IntOrString {
+///     Int(i32),
+///     String(String),
+/// }
+/// // prefix with `pub` to declare a public parser
+/// parser!{
+///     // Documentation comments works as well
+///
+///     /// Parses an integer or a string (any characters)
+///     pub fn integer_or_string[I]()(I) -> IntOrString
+///         where [I: Stream<Item = char>]
+///     {
+///         choice!(
+///             integer().map(IntOrString::Int),
+///             many1(any()).map(IntOrString::String)
+///         )
+///     }
+/// }
+///
+/// parser!{
+///     // Give the created type a unique name
+///     #[derive(Clone)]
+///     pub struct Twice;
+///     pub fn twice[F, P](f: F)(P::Input) -> (P::Output, P::Output)
+///         where [P: Parser,
+///                F: FnMut() -> P]
+///     {
+///         (f(), f())
+///     }
+/// }
+///
+/// fn main() {
+///     assert_eq!(integer().parse("123"), Ok((123, "")));
+///     assert!(integer().parse("!").is_err());
+///
+///     assert_eq!(integer_or_string().parse("123"), Ok((IntOrString::Int(123), "")));
+///     assert_eq!(
+///         integer_or_string().parse("abc"),
+///         Ok((IntOrString::String("abc".to_string()), ""))
+///     );
+///     assert_eq!(twice(|| digit()).parse("123"), Ok((('1', '2'), "3")));
+/// }
+/// ```
+#[macro_export]
+macro_rules! parser {
+    (
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            { $($parser: tt)* }
+    ) => {
+        parser!{
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            { $($parser: tt)* }
+    ) => {
+        parser!{
+            $(#[$attr])*
+            fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
+        parser!{
+            pub struct __Parser;
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
+        parser!{
+            struct __Parser;
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        pub struct $type_name: ident;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
+        combine_parser_impl!{
+            (pub)
+            $(#[$derive])*
+            struct $type_name;
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            { $($parser)* }
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        struct $type_name: ident;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
+        combine_parser_impl!{
+            ()
+            $(#[$derive])*
+            struct $type_name;
+            $(#[$attr:meta])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            { $($parser)* }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! combine_parse_lazy {
+    ($input: ident
+        $stmt: stmt; $($parser: tt)*
+    ) => { {
+        $stmt;
+        combine_parse_lazy!{$input $($parser)*}
+    } };
+    ($input: ident
+        $parser: expr
+    ) => {
+        $parser.parse_lazy($input)
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! combine_add_error {
+    ($errors: ident ($input_type : ty, $output_type : ty)
+        $stmt: stmt; $($parser: tt)*
+    ) => { {
+        $stmt;
+        combine_add_error!{$errors ($input_type, $output_type) $($parser)*}
+    } };
+    ($errors: ident ($input_type : ty, $output_type : ty)
+        $parser: expr
+    ) => { {
+        let mut parser = $parser;
+        {
+            let _: &mut Parser<Input = $input_type, Output = $output_type> = &mut parser;
+        }
+        parser.add_error($errors)
+    } }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! combine_parser_impl {
+    (
+        ( $($pub_: tt)* )
+        $(#[$derive:meta])*
+        struct $type_name: ident;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        { $($parser: tt)* }
+    ) => {
+        mod $name {
+            use super::*;
+
+            $(#[$derive])*
+            pub struct $type_name<$($type_params)*>
+                where $($where_clause)*
+            {
+                $(pub $arg : $arg_type,)*
+                __marker: ::std::marker::PhantomData<fn ($input_type) -> $output_type>
+            }
+
+            // We want this to work on older compilers, at least for a while
+            #[allow(non_shorthand_field_patterns)]
+            impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
+                where $($where_clause)*
+            {
+                type Input = $input_type;
+                type Output = $output_type;
+
+                #[inline]
+                fn parse_lazy(
+                    &mut self,
+                    input: $input_type
+                    ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
+                {
+                    let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                    combine_parse_lazy!(input $($parser)*)
+                }
+
+                #[inline]
+                fn add_error(&mut self, errors: &mut $crate::ParseError<$input_type>) {
+                    let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                    combine_add_error!(errors ($input_type, $output_type) $($parser)*)
+                }
+            }
+            #[inline(always)]
+            pub fn parse< $($type_params)* >(
+                    $($arg : $arg_type),*
+                ) -> self::$type_name<$($type_params)*>
+                where $($where_clause)*
+            {
+                $type_name {
+                    $($arg : $arg,)*
+                    __marker: ::std::marker::PhantomData
+                }
+            }
+        }
+
+        $(#[$attr])*
+        #[inline(always)]
+        $($pub_)* fn $name< $($type_params)* >(
+                $($arg : $arg_type),*
+            ) -> self::$name::$type_name<$($type_params)*>
+            where $($where_clause)*
+        {
+            self::$name::parse(
+                $($arg,)*
+            )
+        }
+    };
+}
+
 
 pub extern crate byteorder;
 
@@ -281,7 +558,7 @@ mod tests {
     }
 
     #[derive(Debug, PartialEq)]
-    enum Expr {
+    pub enum Expr {
         Id(String),
         Int(i64),
         Array(Vec<Expr>),
@@ -289,31 +566,31 @@ mod tests {
         Times(Box<Expr>, Box<Expr>),
     }
 
-    #[allow(unconditional_recursion)]
-    fn expr<I>(input: I) -> ParseResult<Expr, I>
-    where
-        I: Stream<Item = char>,
-    {
-        let word = many1(letter()).expected("identifier");
-        let integer = parser(integer);
-        let array = between(char('['), char(']'), sep_by(parser(expr), char(','))).expected("[");
-        let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
-        let spaces = spaces();
-        spaces
-            .clone()
-            .with(
-                word.map(Expr::Id)
-                    .or(integer.map(Expr::Int))
-                    .or(array.map(Expr::Array))
-                    .or(paren_expr),
-            )
-            .skip(spaces)
-            .parse_stream(input)
+    parser!{
+        fn expr[I]()(I) -> Expr
+        where
+            [I: Stream<Item = char>,]
+        {
+            let word = many1(letter()).expected("identifier");
+            let integer = parser(integer);
+            let array = between(char('['), char(']'), sep_by(expr(), char(','))).expected("[");
+            let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
+            let spaces = spaces();
+            spaces
+                .clone()
+                .with(
+                    word.map(Expr::Id)
+                        .or(integer.map(Expr::Int))
+                        .or(array.map(Expr::Array))
+                        .or(paren_expr),
+                )
+                .skip(spaces)
+        }
     }
 
     #[test]
     fn expression() {
-        let result = sep_by(parser(expr), char(',')).parse("int, 100, [[], 123]");
+        let result = sep_by(expr(), char(',')).parse("int, 100, [[], 123]");
         let exprs = vec![
             Expr::Id("int".to_string()),
             Expr::Int(100),
@@ -327,7 +604,7 @@ mod tests {
         let input = r"
 ,123
 ";
-        let result = parser(expr).parse(State::new(input));
+        let result = expr().parse(State::new(input));
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
@@ -353,7 +630,7 @@ mod tests {
         }
         let mul = char('*').map(|_| times);
         let add = char('+').map(|_| plus);
-        let factor = chainl1(parser(expr), mul);
+        let factor = chainl1(expr(), mul);
         chainl1(factor, add).parse_stream(input)
     }
 

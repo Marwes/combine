@@ -2,6 +2,7 @@ use primitives::{ConsumedResult, ParseError, Parser, Stream};
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use std::marker::PhantomData;
 
+
 /// Parses a character and succeeds if the character is equal to `c`.
 ///
 /// ```
@@ -18,25 +19,24 @@ where
     token(c)
 }
 
-impl_token_parser! { Digit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
-
-/// Parses a base-10 digit.
-///
-/// ```
-/// use combine::Parser;
-/// use combine::char::digit;
-/// assert_eq!(digit().parse("9"), Ok(('9', "")));
-/// assert!(digit().parse("A").is_err());
-/// ```
-#[inline(always)]
-pub fn digit<I>() -> Digit<I>
-where
-    I: Stream<Item = char>,
-{
-    Digit(
-        satisfy(static_fn!((c, char) -> bool { c.is_digit(10) })).expected("digit"),
-        PhantomData,
-    )
+pub use self::digit::Digit;
+parser!{
+    #[derive(Clone)]
+    pub struct Digit;
+    /// Parses a base-10 digit.
+    ///
+    /// ```
+    /// use combine::Parser;
+    /// use combine::char::digit;
+    /// assert_eq!(digit().parse("9"), Ok(('9', "")));
+    /// assert!(digit().parse("A").is_err());
+    /// ```
+    pub fn digit[I]()(I) -> char
+    where
+        [I: Stream<Item = char>,]
+    {
+        satisfy(|c: char| c.is_digit(10)).expected("digit")
+    }
 }
 
 impl_token_parser! { Space(), char, Expected<Satisfy<I, fn (char) -> bool>> }

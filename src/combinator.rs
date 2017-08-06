@@ -1317,6 +1317,7 @@ impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
         self(input)
     }
 }
+
 #[derive(Clone)]
 pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 
