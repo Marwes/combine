@@ -5,8 +5,7 @@ use std::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Info, ParseError, Parser, RangeStream, Stream};
-use range::take;
+use primitives::{ConsumedResult, Info, Parser, Stream, StreamError, Tracked};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
@@ -281,8 +280,8 @@ where
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+        tokens::<_, _, I>(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
 
@@ -330,9 +329,9 @@ where
         let cmp = &mut self.1;
         tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
         let cmp = &mut self.1;
-        tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
+        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
 
@@ -368,6 +367,8 @@ where
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
+    use primitives::RangeStream;
+    use range::take;
 
     use byteorder::{ByteOrder, BE, LE};
 
@@ -392,8 +393,8 @@ pub mod num {
                 fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
                     take(::std::mem::size_of::<Self::Output>()).map(B::$read_name).parse_lazy(input)
                 }
-                fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-                    take(::std::mem::size_of::<Self::Output>()).add_error(errors)
+                fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+                    take::<I>(::std::mem::size_of::<Self::Output>()).add_error(errors)
                 }
             }
 

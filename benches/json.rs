@@ -11,10 +11,11 @@ use std::path::Path;
 use bencher::{black_box, Bencher};
 
 use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseError, ParseResult, Parser,
-                     State, Stream};
+                     Stream};
+use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
-use pc::char::{char, digit, spaces, string, Spaces};
+use pc::state::{SourcePosition, State};
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -119,10 +120,9 @@ where
         });
         match c {
             '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
-            '"' => Err(Consumed::Empty(ParseError::from_errors(
-                input.into_inner().position(),
-                Vec::new(),
-            ))),
+            '"' => Err(Consumed::Empty(
+                ParseError::from_errors(input.into_inner().position(), Vec::new()).into(),
+            )),
             _ => Ok((c, input)),
         }
     }
@@ -152,21 +152,21 @@ where
     }
     #[allow(unconditional_recursion)]
     fn value_(input: I) -> ParseResult<Value, I> {
-        let mut array = between(
+        let array = between(
             lex(char('[')),
             lex(char(']')),
             sep_by(Json::<I>::value(), lex(char(','))),
         ).map(Value::Array);
 
-        choice::<[&mut Parser<Input = I, Output = Value>; 7], _>([
-            &mut Json::<I>::string().map(Value::String),
-            &mut Json::<I>::object(),
-            &mut array,
-            &mut Json::<I>::number().map(Value::Number),
-            &mut lex(string("false").map(|_| Value::Bool(false))),
-            &mut lex(string("true").map(|_| Value::Bool(true))),
-            &mut lex(string("null").map(|_| Value::Null)),
-        ]).parse_lazy(input)
+        choice((
+            Json::<I>::string().map(Value::String),
+            Json::<I>::object(),
+            array,
+            Json::<I>::number().map(Value::Number),
+            lex(string("false").map(|_| Value::Bool(false))),
+            lex(string("true").map(|_| Value::Bool(true))),
+            lex(string("null").map(|_| Value::Null)),
+        )).parse_lazy(input)
             .into()
     }
 }
@@ -238,9 +238,12 @@ fn bench_buffered_json(bencher: &mut Bencher) {
         .and_then(|mut file| file.read_to_string(&mut data))
         .unwrap();
     bencher.iter(|| {
-        let buffer = BufferedStream::new(IteratorStream::new(data.chars()), 1);
+        let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
-        match parser.parse(State::new(buffer.as_stream())) {
+        match parser.parse(State::with_positioner(
+            buffer.as_stream(),
+            SourcePosition::default(),
+        )) {
             Ok((Value::Array(v), _)) => {
                 black_box(v);
             }

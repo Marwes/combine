@@ -60,7 +60,7 @@ fn is_http_version(c: u8) -> bool {
     c >= b'0' && c <= b'9' || c == b'.'
 }
 
-fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), ParseError<&[u8]>> {
+fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), StreamError<&[u8]>> {
     // Making a closure, because parser instances cannot be reused
     let end_of_line = || (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'));
 

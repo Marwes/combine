@@ -1,4 +1,4 @@
-use primitives::{ConsumedResult, ParseError, Parser, Stream};
+use primitives::{ConsumedResult, Parser, Stream, StreamError, Tracked};
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use std::marker::PhantomData;
 
@@ -308,8 +308,8 @@ where
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        tokens(eq, self.0.into(), self.0.chars()).add_error(errors)
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+        tokens::<_, _, I>(eq, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
 
@@ -351,8 +351,8 @@ where
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
-        tokens(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+        tokens::<_, _, I>(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
 
@@ -382,7 +382,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser, SourcePosition, State};
+    use primitives::{Error, ParseError, Parser};
+    use state::{SourcePosition, State};
 
     #[test]
     fn space_error() {

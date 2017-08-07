@@ -1,5 +1,5 @@
 # combine
-[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Docs v1](https://docs.rs/combine/badge.svg?version=^1)](https://docs.rs/combine/^1) [![Docs](https://docs.rs/combine/badge.svg)](https://docs.rs/combine) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Docs v2](https://docs.rs/combine/badge.svg?version=^1)](https://docs.rs/combine/^2) [![Docs](https://docs.rs/combine/badge.svg)](https://docs.rs/combine) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahead using the [try  combinator](https://marwes.github.io/combine/combine/fn.try.html).
 
@@ -7,11 +7,15 @@ An implementation of parser combinators for Rust, inspired by the Haskell librar
 
 ```rust
 extern crate combine;
-use combine::{many, Parser};
-use combine::char::letter;
+use combine::{many1, Parser, sep_by};
+use combine::char::{letter, space};
 
-let result = many(letter()).parse("hello world");
-assert_eq!(result, Ok(("hello".to_string(), " world")));
+let word = many1(letter());
+
+let mut parser = sep_by(word, space())
+    .map(|mut words: Vec<String>| words.pop());
+let result = parser.parse("Pick up that word!");
+assert_eq!(result, Ok((Some("word".to_string()), "!")));
 ```
 
 Larger examples can be found in the [tests][tests] and [benches][benches] folders.
@@ -37,7 +41,7 @@ If you end up trying it I welcome any feedback from your experience with it. I a
 
 ### Why does my errors contain inscrutable positions?
 
-Since `combine` aims to crate parsers with little to no overhead streams over `&str` and `&[T]` do not carry any extra position information but instead only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `ParseError` or wrap your stream with `State`.
+Since `combine` aims to crate parsers with little to no overhead streams over `&str` and `&[T]` do not carry any extra position information but instead only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `PointerOffset` which represents the position or wrap your stream with `State`.
 
 ## Extra
 
@@ -46,6 +50,9 @@ There is an additional crate which has parsers to lex and parse programming lang
 You can find older versions of combine (parser-combinators) [here](https://crates.io/crates/parser-combinators).
 
 ## Contributing
+
+Current master is the 3.0.0 branch. If you want to submit a fix or feature to the 2.x version of combine then
+do so to the 2.x branch or submit the PR to master and request that it be backported.
 
 The easiest way to contribute is to just open an issue about any problems you encounter using combine but if you are interested in adding something to the library here is a list of some of the easier things to work on to get started.
 
@@ -58,6 +65,18 @@ The easiest way to contribute is to just open an issue about any problems you en
 ## Breaking changes
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
+
+### 3.0.0-alpha.1
+
+* Deprecated items have been changed or removed. Upgrade to the latest version of 2.x first and fix all
+    deprecations before upgrading to 3.x.
+* If you have written the `ParseError<I>` explicitly it needs to be changed to `StreamError<I>` as
+    `ParseError`s type signature have changed slightly. Function calls should not be affected however.
+* Parsers now return `Tracked<StreamError<I>>` instead of plain `ParseError<I>`. `Tracked` is an internal
+    wrapper which should just be constructed via `From::from` or `Into::into`. If you return errors explicitly
+    somewhere you will need to add `.into()` on the errors to wrap them.
+* A few other changes should be detected and fixed easily by simply compiling and fixing the compile errors.
+    See [CHANGELOG.md](https://github.com/Marwes/combine/blob/master/CHANGELOG.md) for a complete list of breaking changes.
 
 ### 2.0.0-beta3
 

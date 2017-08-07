@@ -39,12 +39,12 @@
 //!
 //! * [`combinator`] contains the before mentioned parser combinators and thus contains the main
 //! building exprs for creating any sort of complex parsers. It consists of free functions such
-//! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a few
-//! functions such as [`or`] which are more natural to use method calls.
+//! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a
+//! few functions such as [`or`] which are more natural to use method calls.
 //!
-//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions in
-//! combine as well as various structs dealing with input streams and errors. You usually only need
-//! to use this module if you want more control over parsing and input streams.
+//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
+//! in combine as well as various structs dealing with input streams and errors. You usually only
+//! need to use this module if you want more control over parsing and input streams.
 //!
 //! * [`char`] and [`byte`] provides parsers specifically working with streams of characters
 //! (`char`) and bytes (`u8`) respectively. As a few examples it has parsers for accepting digits,
@@ -57,7 +57,7 @@
 //! ```
 //! extern crate combine;
 //! use combine::char::{spaces, digit, char};
-//! use combine::{many1, sep_by, Parser, ParseError};
+//! use combine::{many1, sep_by, Parser, StreamError};
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -70,7 +70,7 @@
 //!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
-//!     let result: Result<(Vec<i32>, &str), ParseError<&str>> = integer_list.parse(input);
+//!     let result: Result<(Vec<i32>, &str), StreamError<&str>> = integer_list.parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -79,18 +79,19 @@
 //! ```
 //!
 //! If we need a parser that is mutually recursive we can define a free function which internally
-//! can in turn be used as a parser by using the [`parser`][fn parser] function which turns a function with the
-//! correct signature into a parser. In this case we define `expr` to work on any type of [`Stream`]
-//! which is combine's way of abstracting over different data sources such as array slices, string
-//! slices, iterators etc. If instead you would only need to parse string already in memory you
-//! could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
+//! can in turn be used as a parser by using the [`parser`][fn parser] function which turns a
+//! function with the correct signature into a parser. In this case we define `expr` to work on any
+//! type of [`Stream`] which is combine's way of abstracting over different data sources such as
+//! array slices, string slices, iterators etc. If instead you would only need to parse string
+//! already in memory you could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
 //!
 //! ```
 //! #[macro_use]
 //! extern crate combine;
 //! use combine::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
-//! use combine::primitives::{State, Stream, ParseResult};
+//! use combine::primitives::{Stream, Positioned, ParseResult};
+//! use combine::state::State;
 //!
 //! #[derive(Debug, PartialEq)]
 //! pub enum Expr {
@@ -159,20 +160,18 @@
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, State, Stream, StreamOnce};
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
+                     StreamError, StreamOnce};
 
-// import this one separately, so we can set the allow(deprecated) for just this item
-// TODO: remove this when a new major version is released
 #[doc(inline)]
-#[allow(deprecated)]
-pub use primitives::from_iter;
+pub use state::State;
 
 #[doc(inline)]
 pub use combinator::{any, between, choice, count, count_min_max, env_parser, eof, look_ahead,
-                     many, none_of, not_followed_by, one_of, optional, parser, position,
-                     satisfy, satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max,
-                     skip_many, token, tokens, try, unexpected, value, chainl1, chainr1, many1,
-                     sep_by1, sep_end_by1, skip_many1};
+                     many, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
+                     satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max, skip_many,
+                     token, tokens, try, unexpected, value, chainl1, chainr1, many1, sep_by1,
+                     sep_end_by1, skip_many1};
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
@@ -195,7 +194,7 @@ macro_rules! impl_token_parser {
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
-        fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
             self.0.add_error(errors)
         }
     }
@@ -442,7 +441,10 @@ macro_rules! combine_parser_impl {
                 }
 
                 #[inline]
-                fn add_error(&mut self, errors: &mut $crate::ParseError<$input_type>) {
+                fn add_error(
+                    &mut self,
+                    errors: &mut $crate::primitives::Tracked<$crate::StreamError<$input_type>>)
+                {
                     let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
                     combine_add_error!(errors ($input_type, $output_type) $($parser)*)
                 }
@@ -489,17 +491,24 @@ pub mod range;
 pub mod byte;
 /// Module containing parsers specialized on character streams.
 pub mod char;
+/// Module containing stateful stream wrappers
+pub mod state;
 
 #[cfg(feature = "regex")]
 pub mod regex;
 
+#[doc(hidden)]
+#[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
+pub struct ErrorOffset(u8);
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::primitives::{Consumed, Error, SourcePosition};
+    use super::primitives::{Consumed, Error, IteratorStream};
     use char::{alpha_num, char, digit, letter, spaces, string};
+
+    use state::SourcePosition;
 
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
@@ -530,10 +539,9 @@ mod tests {
         assert_eq!(result, Ok((vec![123i64, 4, 56], "")));
     }
     #[test]
-    #[allow(deprecated)]
     fn iterator() {
         let result = parser(integer)
-            .parse(from_iter("123".chars()))
+            .parse(State::new(IteratorStream::new("123".chars())))
             .map(|(i, mut input)| (i, input.uncons().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
@@ -553,9 +561,9 @@ mod tests {
 ";
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
-            .parse_stream(State::new(source));
+            .parse_stream(State::with_positioner(source, SourcePosition::new()));
         let state = Consumed::Consumed(State {
-            position: SourcePosition { line: 3, column: 1 },
+            positioner: SourcePosition { line: 3, column: 1 },
             input: "",
         });
         assert_eq!(result, Ok((123i64, state)));
@@ -654,11 +662,11 @@ mod tests {
     }
 
 
-    fn follow(input: State<&str>) -> ParseResult<(), State<&str>> {
+    fn follow(input: State<&str, SourcePosition>) -> ParseResult<(), State<&str, SourcePosition>> {
         match input.clone().uncons() {
             Ok(c) => if c.is_alphanumeric() {
                 let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(ParseError::new(input.position(), e)))
+                Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
             } else {
                 Ok(((), Consumed::Empty(input)))
             },
@@ -759,7 +767,7 @@ mod tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<&str>> =
+        let result: Result<((), _), ParseError<_, char, &str>> =
             string("abc").and_then(|_| Err(Error)).parse("abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
@@ -817,7 +825,7 @@ mod tests {
         let input = &[CloneOnly("x".to_string()), CloneOnly("y".to_string())][..];
         let result = token(CloneOnly("z".to_string()))
             .parse(input)
-            .map_err(|e| e.translate_position(input))
+            .map_err(|e| e.map_position(|p| p.translate_position(input)))
             .map_err(|e| {
                 ExtractedError(
                     e.position,

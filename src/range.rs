@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream};
+use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError,
+                 StreamOnce, Tracked};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -23,15 +24,61 @@ where
             Ok(other) => if other == self.0 {
                 ConsumedOk((other, input))
             } else {
-                EmptyErr(ParseError::empty(position))
+                EmptyErr(ParseError::empty(position).into())
             },
-            Err(err) => EmptyErr(ParseError::new(position, err)),
+            Err(err) => EmptyErr(ParseError::new(position, err).into()),
         }
     }
-    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
         // TODO Add unexpected message?
-        errors.add_error(Error::Expected(Info::Range(self.0.clone())));
+        errors
+            .error
+            .add_error(Error::Expected(Info::Range(self.0.clone())));
     }
+}
+
+pub struct Recognize<P>(P);
+
+impl<P> Parser for Recognize<P>
+where
+    P: Parser,
+    P::Input: RangeStream,
+    <P::Input as StreamOnce>::Range: ::primitives::Range,
+{
+    type Input = P::Input;
+    type Output = <P::Input as StreamOnce>::Range;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let (_, new_input) = ctry!(self.0.parse_lazy(input.clone()));
+        let distance = input.distance(&new_input.into_inner());
+        take(distance).parse_lazy(input)
+    }
+    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+        self.0.add_error(errors)
+    }
+}
+
+/// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
+/// range.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::range::recognize;
+/// # use combine::char::letter;
+/// # use combine::*;
+/// # fn main() {
+/// let mut parser = recognize(skip_many1(letter()));
+/// assert_eq!(parser.parse("hello world"), Ok(("hello", " world")));
+/// assert!(parser.parse("!").is_err());
+/// # }
+/// ```
+#[inline(always)]
+pub fn recognize<P>(parser: P) -> Recognize<P>
+where
+    P: Parser,
+{
+    Recognize(parser)
 }
 
 /// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
@@ -72,7 +119,7 @@ where
         let position = input.position();
         match input.uncons_range(self.0) {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(ParseError::new(position, err)),
+            Err(err) => EmptyErr(ParseError::new(position, err).into()),
         }
     }
 }
@@ -158,7 +205,7 @@ where
             ConsumedOk((v, input)) => ConsumedOk((v, input)),
             EmptyOk((_, input)) => {
                 let position = input.position();
-                EmptyErr(ParseError::empty(position))
+                EmptyErr(ParseError::empty(position).into())
             }
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
@@ -231,7 +278,7 @@ where
                         }
                     }
                 }
-                Err(e) => return EmptyErr(ParseError::new(look_ahead_input.position(), e)),
+                Err(e) => return EmptyErr(ParseError::new(look_ahead_input.position(), e).into()),
             };
         }
     }

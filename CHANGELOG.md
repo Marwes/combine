@@ -1,3 +1,36 @@
+<a name="v3.0.0-alpha.1"></a>
+## v3.0.0-alpha.1 (2017-08-07)
+
+
+#### Features
+
+*   Remove the old State type and Positioner trait ([ae43f8ae](https://github.com/Marwes/combine/commit/ae43f8ae2b303aca3b5ae9fbb1a87475349f2745), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Teach the choice parser to take tuples ([96da7ee0](https://github.com/Marwes/combine/commit/96da7ee0cf8a112e60747a0be8a4dbd90efbecba), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add the range_of parser ([7e692086](https://github.com/Marwes/combine/commit/7e69208650f7fdc75279370b193030b09ccdbc7a), closes [#83](https://github.com/Marwes/combine/issues/83), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add map_token and map_range methods to ParseError ([2f92b296](https://github.com/Marwes/combine/commit/2f92b29669b618535bcd7533b7dd39b7daa8579b), closes [#86](https://github.com/Marwes/combine/issues/86))
+*   Allow ParseError to be used without the StreamOnce constraint ([520da8e8](https://github.com/Marwes/combine/commit/520da8e89f7162b4d6ba3a3bca05a05f3bd37999), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Bug Fixes
+
+*   Remove depreceated items ([9107342a](https://github.com/Marwes/combine/commit/9107342a89a5efc664bac9c2919a93a992ca6809), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Don't forward tuple parsers to frunk to prevent a performance loss ([7e27c523](https://github.com/Marwes/combine/commit/7e27c523da46828b254ee4fc7c1f9750623e5aff))
+*   Add the correct errors after sequencing has returned EmptyOk ([54fecc62](https://github.com/Marwes/combine/commit/54fecc62938445aae15373a6b1ec7c4419582025), closes [#95](https://github.com/Marwes/combine/issues/95))
+*   Renamed SharedBufferedStream and BufferedStream to be less confusing ([3add407e](https://github.com/Marwes/combine/commit/3add407eecf886cc72ce05414d58a2b3b19a0bb9), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add From<u8> for Info ([4cf8cff6](https://github.com/Marwes/combine/commit/4cf8cff64466519bf2d4a4dc1dcbe8deb449e004))
+*   Make the positions of slice streams harder to misuse ([f50ab9e2](https://github.com/Marwes/combine/commit/f50ab9e2f42ec2465368bfb11a60b2339b699fc4), closes [#104](https://github.com/Marwes/combine/issues/104), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Breaking Changes
+
+*   Remove depreceated items ([9107342a](https://github.com/Marwes/combine/commit/9107342a89a5efc664bac9c2919a93a992ca6809), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Renamed SharedBufferedStream and BufferedStream to be less confusing ([3add407e](https://github.com/Marwes/combine/commit/3add407eecf886cc72ce05414d58a2b3b19a0bb9), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Remove the old State type and Positioner trait ([ae43f8ae](https://github.com/Marwes/combine/commit/ae43f8ae2b303aca3b5ae9fbb1a87475349f2745), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Teach the choice parser to take tuples ([96da7ee0](https://github.com/Marwes/combine/commit/96da7ee0cf8a112e60747a0be8a4dbd90efbecba), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add the range_of parser ([7e692086](https://github.com/Marwes/combine/commit/7e69208650f7fdc75279370b193030b09ccdbc7a), closes [#83](https://github.com/Marwes/combine/issues/83), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Make the positions of slice streams harder to misuse ([f50ab9e2](https://github.com/Marwes/combine/commit/f50ab9e2f42ec2465368bfb11a60b2339b699fc4), closes [#104](https://github.com/Marwes/combine/issues/104), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Allow ParseError to be used without the StreamOnce constraint ([520da8e8](https://github.com/Marwes/combine/commit/520da8e89f7162b4d6ba3a3bca05a05f3bd37999), breaks [#](https://github.com/Marwes/combine/issues/))
+
+
+
 <a name="v2.5.0"></a>
 ## v2.5.0 (2017-08-07)
 
