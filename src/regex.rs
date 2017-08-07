@@ -1,15 +1,19 @@
+//! Module containing regex parsers on streams returning ranges of `&str` or `&[u8]`.
+//!
 //! All regex parsers are overloaded on `&str` and `&[u8]` ranges and can take a `Regex` by value
 //! or shared reference (`&`)
 //!
 //! ```
 //! extern crate regex;
+//! #[macro_use]
+//! extern crate lazy_static;
 //! extern crate combine;
-//! use regex::bytes::Regex;
+//! use regex::{bytes, Regex};
 //! use combine::Parser;
-//! use combine::regex::find_many;
+//! use combine::regex::{find_many, match_};
 //!
 //! fn main() {
-//!     let regex = Regex::new("[0-9]+").unwrap();
+//!     let regex = bytes::Regex::new("[0-9]+").unwrap();
 //!     // Shared references to any regex works as well
 //!     assert_eq!(
 //!         find_many(&regex).parse(&b"123 456 "[..]),
@@ -18,6 +22,12 @@
 //!     assert_eq!(
 //!         find_many(regex).parse(&b""[..]),
 //!         Ok((vec![], &b""[..]))
+//!     );
+//!
+//!     lazy_static! { static ref REGEX: Regex = Regex::new("[:alpha:]+").unwrap(); }
+//!     assert_eq!(
+//!         match_(&*REGEX).parse("abc123"),
+//!         Ok(("abc123", "abc123"))
 //!     );
 //! }
 //! ```
@@ -193,6 +203,22 @@ where
 
 /// Matches `regex` on the input returning the entire input if it matches.
 /// Never consumes any input.
+///
+/// ```
+/// extern crate regex;
+/// extern crate combine;
+/// use regex::Regex;
+/// use combine::Parser;
+/// use combine::regex::match_;
+///
+/// fn main() {
+///     let regex = Regex::new("[:alpha:]+").unwrap();
+///     assert_eq!(
+///         match_(&regex).parse("abc123"),
+///         Ok(("abc123", "abc123"))
+///     );
+/// }
+/// ```
 pub fn match_<R, I>(regex: R) -> Match<R, I>
 where
     R: Regex<I::Range>,
@@ -279,7 +305,6 @@ where
 /// extern crate regex;
 /// extern crate combine;
 /// use regex::Regex;
-/// use regex::bytes;
 /// use combine::Parser;
 /// use combine::regex::captures;
 ///
