@@ -33,6 +33,7 @@ lazy_static = "0.2.8"
 [features]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
+doc = ["regex"]
 
 [[bench]]
 name = "json"
@@ -46,3 +47,6 @@ harness = false
 name = "mp4"
 harness = false
 required-features = ["mp4"]
+
+[package.metadata.docs.rs]
+features = ["doc"]
