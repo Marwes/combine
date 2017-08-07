@@ -41,6 +41,18 @@ use primitives::{ConsumedResult, FullRangeStream, ParseError, Parser};
 use primitives::FastResult::*;
 use range::take;
 
+struct First<T>(Option<T>);
+
+impl<A> FromIterator<A> for First<A>
+{
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = A>
+    {
+        First(iter.into_iter().next())
+    }
+}
+
 pub trait MatchFind {
     type Range;
     fn end(&self) -> usize;
@@ -241,18 +253,6 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        struct First<T>(Option<T>);
-
-        impl<A> FromIterator<A> for First<A>
-        {
-            fn from_iter<T>(iter: T) -> Self
-            where
-                T: IntoIterator<Item = A>
-            {
-                First(iter.into_iter().next())
-            }
-        }
-
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -340,9 +340,68 @@ where
 }
 
 #[derive(Clone)]
-pub struct Captures<F, G, R, I>(R, PhantomData<fn() -> (I, F, G)>);
+pub struct Captures<F, R, I>(R, PhantomData<fn() -> (I, F)>);
 
-impl<'a, F, G, R, I> Parser for Captures<F, G, R, I>
+impl<'a, F, R, I> Parser for Captures<F, R, I>
+where
+    F: FromIterator<I::Range>,
+    R: Regex<I::Range>,
+    I: FullRangeStream,
+    I::Range: ::primitives::Range,
+{
+    type Input = I;
+    type Output = F;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let (end, First(value)) = self.0.captures(input.range());
+        match value {
+            Some(value) => take(end).parse_lazy(input).map(|_| value),
+            None => EmptyErr(ParseError::empty(input.position())),
+        }
+    }
+}
+
+/// Matches `regex` on the input by running `captures_iter` on the input.
+/// Returns the captures of the first match and consumes the input up until the end of that match.
+///
+/// ```
+/// extern crate regex;
+/// extern crate combine;
+/// use regex::Regex;
+/// use combine::Parser;
+/// use combine::regex::captures;
+///
+/// fn main() {
+///     let mut fields = captures(Regex::new("([a-z]+):([0-9]+)").unwrap());
+///     assert_eq!(
+///         fields.parse("test:123 field:456 "),
+///         Ok((vec!["test:123", "test", "123"],
+///             " field:456 "
+///         ))
+///     );
+///     assert_eq!(
+///         fields.parse("test:123 :456 "),
+///         Ok((vec!["test:123", "test", "123"],
+///             " :456 "
+///         ))
+///     );
+/// }
+/// ```
+pub fn captures<F, R, I>(regex: R) -> Captures<F, R, I>
+where
+    F: FromIterator<I::Range>,
+    R: Regex<I::Range>,
+    I: FullRangeStream,
+    I::Range: ::primitives::Range,
+{
+    Captures(regex, PhantomData)
+}
+
+#[derive(Clone)]
+pub struct CapturesMany<F, G, R, I>(R, PhantomData<fn() -> (I, F, G)>);
+
+impl<'a, F, G, R, I> Parser for CapturesMany<F, G, R, I>
 where
     F: FromIterator<I::Range>,
     G: FromIterator<F>,
@@ -369,10 +428,10 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::captures;
+/// use combine::regex::captures_many;
 ///
 /// fn main() {
-///     let mut fields = captures(Regex::new("([a-z]+):([0-9]+)").unwrap());
+///     let mut fields = captures_many(Regex::new("([a-z]+):([0-9]+)").unwrap());
 ///     assert_eq!(
 ///         fields.parse("test:123 field:456 "),
 ///         Ok((vec![vec!["test:123", "test", "123"],
@@ -388,7 +447,7 @@ where
 ///     );
 /// }
 /// ```
-pub fn captures<F, G, R, I>(regex: R) -> Captures<F, G, R, I>
+pub fn captures_many<F, G, R, I>(regex: R) -> CapturesMany<F, G, R, I>
 where
     F: FromIterator<I::Range>,
     G: FromIterator<F>,
@@ -396,5 +455,5 @@ where
     I: FullRangeStream,
     I::Range: ::primitives::Range,
 {
-    Captures(regex, PhantomData)
+    CapturesMany(regex, PhantomData)
 }
