@@ -278,7 +278,7 @@ where
 }
 
 /// Matches `regex` on the input by running `find` on the input and returns the first match.
-/// Consumes all input up until the end of the last match.
+/// Consumes all input up until the end of the first match.
 ///
 /// ```
 /// extern crate regex;
