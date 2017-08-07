@@ -66,6 +66,18 @@ The easiest way to contribute is to just open an issue about any problems you en
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
+### 3.0.0-alpha.1
+
+* Depreceated items have been changed or removed. Upgrade to the latest version of 2.x first and fix all
+    depreceations before upgrading to 3.x.
+* If you have written the `ParseError<I>` explicitly it needs to be changed to `StreamError<I>` as
+    `ParseError`s type signature have changed slightly. Function calls should not be affected however.
+* Parsers now return `Tracked<StreamError<I>>` instead of plain `ParseError<I>`. `Tracked` is an internal
+    wrapper which should just be constructed via `From::from` or `Into::into`. If you return errors explicitly
+    somwhere you will need to add `.into()` on the errors to wrap them.
+* A few other changes should be detected and fixed easily by simply compiling and fixing the compile errors.
+    See [CHANGELOG.md](https://github.com/Marwes/combine/blob/master/CHANGELOG.md) for a complete list of breaking changes.
+
 ### 2.0.0-beta3
 
 * `parse_state` renamed to `parse_stream`.
