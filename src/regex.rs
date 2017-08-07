@@ -221,7 +221,9 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+        error
+            .error
+            .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -272,7 +274,9 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+        error
+            .error
+            .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -325,7 +329,9 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+        error
+            .error
+            .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -380,7 +386,9 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+        error
+            .error
+            .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -440,7 +448,9 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<StreamError<Self::Input>>) {
-        error.error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+        error
+            .error
+            .add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 

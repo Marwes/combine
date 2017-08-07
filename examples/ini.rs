@@ -3,11 +3,14 @@
 extern crate combine;
 
 use std::collections::HashMap;
+use std::env;
+use std::error::Error as StdError;
+use std::fs::File;
+use std::io::{self, Read};
 
 use combine::*;
 use combine::char::space;
-use combine::primitives::Error;
-use combine::state::SourcePosition;
+use combine::state::State;
 
 #[derive(PartialEq, Debug)]
 pub struct Ini {
@@ -123,4 +126,27 @@ fn ini_error() {
             ],
         })
     );
+}
+
+fn main() {
+    let result = match env::args().nth(1) {
+        Some(file) => File::open(file).map_err(From::from).and_then(main_),
+        None => main_(io::stdin()),
+    };
+    match result {
+        Ok(_) => println!("OK"),
+        Err(err) => println!("{}", err),
+    }
+}
+
+fn main_<R>(mut read: R) -> Result<(), Box<StdError>>
+where
+    R: Read,
+{
+    let mut text = String::new();
+    read.read_to_string(&mut text)?;
+    ini()
+        .parse(State::new(&*text))
+        .map_err(|err| err.map_range(|s| s.to_string()))?;
+    Ok(())
 }
