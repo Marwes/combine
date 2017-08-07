@@ -624,6 +624,107 @@ parser!{
     }
 }
 
+#[derive(Clone)]
+pub struct CountMinMax<F, P> {
+    parser: P,
+    min: usize,
+    max: usize,
+    _marker: PhantomData<fn() -> F>,
+}
+
+impl<P, F> Parser for CountMinMax<F, P>
+where
+    P: Parser,
+    F: FromIterator<P::Output>,
+{
+    type Input = P::Input;
+    type Output = F;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+        let mut iter = self.parser.by_ref().iter(input);
+        let mut len = 0usize;
+        let value = iter.by_ref().take(self.max).inspect(|_| { len += 1 }).collect();
+        if len < self.min {
+            let message = Error::Message(format!("expected {} more elements", self.min - len).into());
+            ConsumedErr(ParseError::new(iter.input.position(), message))
+        } else {
+            iter.into_result_fast(value)
+        }
+    }
+
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        self.parser.add_error(error)
+    }
+}
+
+/// Parses `parser` from `min` to `max` times (including `min` and `max`).
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::primitives::{BytePosition, Error, Info};
+/// # fn main() {
+/// let mut parser = count_min_max(2, 2, token(b'a'));
+///
+/// let result = parser.parse(&b"aaab"[..]);
+/// assert_eq!(result, Ok((b"aa"[..].to_owned(), &b"ab"[..])));
+/// let result = parser.parse(&b"ab"[..]);
+/// assert!(result.is_err());
+/// # }
+/// ```
+///
+/// # Panics
+///
+/// If `min` > `max`.
+#[inline(always)]
+pub fn count_min_max<F, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
+where
+    P: Parser,
+    F: FromIterator<P::Output>,
+{
+    assert!(min <= max);
+
+    CountMinMax {
+        parser: parser,
+        min: min,
+        max: max,
+        _marker: PhantomData,
+    }
+}
+
+pub type SkipCountMinMax<P> = skip_count_min_max::SkipCountMinMax<P>;
+parser!{
+    #[derive(Clone)]
+    pub struct SkipCountMinMax;
+    /// Parses `parser` from `min` to `max` times (including `min` and `max`)
+    /// skipping the output of `parser`.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = skip_count_min_max(2, 2, token(b'a'));
+    ///
+    /// let result = parser.parse(&b"aaab"[..]);
+    /// assert_eq!(result, Ok(((), &b"ab"[..])));
+    /// let result = parser.parse(&b"ab"[..]);
+    /// assert!(result.is_err());
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If `min` > `max`.
+    pub fn skip_count_min_max[P](min: usize, max: usize, parser: P)(P::Input) -> ()
+    where [
+        P: Parser
+    ]
+    {
+        ::combinator::count_min_max::<Vec<()>, _>(*min, *max, parser.map(|_| ())).with(value(()))
+    }
+}
+
 /// Takes an array of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
 ///
