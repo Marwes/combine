@@ -598,6 +598,32 @@ where
     }
 }
 
+pub type SkipCount<P> = skip_count::SkipCount<P>;
+parser!{
+    #[derive(Clone)]
+    pub struct SkipCount;
+    /// Parses `parser` from zero up to `count` times skipping the output of `parser`.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::primitives::{BytePosition, Error, Info};
+    /// # fn main() {
+    /// let mut parser = skip_count(2, token(b'a'));
+    ///
+    /// let result = parser.parse(&b"aaab"[..]);
+    /// assert_eq!(result, Ok(((), &b"ab"[..])));
+    /// # }
+    /// ```
+    pub fn skip_count[P](count: usize, parser: P)(P::Input) -> ()
+    where [
+        P: Parser
+    ]
+    {
+        ::combinator::count::<Vec<()>, _>(*count, parser.map(|_| ())).with(value(()))
+    }
+}
+
 /// Takes an array of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
 ///
