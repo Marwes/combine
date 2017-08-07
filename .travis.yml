@@ -19,10 +19,7 @@ before_script:
   pip install 'travis-cargo<0.2' --user &&
   export PATH=$HOME/.local/bin:$PATH
 script:
-- cargo build
-- cargo test
-- cargo bench
-- cargo check --bench mp4 --features mp4
+- ./travish.sh
 - travis-cargo --only stable doc
 after_success: |
     if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
