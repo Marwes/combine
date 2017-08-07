@@ -2150,6 +2150,125 @@ tuple_parser!(A, B, C, D, E, F, G, H, I, J);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
 tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
 
+#[macro_export]
+#[doc(hidden)]
+macro_rules! seq_parser_expr {
+    (; $($tt: tt)*) => {
+        ( $($tt)* )
+    };
+    ( (_ : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
+        seq_parser_expr!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
+    };
+    ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
+        seq_parser_expr!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
+    };
+    ( (_ : $first_parser: expr ); $($tt: tt)*) => {
+        ( $($tt)* $first_parser, )
+    };
+    ( ($first_field: ident : $first_parser: expr, ); $($tt: tt)*) => {
+        seq_parser_expr!(; $($tt)* $first_parser,)
+    };
+    ( (_ : $first_parser: expr, ); $($tt: tt)*) => {
+        ( $($tt)* $first_parser, )
+    };
+    ( ($first_field: ident : $first_parser: expr ); $($tt: tt)*) => {
+        seq_parser_expr!(; $($tt)* $first_parser,)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! seq_parser_pattern {
+    (; $($tt: tt)*) => {
+       ( $($tt)* )
+    };
+    ( (_ : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
+        seq_parser_pattern!( ( $($remaining)+ ) ; $($tt)* _, )
+    };
+    ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
+        seq_parser_pattern!( ( $($remaining)+ ) ; $($tt)* $first_field, )
+    };
+    ( ( _ : $first_parser: expr ); $($tt: tt)*) => {
+        seq_parser_pattern!(; $($tt)* _, )
+    };
+    ( ($first_field: ident : $first_parser: expr ); $($tt: tt)*) => {
+        seq_parser_pattern!(; $($tt)* $first_field,)
+    };
+    ( ( _ : $first_parser: expr, ); $($tt: tt)*) => {
+        seq_parser_pattern!(; $($tt)* _, )
+    };
+    ( ($first_field: ident : $first_parser: expr, ); $($tt: tt)*) => {
+        seq_parser_pattern!(; $($tt)* $first_field,)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! seq_parser_impl {
+    (; $name: ident $($tt: tt)*) => {
+        $name { $($tt)* }
+    };
+    ( (_ : $first_parser: expr, $($remaining: tt)+ ); $name: ident $($tt: tt)*) => {
+        seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* )
+    };
+    ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ ); $name: ident $($tt: tt)*) => {
+        seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* $first_field: $first_field, )
+    };
+    ( ( _ : $first_parser: expr ); $name: ident $($tt: tt)*) => {
+        seq_parser_impl!( ; $name $($tt)* )
+    };
+    ( ($first_field: ident : $first_parser: expr ); $name: ident $($tt: tt)*) => {
+        seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
+    };
+    ( ( _ : $first_parser: expr, ); $name: ident $($tt: tt)*) => {
+        seq_parser_impl!(; $name $($tt)*)
+    };
+    ( ($first_field: ident : $first_parser: expr, ); $name: ident $($tt: tt)*) => {
+        seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
+    };
+}
+
+
+/// Sequences multiple parsers and builds a struct out of them.
+///
+/// ```
+/// #[macro_use]
+/// extern crate combine;
+/// use combine::{Parser, many, token};
+/// use combine::byte::{letter, spaces};
+///
+/// #[derive(Debug, PartialEq)]
+/// struct Field {
+///     name: Vec<u8>,
+///     value: Vec<u8>,
+/// }
+/// fn main() {
+///     let mut parser = struct_parser!{
+///         Field {
+///             name: many(letter()),
+///             // `_` fields are ignored when building the struct
+///             _: spaces(),
+///             _: token(b':'),
+///             _: spaces(),
+///             value: many(letter()),
+///         }
+///     };
+///     assert_eq!(
+///         parser.parse(&b"test: data"[..]),
+///         Ok((Field { name: b"test"[..].to_owned(), value: b"data"[..].to_owned() }, &b""[..]))
+///     );
+/// }
+/// ```
+#[macro_export]
+macro_rules! struct_parser {
+    ($name: ident { $($tt: tt)* }) => {
+        seq_parser_expr!( ( $($tt)* ); )
+            .map(|seq_parser_pattern!( ( $($tt)* ); )|
+                seq_parser_impl!(( $($tt)* ); $name )
+            )
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct EnvParser<E, I, T>
 where

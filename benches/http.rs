@@ -66,19 +66,15 @@ fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), P
 
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
-    let request_line = (
-        take_while1(is_token),
-        take_while1(is_space),
-        take_while1(is_not_space),
-        take_while1(is_space),
-        http_version,
-    ).map(|(method, _, uri, _, version)| {
-            Request {
-                method: method,
-                uri: uri,
-                version: version,
-            }
-        });
+    let request_line = struct_parser!(
+        Request {
+            method: take_while1(is_token),
+            _: take_while1(is_space),
+            uri: take_while1(is_not_space),
+            _: take_while1(is_space),
+            version: http_version,
+        }
+    );
 
 
     let message_header_line = (
