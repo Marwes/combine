@@ -1,3 +1,25 @@
+<a name="v2.5.0"></a>
+## v2.5.0 (2017-08-07)
+
+#### Features
+
+*   Rename captures to captures_many and add a captures parser ([9d301e42](https://github.com/Marwes/combine/commit/9d301e42ee2da23c90ce78982d9dbef6d7586b4c))
+*   Add regex parsers (match_, find_many) ([5ac12b98](https://github.com/Marwes/combine/commit/5ac12b9883c49b345341ad47aeac2c8accd52c33))
+*   Add a macro to parse values directly into structs ([1656a620](https://github.com/Marwes/combine/commit/1656a620960e2b6256e724058cf39892d6e16944))
+*   add count_min_max and skip_count_min_max ([8f3413a7](https://github.com/Marwes/combine/commit/8f3413a7431f4459d67695156f0b259df422bf09))
+*   Add the skip_count parser ([15171d10](https://github.com/Marwes/combine/commit/15171d10495a5a221713ca0f67f3afc0b0eaf580))
+*   Add the recognize parser ([61c9b269](https://github.com/Marwes/combine/commit/61c9b269826707e7fa7409512f21122c9fd8f137))
+*   Add a macro for declaring parsers ([7fe1d9f7](https://github.com/Marwes/combine/commit/7fe1d9f723a14d20c9879849e104283ee24d254e), closes [#70](https://github.com/Marwes/combine/issues/70))
+*   Provide parsers for decoding big-endian and little-endian numbers ([05ec0bc8](https://github.com/Marwes/combine/commit/05ec0bc8675a2de0a71268a458ceefa7ee99f7a0))
+
+#### Bug Fixes
+
+*   Report and_then errors as if at the start of the parse ([b71a78f1](https://github.com/Marwes/combine/commit/b71a78f12a40e90425d59f72d28c628d28aebe1d))
+*   Return EmptyErr when the any parser fails ([93208e9c](https://github.com/Marwes/combine/commit/93208e9c6fd92628eb02c0b32a0d6d3120a9af7f), closes [#99](https://github.com/Marwes/combine/issues/99))
+* **doc:**  regex find consumes input until the end of the first match ([d1bbf1d4](https://github.com/Marwes/combine/commit/d1bbf1d4198cb71d9c4b9e6d13399e38078518f0))
+
+
+
 <a name="v2.3.0"></a>
 ## v2.3.0 (2017-02-22)
 
