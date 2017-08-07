@@ -37,7 +37,7 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, FullRangeStream, ParseError, Parser};
+use primitives::{ConsumedResult, Error, FullRangeStream, ParseError, Parser};
 use primitives::FastResult::*;
 use range::take;
 
@@ -88,6 +88,7 @@ pub trait Regex<Range> {
     where
         F: FromIterator<Range>,
         G: FromIterator<F>;
+    fn as_str(&self) -> &str;
 }
 
 impl<'a, R, Range> Regex<Range> for &'a R
@@ -109,6 +110,9 @@ where
         G: FromIterator<F>,
     {
         (**self).captures(range)
+    }
+    fn as_str(&self) -> &str {
+        (**self).as_str()
     }
 }
 
@@ -150,6 +154,9 @@ impl<'a> Regex<&'a str> for self::regex::Regex {
             .collect();
         (end, value)
     }
+    fn as_str(&self) -> &str {
+        self::regex::Regex::as_str(self)
+    }
 }
 
 impl<'a> Regex<&'a [u8]> for self::regex::bytes::Regex {
@@ -190,6 +197,9 @@ impl<'a> Regex<&'a [u8]> for self::regex::bytes::Regex {
             .collect();
         (end, value)
     }
+    fn as_str(&self) -> &str {
+        self::regex::bytes::Regex::as_str(self)
+    }
 }
 
 
@@ -210,6 +220,9 @@ where
         } else {
             EmptyErr(ParseError::empty(input.position()))
         }
+    }
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -259,6 +272,9 @@ where
             None => EmptyErr(ParseError::empty(input.position())),
         }
     }
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
+    }
 }
 
 /// Matches `regex` on the input by running `find` on the input and returns the first match.
@@ -274,7 +290,8 @@ where
 /// fn main() {
 ///     let mut digits = find(Regex::new("^[0-9]+").unwrap());
 ///     assert_eq!(digits.parse("123 456 "), Ok(("123", " 456 ")));
-///     assert!(digits.parse("abc 123 456 ").is_err());
+///     assert!(
+///         digits.parse("abc 123 456 ").is_err());
 ///
 ///     let mut digits2 = find(Regex::new("[0-9]+").unwrap());
 ///     assert_eq!(digits2.parse("123 456 "), Ok(("123", " 456 ")));
@@ -307,6 +324,9 @@ where
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
+    }
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -359,6 +379,9 @@ where
             Some(value) => take(end).parse_lazy(input).map(|_| value),
             None => EmptyErr(ParseError::empty(input.position())),
         }
+    }
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
@@ -416,6 +439,9 @@ where
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
+    }
+    fn add_error(&mut self, error: &mut ParseError<Self::Input>) {
+        error.add_error(Error::Expected(format!("/{}/", self.0.as_str()).into()))
     }
 }
 
