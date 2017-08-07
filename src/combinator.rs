@@ -785,12 +785,10 @@ where
                                 self[i - 1].add_error(&mut prev_err);
                                 last_parser_having_non_1_offset = i;
                             }
-                            Some(
-                                Tracked {
-                                    error: prev_err.error.merge(err.error),
-                                    offset: err.offset,
-                                }
-                            )
+                            Some(Tracked {
+                                error: prev_err.error.merge(err.error),
+                                offset: err.offset,
+                            })
                         }
                     };
                 }
@@ -3082,11 +3080,8 @@ mod tests {
     #[test]
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {
         let mut p1 = char('1');
-        let mut p2 = (optional(char('b')), char('2')).map(|t| t. 1);
-        let mut parser = choice::<[&mut Parser<Input = _, Output = _>; 2]>([
-            &mut p1,
-            &mut p2,
-        ]);
+        let mut p2 = (optional(char('b')), char('2')).map(|t| t.1);
+        let mut parser = choice::<[&mut Parser<Input = _, Output = _>; 2]>([&mut p1, &mut p2]);
 
         assert_eq!(
             parser.parse(State::new("c")),

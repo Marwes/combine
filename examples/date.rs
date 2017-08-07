@@ -4,8 +4,14 @@
 #[macro_use]
 extern crate combine;
 
+use std::env;
+use std::error::Error as StdError;
+use std::fs::File;
+use std::io::{self, Read};
+
 use combine::char::{char, digit};
 use combine::{choice, many, optional, Parser, Stream};
+use combine::state::State;
 
 #[derive(PartialEq, Debug)]
 pub struct Date {
@@ -171,4 +177,27 @@ fn test() {
         },
     };
     assert_eq!(result, Ok((d, "")));
+}
+
+fn main() {
+    let result = match env::args().nth(1) {
+        Some(file) => File::open(file).map_err(From::from).and_then(main_),
+        None => main_(io::stdin()),
+    };
+    match result {
+        Ok(_) => println!("OK"),
+        Err(err) => println!("{}", err),
+    }
+}
+
+fn main_<R>(mut read: R) -> Result<(), Box<StdError>>
+where
+    R: Read,
+{
+    let mut text = String::new();
+    read.read_to_string(&mut text)?;
+    date_time()
+        .parse(State::new(&*text))
+        .map_err(|err| err.map_range(|s| s.to_string()))?;
+    Ok(())
 }
