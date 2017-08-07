@@ -1703,14 +1703,17 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
+    /// # use combine::primitives::SourcePosition;
     /// # use combine::char::digit;
     /// # fn main() {
     /// let mut parser = many1(digit())
     ///     .and_then(|s: String| s.parse::<i32>());
-    /// let result = parser.parse("1234");
+    /// let result = parser.parse(State::new("1234")).map(|(x, state)| (x, state.input));
     /// assert_eq!(result, Ok((1234, "")));
-    /// let err = parser.parse("abc");
-    /// assert!(err.is_err());
+    /// let result = parser.parse(State::new("999999999999999999999999"));
+    /// assert!(result.is_err());
+    /// // Errors are report as if they occured at the start of the parse
+    /// assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
     /// # }
     /// ```
     fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>

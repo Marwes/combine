@@ -2014,14 +2014,15 @@ where
     type Output = O;
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<O, Self::Input> {
+        let position = input.position();
         match self.0.parse_lazy(input) {
             EmptyOk((o, input)) => match (self.1)(o) {
                 Ok(o) => EmptyOk((o, input)),
-                Err(err) => EmptyErr(ParseError::new(input.position(), err.into())),
+                Err(err) => EmptyErr(ParseError::new(position, err.into())),
             },
             ConsumedOk((o, input)) => match (self.1)(o) {
                 Ok(o) => ConsumedOk((o, input)),
-                Err(err) => ConsumedErr(ParseError::new(input.position(), err.into())),
+                Err(err) => ConsumedErr(ParseError::new(position, err.into())),
             },
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
