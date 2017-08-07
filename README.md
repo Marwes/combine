@@ -1,5 +1,5 @@
 # combine
-[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Docs v1](https://docs.rs/combine/badge.svg?version=^1)](https://docs.rs/combine/^1) [![Docs](https://docs.rs/combine/badge.svg)](https://docs.rs/combine) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Build Status](https://travis-ci.org/Marwes/combine.svg?branch=master)](https://travis-ci.org/Marwes/combine) [![Docs v2](https://docs.rs/combine/badge.svg?version=^1)](https://docs.rs/combine/^2) [![Docs](https://docs.rs/combine/badge.svg)](https://docs.rs/combine) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahead using the [try  combinator](https://marwes.github.io/combine/combine/fn.try.html).
 
@@ -50,6 +50,9 @@ There is an additional crate which has parsers to lex and parse programming lang
 You can find older versions of combine (parser-combinators) [here](https://crates.io/crates/parser-combinators).
 
 ## Contributing
+
+Current master is the 3.0.0 branch. If you want to submit a fix or feature to the 2.x version of combine then
+do so to the 2.x branch or submit the PR to master and request that it be backported.
 
 The easiest way to contribute is to just open an issue about any problems you encounter using combine but if you are interested in adding something to the library here is a list of some of the easier things to work on to get started.
 
