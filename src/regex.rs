@@ -1,9 +1,33 @@
+//! All regex parsers are overloaded on `&str` and `&[u8]` ranges and can take a `Regex` by value
+//! or shared reference (`&`)
+//!
+//! ```
+//! extern crate regex;
+//! extern crate combine;
+//! use regex::bytes::Regex;
+//! use combine::Parser;
+//! use combine::regex::find_many;
+//!
+//! fn main() {
+//!     let regex = Regex::new("[0-9]+").unwrap();
+//!     // Shared references to any regex works as well
+//!     assert_eq!(
+//!         find_many(&regex).parse(&b"123 456 "[..]),
+//!         Ok((vec![&b"123"[..], &b"456"[..]], &b" "[..]))
+//!     );
+//!     assert_eq!(
+//!         find_many(regex).parse(&b""[..]),
+//!         Ok((vec![], &b""[..]))
+//!     );
+//! }
+//! ```
+
 extern crate regex;
 
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, FullRangeStream, Parser, ParseError};
+use primitives::{ConsumedResult, FullRangeStream, ParseError, Parser};
 use primitives::FastResult::*;
 use range::take;
 
@@ -35,15 +59,34 @@ impl<'t> MatchFind for self::regex::bytes::Match<'t> {
 
 pub trait Regex<Range> {
     fn is_match(&self, range: Range) -> bool;
-    fn find_iter<F>(&self, range: Range) -> (usize, F) where F: FromIterator<Range>;
+    fn find_iter<F>(&self, range: Range) -> (usize, F)
+    where
+        F: FromIterator<Range>;
+    fn captures<F, G>(&self, range: Range) -> (usize, G)
+    where
+        F: FromIterator<Range>,
+        G: FromIterator<F>;
 }
 
-impl<'a, R, Range> Regex<Range> for &'a R where R: Regex<Range> {
+impl<'a, R, Range> Regex<Range> for &'a R
+where
+    R: Regex<Range>,
+{
     fn is_match(&self, range: Range) -> bool {
         (**self).is_match(range)
     }
-    fn find_iter<F>(&self, range: Range) -> (usize, F) where F: FromIterator<Range> {
+    fn find_iter<F>(&self, range: Range) -> (usize, F)
+    where
+        F: FromIterator<Range>,
+    {
         (**self).find_iter(range)
+    }
+    fn captures<F, G>(&self, range: Range) -> (usize, G)
+    where
+        F: FromIterator<Range>,
+        G: FromIterator<F>,
+    {
+        (**self).captures(range)
     }
 }
 
@@ -51,13 +94,38 @@ impl<'a> Regex<&'a str> for self::regex::Regex {
     fn is_match(&self, range: &'a str) -> bool {
         self::regex::Regex::is_match(self, range)
     }
-    fn find_iter<F>(&self, range: &'a str) -> (usize, F) where F: FromIterator<&'a str> {
+    fn find_iter<F>(&self, range: &'a str) -> (usize, F)
+    where
+        F: FromIterator<&'a str>,
+    {
         let mut end = 0;
-        let value = self::regex::Regex::find_iter(self, range).map(|m| {
-            end = m.end();
-            m.as_match()
-        })
-        .collect();
+        let value = self::regex::Regex::find_iter(self, range)
+            .map(|m| {
+                end = m.end();
+                m.as_match()
+            })
+            .collect();
+        (end, value)
+    }
+    fn captures<F, G>(&self, range: &'a str) -> (usize, G)
+    where
+        F: FromIterator<&'a str>,
+        G: FromIterator<F>,
+    {
+        let mut end = 0;
+        let value = self::regex::Regex::captures_iter(self, range)
+            .map(|captures| {
+                let mut captures_iter = captures.iter();
+                // The first group is the match on the entire regex
+                let first_match = captures_iter.next().unwrap().unwrap();
+                end = first_match.end();
+                Some(Some(first_match))
+                    .into_iter()
+                    .chain(captures_iter)
+                    .filter_map(|match_| match_.map(|m| m.as_match()))
+                    .collect()
+            })
+            .collect();
         (end, value)
     }
 }
@@ -66,13 +134,38 @@ impl<'a> Regex<&'a [u8]> for self::regex::bytes::Regex {
     fn is_match(&self, range: &'a [u8]) -> bool {
         self::regex::bytes::Regex::is_match(self, range)
     }
-    fn find_iter<F>(&self, range: &'a [u8]) -> (usize, F) where F: FromIterator<&'a [u8]> {
+    fn find_iter<F>(&self, range: &'a [u8]) -> (usize, F)
+    where
+        F: FromIterator<&'a [u8]>,
+    {
         let mut end = 0;
-        let value = self::regex::bytes::Regex::find_iter(self, range).map(|m| {
-            end = m.end();
-            m.as_match()
-        })
-        .collect();
+        let value = self::regex::bytes::Regex::find_iter(self, range)
+            .map(|m| {
+                end = m.end();
+                m.as_match()
+            })
+            .collect();
+        (end, value)
+    }
+    fn captures<F, G>(&self, range: &'a [u8]) -> (usize, G)
+    where
+        F: FromIterator<&'a [u8]>,
+        G: FromIterator<F>,
+    {
+        let mut end = 0;
+        let value = self::regex::bytes::Regex::captures_iter(self, range)
+            .map(|captures| {
+                let mut captures_iter = captures.iter();
+                // The first group is the match on the entire regex
+                let first_match = captures_iter.next().unwrap().unwrap();
+                end = first_match.end();
+                Some(Some(first_match))
+                    .into_iter()
+                    .chain(captures_iter)
+                    .filter_map(|match_| match_.map(|m| m.as_match()))
+                    .collect()
+            })
+            .collect();
         (end, value)
     }
 }
@@ -108,7 +201,8 @@ where
     Match(regex, PhantomData)
 }
 
-pub struct FindMany<F, R, I>(R, PhantomData<fn () -> (I, F)>);
+#[derive(Clone)]
+pub struct FindMany<F, R, I>(R, PhantomData<fn() -> (I, F)>);
 
 impl<'a, F, R, I> Parser for FindMany<F, R, I>
 where
@@ -144,17 +238,6 @@ where
 ///     assert_eq!(digits.parse("123 456 "), Ok((vec!["123", "456"], " ")));
 ///     assert_eq!(digits.parse("abc 123 456 "), Ok((vec!["123", "456"], " ")));
 ///     assert_eq!(digits.parse("abc"), Ok((vec![], "abc")));
-/// 
-///     let regex = bytes::Regex::new("[0-9]+").unwrap();
-///     // Shared references to any regex works as well
-///     assert_eq!(
-///         find_many(&regex).parse(&b"123 456 "[..]),
-///         Ok((vec![&b"123"[..], &b"456"[..]], &b" "[..]))
-///     );
-///     assert_eq!(
-///         find_many(regex).parse(&b""[..]),
-///         Ok((vec![], &b""[..]))
-///     );
 /// }
 /// ```
 pub fn find_many<F, R, I>(regex: R) -> FindMany<F, R, I>
@@ -165,4 +248,65 @@ where
     I::Range: ::primitives::Range,
 {
     FindMany(regex, PhantomData)
+}
+
+#[derive(Clone)]
+pub struct Captures<F, G, R, I>(R, PhantomData<fn() -> (I, F, G)>);
+
+impl<'a, F, G, R, I> Parser for Captures<F, G, R, I>
+where
+    F: FromIterator<I::Range>,
+    G: FromIterator<F>,
+    R: Regex<I::Range>,
+    I: FullRangeStream,
+    I::Range: ::primitives::Range,
+{
+    type Input = I;
+    type Output = G;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let (end, value) = self.0.captures(input.range());
+        take(end).parse_lazy(input).map(|_| value)
+    }
+}
+
+/// Matches `regex` on the input by running `captures_iter` on the input.
+/// Returns all captures which is part of the match in a `F: FromIterator<I::Range>`.
+/// Consumes all input up until the end of the last match.
+///
+/// ```
+/// extern crate regex;
+/// extern crate combine;
+/// use regex::Regex;
+/// use regex::bytes;
+/// use combine::Parser;
+/// use combine::regex::captures;
+///
+/// fn main() {
+///     let mut fields = captures(Regex::new("([a-z]+):([0-9]+)").unwrap());
+///     assert_eq!(
+///         fields.parse("test:123 field:456 "),
+///         Ok((vec![vec!["test:123", "test", "123"],
+///                  vec!["field:456", "field", "456"]],
+///             " "
+///         ))
+///     );
+///     assert_eq!(
+///         fields.parse("test:123 :456 "),
+///         Ok((vec![vec!["test:123", "test", "123"]],
+///             " :456 "
+///         ))
+///     );
+/// }
+/// ```
+pub fn captures<F, G, R, I>(regex: R) -> Captures<F, G, R, I>
+where
+    F: FromIterator<I::Range>,
+    G: FromIterator<F>,
+    R: Regex<I::Range>,
+    I: FullRangeStream,
+    I::Range: ::primitives::Range,
+{
+    Captures(regex, PhantomData)
 }
