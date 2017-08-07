@@ -2,7 +2,6 @@ use primitives::{ConsumedResult, ParseError, Parser, Stream};
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use std::marker::PhantomData;
 
-
 /// Parses a character and succeeds if the character is equal to `c`.
 ///
 /// ```
