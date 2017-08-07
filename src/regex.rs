@@ -228,6 +228,69 @@ where
 }
 
 #[derive(Clone)]
+pub struct Find<R, I>(R, PhantomData<fn() -> I>);
+
+impl<'a, R, I> Parser for Find<R, I>
+where
+    R: Regex<I::Range>,
+    I: FullRangeStream,
+    I::Range: ::primitives::Range,
+{
+    type Input = I;
+    type Output = I::Range;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        struct First<T>(Option<T>);
+
+        impl<A> FromIterator<A> for First<A>
+        {
+            fn from_iter<T>(iter: T) -> Self
+            where
+                T: IntoIterator<Item = A>
+            {
+                First(iter.into_iter().next())
+            }
+        }
+
+        let (end, First(value)) = self.0.find_iter(input.range());
+        match value {
+            Some(value) => take(end).parse_lazy(input).map(|_| value),
+            None => EmptyErr(ParseError::empty(input.position())),
+        }
+    }
+}
+
+/// Matches `regex` on the input by running `find` on the input and returns the first match.
+/// Consumes all input up until the end of the last match.
+///
+/// ```
+/// extern crate regex;
+/// extern crate combine;
+/// use regex::Regex;
+/// use combine::Parser;
+/// use combine::regex::find;
+///
+/// fn main() {
+///     let mut digits = find(Regex::new("^[0-9]+").unwrap());
+///     assert_eq!(digits.parse("123 456 "), Ok(("123", " 456 ")));
+///     assert!(digits.parse("abc 123 456 ").is_err());
+///
+///     let mut digits2 = find(Regex::new("[0-9]+").unwrap());
+///     assert_eq!(digits2.parse("123 456 "), Ok(("123", " 456 ")));
+///     assert_eq!(digits2.parse("abc 123 456 "), Ok(("123", " 456 ")));
+/// }
+/// ```
+pub fn find<R, I>(regex: R) -> Find<R, I>
+where
+    R: Regex<I::Range>,
+    I: FullRangeStream,
+    I::Range: ::primitives::Range,
+{
+    Find(regex, PhantomData)
+}
+
+#[derive(Clone)]
 pub struct FindMany<F, R, I>(R, PhantomData<fn() -> (I, F)>);
 
 impl<'a, F, R, I> Parser for FindMany<F, R, I>
