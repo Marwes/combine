@@ -41,8 +41,7 @@ pub type Recognize<P> = recognize::Recognize<P>;
 parser!{
     #[derive(Clone)]
     pub struct Recognize;
-    /// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
-    /// range.
+    /// Zero-copy parser which returns consumed input range.
     ///
     /// ```
     /// # extern crate combine;
@@ -55,6 +54,7 @@ parser!{
     /// assert!(parser.parse("!").is_err());
     /// # }
     /// ```
+    #[inline(always)]
     pub fn recognize[P](parser: P)(P::Input) -> <P::Input as StreamOnce>::Range
     where [
         P: Parser,
@@ -66,6 +66,7 @@ parser!{
     }
 }
 
+#[derive(Clone)]
 pub struct RecognizeWithValue<P>(P);
 
 impl<P> Parser for RecognizeWithValue<P>
@@ -111,6 +112,8 @@ where
 pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser,
+    P::Input: RangeStream,
+    <P::Input as StreamOnce>::Range: ::primitives::Range,
 {
     RecognizeWithValue(parser)
 }
