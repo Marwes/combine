@@ -37,48 +37,85 @@ where
     }
 }
 
-pub struct Recognize<P>(P);
+pub type Recognize<P> = recognize::Recognize<P>;
+parser!{
+    #[derive(Clone)]
+    pub struct Recognize;
+    /// Zero-copy parser which returns consumed input range.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::range::recognize;
+    /// # use combine::char::letter;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = recognize(skip_many1(letter()));
+    /// assert_eq!(parser.parse("hello world"), Ok(("hello", " world")));
+    /// assert!(parser.parse("!").is_err());
+    /// # }
+    /// ```
+    #[inline(always)]
+    pub fn recognize[P](parser: P)(P::Input) -> <P::Input as StreamOnce>::Range
+    where [
+        P: Parser,
+        P::Input: RangeStream,
+        <P::Input as StreamOnce>::Range: ::primitives::Range,
+    ]
+    {
+        ::range::recognize_with_value(parser).map(|(range, _)| range)
+    }
+}
 
-impl<P> Parser for Recognize<P>
+#[derive(Clone)]
+pub struct RecognizeWithValue<P>(P);
+
+impl<P> Parser for RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
     <P::Input as StreamOnce>::Range: ::primitives::Range,
 {
     type Input = P::Input;
-    type Output = <P::Input as StreamOnce>::Range;
+    type Output = (<P::Input as StreamOnce>::Range, P::Output);
 
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let (_, new_input) = ctry!(self.0.parse_lazy(input.clone()));
+        let (value, new_input) = ctry!(self.0.parse_lazy(input.clone()));
         let distance = input.distance(&new_input.into_inner());
-        take(distance).parse_lazy(input)
+        take(distance).parse_lazy(input).map(|range| (range, value))
     }
     fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
         self.0.add_error(errors)
     }
 }
 
-/// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
-/// range.
+/// Zero-copy parser which returns a pair: (consumed input range, parsed value).
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::recognize;
-/// # use combine::char::letter;
+/// # use combine::range::recognize_with_value;
+/// # use combine::char::{digit, char};
 /// # use combine::*;
 /// # fn main() {
-/// let mut parser = recognize(skip_many1(letter()));
-/// assert_eq!(parser.parse("hello world"), Ok(("hello", " world")));
+/// let mut parser = recognize_with_value((
+///     skip_many1(digit()),
+///     optional((try(char('.')), skip_many1(digit()))),
+/// ).map(|(_, opt)| opt.is_some()));
+///
+/// assert_eq!(parser.parse("1234!"), Ok((("1234", false), "!")));
+/// assert_eq!(parser.parse("1234.0001!"), Ok((("1234.0001", true), "!")));
 /// assert!(parser.parse("!").is_err());
+/// assert!(parser.parse("1234.").is_err());
 /// # }
 /// ```
 #[inline(always)]
-pub fn recognize<P>(parser: P) -> Recognize<P>
+pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser,
+    P::Input: RangeStream,
+    <P::Input as StreamOnce>::Range: ::primitives::Range,
 {
-    Recognize(parser)
+    RecognizeWithValue(parser)
 }
 
 /// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
