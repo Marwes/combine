@@ -1070,7 +1070,7 @@ where
 }
 
 impl_parser! { NotFollowedBy(P,),
-               Or<Then<Try<P>, fn(P::Output) -> Unexpected<P::Input>>, Value<P::Input, ()>>
+               Then<LookAhead<P>, fn(P::Output) -> Unexpected<P::Input>>
 }
 
 /// Succeeds only if `parser` fails.
@@ -1098,7 +1098,7 @@ where
         unexpected(format!("{}", t))
     }
     let f: fn(P::Output) -> Unexpected<P::Input> = f;
-    NotFollowedBy(try(parser).then(f).or(value(())))
+    NotFollowedBy(look_ahead(parser).then(f))
 }
 
 #[derive(Clone)]
@@ -2779,6 +2779,7 @@ mod tests {
     use primitives::{Error, Parser, StreamError};
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
+    use range::range;
 
     #[test]
     fn choice_empty() {
@@ -3095,5 +3096,12 @@ mod tests {
                 ],
             })
         );
+    }
+
+    #[test]
+    fn not_followed_by_does_not_consume_any_input() {
+        let mut parser = not_followed_by(range("a")).map(|_| "").or(range("a"));
+
+        assert_eq!(parser.parse("a"), Ok(("a", "")));
     }
 }
