@@ -1069,10 +1069,9 @@ where
     Value(v, PhantomData)
 }
 
-impl_parser! { NotFollowedBy(P,),
-               Or<Then<Try<P>, fn(P::Output) -> Unexpected<P::Input>>, Value<P::Input, ()>>
-}
-
+parser!{
+#[derive(Clone)]
+pub struct NotFollowedBy;
 /// Succeeds only if `parser` fails.
 /// Never consumes any input.
 ///
@@ -1089,16 +1088,15 @@ impl_parser! { NotFollowedBy(P,),
 /// # }
 /// ```
 #[inline(always)]
-pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
-where
+pub fn not_followed_by[P](parser: P)(P::Input) -> ()
+where [
     P: Parser,
     P::Output: ::std::fmt::Display,
+]
 {
-    fn f<T: ::std::fmt::Display, I: Stream>(t: T) -> Unexpected<I> {
-        unexpected(format!("{}", t))
-    }
-    let f: fn(P::Output) -> Unexpected<P::Input> = f;
-    NotFollowedBy(try(parser).then(f).or(value(())))
+    try(try(parser).then(|t| unexpected(format!("{}", t)))
+        .or(value(())))
+}
 }
 
 #[derive(Clone)]
@@ -2779,6 +2777,7 @@ mod tests {
     use primitives::{Error, Parser, StreamError};
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
+    use range::range;
 
     #[test]
     fn choice_empty() {
@@ -3095,5 +3094,17 @@ mod tests {
                 ],
             })
         );
+    }
+
+    #[test]
+    fn not_followed_by_does_not_consume_any_input() {
+        let mut parser = not_followed_by(range("a")).map(|_| "").or(range("a"));
+
+        assert_eq!(parser.parse("a"), Ok(("a", "")));
+
+        let mut parser = range("a").skip(not_followed_by(range("aa")));
+
+        assert_eq!(parser.parse("aa"), Ok(("a", "a")));
+        assert!(parser.parse("aaa").is_err());
     }
 }
