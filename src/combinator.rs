@@ -1591,12 +1591,10 @@ where
         input.combine_consumed(|input| {
             let rest = (&mut self.separator).with(optional(&mut self.parser));
             let mut iter = Iter::new(rest, input);
-            // `iter` yields Option<P::Output>, by using flat map we make sure that we stop
-            // iterating once a None element is received, i.e `self.parser` did not parse
-            // successfully
             let result = Some(first)
                 .into_iter()
-                .chain(iter.by_ref().flat_map(|x| x))
+                // Parse elements until `self.parser` returns `None`
+                .chain(iter.by_ref().scan((), |_, x| x))
                 .collect();
             iter.into_result_fast(result)
         })
@@ -3106,5 +3104,11 @@ mod tests {
 
         assert_eq!(parser.parse("aa"), Ok(("a", "a")));
         assert!(parser.parse("aaa").is_err());
+    }
+
+    #[test]
+    fn sep_end_by1_dont_eat_separator_twice() {
+        let mut parser = sep_end_by1(digit(), token(';'));
+        assert_eq!(parser.parse("1;;"), Ok((vec!['1'], ";")));
     }
 }
