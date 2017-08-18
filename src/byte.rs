@@ -263,7 +263,7 @@ where
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Bytes<I>(&'static [u8], PhantomData<I>)
 where
     I: Stream<Item = u8>;
@@ -312,7 +312,7 @@ where
     Bytes(s, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>)
 where
     I: Stream<Item = u8>;

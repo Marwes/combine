@@ -20,7 +20,7 @@ where
 
 pub use self::digit::Digit;
 parser!{
-    #[derive(Clone)]
+    #[derive(Copy, Clone)]
     pub struct Digit;
     /// Parses a base-10 digit.
     ///
@@ -292,7 +292,7 @@ fn eq(l: char, r: char) -> bool {
     l == r
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Str<I>(&'static str, PhantomData<fn(I) -> I>)
 where
     I: Stream<Item = char>;
@@ -334,7 +334,7 @@ where
     Str(s, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct StrCmp<C, I>(&'static str, C, PhantomData<fn(I) -> I>)
 where
     I: Stream<Item = char>;
