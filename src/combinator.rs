@@ -35,7 +35,7 @@ macro_rules! impl_parser {
 }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Any<I>(PhantomData<fn(I) -> I>);
 
 impl<I> Parser for Any<I>
@@ -78,7 +78,7 @@ where
 
 
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Satisfy<I, P> {
     predicate: P,
     _marker: PhantomData<I>,
@@ -139,7 +139,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SatisfyMap<I, P> {
     predicate: P,
     _marker: PhantomData<I>,
@@ -194,7 +194,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Token<I>
 where
     I: Stream,
@@ -355,7 +355,7 @@ where
 }
 
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Position<I>
 where
     I: Stream,
@@ -401,7 +401,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct OneOf<T, I>
 where
     I: Stream,
@@ -458,7 +458,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct NoneOf<T, I>
 where
     I: Stream,
@@ -517,7 +517,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Count<F, P> {
     parser: P,
     count: usize,
@@ -733,7 +733,7 @@ array_choice_parser!(
     30 31 32
     );
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Choice<P>(P);
 
 impl<P> Parser for Choice<P>
@@ -827,7 +827,7 @@ where
 
 pub type SkipCount<P> = skip_count::SkipCount<P>;
 parser!{
-    #[derive(Clone)]
+    #[derive(Copy, Clone)]
     pub struct SkipCount;
     /// Parses `parser` from zero up to `count` times skipping the output of `parser`.
     ///
@@ -851,7 +851,7 @@ parser!{
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct CountMinMax<F, P> {
     parser: P,
     min: usize,
@@ -923,7 +923,7 @@ where
 
 pub type SkipCountMinMax<P> = skip_count_min_max::SkipCountMinMax<P>;
 parser!{
-    #[derive(Clone)]
+    #[derive(Copy, Clone)]
     pub struct SkipCountMinMax;
     /// Parses `parser` from `min` to `max` times (including `min` and `max`)
     /// skipping the output of `parser`.
@@ -1033,7 +1033,7 @@ where
     Unexpected(message.into(), PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Value<I, T>(T, PhantomData<fn(I) -> I>);
 impl<I, T> Parser for Value<I, T>
 where
@@ -1070,7 +1070,7 @@ where
 }
 
 parser!{
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct NotFollowedBy;
 /// Succeeds only if `parser` fails.
 /// Never consumes any input.
@@ -1099,7 +1099,7 @@ where [
 }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Eof<I>(PhantomData<I>);
 impl<I> Parser for Eof<I>
 where
@@ -1218,7 +1218,7 @@ impl<P: Parser> Iterator for Iter<P> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Many<F, P>(P, PhantomData<F>)
 where
     P: Parser;
@@ -1267,7 +1267,7 @@ where
 }
 
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<F, P> Parser for Many1<F, P>
 where
@@ -1369,7 +1369,7 @@ where
     Many1(p, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SepBy<F, P, S> {
     parser: P,
     separator: S,
@@ -1431,7 +1431,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SepBy1<F, P, S> {
     parser: P,
     separator: S,
@@ -1505,7 +1505,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SepEndBy<F, P, S> {
     parser: P,
     separator: S,
@@ -1568,7 +1568,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SepEndBy1<F, P, S> {
     parser: P,
     separator: S,
@@ -1655,7 +1655,7 @@ impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 
 /// Wraps a function, turning it into a parser.
@@ -1722,7 +1722,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Optional<P>(P);
 impl<P> Parser for Optional<P>
 where
@@ -1793,7 +1793,7 @@ where
     Between(open.with(parser).skip(close))
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Chainl1<P, Op>(P, Op);
 impl<I, P, Op> Parser for Chainl1<P, Op>
 where
@@ -1853,7 +1853,7 @@ where
     Chainl1(parser, op)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Chainr1<P, Op>(P, Op);
 impl<I, P, Op> Parser for Chainr1<P, Op>
 where
@@ -1917,7 +1917,7 @@ where
     Chainr1(parser, op)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Try<P>(P);
 impl<I, O, P> Parser for Try<P>
 where
@@ -1956,7 +1956,7 @@ where
     Try(p)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct LookAhead<P>(P);
 
 impl<I, O, P> Parser for LookAhead<P>
@@ -2002,7 +2002,7 @@ where
     LookAhead(p)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct With<P1, P2>((P1, P2))
 where
     P1: Parser,
@@ -2036,7 +2036,7 @@ where
     With((p1, p2))
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Skip<P1, P2>((P1, P2))
 where
     P1: Parser,
@@ -2119,7 +2119,7 @@ where
     Message(p, msg)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Or<P1, P2>(Choice<(P1, P2)>)
 where
     P1: Parser,
@@ -2157,7 +2157,7 @@ where
     Or(choice((p1, p2)))
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Map<P, F>(P, F);
 impl<I, A, B, P, F> Parser for Map<P, F>
 where
@@ -2193,7 +2193,7 @@ where
     Map(p, f)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct FlatMap<P, F>(P, F);
 impl<I, A, B, P, F> Parser for FlatMap<P, F>
 where
@@ -2235,7 +2235,7 @@ where
     FlatMap(p, f)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Then<P, F>(P, F);
 impl<P, N, F> Parser for Then<P, F>
 where
@@ -2334,7 +2334,7 @@ where
     Expected(p, info)
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct AndThen<P, F>(P, F);
 impl<P, F, O, E> Parser for AndThen<P, F>
 where

@@ -962,7 +962,7 @@ where
 /// Returned by [`from_iter`].
 ///
 /// [`from_iter`]: fn.from_iter.html
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct IteratorStream<I>(I);
 
 
