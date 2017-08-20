@@ -1,3 +1,10 @@
+<a name=""></a>
+##  v3.0.0-alpha.3 (2017-08-20)
+
+*   Implement Copy for more types ([e60395d6](https://github.com/Marwes/combine/commit/e60395d683faf52be772d222f28a5d38aec05f5c))
+
+
+
 <a name="v3.0.0-alpha.1"></a>
 ## v3.0.0-alpha.1 (2017-08-07)
 
