@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate combine as pc;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Read;
 use std::fs::File;
@@ -10,7 +11,7 @@ use std::path::Path;
 
 use std::ops::Generator;
 
-use pc::primitives::{BufferedStream, Consumed, ConsumedResult, IteratorStream, ParseError, ParseResult, Parser,
+use pc::primitives::{BufferedStream, Consumed, ConsumedResult, Error, IteratorStream, ParseError, ParseResult, Parser,
                      Stream};
 use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
@@ -27,16 +28,21 @@ pub enum Value {
     Array(Vec<Value>),
 }
 
-fn generator<'p, P: 'p>(mut parser: P, mut input: P::Input) -> impl Generator<Return=ParseResult<P::Output, P::Input>, Yield=()> + 'p
+fn generator<'p, P: 'p>(mut parser: P, input: &'p RefCell<P::Input>) -> impl Generator<Return=ParseResult<P::Output, P::Input>, Yield=()> + 'p
 where P: Parser
 {
     move || {
         loop {
-            match parser.parse_stream(input) {
+            let r = parser.parse_stream((*input.borrow()).clone());
+            match r {
                 Ok(x) => return Ok(x),
                 Err(err) => {
-                    yield ();
-                    return Err(err)
+                    if err.as_ref().error.errors.iter().any(|err| *err == Error::end_of_input())
+                     {
+                        yield ();
+                    } else {
+                        return Err(err)
+                    }
                 }
             }
         }
