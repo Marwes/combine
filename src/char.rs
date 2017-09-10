@@ -411,7 +411,6 @@ mod tests {
             result.unwrap_err().errors,
             vec![Error::end_of_input(), Error::Expected("whitespace".into())]
         );
-
     }
 
     #[test]

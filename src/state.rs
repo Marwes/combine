@@ -1,6 +1,6 @@
 use std::fmt;
 
-use primitives::{FullRangeStream, IteratorStream, ParsingError, Positioned, RangeStream,
+use primitives::{FullRangeStream, IteratorStream, ParsingError, Positioned, RangeStreamOnce,
                  ReadStream, SliceStream, StreamOnce};
 
 /// Trait for tracking the current position of a `Stream`.
@@ -103,7 +103,6 @@ impl<I, X> Positioned for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
-    I::Error: ParsingError<I::Item, I::Range, X::Position>,
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
@@ -115,7 +114,6 @@ impl<I, X> StreamOnce for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
-    I::Error: ParsingError<I::Item, I::Range, X::Position>,
 {
     type Item = I::Item;
     type Range = I::Range;
@@ -228,11 +226,10 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 }
 
 
-impl<I, X> RangeStream for State<I, X>
+impl<I, X> RangeStreamOnce for State<I, X>
 where
-    I: RangeStream,
+    I: RangeStreamOnce,
     X: Clone + RangePositioner<I::Item, I::Range>,
-    I::Error: ParsingError<I::Item, I::Range, X::Position>,
     I::Position: Clone + Ord,
 {
     #[inline]
@@ -267,7 +264,8 @@ impl<I, X> FullRangeStream for State<I, X>
 where
     I: FullRangeStream,
     I::Position: Clone + Ord,
-    I::Error: ParsingError<I::Item, I::Range, X::Position>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position>
+        + ParsingError<I::Item, I::Range, I::Position>,
     X: Clone + RangePositioner<I::Item, I::Range>,
 {
     fn range(&self) -> Self::Range {

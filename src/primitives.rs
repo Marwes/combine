@@ -73,6 +73,16 @@ pub enum Info<T, R> {
     Borrowed(&'static str),
 }
 
+impl<T, R> From<SimpleInfo<T, R>> for Info<T, R> {
+    fn from(info: SimpleInfo<T, R>) -> Self {
+        match info {
+            SimpleInfo::Token(b) => Info::Token(b),
+            SimpleInfo::Range(b) => Info::Range(b),
+            SimpleInfo::Borrowed(b) => Info::Borrowed(b),
+        }
+    }
+}
+
 impl<T, R> Info<T, R> {
     pub fn map_token<F, U>(self, f: F) -> Info<U, R>
     where
@@ -179,14 +189,21 @@ pub enum Error<T, R> {
     Other(Box<StdError + Send + Sync>),
 }
 
-impl<Item, Range, Position> ParsingError<Item, Range, Position> for Error<Item, Range>
+impl<T, R> From<SimpleError<T, R>> for Error<T, R> {
+    fn from(err: SimpleError<T, R>) -> Self {
+        match err {
+            SimpleError::Message(info) => Error::Message(info.into()),
+            SimpleError::Expected(info) => Error::Expected(info.into()),
+            SimpleError::Unexpected(info) => Error::Unexpected(info.into()),
+        }
+    }
+}
+
+impl<Item, Range> StreamingError<Item, Range> for Error<Item, Range>
 where
     Item: PartialEq,
     Range: PartialEq,
 {
-    fn empty(_: Position) -> Self {
-        unimplemented!()
-    }
     fn unexpected_token(token: Item) -> Self {
         Error::Unexpected(Info::Token(token))
     }
@@ -237,7 +254,7 @@ where
 
     fn into_other<T>(self) -> T
     where
-        T: ParsingError<Item, Range, Position>,
+        T: StreamingError<Item, Range>,
     {
         match self {
             Error::Unexpected(info) => match info {
@@ -271,53 +288,22 @@ where
     Range: PartialEq,
     Position: Ord,
 {
+    type Error = Error<Item, Range>;
     fn empty(pos: Position) -> Self {
         ParseError::empty(pos)
+    }
+    fn from_error(position: Position, err: Self::Error) -> Self {
+        ParseError::new(position, Error::from(err))
     }
     fn merge(self, other: Self) -> Self {
         ParseError::merge(self, other)
     }
-    fn unexpected_token(token: Item) -> Self {
-        ParseError::new(Position::default(), Error::Unexpected(Info::Token(token)))
-    }
-    fn unexpected_range(token: Range) -> Self {
-        ParseError::new(Position::default(), Error::Unexpected(Info::Range(token)))
-    }
-    fn unexpected_message<T>(msg: T) -> Self
-    where
-        T: fmt::Display,
-    {
-        ParseError::new(
-            Position::default(),
-            Error::Unexpected(Info::Owned(msg.to_string())),
-        )
-    }
-    fn unexpected_static_message(msg: &'static str) -> Self {
-        ParseError::new(Position::default(), Error::Unexpected(Info::Borrowed(msg)))
+
+    fn add(&mut self, err: Self::Error) {
+        self.add_error(err);
     }
 
-    fn expected_token(token: Item) -> Self {
-        ParseError::new(Position::default(), Error::Expected(Info::Token(token)))
-    }
-    fn expected_range(token: Range) -> Self {
-        ParseError::new(Position::default(), Error::Expected(Info::Range(token)))
-    }
-    fn expected_message<T>(msg: T) -> Self
-    where
-        T: fmt::Display,
-    {
-        ParseError::new(
-            Position::default(),
-            Error::Expected(Info::Owned(msg.to_string())),
-        )
-    }
-    fn message_token(token: Item) -> Self {
-        ParseError::new(Position::default(), Error::Message(Info::Token(token)))
-    }
-    fn message_range(token: Range) -> Self {
-        ParseError::new(Position::default(), Error::Message(Info::Range(token)))
-    }
-    fn set_expected<F>(self_: &mut Tracked<Self>, info: SimpleInfo<Item, Range>, f: F)
+    fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::Error, f: F)
     where
         F: FnOnce(&mut Tracked<Self>),
     {
@@ -335,22 +321,7 @@ where
                 _ => true,
             }
         });
-        self_.error.add_expected(info);
-    }
-    fn expected_static_message(msg: &'static str) -> Self {
-        ParseError::new(Position::default(), Error::Expected(Info::Borrowed(msg)))
-    }
-    fn message<T>(msg: T) -> Self
-    where
-        T: fmt::Display,
-    {
-        ParseError::new(
-            Position::default(),
-            Error::Expected(Info::Owned(msg.to_string())),
-        )
-    }
-    fn static_message(msg: &'static str) -> Self {
-        ParseError::new(Position::default(), Error::Expected(Info::Borrowed(msg)))
+        self_.error.add(Self::Error::expected(info));
     }
 
     fn into_other<T>(mut self) -> T
@@ -818,20 +789,23 @@ pub enum SimpleInfo<T, R> {
     Borrowed(&'static str),
 }
 
-pub trait ParsingError<Item, Range, Position>: Sized + PartialEq {
-    fn empty(position: Position) -> Self;
-    fn merge(self, other: Self) -> Self {
-        other
-    }
+/// Enum used to store information about an error that has occurred during parsing.
+#[derive(Debug)]
+pub enum SimpleError<T, R> {
+    /// Error indicating an unexpected token has been encountered in the stream
+    Unexpected(SimpleInfo<T, R>),
+    /// Error indicating that the parser expected something else
+    Expected(SimpleInfo<T, R>),
+    /// Generic message
+    Message(SimpleInfo<T, R>),
+}
 
+pub trait StreamingError<Item, Range>: Sized + PartialEq {
     fn unexpected_token(token: Item) -> Self;
     fn unexpected_range(token: Range) -> Self;
     fn unexpected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn add_unexpected(&mut self, info: SimpleInfo<Item, Range>) {
-        *self = Self::unexpected(info)
-    }
     fn unexpected(info: SimpleInfo<Item, Range>) -> Self {
         match info {
             SimpleInfo::Token(b) => Self::unexpected_token(b),
@@ -848,16 +822,6 @@ pub trait ParsingError<Item, Range, Position>: Sized + PartialEq {
     fn expected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn add_expected(&mut self, info: SimpleInfo<Item, Range>) {
-        *self = Self::expected(info)
-    }
-    fn set_expected<F>(self_: &mut Tracked<Self>, info: SimpleInfo<Item, Range>, f: F)
-    where
-        F: FnOnce(&mut Tracked<Self>),
-    {
-        f(self_);
-        self_.error = Self::expected(info);
-    }
     fn expected(info: SimpleInfo<Item, Range>) -> Self {
         match info {
             SimpleInfo::Token(b) => Self::expected_token(b),
@@ -869,16 +833,6 @@ pub trait ParsingError<Item, Range, Position>: Sized + PartialEq {
         Self::expected_message(msg)
     }
 
-    fn add_message(&mut self, info: SimpleInfo<Item, Range>) {
-        *self = match info {
-            SimpleInfo::Token(b) => Self::message_token(b),
-            SimpleInfo::Range(b) => Self::message_range(b),
-            SimpleInfo::Borrowed(b) => Self::static_message(b),
-        };
-    }
-    fn add_static_message(&mut self, msg: &'static str) {
-        *self = Self::static_message(msg)
-    }
     fn message_token(token: Item) -> Self;
     fn message_range(token: Range) -> Self;
     fn message<T>(msg: T) -> Self
@@ -891,6 +845,25 @@ pub trait ParsingError<Item, Range, Position>: Sized + PartialEq {
     fn end_of_input() -> Self {
         Self::unexpected_static_message("end of input")
     }
+
+    fn into_other<T>(self) -> T
+    where
+        T: StreamingError<Item, Range>;
+}
+
+pub trait ParsingError<Item, Range, Position>: Sized + PartialEq {
+    type Error: StreamingError<Item, Range>;
+    fn empty(position: Position) -> Self;
+    fn from_error(position: Position, err: Self::Error) -> Self;
+    fn merge(self, other: Self) -> Self {
+        other
+    }
+
+    fn add(&mut self, err: Self::Error);
+
+    fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::Error, f: F)
+    where
+        F: FnOnce(&mut Tracked<Self>);
 
     fn into_other<T>(self) -> T
     where
@@ -917,10 +890,7 @@ impl fmt::Display for UnexpectedParse {
     }
 }
 
-impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedParse {
-    fn empty(_: Position) -> Self {
-        UnexpectedParse::Unexpected
-    }
+impl<Item, Range> StreamingError<Item, Range> for UnexpectedParse {
     fn unexpected_token(_: Item) -> Self {
         UnexpectedParse::Unexpected
     }
@@ -966,7 +936,7 @@ impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedPa
 
     fn into_other<T>(self) -> T
     where
-        T: ParsingError<Item, Range, Position>,
+        T: StreamingError<Item, Range>,
     {
         let msg = match self {
             UnexpectedParse::Unexpected => "parse",
@@ -995,23 +965,19 @@ pub trait StreamOnce {
     /// `Ord` is required to allow parsers to determine which of two positions are further ahead.
     type Position: Clone + Ord;
 
-    type Error: ParsingError<Self::Item, Self::Range, Self::Position>;
+    type Error;
     /// Takes a stream and removes its first item, yielding the item and the rest of the elements.
     /// Returns `Err` if no element could be retrieved.
     fn uncons(&mut self) -> Result<Self::Item, Self::Error>;
 }
 
 /// A stream of tokens which can be duplicated
-pub trait Stream: StreamOnce + Positioned + Clone
-where
-    Self::Error: ParsingError<Self::Item, Self::Range, <Self as StreamOnce>::Position>,
-{
-}
+pub trait Stream: StreamOnce + Positioned + Clone {}
 
 impl<I> Stream for I
 where
     I: StreamOnce + Positioned + Clone,
-    I::Error: ParsingError<I::Item, I::Range, <I as StreamOnce>::Position>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
 }
 
@@ -1036,9 +1002,10 @@ where
     }
 }
 
-impl<S> RangeStream for SimpleStream<S>
+impl<S> RangeStreamOnce for SimpleStream<S>
 where
     S: RangeStream,
+    S::Error: ParsingError<S::Item, S::Range, S::Position>,
     S::Position: Default,
 {
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, Self::Error> {
@@ -1079,8 +1046,8 @@ where
     Ok((x, Consumed::Consumed(input)))
 }
 
-/// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
-pub trait RangeStream: Stream {
+/// A `RangeStream` is an extension of `StreamOnce` which allows for zero copy parsing.
+pub trait RangeStreamOnce: StreamOnce {
     /// Takes `size` elements from the stream.
     /// Fails if the length of the stream is less than `size`.
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, Self::Error>;
@@ -1101,8 +1068,18 @@ pub trait RangeStream: Stream {
     fn distance(&self, end: &Self) -> usize;
 }
 
+/// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
+pub trait RangeStream: Stream + RangeStreamOnce {}
+
+impl<I> RangeStream for I
+where
+    I: RangeStreamOnce + Stream,
+{
+}
+
+
 /// A `RangeStream` which is capable of providing it's entire range.
-pub trait FullRangeStream: RangeStream {
+pub trait FullRangeStream: RangeStreamOnce {
     /// Returns the entire range of `self`
     fn range(&self) -> Self::Range;
 }
@@ -1136,7 +1113,7 @@ pub trait Range {
     }
 }
 
-impl<'a> RangeStream for &'a str {
+impl<'a> RangeStreamOnce for &'a str {
     #[inline]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, Self::Error>
     where
@@ -1206,7 +1183,7 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-impl<'a, T> RangeStream for &'a [T]
+impl<'a, T> RangeStreamOnce for &'a [T]
 where
     T: Clone + PartialEq,
 {
@@ -1277,10 +1254,7 @@ impl fmt::Display for StringStreamError {
 }
 
 
-impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStreamError {
-    fn empty(_: Position) -> Self {
-        StringStreamError::UnexpectedParse
-    }
+impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
     fn unexpected_token(_: Item) -> Self {
         StringStreamError::UnexpectedParse
     }
@@ -1320,7 +1294,7 @@ impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStream
     }
     fn into_other<T>(self) -> T
     where
-        T: ParsingError<Item, Range, Position>,
+        T: StreamingError<Item, Range>,
     {
         let msg = match self {
             StringStreamError::UnexpectedParse => "parse",
@@ -1422,7 +1396,7 @@ where
     }
 }
 
-impl<'a, T> RangeStream for SliceStream<'a, T>
+impl<'a, T> RangeStreamOnce for SliceStream<'a, T>
 where
     T: Clone + PartialEq + 'a,
 {

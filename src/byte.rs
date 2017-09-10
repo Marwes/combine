@@ -5,8 +5,7 @@ use std::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Parser, ParsingError, SimpleInfo, Stream, StreamOnce,
-                 Tracked};
+use primitives::{ConsumedResult, Parser, ParsingError, SimpleInfo, Stream, StreamOnce, Tracked};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
@@ -413,8 +412,13 @@ pub mod num {
                 type Output = $func_name;
 
                 #[inline]
-                fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-                    take(::std::mem::size_of::<Self::Output>()).map(B::$read_name).parse_lazy(input)
+                fn parse_lazy(
+                    &mut self,
+                    input: Self::Input
+                    ) -> ConsumedResult<Self::Output, Self::Input> {
+                    take(::std::mem::size_of::<Self::Output>())
+                        .map(B::$read_name)
+                        .parse_lazy(input)
                 }
                 fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
                     take::<I>(::std::mem::size_of::<Self::Output>()).add_error(errors)

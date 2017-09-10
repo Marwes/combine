@@ -317,7 +317,8 @@ macro_rules! parser {
     };
     (
         $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
@@ -352,7 +353,8 @@ macro_rules! parser {
         $(#[$derive:meta])*
         struct $type_name: ident;
         $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
@@ -423,7 +425,8 @@ macro_rules! combine_parser_impl {
         $(#[$derive:meta])*
         struct $type_name: ident;
         $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*) ($input_type: ty) -> $output_type: ty
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         { $($parser: tt)* }
     ) => {
@@ -432,12 +435,13 @@ macro_rules! combine_parser_impl {
 
             $(#[$derive])*
             pub struct $type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
+                where <$input_type as $crate::primitives::StreamOnce>::Error:
+                    $crate::primitives::ParsingError<
                         <$input_type as $crate::primitives::StreamOnce>::Item,
                         <$input_type as $crate::primitives::StreamOnce>::Range,
                         <$input_type as $crate::primitives::StreamOnce>::Position
                         >,
-                    $($where_clause)* 
+                    $($where_clause)*
             {
                 $(pub $arg : $arg_type,)*
                 __marker: ::std::marker::PhantomData<fn ($input_type) -> $output_type>
@@ -446,12 +450,13 @@ macro_rules! combine_parser_impl {
             // We want this to work on older compilers, at least for a while
             #[allow(non_shorthand_field_patterns)]
             impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
-                        >,
-                    $($where_clause)* 
+                where <$input_type as $crate::primitives::StreamOnce>::Error:
+                        $crate::primitives::ParsingError<
+                            <$input_type as $crate::primitives::StreamOnce>::Item,
+                            <$input_type as $crate::primitives::StreamOnce>::Range,
+                            <$input_type as $crate::primitives::StreamOnce>::Position
+                            >,
+                    $($where_clause)*
             {
                 type Input = $input_type;
                 type Output = $output_type;
@@ -481,12 +486,13 @@ macro_rules! combine_parser_impl {
             pub fn parse< $($type_params)* >(
                     $($arg : $arg_type),*
                 ) -> self::$type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
-                        >,
-                    $($where_clause)* 
+                where <$input_type as $crate::primitives::StreamOnce>::Error:
+                        $crate::primitives::ParsingError<
+                            <$input_type as $crate::primitives::StreamOnce>::Item,
+                            <$input_type as $crate::primitives::StreamOnce>::Range,
+                            <$input_type as $crate::primitives::StreamOnce>::Position
+                            >,
+                    $($where_clause)*
             {
                 $type_name {
                     $($arg : $arg,)*
@@ -502,12 +508,13 @@ macro_rules! combine_parser_impl {
         $($pub_)* fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
             ) -> self::$name::$type_name<$($type_params)*>
-            where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
-                    <$input_type as $crate::primitives::StreamOnce>::Item,
-                    <$input_type as $crate::primitives::StreamOnce>::Range,
-                    <$input_type as $crate::primitives::StreamOnce>::Position
-                    >,
-                $($where_clause)* 
+            where <$input_type as $crate::primitives::StreamOnce>::Error:
+                    $crate::primitives::ParsingError<
+                        <$input_type as $crate::primitives::StreamOnce>::Item,
+                        <$input_type as $crate::primitives::StreamOnce>::Range,
+                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        >,
+                $($where_clause)*
         {
             self::$name::parse(
                 $($arg,)*

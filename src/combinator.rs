@@ -1,7 +1,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use primitives::{Consumed, ConsumedResult, ParseResult, Parser, ParsingError, Positioned,
-                 SimpleInfo, Stream, StreamOnce, Tracked};
+                 SimpleError, SimpleInfo, Stream, StreamOnce, StreamingError, Tracked};
 use primitives::FastResult::*;
 
 use ErrorOffset;
@@ -271,11 +271,11 @@ where
                 Ok((other, rest)) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
-                            let mut errors =
-                                <Self::Input as StreamOnce>::Error::unexpected_token(other);
-                            errors = errors.merge(<Self::Input as StreamOnce>::Error::expected(
-                                self.expected.clone(),
-                            ));
+                            let mut errors = <Self::Input as StreamOnce>::Error::from_error(
+                                start,
+                                SimpleError::Unexpected(SimpleInfo::Token(other)),
+                            );
+                            errors.add_expected(self.expected.clone());
                             ConsumedErr(errors)
                         } else {
                             EmptyErr(<Self::Input as StreamOnce>::Error::empty(start).into())
@@ -682,11 +682,17 @@ macro_rules! tuple_choice_parser_inner {
             type Input = Input;
             type Output = Output;
             #[inline]
-            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-                let ($(ref mut $id),+) = *self;
+            fn parse_choice(
+                &mut self,
+                input: Self::Input
+            ) -> ConsumedResult<Self::Output, Self::Input> {
+            let ($(ref mut $id),+) = *self;
                 do_choice!(input ( $($id)+ ) )
             }
-            fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            fn add_error_choice(
+                &mut self,
+                error: &mut Tracked<<Self::Input as StreamOnce>::Error>
+            ) {
                 if error.offset != ErrorOffset(0) {
                     let ($(ref mut $id),+) = *self;
                     $(
@@ -711,10 +717,16 @@ macro_rules! array_choice_parser {
             type Output = P::Output;
 
             #[inline(always)]
-            fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+            fn parse_choice(
+                &mut self,
+                input: Self::Input
+            ) -> ConsumedResult<Self::Output, Self::Input> {
                 self[..].parse_choice(input)
             }
-            fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            fn add_error_choice(
+                &mut self,
+                error: &mut Tracked<<Self::Input as StreamOnce>::Error>
+            ) {
                 self[..].add_error_choice(error)
             }
         }
@@ -868,7 +880,9 @@ where
         let value = iter.by_ref().take(self.max).inspect(|_| len += 1).collect();
         if len < self.min {
             let mut err = <P::Input as StreamOnce>::Error::empty(iter.input.position());
-            err = err.merge(<P::Input as StreamOnce>::Error::message(format_args!("expected {} more elements", self.min - len)));
+            err = err.merge(<P::Input as StreamOnce>::Error::message(
+                format_args!("expected {} more elements", self.min - len),
+            ));
             ConsumedErr(err)
         } else {
             iter.into_result_fast(value)
@@ -1002,7 +1016,7 @@ where
         )
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        errors.error.add_unexpected(self.0.clone());
+        errors.error.add(StreamingError::unexpected(self.0.clone()));
     }
 }
 /// Always fails with `message` as an unexpected error.
@@ -1016,7 +1030,13 @@ where
 /// let result = unexpected("token")
 ///     .parse("a");
 /// assert!(result.is_err());
-/// assert!(result.err().unwrap().errors.iter().any(|m| *m == <Self::Input as StreamOnce>::Error::Unexpected("token".into())));
+/// assert!(
+///     result.err()
+///         .unwrap()
+///         .errors
+///         .iter()
+///         .any(|m| *m == <Self::Input as StreamOnce>::Error::Unexpected("token".into()))
+/// );
 /// # }
 /// ```
 #[inline(always)]
@@ -1677,7 +1697,10 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///     }
 ///     else {
 ///         //Return an empty error since we only tested the first token of the stream
-///         let errors = ParseError::new(position, <Self::Input as StreamOnce>::Error::Expected(From::from("even number")));
+///         let errors = ParseError::new(
+///             position,
+///             <Self::Input as StreamOnce>::Error::Expected(From::from("even number"))
+///         );
 ///         Err(Consumed::Empty(errors.into()))
 ///     }
 /// });
@@ -2440,7 +2463,7 @@ macro_rules! tuple_parser {
                         EmptyErr(mut err) => {
                             if first_empty_parser != 0 {
                                 if let Ok(t) = input.uncons() {
-                                    err.error.add_unexpected(SimpleInfo::Token(t));
+                                    err.error.add(StreamingError::unexpected_token(t));
                                 }
                                 add_error!(err);
                                 return ConsumedErr(err.error)
@@ -2566,7 +2589,9 @@ macro_rules! seq_parser_impl {
     ( (_ : $first_parser: expr, $($remaining: tt)+ ); $name: ident $($tt: tt)*) => {
         seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* )
     };
-    ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ ); $name: ident $($tt: tt)*) => {
+    ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ );
+        $name: ident $($tt: tt)*) =>
+    {
         seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* $first_field: $first_field, )
     };
     ( ( _ : $first_parser: expr ); $name: ident $($tt: tt)*) => {
@@ -2718,7 +2743,11 @@ where
                     .collect::<Result<_, _>>();
                 match result {
                     Ok(x) => EmptyOk((x, rest)),
-                    Err(err) => EmptyErr(<P::Input as StreamOnce>::Error::empty(input.position()).merge(err).into()),
+                    Err(err) => EmptyErr(
+                        <P::Input as StreamOnce>::Error::empty(input.position())
+                            .merge(err)
+                            .into(),
+                    ),
                 }
             }
             ConsumedOk((_, rest)) => {
@@ -2731,7 +2760,11 @@ where
                     .collect::<Result<_, _>>();
                 match result {
                     Ok(x) => ConsumedOk((x, rest)),
-                    Err(err) => ConsumedErr(<P::Input as StreamOnce>::Error::empty(input.position()).merge(err).into()),
+                    Err(err) => ConsumedErr(
+                        <P::Input as StreamOnce>::Error::empty(input.position())
+                            .merge(err)
+                            .into(),
+                    ),
                 }
             }
             ConsumedErr(err) => ConsumedErr(err),
