@@ -114,7 +114,7 @@ type=LL(1)
 #[test]
 fn ini_error() {
     let text = "[error";
-    let result = ini().parse(State::new(text)).map(|t| t.0);
+    let result = ini().simple_parse(State::new(text)).map(|t| t.0);
     assert_eq!(
         result,
         Err(ParseError {

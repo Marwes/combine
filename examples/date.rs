@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::{self, Read};
 
 use combine::char::{char, digit};
-use combine::{choice, many, optional, parser, ParseResult, Parser, ParsingError, Stream};
+use combine::{choice, many, optional, Parser, Stream};
 use combine::state::State;
 
 #[derive(PartialEq, Debug)]
@@ -38,7 +38,6 @@ parser!{
     fn two_digits[I]()(I) -> i32
     where
         [I: Stream<Item = char>,]
-        I::Error: ParsingError<I::Item, I::Range, I::Position>,
     {
         (digit(), digit())
             .map(|(x, y): (char, char)| {

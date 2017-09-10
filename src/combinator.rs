@@ -867,9 +867,9 @@ where
         let mut len = 0usize;
         let value = iter.by_ref().take(self.max).inspect(|_| len += 1).collect();
         if len < self.min {
-            let message =
-                Error::Message(format!("expected {} more elements", self.min - len).into());
-            ConsumedErr(ParseError::new(iter.input.position(), message))
+            let mut err = <P::Input as StreamOnce>::Error::empty(iter.input.position());
+            err = err.merge(<P::Input as StreamOnce>::Error::message(format_args!("expected {} more elements", self.min - len)));
+            ConsumedErr(err)
         } else {
             iter.into_result_fast(value)
         }
@@ -2341,7 +2341,7 @@ where
             EmptyOk((o, input)) => match (self.1)(o) {
                 Ok(o) => EmptyOk((o, input)),
                 Err(err) => EmptyErr(
-                    <Self::Input as StreamOnce>::Error::empty(input.position())
+                    <Self::Input as StreamOnce>::Error::empty(position)
                         .merge(err.into())
                         .into(),
                 ),
@@ -2349,7 +2349,7 @@ where
             ConsumedOk((o, input)) => match (self.1)(o) {
                 Ok(o) => ConsumedOk((o, input)),
                 Err(err) => ConsumedErr(
-                    <Self::Input as StreamOnce>::Error::empty(input.position()).merge(err.into()),
+                    <Self::Input as StreamOnce>::Error::empty(position).merge(err.into()),
                 ),
             },
             EmptyErr(err) => EmptyErr(err),
@@ -2718,7 +2718,7 @@ where
                     .collect::<Result<_, _>>();
                 match result {
                     Ok(x) => EmptyOk((x, rest)),
-                    Err(err) => EmptyErr(ParseError::new(input.position(), err).into()),
+                    Err(err) => EmptyErr(<P::Input as StreamOnce>::Error::empty(input.position()).merge(err).into()),
                 }
             }
             ConsumedOk((_, rest)) => {
@@ -2731,7 +2731,7 @@ where
                     .collect::<Result<_, _>>();
                 match result {
                     Ok(x) => ConsumedOk((x, rest)),
-                    Err(err) => ConsumedErr(ParseError::new(input.position(), err)),
+                    Err(err) => ConsumedErr(<P::Input as StreamOnce>::Error::empty(input.position()).merge(err).into()),
                 }
             }
             ConsumedErr(err) => ConsumedErr(err),

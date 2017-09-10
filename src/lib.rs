@@ -432,7 +432,12 @@ macro_rules! combine_parser_impl {
 
             $(#[$derive])*
             pub struct $type_name<$($type_params)*>
-                where $($where_clause)*
+                where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
+                        <$input_type as $crate::primitives::StreamOnce>::Item,
+                        <$input_type as $crate::primitives::StreamOnce>::Range,
+                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        >,
+                    $($where_clause)* 
             {
                 $(pub $arg : $arg_type,)*
                 __marker: ::std::marker::PhantomData<fn ($input_type) -> $output_type>
@@ -441,7 +446,12 @@ macro_rules! combine_parser_impl {
             // We want this to work on older compilers, at least for a while
             #[allow(non_shorthand_field_patterns)]
             impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
-                where $($where_clause)*
+                where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
+                        <$input_type as $crate::primitives::StreamOnce>::Item,
+                        <$input_type as $crate::primitives::StreamOnce>::Range,
+                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        >,
+                    $($where_clause)* 
             {
                 type Input = $input_type;
                 type Output = $output_type;
@@ -459,7 +469,9 @@ macro_rules! combine_parser_impl {
                 #[inline]
                 fn add_error(
                     &mut self,
-                    errors: &mut $crate::primitives::Tracked<$crate::StreamError<$input_type>>)
+                    errors: &mut $crate::primitives::Tracked<
+                        <$input_type as $crate::primitives::StreamOnce>::Error
+                        >)
                 {
                     let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
                     combine_add_error!(errors ($input_type, $output_type) $($parser)*)
@@ -469,7 +481,12 @@ macro_rules! combine_parser_impl {
             pub fn parse< $($type_params)* >(
                     $($arg : $arg_type),*
                 ) -> self::$type_name<$($type_params)*>
-                where $($where_clause)*
+                where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
+                        <$input_type as $crate::primitives::StreamOnce>::Item,
+                        <$input_type as $crate::primitives::StreamOnce>::Range,
+                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        >,
+                    $($where_clause)* 
             {
                 $type_name {
                     $($arg : $arg,)*
@@ -485,7 +502,12 @@ macro_rules! combine_parser_impl {
         $($pub_)* fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
             ) -> self::$name::$type_name<$($type_params)*>
-            where $($where_clause)*
+            where <$input_type as $crate::primitives::StreamOnce>::Error: $crate::primitives::ParsingError<
+                    <$input_type as $crate::primitives::StreamOnce>::Item,
+                    <$input_type as $crate::primitives::StreamOnce>::Range,
+                    <$input_type as $crate::primitives::StreamOnce>::Position
+                    >,
+                $($where_clause)* 
         {
             self::$name::parse(
                 $($arg,)*
@@ -643,7 +665,7 @@ mod tests {
         let input = r"
 ,123
 ";
-        let result = expr().parse(State::new(input));
+        let result = expr().simple_parse(State::new(input));
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![

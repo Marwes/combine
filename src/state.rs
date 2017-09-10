@@ -267,6 +267,7 @@ impl<I, X> FullRangeStream for State<I, X>
 where
     I: FullRangeStream,
     I::Position: Clone + Ord,
+    I::Error: ParsingError<I::Item, I::Range, X::Position>,
     X: Clone + RangePositioner<I::Item, I::Range>,
 {
     fn range(&self) -> Self::Range {
