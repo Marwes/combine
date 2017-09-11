@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, Parser, ParsingError, RangeStream, SimpleInfo, StreamOnce,
-                 Tracked};
+use primitives::{ConsumedResult, Parser, ParsingError, RangeStream, RangeStreamOnce, SimpleInfo,
+                 StreamOnce, Tracked};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)

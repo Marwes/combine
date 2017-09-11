@@ -197,7 +197,7 @@ where
     let mut text = String::new();
     read.read_to_string(&mut text)?;
     date_time()
-        .parse(State::new(&*text))
+        .simple_parse(State::new(&*text))
         .map_err(|err| err.map_range(|s| s.to_string()))?;
     Ok(())
 }

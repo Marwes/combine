@@ -1,7 +1,7 @@
 use std::fmt;
 
 use primitives::{FullRangeStream, IteratorStream, ParsingError, Positioned, RangeStreamOnce,
-                 ReadStream, SliceStream, StreamOnce};
+                 ReadStream, SliceStream, StreamOnce, StreamingError};
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -99,10 +99,13 @@ where
     }
 }
 
-impl<I, X> Positioned for State<I, X>
+impl<I, X, E> Positioned for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
+    E: StreamingError<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = E>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = E>,
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
@@ -110,10 +113,13 @@ where
     }
 }
 
-impl<I, X> StreamOnce for State<I, X>
+impl<I, X, E> StreamOnce for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
+    E: StreamingError<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = E>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = E>,
 {
     type Item = I::Item;
     type Range = I::Range;
@@ -121,7 +127,7 @@ where
     type Error = I::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, I::Error> {
+    fn uncons(&mut self) -> Result<I::Item, E> {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -226,10 +232,13 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 }
 
 
-impl<I, X> RangeStreamOnce for State<I, X>
+impl<I, X, E> RangeStreamOnce for State<I, X>
 where
     I: RangeStreamOnce,
     X: Clone + RangePositioner<I::Item, I::Range>,
+    E: StreamingError<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = E>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = E>,
     I::Position: Clone + Ord,
 {
     #[inline]
@@ -260,12 +269,13 @@ where
     }
 }
 
-impl<I, X> FullRangeStream for State<I, X>
+impl<I, X, E> FullRangeStream for State<I, X>
 where
     I: FullRangeStream,
     I::Position: Clone + Ord,
-    I::Error: ParsingError<I::Item, I::Range, X::Position>
-        + ParsingError<I::Item, I::Range, I::Position>,
+    E: StreamingError<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = E>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = E>,
     X: Clone + RangePositioner<I::Item, I::Range>,
 {
     fn range(&self) -> Self::Range {

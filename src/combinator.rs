@@ -1,7 +1,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use primitives::{Consumed, ConsumedResult, ParseResult, Parser, ParsingError, Positioned,
-                 SimpleError, SimpleInfo, Stream, StreamOnce, StreamingError, Tracked};
+                 SimpleInfo, Stream, StreamOnce, StreamingError, Tracked};
 use primitives::FastResult::*;
 
 use ErrorOffset;
@@ -48,7 +48,7 @@ where
         let position = input.position();
         match input.uncons() {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(I::Error::empty(position).merge(err).into()),
+            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
         }
     }
 }
@@ -94,7 +94,7 @@ where
             Some(c) => ConsumedOk((c, input)),
             None => EmptyErr(I::Error::empty(position).into()),
         },
-        Err(err) => EmptyErr(I::Error::empty(position).merge(err).into()),
+        Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
     }
 }
 
@@ -273,7 +273,7 @@ where
                         return if consumed {
                             let mut errors = <Self::Input as StreamOnce>::Error::from_error(
                                 start,
-                                SimpleError::Unexpected(SimpleInfo::Token(other)),
+                                StreamingError::unexpected(SimpleInfo::Token(other)),
                             );
                             errors.add_expected(self.expected.clone());
                             ConsumedErr(errors)
@@ -286,7 +286,7 @@ where
                 }
                 Err(error) => {
                     return error.combine_consumed(|mut error| {
-                        error.error = I::Error::empty(start).merge(error.error);
+                        error.error.set_position(start);
                         if consumed {
                             ConsumedErr(error.error)
                         } else {
@@ -804,9 +804,10 @@ where
             }
         }
         EmptyErr(match prev_err {
-            None => I::Error::empty(input.position())
-                .merge(I::Error::static_message("parser choice is empty"))
-                .into(),
+            None => I::Error::from_error(
+                input.position(),
+                StreamingError::message_static_message("parser choice is empty"),
+            ).into(),
             Some(mut prev_err) => {
                 if prev_err.offset != ErrorOffset(1) {
                     let offset = prev_err.offset;
@@ -879,10 +880,12 @@ where
         let mut len = 0usize;
         let value = iter.by_ref().take(self.max).inspect(|_| len += 1).collect();
         if len < self.min {
-            let mut err = <P::Input as StreamOnce>::Error::empty(iter.input.position());
-            err = err.merge(<P::Input as StreamOnce>::Error::message(
-                format_args!("expected {} more elements", self.min - len),
-            ));
+            let err = <P::Input as StreamOnce>::Error::from_error(
+                iter.input.position(),
+                StreamingError::message_message(
+                    format_args!("expected {} more elements", self.min - len),
+                ),
+            );
             ConsumedErr(err)
         } else {
             iter.into_result_fast(value)
@@ -1109,7 +1112,7 @@ where [
     P::Output: Into<SimpleInfo<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
 ]
 {
-    try(try(parser).then(|t| unexpected(format!("{}", t)))
+    try(try(parser).then(unexpected)
         .or(value(())))
 }
 }
@@ -1126,9 +1129,7 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
         match input.clone().uncons() {
-            Err(ref err) if *err == <Self::Input as StreamOnce>::Error::end_of_input() => {
-                EmptyOk(((), input))
-            }
+            Err(ref err) if *err == StreamingError::end_of_input() => EmptyOk(((), input)),
             _ => EmptyErr(
                 <Self::Input as StreamOnce>::Error::empty(input.position()).into(),
             ),
@@ -2325,11 +2326,9 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        ParsingError::set_expected(
-            errors,
-            self.1.clone(),
-            |errors| { self.0.add_error(errors); },
-        )
+        ParsingError::set_expected(errors, StreamingError::expected(self.1.clone()), |errors| {
+            self.0.add_error(errors);
+        })
     }
 }
 
@@ -2349,11 +2348,13 @@ where
 
 #[derive(Copy, Clone)]
 pub struct AndThen<P, F>(P, F);
-impl<P, F, O, E> Parser for AndThen<P, F>
+impl<P, F, O, E, I> Parser for AndThen<P, F>
 where
-    P: Parser,
+    I: Stream,
+    P: Parser<Input = I>,
     F: FnMut(P::Output) -> Result<O, E>,
     E: Into<<P::Input as StreamOnce>::Error>,
+    <P::Input as StreamOnce>::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     type Input = P::Input;
     type Output = O;
@@ -2744,9 +2745,7 @@ where
                 match result {
                     Ok(x) => EmptyOk((x, rest)),
                     Err(err) => EmptyErr(
-                        <P::Input as StreamOnce>::Error::empty(input.position())
-                            .merge(err)
-                            .into(),
+                        <P::Input as StreamOnce>::Error::from_error(input.position(), err).into(),
                     ),
                 }
             }
@@ -2761,9 +2760,7 @@ where
                 match result {
                     Ok(x) => ConsumedOk((x, rest)),
                     Err(err) => ConsumedErr(
-                        <P::Input as StreamOnce>::Error::empty(input.position())
-                            .merge(err)
-                            .into(),
+                        <P::Input as StreamOnce>::Error::from_error(input.position(), err).into(),
                     ),
                 }
             }
@@ -2937,7 +2934,8 @@ mod tests {
 
     #[test]
     fn issue_99() {
-        assert!(any().map(|_| ()).or(eof()).parse("").is_ok());
+        let result = any().map(|_| ()).or(eof()).parse("");
+        assert!(result.is_ok(), "{:?}", result);
     }
 
     #[test]
