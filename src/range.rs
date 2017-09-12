@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use primitives::{ConsumedResult, Parser, ParsingError, RangeStream, RangeStreamOnce, SimpleInfo,
-                 StreamOnce, Tracked};
+                 StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -307,7 +307,7 @@ where
                         unreachable!();
                     } else {
                         to_consume += 1;
-                        if look_ahead_input.uncons().is_err() {
+                        if look_ahead_input.uncons::<UnexpectedParse>().is_err() {
                             unreachable!();
                         }
                     }

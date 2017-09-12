@@ -7,7 +7,7 @@ use bencher::{black_box, Bencher};
 use std::fmt;
 
 use combine::*;
-use combine::primitives::{RangeStream, SimpleStream};
+use combine::primitives::{RangeStream, SimpleStream, UnexpectedParse};
 use combine::range::{range, take_while1};
 
 #[derive(Debug)]
@@ -144,7 +144,7 @@ fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
     b.iter(|| {
         let mut buf = black_box(buffer.clone());
 
-        while buf.clone().uncons().is_ok() {
+        while buf.clone().uncons::<UnexpectedParse>().is_ok() {
             // Needed for inferrence for many(message_header)
             match parse_http_request(buf) {
                 Ok(((_, _), b)) => {

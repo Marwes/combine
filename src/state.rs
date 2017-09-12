@@ -113,13 +113,13 @@ where
     }
 }
 
-impl<I, X, E> StreamOnce for State<I, X>
+impl<I, X, S> StreamOnce for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
-    E: StreamingError<I::Item, I::Range>,
-    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = E>,
-    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = E>,
+    S: StreamingError<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = S>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = S>,
 {
     type Item = I::Item;
     type Range = I::Range;
@@ -127,7 +127,10 @@ where
     type Error = I::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, E> {
+    fn uncons<E>(&mut self) -> Result<I::Item, E>
+    where
+        E: StreamingError<I::Item, I::Range>
+        {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c

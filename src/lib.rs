@@ -29,7 +29,7 @@
 //! fn main() {
 //!     // Wrapping a `&str` with `State` provides automatic line and column tracking. If `State`
 //!     // was not used the positions would instead only be pointers into the `&str`
-//!     if let Err(err) = digit().or(letter()).parse(State::new("|")) {
+//!     if let Err(err) = digit().or(letter()).simple_parse(State::new("|")) {
 //!         assert_eq!(MSG, format!("{}", err));
 //!     }
 //! }
@@ -70,7 +70,8 @@
 //!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
-//!     let result: Result<(Vec<i32>, &str), StreamError<&str>> = integer_list.parse(input);
+//!     let result: Result<(Vec<i32>, &str), StreamError<&str>> =
+//!         integer_list.simple_parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -216,10 +217,16 @@ macro_rules! impl_token_parser {
 /// extern crate combine;
 /// use combine::char::digit;
 /// use combine::{any, choice, many1, Parser, Stream};
+/// use combine::primitives::ParsingError;
 ///
 /// parser!{
 ///     fn integer[I]()(I) -> i32
-///         where [I: Stream<Item = char>]
+///     where [
+///         I: Stream<Item = char>,
+///         I::Error: ParsingError<char, I::Range, I::Position>,
+///         <I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError:
+///             From<::std::num::ParseIntError>,
+///     ]
 ///     {
 ///         // The body must be a block body ( `{ <block body> }`) which ends with an expression
 ///         // which evaluates to a parser
@@ -239,7 +246,12 @@ macro_rules! impl_token_parser {
 ///
 ///     /// Parses an integer or a string (any characters)
 ///     pub fn integer_or_string[I]()(I) -> IntOrString
-///         where [I: Stream<Item = char>]
+///     where [
+///         I: Stream<Item = char>,
+///         I::Error: ParsingError<char, I::Range, I::Position>,
+///         <I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError:
+///             From<::std::num::ParseIntError>,
+///     ]
 ///     {
 ///         choice!(
 ///             integer().map(IntOrString::Int),
@@ -261,12 +273,15 @@ macro_rules! impl_token_parser {
 /// }
 ///
 /// fn main() {
-///     assert_eq!(integer().parse("123"), Ok((123, "")));
-///     assert!(integer().parse("!").is_err());
+///     assert_eq!(integer().simple_parse("123"), Ok((123, "")));
+///     assert!(integer().simple_parse("!").is_err());
 ///
-///     assert_eq!(integer_or_string().parse("123"), Ok((IntOrString::Int(123), "")));
 ///     assert_eq!(
-///         integer_or_string().parse("abc"),
+///         integer_or_string().simple_parse("123"),
+///         Ok((IntOrString::Int(123), ""))
+///     );
+///     assert_eq!(
+///         integer_or_string().simple_parse("abc"),
 ///         Ok((IntOrString::String("abc".to_string()), ""))
 ///     );
 ///     assert_eq!(twice(|| digit()).parse("123"), Ok((('1', '2'), "3")));
@@ -598,7 +613,7 @@ mod tests {
     fn iterator() {
         let result = parser(integer)
             .parse(State::new(IteratorStream::new("123".chars())))
-            .map(|(i, mut input)| (i, input.uncons().is_err()));
+            .map(|(i, mut input)| (i, input.uncons::<Error<_, _>>().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
     #[test]
@@ -724,7 +739,7 @@ mod tests {
         I: Stream<Item = char, Error = StreamError<I>>,
         I::Position: Default,
     {
-        match input.clone().uncons() {
+        match input.clone().uncons::<Error<_, _>>() {
             Ok(c) => if c.is_alphanumeric() {
                 let e = Error::Unexpected(c.into());
                 Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
@@ -828,10 +843,8 @@ mod tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<_, char, &str>> = Parser::simple_parse(
-            &mut string("abc").and_then(|_| Err(ParseError::new(Default::default(), Error.into()))),
-            "abc",
-        );
+        let result: Result<((), _), ParseError<_, char, &str>> =
+            Parser::simple_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {

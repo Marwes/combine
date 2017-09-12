@@ -45,7 +45,7 @@ impl PointerOffset {
     /// # use combine::*;
     /// # fn main() {
     /// let text = "b";
-    /// let err = token('a').parse(text).unwrap_err();
+    /// let err = token('a').simple_parse(text).unwrap_err();
     /// assert_eq!(err.position.0, text.as_ptr() as usize);
     /// assert_eq!(err.map_position(|p| p.translate_position(text)).position, 0);
     /// # }
@@ -252,6 +252,14 @@ where
         Error::Message(Info::Range(token))
     }
 
+    fn other<E>(err: E) -> Self
+    where
+        E: StdError + Send + Sync + 'static,
+    {
+        err.into()
+    }
+
+
     fn into_other<T>(self) -> T
     where
         T: StreamingError<Item, Range>,
@@ -284,6 +292,7 @@ impl<Item, Range, Position> ParsingError<Item, Range, Position> for Error<Item, 
 where
     Item: PartialEq,
     Range: PartialEq,
+    Position: Default,
 {
     type StreamError = Self;
     fn empty(_: Position) -> Self {
@@ -312,7 +321,7 @@ where
     where
         T: ParsingError<Item, Range, Position>,
     {
-        unimplemented!()
+        T::from_error(Position::default(), StreamingError::into_other(self))
     }
 }
 
@@ -442,7 +451,7 @@ impl<T, R> Error<T, R> {
     ///   ,123
     /// ";
     /// let result = spaces().with(char('.').or(char('a')).or(digit()))
-    ///     .parse(State::new(input));
+    ///     .simple_parse(State::new(input));
     /// let m = format!("{}", result.unwrap_err());
     /// let expected = r"Parse error at line: 2, column: 3
     /// Unexpected `,`
@@ -588,7 +597,10 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char(input: &str) -> ParseResult<char, &str> {
+    /// fn char<I>(input: I) -> ParseResult<char, I>
+    ///     where I: Stream<Item = char>,
+    ///           I::Error: ParsingError<I::Item, I::Range, I::Position>,
+    /// {
     ///     let (c, input) = try!(satisfy(|c| c != '"').parse_stream(input));
     ///     match c {
     ///         //Since the `char` parser has already consumed some of the input `combine` is used
@@ -608,7 +620,7 @@ impl<T> Consumed<T> {
     ///     }
     /// }
     /// let result = many(parser(char))
-    ///     .parse(r#"abc\"\\"#);
+    ///     .simple_parse(r#"abc\"\\"#);
     /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
     /// }
     /// ```
@@ -764,7 +776,7 @@ impl<P, I, R> ParseError<P, I, R> {
     /// println!(
     ///     "{}",
     ///     range(&"HTTP"[..])
-    ///         .parse("HTT")
+    ///         .simple_parse("HTT")
     ///         .unwrap_err()
     ///         .map_range(|bytes| format!("{:?}", bytes))
     /// );
@@ -890,6 +902,13 @@ pub trait StreamingError<Item, Range>: Sized + PartialEq {
         }
     }
 
+    fn other<E>(err: E) -> Self
+    where
+        E: StdError + Send + Sync + 'static,
+    {
+        Self::message_message(err)
+    }
+
     fn end_of_input() -> Self {
         Self::unexpected_static_message("end of input")
     }
@@ -1009,7 +1028,9 @@ impl<Item, Range> StreamingError<Item, Range> for UnexpectedParse {
     }
 }
 
-impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedParse {
+impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedParse
+where Position: Default
+{
     type StreamError = Self;
     fn empty(_position: Position) -> Self {
         UnexpectedParse::Unexpected
@@ -1037,7 +1058,7 @@ impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedPa
     where
         T: ParsingError<Item, Range, Position>,
     {
-        unimplemented!()
+        T::from_error(Position::default(), StreamingError::into_other(self))
     }
 }
 
@@ -1063,12 +1084,10 @@ pub trait StreamOnce {
     type Error: ParsingError<Self::Item, Self::Range, Self::Position>;
     /// Takes a stream and removes its first item, yielding the item and the rest of the elements.
     /// Returns `Err` if no element could be retrieved.
-    fn uncons(
-        &mut self,
-    ) -> Result<
-        Self::Item,
-        <Self::Error as ParsingError<Self::Item, Self::Range, Self::Position>>::StreamError,
-    >;
+
+    fn uncons<E>(&mut self) -> Result<Self::Item, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>;
 }
 
 /// A stream of tokens which can be duplicated
@@ -1094,10 +1113,13 @@ where
     type Position = S::Position;
     type Error = StreamError<S>;
 
-    fn uncons(&mut self) -> Result<Self::Item, Error<Self::Item, Self::Range>> {
+    fn uncons<E>(&mut self) -> Result<Self::Item, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         match self.0.uncons() {
             Ok(t) => Ok(t),
-            Err(err) => Err(err.into_other()),
+            Err(err) => Err(err),
         }
     }
 }
@@ -1407,7 +1429,9 @@ impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
         T::unexpected_static_message(msg)
     }
 }
-impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStreamError {
+impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStreamError
+where Position: Default
+{
     type StreamError = Self;
     fn empty(_position: Position) -> Self {
         StringStreamError::UnexpectedParse
@@ -1434,7 +1458,7 @@ impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStream
     where
         T: ParsingError<Item, Range, Position>,
     {
-        unimplemented!()
+        T::from_error(Position::default(), StreamingError::into_other(self))
     }
 }
 
@@ -1445,14 +1469,17 @@ impl<'a> StreamOnce for &'a str {
     type Error = StringStreamError;
 
     #[inline]
-    fn uncons(&mut self) -> Result<char, Self::Error> {
+    fn uncons<E>(&mut self) -> Result<char, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         let mut chars = self.chars();
         match chars.next() {
             Some(c) => {
                 *self = chars.as_str();
                 Ok(c)
             }
-            None => Err(StringStreamError::Eoi),
+            None => Err(E::end_of_input()),
         }
     }
 }
@@ -1477,13 +1504,16 @@ where
     type Error = UnexpectedParse;
 
     #[inline]
-    fn uncons(&mut self) -> Result<T, Self::Error> {
+    fn uncons<E>(&mut self) -> Result<T, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         match self.split_first() {
             Some((first, rest)) => {
                 *self = rest;
                 Ok(first.clone())
             }
-            None => Err(UnexpectedParse::Eoi),
+            None => Err(E::end_of_input()),
         }
     }
 }
@@ -1518,13 +1548,16 @@ where
     type Error = UnexpectedParse;
 
     #[inline]
-    fn uncons(&mut self) -> Result<&'a T, Self::Error> {
+    fn uncons<E>(&mut self) -> Result<&'a T, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         match self.0.split_first() {
             Some((first, rest)) => {
                 self.0 = rest;
                 Ok(first)
             }
-            None => Err(UnexpectedParse::Eoi),
+            None => Err(E::end_of_input()),
         }
     }
 }
@@ -1611,10 +1644,13 @@ where
     type Error = UnexpectedParse;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, Self::Error> {
+    fn uncons<E>(&mut self) -> Result<I::Item, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         match self.next() {
             Some(x) => Ok(x),
-            None => Err(UnexpectedParse::Eoi),
+            None => Err(E::end_of_input()),
         }
     }
 }
@@ -1630,11 +1666,14 @@ impl<R: Read> StreamOnce for ReadStream<R> {
     type Error = Error<u8, u8>;
 
     #[inline]
-    fn uncons(&mut self) -> Result<u8, Self::Error> {
+    fn uncons<E>(&mut self) -> Result<u8, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         match self.bytes.next() {
             Some(Ok(b)) => Ok(b),
-            Some(Err(err)) => Err(err.into()),
-            None => Err(Error::end_of_input()),
+            Some(Err(err)) => Err(E::other(err)),
+            None => Err(E::end_of_input()),
         }
     }
 }
@@ -1881,7 +1920,7 @@ pub trait Parser {
     ) -> ConsumedResult<Self::Output, Self::Input> {
         let mut result = self.parse_lazy(input.clone());
         if let FastResult::EmptyErr(ref mut error) = result {
-            if let Ok(t) = input.uncons() {
+            if let Ok(t) = input.uncons::<UnexpectedParse>() {
                 error.error.add_unexpected(SimpleInfo::Token(t));
             }
             self.add_error(error);
@@ -2071,12 +2110,12 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::char::digit;
-    /// # use combine::primitives::{Consumed, Error};
+    /// # use combine::primitives::{Consumed, Error, SimpleStream};
     /// # fn main() {
     /// let result = digit()
     ///     .then(|d| parser(move |input| {
-    ///             // Force input to be a &str
-    ///             let _: &str = input;
+    ///             // Force input to be a SimpleStream<&str>
+    ///             let _: SimpleStream<&str> = input;
     ///         if d == '9' {
     ///             Ok((9, Consumed::Empty(input)))
     ///         }
@@ -2086,7 +2125,7 @@ pub trait Parser {
     ///             Err((Consumed::Empty(err)))
     ///         }
     ///     }))
-    ///     .parse("9");
+    ///     .simple_parse("9");
     /// assert_eq!(result, Ok((9, "")));
     /// # }
     /// ```
@@ -2154,7 +2193,7 @@ pub trait Parser {
     /// # fn main() {
     /// let result = token('9')
     ///     .message("Not a nine")
-    ///     .parse(State::new("8"));
+    ///     .simple_parse(State::new("8"));
     /// assert_eq!(result, Err(ParseError {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
@@ -2184,7 +2223,7 @@ pub trait Parser {
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
-    ///     .parse(State::new("8"));
+    ///     .simple_parse(State::new("8"));
     /// assert_eq!(result, Err(ParseError {
     ///     position: SourcePosition::default(),
     ///     errors: vec![Error::Unexpected('8'.into()), Error::Expected("nine".into())]
@@ -2210,19 +2249,20 @@ pub trait Parser {
     /// # fn main() {
     /// let mut parser = many1(digit())
     ///     .and_then(|s: String| s.parse::<i32>());
-    /// let result = parser.parse(State::new("1234")).map(|(x, state)| (x, state.input));
+    /// let result = parser.simple_parse(State::new("1234")).map(|(x, state)| (x, state.input));
     /// assert_eq!(result, Ok((1234, "")));
-    /// let result = parser.parse(State::new("999999999999999999999999"));
+    /// let result = parser.simple_parse(State::new("999999999999999999999999"));
     /// assert!(result.is_err());
     /// // Errors are report as if they occured at the start of the parse
     /// assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
     /// # }
     /// ```
-    fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
+    fn and_then<F, O, E, I>(self, f: F) -> AndThen<Self, F>
     where
-        Self: Sized,
+        Self: Parser<Input = I> + Sized,
         F: FnMut(Self::Output) -> Result<O, E>,
-        E: Into<<Self::Input as StreamOnce>::Error>,
+        I: Stream,
+        E: Into<<I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError>,
     {
         and_then(self, f)
     }
@@ -2405,10 +2445,10 @@ where
     I::Item: Clone,
 {
     #[inline]
-    fn uncons(
-        &mut self,
-        offset: usize,
-    ) -> Result<I::Item, <I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError> {
+    fn uncons<E>(&mut self, offset: usize) -> Result<I::Item, E>
+    where
+        E: StreamingError<I::Item, I::Range>,
+    {
         if offset >= self.offset {
             let position = self.iter.position();
             let item = try!(self.iter.uncons());
@@ -2484,10 +2524,10 @@ where
         }
     }
     #[inline]
-    fn uncons(
-        &self,
-        offset: usize,
-    ) -> Result<I::Item, <I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError> {
+    fn uncons<E>(&self, offset: usize) -> Result<I::Item, E>
+    where
+        E: StreamingError<I::Item, I::Range>,
+    {
         unsafe { (*self.buffer.get()).uncons(offset) }
     }
     #[inline(always)]
@@ -2523,12 +2563,10 @@ where
     type Error = I::Error;
 
     #[inline]
-    fn uncons(
-        &mut self,
-    ) -> Result<
-        I::Item,
-        <Self::Error as ParsingError<Self::Item, Self::Range, Self::Position>>::StreamError,
-    > {
+    fn uncons<E>(&mut self) -> Result<I::Item, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         let value = try!(self.buffer.uncons(self.offset));
         self.offset += 1;
         Ok(value)

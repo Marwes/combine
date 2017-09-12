@@ -1,7 +1,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use primitives::{Consumed, ConsumedResult, ParseResult, Parser, ParsingError, Positioned,
-                 SimpleInfo, Stream, StreamOnce, StreamingError, Tracked};
+                 SimpleInfo, Stream, StreamOnce, StreamingError, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 use ErrorOffset;
@@ -316,7 +316,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Info;
+/// # use combine::primitives::SimpleInfo;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())
@@ -325,7 +325,7 @@ where
 /// assert_eq!(result, Ok("abc"));
 /// let result = tokens(
 ///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
-///     Info::Range(&b"025"[..]),
+///     SimpleInfo::Range(&b"025"[..]),
 ///     &b"025"[..]
 /// )
 ///     .parse(&b"123"[..])
@@ -483,15 +483,15 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{Error, SimpleInfo};
+/// # use combine::primitives::{Error, Info};
 /// # use combine::state::State;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
-/// let result = parser.parse(State::new(&b"xyb"[..]))
+/// let result = parser.simple_parse(State::new(&b"xyb"[..]))
 ///     .map(|(output, input)| (output, input.input));
 /// assert_eq!(result, Ok((b"xy"[..].to_owned(), &b"b"[..])));
 ///
-/// let result = parser.parse(State::new(&b"ab"[..]));
+/// let result = parser.simple_parse(State::new(&b"ab"[..]));
 /// assert_eq!(result, Err(ParseError {
 ///     position: 0,
 ///     errors: vec![
@@ -1028,17 +1028,17 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Error;
+/// # use combine::primitives::StreamingError;
 /// # fn main() {
 /// let result = unexpected("token")
-///     .parse("a");
+///     .simple_parse("a");
 /// assert!(result.is_err());
 /// assert!(
 ///     result.err()
 ///         .unwrap()
 ///         .errors
 ///         .iter()
-///         .any(|m| *m == <Self::Input as StreamOnce>::Error::Unexpected("token".into()))
+///         .any(|m| *m == StreamingError::unexpected("token".into()))
 /// );
 /// # }
 /// ```
@@ -1128,8 +1128,8 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
-        match input.clone().uncons() {
-            Err(ref err) if *err == StreamingError::end_of_input() => EmptyOk(((), input)),
+        match input.clone().uncons::<UnexpectedParse>() {
+            Err(ref err) if *err == UnexpectedParse::Eoi => EmptyOk(((), input)),
             _ => EmptyErr(
                 <Self::Input as StreamOnce>::Error::empty(input.position()).into(),
             ),
@@ -1150,8 +1150,8 @@ where
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = eof();
-/// assert_eq!(parser.parse(State::new("")), Ok(((), State::new(""))));
-/// assert_eq!(parser.parse(State::new("x")), Err(ParseError {
+/// assert_eq!(parser.simple_parse(State::new("")), Ok(((), State::new(""))));
+/// assert_eq!(parser.simple_parse(State::new("x")), Err(ParseError {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
 ///         Error::Unexpected('x'.into()),
@@ -1172,13 +1172,13 @@ pub struct Iter<P: Parser> {
     parser: P,
     input: P::Input,
     consumed: bool,
-    state: State<P::Input>,
+    state: State<<P::Input as StreamOnce>::Error>,
 }
 
-enum State<I: Stream> {
+enum State<E> {
     Ok,
     EmptyErr,
-    ConsumedErr(I::Error),
+    ConsumedErr(E),
 }
 
 impl<P: Parser> Iter<P> {
@@ -1496,10 +1496,10 @@ where
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
-/// let result_ok = parser.parse(State::new("1,2,3"))
+/// let result_ok = parser.simple_parse(State::new("1,2,3"))
 ///                       .map(|(vec, state)| (vec, state.input));
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
-/// let result_err = parser.parse(State::new(""));
+/// let result_err = parser.simple_parse(State::new(""));
 /// assert_eq!(result_err, Err(ParseError {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
@@ -1638,10 +1638,10 @@ where
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
-/// let result_ok = parser.parse(State::new("1;2;3;"))
+/// let result_ok = parser.simple_parse(State::new("1;2;3;"))
 ///                       .map(|(vec, state)| (vec, state.input));
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
-/// let result_err = parser.parse(State::new(""));
+/// let result_err = parser.simple_parse(State::new(""));
 /// assert_eq!(result_err, Err(ParseError {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
@@ -1685,11 +1685,11 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::{Consumed, Error};
+/// # use combine::primitives::{Consumed, ParseError, StreamingError, SimpleStream};
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     // Help type inference out
-///     let _: &str = input;
+///     let _: SimpleStream<&str> = input;
 ///     let position = input.position();
 ///     let (char_digit, input) = try!(digit().parse_stream(input));
 ///     let d = (char_digit as i32) - ('0' as i32);
@@ -1700,13 +1700,13 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///         //Return an empty error since we only tested the first token of the stream
 ///         let errors = ParseError::new(
 ///             position,
-///             <Self::Input as StreamOnce>::Error::Expected(From::from("even number"))
+///             StreamingError::expected(From::from("even number"))
 ///         );
 ///         Err(Consumed::Empty(errors.into()))
 ///     }
 /// });
 /// let result = even_digit
-///     .parse("8")
+///     .simple_parse("8")
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok(8));
 /// # }
@@ -2353,8 +2353,8 @@ where
     I: Stream,
     P: Parser<Input = I>,
     F: FnMut(P::Output) -> Result<O, E>,
-    E: Into<<P::Input as StreamOnce>::Error>,
-    <P::Input as StreamOnce>::Error: ParsingError<I::Item, I::Range, I::Position>,
+    E: Into<<I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     type Input = P::Input;
     type Output = O;
@@ -2365,15 +2365,13 @@ where
             EmptyOk((o, input)) => match (self.1)(o) {
                 Ok(o) => EmptyOk((o, input)),
                 Err(err) => EmptyErr(
-                    <Self::Input as StreamOnce>::Error::empty(position)
-                        .merge(err.into())
-                        .into(),
+                    <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
                 ),
             },
             ConsumedOk((o, input)) => match (self.1)(o) {
                 Ok(o) => ConsumedOk((o, input)),
                 Err(err) => ConsumedErr(
-                    <Self::Input as StreamOnce>::Error::empty(position).merge(err.into()),
+                    <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
                 ),
             },
             EmptyErr(err) => EmptyErr(err),
@@ -2389,11 +2387,12 @@ where
 ///
 /// [`p.and_then(f)`]: ../primitives/trait.Parser.html#method.and_then
 #[inline(always)]
-pub fn and_then<P, F, O, E>(p: P, f: F) -> AndThen<P, F>
+pub fn and_then<P, F, O, E, I>(p: P, f: F) -> AndThen<P, F>
 where
-    P: Parser,
+    P: Parser<Input = I>,
     F: FnMut(P::Output) -> Result<O, E>,
-    E: Into<<P::Input as StreamOnce>::Error>,
+    I: Stream,
+    E: Into<<I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError>,
 {
     AndThen(p, f)
 }
@@ -2463,7 +2462,7 @@ macro_rules! tuple_parser {
                         }
                         EmptyErr(mut err) => {
                             if first_empty_parser != 0 {
-                                if let Ok(t) = input.uncons() {
+                                if let Ok(t) = input.uncons::<UnexpectedParse>() {
                                     err.error.add(StreamingError::unexpected_token(t));
                                 }
                                 add_error!(err);
@@ -2686,7 +2685,8 @@ where
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
 ///     fn string<I>(&self, input: I) -> ParseResult<u32, I>
-///         where I: Stream<Item=char>
+///         where I: Stream<Item=char>,
+///               I::Error: ParsingError<I::Item, I::Range, I::Position>,
 ///     {
 ///         many(letter())
 ///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
