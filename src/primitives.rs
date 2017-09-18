@@ -204,54 +204,67 @@ where
     Item: PartialEq,
     Range: PartialEq,
 {
+    #[inline]
     fn unexpected_token(token: Item) -> Self {
         Error::Unexpected(Info::Token(token))
     }
+    #[inline]
     fn unexpected_range(token: Range) -> Self {
         Error::Unexpected(Info::Range(token))
     }
+    #[inline]
     fn unexpected_message<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
         Error::Unexpected(Info::Owned(msg.to_string()))
     }
+    #[inline]
     fn unexpected_static_message(msg: &'static str) -> Self {
         Error::Unexpected(Info::Borrowed(msg))
     }
 
+    #[inline]
     fn expected_token(token: Item) -> Self {
         Error::Expected(Info::Token(token))
     }
+    #[inline]
     fn expected_range(token: Range) -> Self {
         Error::Expected(Info::Range(token))
     }
+    #[inline]
     fn expected_message<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
         Error::Expected(Info::Owned(msg.to_string()))
     }
+    #[inline]
     fn expected_static_message(msg: &'static str) -> Self {
         Error::Expected(Info::Borrowed(msg))
     }
 
+    #[inline]
     fn message_message<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
         Error::Message(Info::Owned(msg.to_string()))
     }
+    #[inline]
     fn message_static_message(msg: &'static str) -> Self {
         Error::Message(Info::Borrowed(msg))
     }
+    #[inline]
     fn message_token(token: Item) -> Self {
         Error::Message(Info::Token(token))
     }
+    #[inline]
     fn message_range(token: Range) -> Self {
         Error::Message(Info::Range(token))
     }
 
+    #[inline]
     fn other<E>(err: E) -> Self
     where
         E: StdError + Send + Sync + 'static,
@@ -260,6 +273,7 @@ where
     }
 
 
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: StreamingError<Item, Range>,
@@ -295,20 +309,25 @@ where
     Position: Default,
 {
     type StreamError = Self;
+    #[inline]
     fn empty(_: Position) -> Self {
         Self::message_static_message("")
     }
+    #[inline]
     fn from_error(_: Position, err: Self::StreamError) -> Self {
         err
     }
 
+    #[inline]
     fn set_position(&mut self, _position: Position) {}
 
 
+    #[inline]
     fn add(&mut self, err: Self::StreamError) {
         *self = err;
     }
 
+    #[inline]
     fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::StreamError, f: F)
     where
         F: FnOnce(&mut Tracked<Self>),
@@ -317,6 +336,7 @@ where
         self_.error = info;
     }
 
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: ParsingError<Item, Range, Position>,
@@ -334,25 +354,31 @@ where
     Position: Ord,
 {
     type StreamError = Error<Item, Range>;
+    #[inline]
     fn empty(pos: Position) -> Self {
         ParseError::empty(pos)
     }
+    #[inline]
     fn from_error(position: Position, err: Self::StreamError) -> Self {
         ParseError::new(position, Error::from(err))
     }
 
+    #[inline]
     fn set_position(&mut self, position: Position) {
         self.position = position;
     }
 
+    #[inline]
     fn merge(self, other: Self) -> Self {
         ParseError::merge(self, other)
     }
 
+    #[inline]
     fn add(&mut self, err: Self::StreamError) {
         self.add_error(err);
     }
 
+    #[inline]
     fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::StreamError, f: F)
     where
         F: FnOnce(&mut Tracked<Self>),
@@ -374,6 +400,7 @@ where
         self_.error.add(info);
     }
 
+    #[inline]
     fn into_other<T>(mut self) -> T
     where
         T: ParsingError<Item, Range, Position>,
@@ -677,16 +704,19 @@ pub struct ParseError<P, I, R> {
 
 impl<P, I, R> ParseError<P, I, R> {
     /// Constructs a new `ParseError` which occurred at `position`.
+    #[inline]
     pub fn new(position: P, error: Error<I, R>) -> ParseError<P, I, R> {
         ParseError::from_errors(position, vec![error])
     }
 
     /// Constructs an error with no other information than the position it occurred at.
+    #[inline]
     pub fn empty(position: P) -> ParseError<P, I, R> {
         ParseError::from_errors(position, vec![])
     }
 
     /// Constructs a `ParseError` with multiple causes.
+    #[inline]
     pub fn from_errors(position: P, errors: Vec<Error<I, R>>) -> ParseError<P, I, R> {
         ParseError {
             position: position,
@@ -696,6 +726,7 @@ impl<P, I, R> ParseError<P, I, R> {
 
     /// Constructs an end of input error. Should be returned by parsers which encounter end of
     /// input unexpectedly.
+    #[inline]
     pub fn end_of_input(position: P) -> ParseError<P, I, R> {
         ParseError::new(position, Error::end_of_input())
     }
@@ -973,12 +1004,15 @@ impl fmt::Display for UnexpectedParse {
 }
 
 impl<Item, Range> StreamingError<Item, Range> for UnexpectedParse {
+    #[inline]
     fn unexpected_token(_: Item) -> Self {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn unexpected_range(_: Range) -> Self {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn unexpected_message<T>(_: T) -> Self
     where
         T: fmt::Display,
@@ -986,36 +1020,44 @@ impl<Item, Range> StreamingError<Item, Range> for UnexpectedParse {
         UnexpectedParse::Unexpected
     }
 
+    #[inline]
     fn expected_token(_: Item) -> Self {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn expected_range(_: Range) -> Self {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn expected_message<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn message_message<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn message_token(_: Item) -> Self {
         UnexpectedParse::Unexpected
     }
+    #[inline]
     fn message_range(_: Range) -> Self {
         UnexpectedParse::Unexpected
     }
 
+    #[inline]
     fn end_of_input() -> Self {
         UnexpectedParse::Eoi
     }
 
 
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: StreamingError<Item, Range>,
@@ -1029,23 +1071,29 @@ impl<Item, Range> StreamingError<Item, Range> for UnexpectedParse {
 }
 
 impl<Item, Range, Position> ParsingError<Item, Range, Position> for UnexpectedParse
-where Position: Default
+where
+    Position: Default,
 {
     type StreamError = Self;
+    #[inline]
     fn empty(_position: Position) -> Self {
         UnexpectedParse::Unexpected
     }
 
+    #[inline]
     fn from_error(_: Position, err: Self::StreamError) -> Self {
         err
     }
 
+    #[inline]
     fn set_position(&mut self, _position: Position) {}
 
+    #[inline]
     fn add(&mut self, err: Self::StreamError) {
         *self = err;
     }
 
+    #[inline]
     fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::StreamError, f: F)
     where
         F: FnOnce(&mut Tracked<Self>),
@@ -1054,6 +1102,7 @@ where Position: Default
         self_.error = info;
     }
 
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: ParsingError<Item, Range, Position>,
@@ -1113,6 +1162,7 @@ where
     type Position = S::Position;
     type Error = StreamError<S>;
 
+    #[inline]
     fn uncons<E>(&mut self) -> Result<Self::Item, E>
     where
         E: StreamingError<Self::Item, Self::Range>,
@@ -1130,10 +1180,12 @@ where
     S::Error: ParsingError<S::Item, S::Range, S::Position>,
     S::Position: Default,
 {
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, Self::Error> {
         self.0.uncons_range(size).map_err(S::Error::into_other)
     }
 
+    #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Self::Error>
     where
         F: FnMut(Self::Item) -> bool,
@@ -1141,6 +1193,7 @@ where
         self.0.uncons_while(f).map_err(S::Error::into_other)
     }
 
+    #[inline]
     fn distance(&self, end: &Self) -> usize {
         self.0.distance(&end.0)
     }
@@ -1377,12 +1430,15 @@ impl fmt::Display for StringStreamError {
 
 
 impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
+    #[inline]
     fn unexpected_token(_: Item) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn unexpected_range(_: Range) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn unexpected_message<T>(_msg: T) -> Self
     where
         T: fmt::Display,
@@ -1390,33 +1446,41 @@ impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
         StringStreamError::UnexpectedParse
     }
 
+    #[inline]
     fn expected_token(_: Item) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn expected_range(_: Range) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn expected_message<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn message_message<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn message_token(_: Item) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn message_range(_: Range) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn end_of_input() -> Self {
         StringStreamError::Eoi
     }
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: StreamingError<Item, Range>,
@@ -1430,22 +1494,28 @@ impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
     }
 }
 impl<Item, Range, Position> ParsingError<Item, Range, Position> for StringStreamError
-where Position: Default
+where
+    Position: Default,
 {
     type StreamError = Self;
+    #[inline]
     fn empty(_position: Position) -> Self {
         StringStreamError::UnexpectedParse
     }
+    #[inline]
     fn from_error(_: Position, err: Self::StreamError) -> Self {
         err
     }
 
+    #[inline]
     fn set_position(&mut self, _position: Position) {}
 
+    #[inline]
     fn add(&mut self, err: Self::StreamError) {
         *self = err;
     }
 
+    #[inline]
     fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::StreamError, f: F)
     where
         F: FnOnce(&mut Tracked<Self>),
@@ -1454,6 +1524,7 @@ where Position: Default
         self_.error = info;
     }
 
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: ParsingError<Item, Range, Position>,
