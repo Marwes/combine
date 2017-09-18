@@ -159,10 +159,15 @@
 //! [fn parser]: combinator/fn.parser.html
 // inline(always) is only used on trivial functions returning parsers
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, ParsingError, Positioned,
-                     Stream, StreamError, StreamOnce};
+pub use primitives::{ConsumedResult, ParseResult, Parser, ParsingError, Positioned, Stream,
+                     StreamOnce};
+
+#[doc(inline)]
+#[cfg(feature = "std")]
+pub use simple::{ParseError, StreamError};
 
 #[doc(inline)]
 pub use state::State;
@@ -459,7 +464,7 @@ macro_rules! combine_parser_impl {
                     $($where_clause)*
             {
                 $(pub $arg : $arg_type,)*
-                __marker: ::std::marker::PhantomData<fn ($input_type) -> $output_type>
+                __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
             }
 
             // We want this to work on older compilers, at least for a while
@@ -511,7 +516,7 @@ macro_rules! combine_parser_impl {
             {
                 $type_name {
                     $($arg : $arg,)*
-                    __marker: ::std::marker::PhantomData
+                    __marker: $crate::lib::marker::PhantomData
                 }
             }
         }
@@ -541,6 +546,16 @@ macro_rules! combine_parser_impl {
 
 pub extern crate byteorder;
 
+// Facade over the core types we need
+// Public but hidden to be accessible in macros
+#[doc(hidden)]
+pub mod lib {
+    #[cfg(feature = "std")]
+    pub use std::*;
+    #[cfg(not(feature = "std"))]
+    pub use core::*;
+}
+
 /// Module containing the primitive types which is used to create and compose more advanced
 /// parsers.
 #[macro_use]
@@ -553,14 +568,21 @@ pub mod range;
 pub mod byte;
 /// Module containing parsers specialized on character streams.
 pub mod char;
-/// Module containing stateful stream wrappers
+/// Module containing stateful stream wrappers.
 pub mod state;
-
+/// Module containing simple errors.
+#[cfg(feature = "std")]
+pub mod simple;
 #[cfg(feature = "regex")]
+/// Module containing regex parsers.
 pub mod regex;
+#[cfg(feature = "std")]
+pub mod buffered_stream;
+
+#[cfg(feature = "std")]
 pub fn simple_parse<P, I>(mut parser: P, input: I) -> Result<(P::Output, I), StreamError<I>>
 where
-    P: Parser<Input = ::primitives::SimpleStream<I>>,
+    P: Parser<Input = ::simple::SimpleStream<I>>,
     I: Stream,
     I::Position: Default,
 {
@@ -575,11 +597,68 @@ pub struct ErrorOffset(u8);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::primitives::{Consumed, Error, IteratorStream};
+    use char::{char, string};
+
+    #[test]
+    fn chainl1_error_consume() {
+        fn first<T, U>(t: T, _: U) -> T {
+            t
+        }
+        let mut p = chainl1(string("abc"), char(',').map(|_| first));
+        assert!(p.parse("abc,ab").is_err());
+    }
+
+    #[test]
+    fn choice_strings() {
+        let mut fruits = [
+            try(string("Apple")),
+            try(string("Banana")),
+            try(string("Cherry")),
+            try(string("Date")),
+            try(string("Fig")),
+            try(string("Grape")),
+        ];
+        let mut parser = choice(&mut fruits);
+        assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));
+        assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
+        assert_eq!(parser.parse("Cherry"), Ok(("Cherry", "")));
+        assert_eq!(parser.parse("DateABC"), Ok(("Date", "ABC")));
+        assert_eq!(parser.parse("Fig123"), Ok(("Fig", "123")));
+        assert_eq!(parser.parse("GrapeApple"), Ok(("Grape", "Apple")));
+    }
+}
+
+#[cfg(all(feature = "std", test))]
+mod std_tests {
+    use super::*;
+    use super::primitives::{Consumed, IteratorStream};
+    use super::simple::Error;
     use char::{alpha_num, char, digit, letter, spaces, string};
 
     use state::SourcePosition;
 
+    #[test]
+    fn optional_error_consume() {
+        let mut p = optional(string("abc"));
+        let err = p.simple_parse(State::new("ab")).unwrap_err();
+        assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
+    }
+
+    fn follow<I>(input: I) -> ParseResult<(), I>
+    where
+        I: Stream<Item = char, Error = StreamError<I>>,
+        I::Position: Default,
+    {
+        match input.clone().uncons::<Error<_, _>>() {
+            Ok(c) => if c.is_alphanumeric() {
+                let e = Error::Unexpected(c.into());
+                Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
+            } else {
+                Ok(((), Consumed::Empty(input)))
+            },
+            Err(_) => Ok(((), Consumed::Empty(input))),
+        }
+    }
 
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
     where
@@ -609,6 +688,7 @@ mod tests {
         let result = p.parse("123,4,56");
         assert_eq!(result, Ok((vec![123i64, 4, 56], "")));
     }
+
     #[test]
     fn iterator() {
         let result = parser(integer)
@@ -616,6 +696,7 @@ mod tests {
             .map(|(i, mut input)| (i, input.uncons::<Error<_, _>>().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
+
     #[test]
     fn field() {
         let word = || many(alpha_num());
@@ -625,6 +706,7 @@ mod tests {
             .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
     }
+
     #[test]
     fn source_position() {
         let source = r"
@@ -639,6 +721,7 @@ mod tests {
         });
         assert_eq!(result, Ok((123i64, state)));
     }
+
 
     #[derive(Debug, PartialEq)]
     pub enum Expr {
@@ -734,21 +817,6 @@ mod tests {
     }
 
 
-    fn follow<I>(input: I) -> ParseResult<(), I>
-    where
-        I: Stream<Item = char, Error = StreamError<I>>,
-        I::Position: Default,
-    {
-        match input.clone().uncons::<Error<_, _>>() {
-            Ok(c) => if c.is_alphanumeric() {
-                let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
-            } else {
-                Ok(((), Consumed::Empty(input)))
-            },
-            Err(_) => Ok(((), Consumed::Empty(input))),
-        }
-    }
     #[test]
     fn error_position() {
         let mut p = string("let")
@@ -773,21 +841,6 @@ mod tests {
     }
 
     #[test]
-    fn optional_error_consume() {
-        let mut p = optional(string("abc"));
-        let err = p.simple_parse(State::new("ab")).unwrap_err();
-        assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
-    }
-    #[test]
-    fn chainl1_error_consume() {
-        fn first<T, U>(t: T, _: U) -> T {
-            t
-        }
-        let mut p = chainl1(string("abc"), char(',').map(|_| first));
-        assert!(p.parse("abc,ab").is_err());
-    }
-
-    #[test]
     fn inner_error_consume() {
         let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
         let result = p.simple_parse(State::new("[1][2][]"));
@@ -806,25 +859,6 @@ mod tests {
         let mut parser: Box<Parser<Input = _, Output = char>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
-    }
-
-    #[test]
-    fn choice_strings() {
-        let mut fruits = [
-            try(string("Apple")),
-            try(string("Banana")),
-            try(string("Cherry")),
-            try(string("Date")),
-            try(string("Fig")),
-            try(string("Grape")),
-        ];
-        let mut parser = choice(&mut fruits);
-        assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));
-        assert_eq!(parser.parse("Banana"), Ok(("Banana", "")));
-        assert_eq!(parser.parse("Cherry"), Ok(("Cherry", "")));
-        assert_eq!(parser.parse("DateABC"), Ok(("Date", "ABC")));
-        assert_eq!(parser.parse("Fig123"), Ok(("Fig", "123")));
-        assert_eq!(parser.parse("GrapeApple"), Ok(("Grape", "Apple")));
     }
 
     #[test]
@@ -855,8 +889,9 @@ mod tests {
 
     #[test]
     fn extract_std_error() {
-        // The previous test verified that we could map a ParseError to a StdError by dropping the
-        // internal error details.  This test verifies that we can map a ParseError to a StdError
+        // The previous test verified that we could map a ParseError to a StdError by dropping
+        // the internal error details.
+        // This test verifies that we can map a ParseError to a StdError
         // without dropping the internal error details.  Consumers using `error-chain` will
         // appreciate this.  For technical reasons this is pretty janky; see the discussion in
         // https://github.com/Marwes/combine/issues/86, and excuse the test with significant

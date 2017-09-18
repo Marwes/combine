@@ -1,6 +1,6 @@
 extern crate ascii;
 
-use std::marker::PhantomData;
+use lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
@@ -364,7 +364,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::byte::bytes_cmp;
-/// # use combine::primitives::Info;
+/// # use combine::simple::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))
@@ -393,6 +393,8 @@ pub mod num {
 
     use byteorder::{ByteOrder, BE, LE};
 
+    use lib::mem::size_of;
+
     macro_rules! integer_parser {
         (
             $(#[$attr:meta])*
@@ -416,12 +418,12 @@ pub mod num {
                     &mut self,
                     input: Self::Input
                     ) -> ConsumedResult<Self::Output, Self::Input> {
-                    take(::std::mem::size_of::<Self::Output>())
+                    take(size_of::<Self::Output>())
                         .map(B::$read_name)
                         .parse_lazy(input)
                 }
                 fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-                    take::<I>(::std::mem::size_of::<Self::Output>()).add_error(errors)
+                    take::<I>(size_of::<Self::Output>()).add_error(errors)
                 }
             }
 

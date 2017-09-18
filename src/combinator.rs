@@ -1,5 +1,5 @@
-use std::iter::FromIterator;
-use std::marker::PhantomData;
+use lib::iter::FromIterator;
+use lib::marker::PhantomData;
 use primitives::{Consumed, ConsumedResult, ParseResult, Parser, ParsingError, Positioned,
                  SimpleInfo, Stream, StreamOnce, StreamingError, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
@@ -434,7 +434,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Info;
+/// # use combine::simple::Info;
 /// # fn main() {
 /// let result = many(one_of("abc".chars()))
 ///     .parse("abd");
@@ -483,7 +483,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{Error, Info};
+/// # use combine::simple::{Error, Info};
 /// # use combine::state::State;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
@@ -545,7 +545,8 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{Error, SimpleInfo};
+/// # use combine::primitives::SimpleInfo;
+/// # use combine::simple::Error;
 /// # fn main() {
 /// let mut parser = count(2, token(b'a'));
 ///
@@ -575,7 +576,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::{digit, letter, string};
-/// # use combine::primitives::Error;
+/// # use combine::simple::Error;
 /// # fn main() {
 /// let mut parser = choice!(
 ///     many1(digit()),
@@ -841,7 +842,7 @@ parser!{
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::{Error, Info};
+    /// # use combine::simple::{Error, Info};
     /// # fn main() {
     /// let mut parser = skip_count(2, token(b'a'));
     ///
@@ -854,7 +855,7 @@ parser!{
         P: Parser
     ]
     {
-        ::combinator::count::<Vec<()>, _>(*count, parser.map(|_| ())).with(value(()))
+        ::combinator::count::<Sink<()>, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -902,7 +903,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::{Error, Info};
+/// # use combine::simple::{Error, Info};
 /// # fn main() {
 /// let mut parser = count_min_max(2, 2, token(b'a'));
 ///
@@ -959,7 +960,7 @@ parser!{
         P: Parser
     ]
     {
-        ::combinator::count_min_max::<Vec<()>, _>(*min, *max, parser.map(|_| ())).with(value(()))
+        ::combinator::count_min_max::<Sink<()>, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -1146,7 +1147,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Error;
+/// # use combine::simple::Error;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = eof();
@@ -1311,7 +1312,22 @@ where
     }
 }
 
-impl_parser!{ SkipMany(P,), Map<Many<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<()>)> }
+
+#[derive(Clone)]
+#[doc(hidden)]
+// FIXME Should not be public
+pub struct Sink<T>(PhantomData<T>);
+impl<A> FromIterator<A> for Sink<A> {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = A>,
+    {
+        for _ in iter {}
+        Sink(PhantomData)
+    }
+}
+
+impl_parser!{ SkipMany(P,), Map<Many<Sink<()>, Map<P, fn (P::Output)>>, fn (Sink<()>)> }
 
 /// Parses `p` zero or more times ignoring the result.
 ///
@@ -1332,11 +1348,11 @@ where
 {
     fn ignore<T>(_: T) {}
     let ignore1: fn(P::Output) = ignore;
-    let ignore2: fn(Vec<()>) = ignore;
+    let ignore2: fn(Sink<()>) = ignore;
     SkipMany(many(p.map(ignore1)).map(ignore2))
 }
 
-impl_parser!{ SkipMany1(P,), Map<Many1<Vec<()>, Map<P, fn (P::Output)>>, fn (Vec<()>)> }
+impl_parser!{ SkipMany1(P,), Map<Many1<Sink<()>, Map<P, fn (P::Output)>>, fn (Sink<()>)> }
 
 /// Parses `p` one or more times ignoring the result.
 ///
@@ -1357,7 +1373,7 @@ where
 {
     fn ignore<T>(_: T) {}
     let ignore1: fn(P::Output) = ignore;
-    let ignore2: fn(Vec<()>) = ignore;
+    let ignore2: fn(Sink<()>) = ignore;
     SkipMany1(many1(p.map(ignore1)).map(ignore2))
 }
 
@@ -1492,7 +1508,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::Error;
+/// # use combine::simple::Error;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
@@ -1634,7 +1650,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::Error;
+/// # use combine::simple::Error;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
@@ -1685,7 +1701,8 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::{Consumed, ParseError, StreamingError, SimpleStream};
+/// # use combine::primitives::{Consumed, StreamingError};
+/// # use combine::simple::{ParseError, SimpleStream};
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     // Help type inference out
@@ -2799,9 +2816,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::{Error, ParseError, Parser, StreamError};
-    use char::{char, digit, letter};
-    use state::{SourcePosition, State};
+    use primitives::Parser;
+    use char::{digit, letter};
     use range::range;
 
     #[test]
@@ -2810,18 +2826,70 @@ mod tests {
         let result_err = parser.parse("a");
         assert!(result_err.is_err());
     }
+
+    #[test]
+    fn tuple() {
+        let mut parser = (digit(), token(','), digit(), token(','), letter());
+        assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
+    }
+
+
+    #[test]
+    fn issue_99() {
+        let result = any().map(|_| ()).or(eof()).parse("");
+        assert!(result.is_ok(), "{:?}", result);
+    }
+
+    #[test]
+    fn not_followed_by_does_not_consume_any_input() {
+        let mut parser = not_followed_by(range("a")).map(|_| "").or(range("a"));
+
+        assert_eq!(parser.parse("a"), Ok(("a", "")));
+
+        let mut parser = range("a").skip(not_followed_by(range("aa")));
+
+        assert_eq!(parser.parse("aa"), Ok(("a", "a")));
+        assert!(parser.parse("aaa").is_err());
+    }
+}
+
+#[cfg(all(feature = "std", test))]
+mod tests_std {
+    use super::*;
+    use primitives::Parser;
+    use simple::{Error, ParseError, StreamError};
+    use char::{char, digit, letter};
+    use state::{SourcePosition, State};
+
+    #[derive(Clone, PartialEq, Debug)]
+    struct CloneOnly {
+        s: String,
+    }
+
+    #[test]
+    fn token_clone_but_not_copy() {
+        // Verify we can use token() with a StreamSlice with an item type that is Clone but not
+        // Copy.
+        let input = &[
+            CloneOnly { s: "x".to_string() },
+            CloneOnly { s: "y".to_string() },
+        ][..];
+        let result = token(CloneOnly { s: "x".to_string() }).simple_parse(input);
+        assert_eq!(
+            result,
+            Ok((
+                CloneOnly { s: "x".to_string() },
+                &[CloneOnly { s: "y".to_string() }][..]
+            ))
+        );
+    }
+
     #[test]
     fn sep_by_consumed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
         let result_err: Result<(Vec<(char, char)>, &str), StreamError<&str>> =
             parser2.simple_parse("a,bc");
         assert!(result_err.is_err());
-    }
-
-    #[test]
-    fn tuple() {
-        let mut parser = (digit(), token(','), digit(), token(','), letter());
-        assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
     }
 
     /// The expected combinator should retain only errors that are not `Expected`
@@ -2857,29 +2925,6 @@ mod tests {
                     Error::Expected("digit".into()),
                 ],
             })
-        );
-    }
-
-    #[derive(Clone, PartialEq, Debug)]
-    struct CloneOnly {
-        s: String,
-    }
-
-    #[test]
-    fn token_clone_but_not_copy() {
-        // Verify we can use token() with a StreamSlice with an item type that is Clone but not
-        // Copy.
-        let input = &[
-            CloneOnly { s: "x".to_string() },
-            CloneOnly { s: "y".to_string() },
-        ][..];
-        let result = token(CloneOnly { s: "x".to_string() }).simple_parse(input);
-        assert_eq!(
-            result,
-            Ok((
-                CloneOnly { s: "x".to_string() },
-                &[CloneOnly { s: "y".to_string() }][..]
-            ))
         );
     }
 
@@ -2930,12 +2975,6 @@ mod tests {
         assert_eq!(consumed0.simple_parse(State::new(input)), consumed_expected);
         assert_eq!(consumed1.simple_parse(State::new(input)), consumed_expected);
         assert_eq!(consumed2.simple_parse(State::new(input)), consumed_expected);
-    }
-
-    #[test]
-    fn issue_99() {
-        let result = any().map(|_| ()).or(eof()).parse("");
-        assert!(result.is_ok(), "{:?}", result);
     }
 
     #[test]
@@ -3102,6 +3141,8 @@ mod tests {
         );
     }
 
+
+
     #[test]
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {
         let mut p1 = char('1');
@@ -3120,18 +3161,6 @@ mod tests {
                 ],
             })
         );
-    }
-
-    #[test]
-    fn not_followed_by_does_not_consume_any_input() {
-        let mut parser = not_followed_by(range("a")).map(|_| "").or(range("a"));
-
-        assert_eq!(parser.parse("a"), Ok(("a", "")));
-
-        let mut parser = range("a").skip(not_followed_by(range("aa")));
-
-        assert_eq!(parser.parse("aa"), Ok(("a", "a")));
-        assert!(parser.parse("aaa").is_err());
     }
 
     #[test]

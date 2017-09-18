@@ -1,6 +1,8 @@
-// The feature `buffered_stream` must be enabled to run these tests
+#![cfg(feature = "std")]
 extern crate combine;
-use combine::primitives::{BufferedStream, Error, IteratorStream};
+use combine::primitives::IteratorStream;
+use combine::buffered_stream::BufferedStream;
+use combine::simple::Error;
 use combine::char::{char, digit, spaces, string};
 use combine::{choice, many, sep_by, try, Parser, Positioned, many1};
 use combine::state::State;

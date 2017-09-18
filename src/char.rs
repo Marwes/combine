@@ -1,6 +1,6 @@
 use primitives::{ConsumedResult, Parser, ParsingError, Stream, StreamOnce, Tracked};
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use std::marker::PhantomData;
+use lib::marker::PhantomData;
 
 /// Parses a character and succeeds if the character is equal to `c`.
 ///
@@ -396,11 +396,11 @@ where
     StrCmp(s, cmp, PhantomData)
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
     use simple_parse;
-    use primitives::{Error, ParseError};
+    use simple::{Error, ParseError};
     use state::{SourcePosition, State};
 
     #[test]

@@ -1,4 +1,5 @@
 //! Parser example for INI files.
+#![cfg(feature = "std")]
 #[macro_use]
 extern crate combine;
 

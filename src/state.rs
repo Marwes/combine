@@ -1,7 +1,10 @@
-use std::fmt;
+use lib::fmt;
 
 use primitives::{FullRangeStream, IteratorStream, ParsingError, Positioned, RangeStreamOnce,
-                 ReadStream, SliceStream, StreamOnce, StreamingError};
+                 SliceStream, StreamOnce, StreamingError};
+
+#[cfg(feature = "std")]
+use primitives::ReadStream;
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -40,6 +43,7 @@ impl<T> DefaultPositioned for IteratorStream<T> {
     type Positioner = IndexPositioner;
 }
 
+#[cfg(feature = "std")]
 impl<R> DefaultPositioned for ReadStream<R> {
     type Positioner = IndexPositioner;
 }
@@ -48,10 +52,11 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// the `Positioner` trait to track the position.
 ///
 /// ```
+/// # #![cfg(feature = "std")]
 /// # extern crate combine;
 /// # use combine::{token, Parser, ParseError};
-/// # use combine::primitives::{Error};
-/// # use combine::state::{State, IndexPositioner};
+/// # use combine::simple::{Error};
+/// # use combine::state::State;
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
@@ -129,8 +134,8 @@ where
     #[inline]
     fn uncons<E>(&mut self) -> Result<I::Item, E>
     where
-        E: StreamingError<I::Item, I::Range>
-        {
+        E: StreamingError<I::Item, I::Range>,
+    {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -287,7 +292,7 @@ where
 }
 
 
-#[cfg(test)]
+#[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
     use primitives::Parser;

@@ -31,9 +31,11 @@ bencher = "0.1.3"
 lazy_static = "0.2.8"
 
 [features]
+default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
 doc = ["regex"]
+std = []
 
 [[bench]]
 name = "json"

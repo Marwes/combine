@@ -1,6 +1,6 @@
 //! Parser example for ISO8601 dates. This does not handle the entire specification but it should
 //! show the gist of it and be easy to extend to parse additional forms.
-
+#![cfg(feature = "std")]
 #[macro_use]
 extern crate combine;
 

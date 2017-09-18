@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use lib::marker::PhantomData;
 
 use primitives::{ConsumedResult, Parser, ParsingError, RangeStream, RangeStreamOnce, SimpleInfo,
                  StreamOnce, Tracked, UnexpectedParse};
