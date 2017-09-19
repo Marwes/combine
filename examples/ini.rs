@@ -1,17 +1,39 @@
 //! Parser example for INI files.
-#![cfg(feature = "std")]
 #[macro_use]
 extern crate combine;
 
 use std::collections::HashMap;
+use std::fmt;
 use std::env;
-use std::error::Error as StdError;
 use std::fs::File;
 use std::io::{self, Read};
 
 use combine::*;
 use combine::char::space;
 use combine::state::State;
+
+#[cfg(feature = "std")]
+use combine::state::SourcePosition;
+#[cfg(feature = "std")]
+use combine::simple::ParseError;
+
+enum Error<E> {
+    Io(io::Error),
+    Parse(E),
+}
+
+impl<E> fmt::Display for Error<E>
+where
+    E: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Io(ref err) => write!(f, "{}", err),
+            Error::Parse(ref err) => write!(f, "{}", err),
+        }
+    }
+}
+
 
 #[derive(PartialEq, Debug)]
 pub struct Ini {
@@ -131,7 +153,7 @@ fn ini_error() {
 
 fn main() {
     let result = match env::args().nth(1) {
-        Some(file) => File::open(file).map_err(From::from).and_then(main_),
+        Some(file) => File::open(file).map_err(Error::Io).and_then(main_),
         None => main_(io::stdin()),
     };
     match result {
@@ -140,14 +162,26 @@ fn main() {
     }
 }
 
-fn main_<R>(mut read: R) -> Result<(), Box<StdError>>
+#[cfg(feature = "std")]
+fn main_<R>(mut read: R) -> Result<(), Error<ParseError<SourcePosition, char, String>>>
 where
     R: Read,
 {
     let mut text = String::new();
-    read.read_to_string(&mut text)?;
+    read.read_to_string(&mut text).map_err(Error::Io)?;
     ini()
         .simple_parse(State::new(&*text))
-        .map_err(|err| err.map_range(|s| s.to_string()))?;
+        .map_err(|err| Error::Parse(err.map_range(|s| s.to_string())))?;
+    Ok(())
+}
+
+#[cfg(not(feature = "std"))]
+fn main_<R>(mut read: R) -> Result<(), Error<::combine::primitives::StringStreamError>>
+where
+    R: Read,
+{
+    let mut text = String::new();
+    read.read_to_string(&mut text).map_err(Error::Io)?;
+    ini().parse(State::new(&*text)).map_err(Error::Parse)?;
     Ok(())
 }
