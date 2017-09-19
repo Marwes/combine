@@ -559,9 +559,8 @@ where
 {
 }
 
-
 /// A `RangeStream` which is capable of providing it's entire range.
-pub trait FullRangeStream: RangeStreamOnce {
+pub trait FullRangeStream: RangeStream {
     /// Returns the entire range of `self`
     fn range(&self) -> Self::Range;
 }
