@@ -26,7 +26,7 @@ where
             } else {
                 EmptyErr(I::Error::empty(position).into())
             },
-            Err(err) => EmptyErr(err.into()),
+            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -153,7 +153,7 @@ where
         let position = input.position();
         match input.uncons_range(self.0) {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(I::Error::empty(position).merge(err).into()),
+            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
         }
     }
 }
@@ -294,7 +294,7 @@ where
             match look_ahead_input.clone().uncons_range(len) {
                 Ok(xs) => {
                     if xs == self.0 {
-                        if let Ok(consumed) = input.uncons_range(to_consume) {
+                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(to_consume) {
                             if to_consume == 0 {
                                 return EmptyOk((consumed, input));
                             } else {
@@ -312,7 +312,7 @@ where
                         }
                     }
                 }
-                Err(e) => return EmptyErr(e.into()),
+                Err(e) => return EmptyErr(I::Error::from_error(look_ahead_input.position(), e).into()),
             };
         }
     }

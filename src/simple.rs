@@ -674,16 +674,20 @@ where
     S::Position: Default,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, Self::Error> {
-        self.0.uncons_range(size).map_err(S::Error::into_other)
+    fn uncons_range<E>(&mut self, size: usize) -> Result<Self::Range, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
+        self.0.uncons_range(size)
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Self::Error>
+    fn uncons_while<E, F>(&mut self, f: F) -> Result<Self::Range, E>
     where
         F: FnMut(Self::Item) -> bool,
+        E: StreamingError<Self::Item, Self::Range>,
     {
-        self.0.uncons_while(f).map_err(S::Error::into_other)
+        self.0.uncons_while(f)
     }
 
     #[inline]

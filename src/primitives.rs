@@ -532,13 +532,16 @@ where
 pub trait RangeStreamOnce: StreamOnce {
     /// Takes `size` elements from the stream.
     /// Fails if the length of the stream is less than `size`.
-    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, Self::Error>;
+    fn uncons_range<E>(&mut self, size: usize) -> Result<Self::Range, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>;
 
     /// Takes items from stream, testing each one with `predicate`.
     /// returns the range of items which passed `predicate`.
-    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, Self::Error>
+    fn uncons_while<E, F>(&mut self, f: F) -> Result<Self::Range, E>
     where
-        F: FnMut(Self::Item) -> bool;
+        F: FnMut(Self::Item) -> bool,
+        E: StreamingError<Self::Item, Self::Range>;
 
     /// Returns the distance between `self` and `end`. The returned `usize` must be so that
     ///
@@ -574,7 +577,7 @@ where
     I::Range: Range,
 {
     match input.uncons_while(predicate) {
-        Err(err) => EmptyErr(I::Error::empty(input.position()).merge(err).into()),
+        Err(err) => EmptyErr(I::Error::from_error(input.position(), err).into()),
         Ok(x) => if x.len() == 0 {
             EmptyOk((x, input))
         } else {
@@ -596,9 +599,10 @@ pub trait Range {
 
 impl<'a> RangeStreamOnce for &'a str {
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, Self::Error>
+    fn uncons_while<E, F>(&mut self, mut f: F) -> Result<&'a str, E>
     where
         F: FnMut(Self::Item) -> bool,
+        E: StreamingError<Self::Item, Self::Range>,
     {
         let mut chars = self.chars();
         while let Some(c) = chars.next() {
@@ -615,7 +619,10 @@ impl<'a> RangeStreamOnce for &'a str {
     }
 
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<&'a str, Self::Error> {
+    fn uncons_range<E>(&mut self, size: usize) -> Result<&'a str, E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         fn is_char_boundary(s: &str, index: usize) -> bool {
             if index == s.len() {
                 return true;
@@ -631,10 +638,10 @@ impl<'a> RangeStreamOnce for &'a str {
                 *self = remaining;
                 Ok(result)
             } else {
-                Err(StringStreamError::CharacterBoundary)
+                Err(E::message_static_message(CHAR_BOUNDARY_ERROR_MESSAGE))
             }
         } else {
-            Err(StringStreamError::Eoi)
+            Err(E::end_of_input())
         }
     }
 
@@ -669,20 +676,24 @@ where
     T: Clone + PartialEq,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Self::Error> {
+    fn uncons_range<E>(&mut self, size: usize) -> Result<&'a [T], E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         if size <= self.len() {
             let (result, remaining) = self.split_at(size);
             *self = remaining;
             Ok(result)
         } else {
-            Err(UnexpectedParse::Eoi)
+            Err(E::end_of_input())
         }
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Self::Error>
+    fn uncons_while<E, F>(&mut self, mut f: F) -> Result<&'a [T], E>
     where
         F: FnMut(Self::Item) -> bool,
+        E: StreamingError<Self::Item, Self::Range>,
     {
         let len = self.iter().take_while(|c| f((**c).clone())).count();
         let (result, remaining) = self.split_at(len);
@@ -719,6 +730,8 @@ pub enum StringStreamError {
     CharacterBoundary,
 }
 
+const CHAR_BOUNDARY_ERROR_MESSAGE: &str = "unexpected slice on character boundary";
+
 impl fmt::Display for StringStreamError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::StringStreamError::*;
@@ -728,7 +741,7 @@ impl fmt::Display for StringStreamError {
             match *self {
                 UnexpectedParse => "unexpected parse",
                 Eoi => "unexpected end of input",
-                CharacterBoundary => "unexpected slice on character boundary",
+                CharacterBoundary => CHAR_BOUNDARY_ERROR_MESSAGE
             }
         )
     }
@@ -782,6 +795,13 @@ impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
     fn message_range(_: Range) -> Self {
         StringStreamError::UnexpectedParse
     }
+    fn message_static_message(msg: &'static str) -> Self {
+        if msg == CHAR_BOUNDARY_ERROR_MESSAGE {
+            StringStreamError::CharacterBoundary
+        } else {
+            StringStreamError::UnexpectedParse
+        }
+    }
     #[inline]
     fn end_of_input() -> Self {
         StringStreamError::Eoi
@@ -792,7 +812,7 @@ impl<Item, Range> StreamingError<Item, Range> for StringStreamError {
         T: StreamingError<Item, Range>,
     {
         let msg = match self {
-            StringStreamError::CharacterBoundary => "uncons_range called on character boundary",
+            StringStreamError::CharacterBoundary => CHAR_BOUNDARY_ERROR_MESSAGE,
             StringStreamError::UnexpectedParse => "parse",
             StringStreamError::Eoi => return T::end_of_input(),
         };
@@ -944,20 +964,24 @@ where
     T: Clone + PartialEq + 'a,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<&'a [T], Self::Error> {
+    fn uncons_range<E>(&mut self, size: usize) -> Result<&'a [T], E>
+    where
+        E: StreamingError<Self::Item, Self::Range>,
+    {
         if size <= self.0.len() {
             let (range, rest) = self.0.split_at(size);
             self.0 = rest;
             Ok(range)
         } else {
-            Err(UnexpectedParse::Eoi)
+            Err(E::end_of_input())
         }
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], Self::Error>
+    fn uncons_while<E, F>(&mut self, mut f: F) -> Result<&'a [T], E>
     where
         F: FnMut(Self::Item) -> bool,
+        E: StreamingError<Self::Item, Self::Range>,
     {
         let len = self.0.iter().take_while(|c| f(*c)).count();
         let (range, rest) = self.0.split_at(len);
@@ -1778,11 +1802,11 @@ mod tests {
     #[test]
     #[inline]
     fn uncons_range_at_end() {
-        assert_eq!("".uncons_range(0), Ok(""));
-        assert_eq!("123".uncons_range(3), Ok("123"));
-        assert_eq!((&[1][..]).uncons_range(1), Ok(&[1][..]));
+        assert_eq!("".uncons_range::<UnexpectedParse>(0), Ok(""));
+        assert_eq!("123".uncons_range::<UnexpectedParse>(3), Ok("123"));
+        assert_eq!((&[1][..]).uncons_range::<UnexpectedParse>(1), Ok(&[1][..]));
         let s: &[u8] = &[];
-        assert_eq!(SliceStream(s).uncons_range(0), Ok(&[][..]));
+        assert_eq!(SliceStream(s).uncons_range::<UnexpectedParse>(0), Ok(&[][..]));
     }
 }
 

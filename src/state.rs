@@ -240,17 +240,20 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 }
 
 
-impl<I, X, E> RangeStreamOnce for State<I, X>
+impl<I, X, S> RangeStreamOnce for State<I, X>
 where
     I: RangeStreamOnce,
     X: Clone + RangePositioner<I::Item, I::Range>,
-    E: StreamingError<I::Item, I::Range>,
-    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = E>,
-    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = E>,
+    S: StreamingError<I::Item, I::Range>,
+    I::Error: ParsingError<I::Item, I::Range, X::Position, StreamError = S>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position, StreamError = S>,
     I::Position: Clone + Ord,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<I::Range, I::Error> {
+    fn uncons_range<E>(&mut self, size: usize) -> Result<I::Range, E>
+    where
+        E: StreamingError<I::Item, I::Range>,
+    {
         self.input.uncons_range(size).map(|range| {
             self.positioner.update_range(&range);
             range
@@ -258,9 +261,10 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, I::Error>
+    fn uncons_while<E, F>(&mut self, mut predicate: F) -> Result<I::Range, E>
     where
         F: FnMut(I::Item) -> bool,
+        E: StreamingError<I::Item, I::Range>,
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while(|t| if predicate(t.clone()) {
