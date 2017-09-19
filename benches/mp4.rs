@@ -61,7 +61,8 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), StreamError<&[u8]>> {
         range(&b"wide"[..]).map(|_| MP4Box::Wide),
         value(MP4Box::Unknown),
     ));
-    let data_interpreter = mp4_box.flat_map(|box_data| box_parser.simple_parse(box_data).map(|t| t.0));
+    let data_interpreter =
+        mp4_box.flat_map(|box_data| box_parser.simple_parse(box_data).map(|t| t.0));
 
     many(data_interpreter).simple_parse(data)
 }

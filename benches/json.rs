@@ -10,8 +10,9 @@ use std::path::Path;
 
 use bencher::{black_box, Bencher};
 
-use pc::primitives::{BufferedStream, Consumed, IteratorStream, ParseResult, Parser, ParsingError,
-                     Stream, StreamOnce};
+use pc::buffered_stream::BufferedStream;
+use pc::primitives::{Consumed, IteratorStream, ParseResult, Parser, ParsingError, Stream,
+                     StreamOnce};
 use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
@@ -122,7 +123,7 @@ where
                 'n' => '\n',
                 'r' => '\r',
                 't' => '\t',
-                c => c,//Should never happen
+                c => c, //Should never happen
             }
         });
         match c {

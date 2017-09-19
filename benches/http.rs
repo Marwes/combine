@@ -7,8 +7,9 @@ use bencher::{black_box, Bencher};
 use std::fmt;
 
 use combine::*;
-use combine::primitives::{RangeStream, SimpleStream, UnexpectedParse};
+use combine::primitives::{RangeStream, UnexpectedParse};
 use combine::range::{range, take_while1};
+use combine::simple::SimpleStream;
 
 #[derive(Debug)]
 struct Request<'a> {
@@ -63,9 +64,9 @@ fn is_http_version(c: u8) -> bool {
 }
 
 fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
-    where
-        I: RangeStream<Item = u8, Range = &'a [u8]>,
-        I::Error: ParsingError<I::Item, I::Range, I::Position>,
+where
+    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position>,
 {
     // Making a closure, because parser instances cannot be reused
     let end_of_line = || (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'));
@@ -94,11 +95,11 @@ fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>)
         token(b':'),
         many1(message_header_line),
     ).map(|(name, _, value)| {
-            Header {
-                name: name,
-                value: value,
-            }
-        });
+        Header {
+            name: name,
+            value: value,
+        }
+    });
 
     let mut request = (
         request_line,
@@ -137,9 +138,9 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
 }
 
 fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
-    where
-        I: RangeStream<Item = u8, Range = &'a [u8]>,
-        I::Error: ParsingError<I::Item, I::Range, I::Position> + fmt::Debug,
+where
+    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParsingError<I::Item, I::Range, I::Position> + fmt::Debug,
 {
     b.iter(|| {
         let mut buf = black_box(buffer.clone());
@@ -156,5 +157,10 @@ fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
     });
 }
 
-benchmark_group!(http, http_requests_small, http_requests_large, http_requests_large_cheap_error);
+benchmark_group!(
+    http,
+    http_requests_small,
+    http_requests_large,
+    http_requests_large_cheap_error
+);
 benchmark_main!(http);
