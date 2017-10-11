@@ -1,6 +1,6 @@
 use lib::iter::FromIterator;
 use lib::marker::PhantomData;
-use primitives::{Consumed, ConsumedResult, EasyInfo, ParseError, ParseResult, Parser, Positioned,
+use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser, Positioned,
                  Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
@@ -215,7 +215,7 @@ where
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        errors.error.add_expected(EasyInfo::Token(self.c.clone()));
+        errors.error.add_expected(Info::Token(self.c.clone()));
     }
 }
 
@@ -249,7 +249,7 @@ where
     I: Stream,
 {
     cmp: C,
-    expected: EasyInfo<I::Item, I::Range>,
+    expected: Info<I::Item, I::Range>,
     tokens: T,
     _marker: PhantomData<I>,
 }
@@ -273,7 +273,7 @@ where
                         return if consumed {
                             let mut errors = <Self::Input as StreamOnce>::Error::from_error(
                                 start,
-                                StreamError::unexpected(EasyInfo::Token(other)),
+                                StreamError::unexpected(Info::Token(other)),
                             );
                             errors.add_expected(self.expected.clone());
                             ConsumedErr(errors)
@@ -316,7 +316,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::EasyInfo;
+/// # use combine::primitives::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())
@@ -325,7 +325,7 @@ where
 /// assert_eq!(result, Ok("abc"));
 /// let result = tokens(
 ///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
-///     EasyInfo::Range(&b"025"[..]),
+///     Info::Range(&b"025"[..]),
 ///     &b"025"[..]
 /// )
 ///     .parse(&b"123"[..])
@@ -334,7 +334,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn tokens<C, T, I>(cmp: C, expected: EasyInfo<I::Item, I::Range>, tokens: T) -> Tokens<C, T, I>
+pub fn tokens<C, T, I>(cmp: C, expected: Info<I::Item, I::Range>, tokens: T) -> Tokens<C, T, I>
 where
     C: FnMut(T::Item, I::Item) -> bool,
     T: Clone + IntoIterator,
@@ -420,7 +420,7 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         for expected in self.tokens.clone() {
-            errors.error.add_expected(EasyInfo::Token(expected));
+            errors.error.add_expected(Info::Token(expected));
         }
     }
 }
@@ -540,7 +540,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::EasyInfo;
+/// # use combine::primitives::Info;
 /// # use combine::easy::Error;
 /// # fn main() {
 /// let mut parser = count(2, token(b'a'));
@@ -999,7 +999,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct Unexpected<I>(EasyInfo<I::Item, I::Range>, PhantomData<fn(I) -> I>)
+pub struct Unexpected<I>(Info<I::Item, I::Range>, PhantomData<fn(I) -> I>)
 where
     I: Stream;
 impl<I> Parser for Unexpected<I>
@@ -1040,7 +1040,7 @@ where
 pub fn unexpected<I, S>(message: S) -> Unexpected<I>
 where
     I: Stream,
-    S: Into<EasyInfo<I::Item, I::Range>>,
+    S: Into<Info<I::Item, I::Range>>,
 {
     Unexpected(message.into(), PhantomData)
 }
@@ -1103,7 +1103,7 @@ pub struct NotFollowedBy;
 pub fn not_followed_by[P](parser: P)(P::Input) -> ()
 where [
     P: Parser,
-    P::Output: Into<EasyInfo<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
+    P::Output: Into<Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
 ]
 {
     try(try(parser).then(unexpected)
@@ -2099,7 +2099,7 @@ where
 #[derive(Clone)]
 pub struct Message<P>(
     P,
-    EasyInfo<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
+    Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
 )
 where
     P: Parser;
@@ -2140,7 +2140,7 @@ where
 #[inline(always)]
 pub fn message<P>(
     p: P,
-    msg: EasyInfo<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
+    msg: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
 ) -> Message<P>
 where
     P: Parser,
@@ -2317,7 +2317,7 @@ where
 #[derive(Clone)]
 pub struct Expected<P>(
     P,
-    EasyInfo<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
+    Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
 )
 where
     P: Parser;
@@ -2346,7 +2346,7 @@ where
 #[inline(always)]
 pub fn expected<P>(
     p: P,
-    info: EasyInfo<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
+    info: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
 ) -> Expected<P>
 where
     P: Parser,

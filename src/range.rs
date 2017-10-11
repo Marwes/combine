@@ -1,6 +1,6 @@
 use lib::marker::PhantomData;
 
-use primitives::{ConsumedResult, EasyInfo, ParseError, Parser, RangeStream, RangeStreamOnce,
+use primitives::{ConsumedResult, Info, ParseError, Parser, RangeStream, RangeStreamOnce,
                  StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
@@ -31,7 +31,7 @@ where
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         // TODO Add unexpected message?
-        errors.error.add_expected(EasyInfo::Range(self.0.clone()));
+        errors.error.add_expected(Info::Range(self.0.clone()));
     }
 }
 

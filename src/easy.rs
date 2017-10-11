@@ -2,7 +2,7 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{EasyError, EasyInfo, ParseError, Positioned, RangeStream, RangeStreamOnce,
+use primitives::{EasyError, Info as PrimitiveInfo, ParseError, Positioned, RangeStream, RangeStreamOnce,
                  StreamError, StreamOnce, Tracked};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
@@ -19,12 +19,12 @@ pub enum Info<T, R> {
     Borrowed(&'static str),
 }
 
-impl<T, R> From<EasyInfo<T, R>> for Info<T, R> {
-    fn from(info: EasyInfo<T, R>) -> Self {
+impl<T, R> From<PrimitiveInfo<T, R>> for Info<T, R> {
+    fn from(info: PrimitiveInfo<T, R>) -> Self {
         match info {
-            EasyInfo::Token(b) => Info::Token(b),
-            EasyInfo::Range(b) => Info::Range(b),
-            EasyInfo::Borrowed(b) => Info::Borrowed(b),
+            PrimitiveInfo::Token(b) => Info::Token(b),
+            PrimitiveInfo::Range(b) => Info::Range(b),
+            PrimitiveInfo::Borrowed(b) => Info::Borrowed(b),
         }
     }
 }

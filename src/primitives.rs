@@ -62,21 +62,21 @@ impl PointerOffset {
     }
 }
 
-impl<R> From<char> for EasyInfo<char, R> {
-    fn from(s: char) -> EasyInfo<char, R> {
-        EasyInfo::Token(s)
+impl<R> From<char> for Info<char, R> {
+    fn from(s: char) -> Info<char, R> {
+        Info::Token(s)
     }
 }
 
-impl<T, R> From<&'static str> for EasyInfo<T, R> {
-    fn from(s: &'static str) -> EasyInfo<T, R> {
-        EasyInfo::Borrowed(s)
+impl<T, R> From<&'static str> for Info<T, R> {
+    fn from(s: &'static str) -> Info<T, R> {
+        Info::Borrowed(s)
     }
 }
 
-impl<R> From<u8> for EasyInfo<u8, R> {
-    fn from(s: u8) -> EasyInfo<u8, R> {
-        EasyInfo::Token(s)
+impl<R> From<u8> for Info<u8, R> {
+    fn from(s: u8) -> Info<u8, R> {
+        Info::Token(s)
     }
 }
 
@@ -233,7 +233,7 @@ impl<T> Consumed<T> {
 pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
 
 #[derive(Clone, Debug)]
-pub enum EasyInfo<T, R> {
+pub enum Info<T, R> {
     Token(T),
     Range(R),
     Borrowed(&'static str),
@@ -243,11 +243,11 @@ pub enum EasyInfo<T, R> {
 #[derive(Debug)]
 pub enum EasyError<T, R> {
     /// Error indicating an unexpected token has been encountered in the stream
-    Unexpected(EasyInfo<T, R>),
+    Unexpected(Info<T, R>),
     /// Error indicating that the parser expected something else
-    Expected(EasyInfo<T, R>),
+    Expected(Info<T, R>),
     /// Generic message
-    Message(EasyInfo<T, R>),
+    Message(Info<T, R>),
 }
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
@@ -258,11 +258,11 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn unexpected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn unexpected(info: EasyInfo<Item, Range>) -> Self {
+    fn unexpected(info: Info<Item, Range>) -> Self {
         match info {
-            EasyInfo::Token(b) => Self::unexpected_token(b),
-            EasyInfo::Range(b) => Self::unexpected_range(b),
-            EasyInfo::Borrowed(b) => Self::unexpected_static_message(b),
+            Info::Token(b) => Self::unexpected_token(b),
+            Info::Range(b) => Self::unexpected_range(b),
+            Info::Borrowed(b) => Self::unexpected_static_message(b),
         }
     }
     fn unexpected_static_message(msg: &'static str) -> Self {
@@ -274,11 +274,11 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn expected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn expected(info: EasyInfo<Item, Range>) -> Self {
+    fn expected(info: Info<Item, Range>) -> Self {
         match info {
-            EasyInfo::Token(b) => Self::expected_token(b),
-            EasyInfo::Range(b) => Self::expected_range(b),
-            EasyInfo::Borrowed(b) => Self::expected_static_message(b),
+            Info::Token(b) => Self::expected_token(b),
+            Info::Range(b) => Self::expected_range(b),
+            Info::Borrowed(b) => Self::expected_static_message(b),
         }
     }
     fn expected_static_message(msg: &'static str) -> Self {
@@ -293,11 +293,11 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn message_static_message(msg: &'static str) -> Self {
         Self::message_message(msg)
     }
-    fn message(info: EasyInfo<Item, Range>) -> Self {
+    fn message(info: Info<Item, Range>) -> Self {
         match info {
-            EasyInfo::Token(b) => Self::message_token(b),
-            EasyInfo::Range(b) => Self::message_range(b),
-            EasyInfo::Borrowed(b) => Self::message_static_message(b),
+            Info::Token(b) => Self::message_token(b),
+            Info::Range(b) => Self::message_range(b),
+            Info::Borrowed(b) => Self::message_static_message(b),
         }
     }
 
@@ -334,7 +334,7 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
 
     /// Sets the position of this `ParseError`
     fn set_position(&mut self, position: Position);
-s
+
     /// Merges two errors. If they exist at the same position the errors of `other` are
     /// added to `self` (using the semantics of `add`). If they are not at the same
     /// position the error furthest ahead are returned, ignoring the other `ParseError`.
@@ -348,15 +348,15 @@ s
     /// it to a vector while others may only keep `self` or `err` to avoid allocation
     fn add(&mut self, err: Self::StreamError);
 
-    fn add_expected(&mut self, info: EasyInfo<Item, Range>) {
+    fn add_expected(&mut self, info: Info<Item, Range>) {
         self.add(Self::StreamError::expected(info))
     }
 
-    fn add_unexpected(&mut self, info: EasyInfo<Item, Range>) {
+    fn add_unexpected(&mut self, info: Info<Item, Range>) {
         self.add(Self::StreamError::unexpected(info))
     }
 
-    fn add_message(&mut self, info: EasyInfo<Item, Range>) {
+    fn add_message(&mut self, info: Info<Item, Range>) {
         self.add(Self::StreamError::message(info))
     }
 
@@ -1352,7 +1352,7 @@ pub trait Parser {
         let mut result = self.parse_lazy(input.clone());
         if let FastResult::EmptyErr(ref mut error) = result {
             if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                error.error.add_unexpected(EasyInfo::Token(t));
+                error.error.add_unexpected(Info::Token(t));
             }
             self.add_error(error);
         }
@@ -1644,7 +1644,7 @@ pub trait Parser {
     fn message<S>(self, msg: S) -> Message<Self>
     where
         Self: Sized,
-        S: Into<EasyInfo<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
+        S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
     {
         message(self, msg.into())
     }
@@ -1674,7 +1674,7 @@ pub trait Parser {
     fn expected<S>(self, msg: S) -> Expected<Self>
     where
         Self: Sized,
-        S: Into<EasyInfo<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
+        S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
     {
         expected(self, msg.into())
     }
