@@ -579,16 +579,6 @@ pub mod regex;
 #[cfg(feature = "std")]
 pub mod buffered_stream;
 
-#[cfg(feature = "std")]
-pub fn easy_parse<P, I>(mut parser: P, input: I) -> Result<(P::Output, I), StreamError<I>>
-where
-    P: Parser<Input = ::easy::EasyStream<I>>,
-    I: Stream,
-    I::Position: Default,
-{
-    parser.easy_parse(input)
-}
-
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
 pub struct ErrorOffset(u8);

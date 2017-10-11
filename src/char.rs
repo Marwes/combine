@@ -399,13 +399,12 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
-    use easy_parse;
     use easy::{Error, ParseError};
     use state::{SourcePosition, State};
 
     #[test]
     fn space_error() {
-        let result = easy_parse(space(), "");
+        let result = space().easy_parse("");
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().errors,
@@ -415,7 +414,7 @@ mod tests {
 
     #[test]
     fn string_consumed() {
-        let result = easy_parse(string("a"), State::new("b"));
+        let result = string("a").easy_parse(State::new("b"));
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().position,
@@ -425,7 +424,7 @@ mod tests {
 
     #[test]
     fn string_error() {
-        let result = easy_parse(string("abc"), State::new("bc"));
+        let result = string("abc").easy_parse(State::new("bc"));
         assert_eq!(
             result,
             Err(ParseError {
