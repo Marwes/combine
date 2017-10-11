@@ -15,7 +15,7 @@ use combine::state::State;
 #[cfg(feature = "std")]
 use combine::state::SourcePosition;
 #[cfg(feature = "std")]
-use combine::simple::ParseError;
+use combine::easy::ParseError;
 
 enum Error<E> {
     Io(io::Error),
@@ -219,7 +219,7 @@ where
     let mut text = String::new();
     read.read_to_string(&mut text).map_err(Error::Io)?;
     date_time()
-        .simple_parse(State::new(&*text))
+        .easy_parse(State::new(&*text))
         .map_err(|err| Error::Parse(err.map_range(|s| s.to_string())))?;
     Ok(())
 }

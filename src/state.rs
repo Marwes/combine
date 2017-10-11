@@ -55,12 +55,12 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # #![cfg(feature = "std")]
 /// # extern crate combine;
 /// # use combine::{token, Parser, ParseError};
-/// # use combine::simple::{Error};
+/// # use combine::easy::{Error};
 /// # use combine::state::State;
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
-///         .simple_parse(State::new(&b"8"[..]));
+///         .easy_parse(State::new(&b"8"[..]));
 ///     assert_eq!(result, Err(ParseError {
 ///         position: 0,
 ///         errors: vec![

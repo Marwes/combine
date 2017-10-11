@@ -5,7 +5,7 @@ use lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Parser, ParsingError, SimpleInfo, Stream, StreamOnce, Tracked};
+use primitives::{ConsumedResult, EasyInfo, Parser, ParsingError, Stream, StreamOnce, Tracked};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
@@ -291,13 +291,12 @@ where
     type Output = &'static [u8];
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        tokens(|&l, r| l == r, SimpleInfo::Range(self.0), self.0.iter())
+        tokens(|&l, r| l == r, EasyInfo::Range(self.0), self.0.iter())
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        tokens::<_, _, I>(|&l, r| l == r, SimpleInfo::Range(self.0), self.0.iter())
-            .add_error(errors)
+        tokens::<_, _, I>(|&l, r| l == r, EasyInfo::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
 
@@ -346,11 +345,11 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let cmp = &mut self.1;
-        tokens(|&l, r| cmp(l, r), SimpleInfo::Range(self.0), self.0).parse_lazy(input)
+        tokens(|&l, r| cmp(l, r), EasyInfo::Range(self.0), self.0).parse_lazy(input)
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         let cmp = &mut self.1;
-        tokens::<_, _, I>(|&l, r| cmp(l, r), SimpleInfo::Range(self.0), self.0.iter())
+        tokens::<_, _, I>(|&l, r| cmp(l, r), EasyInfo::Range(self.0), self.0.iter())
             .add_error(errors)
     }
 }
@@ -364,7 +363,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::byte::bytes_cmp;
-/// # use combine::simple::Info;
+/// # use combine::easy::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))

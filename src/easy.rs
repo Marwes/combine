@@ -2,11 +2,11 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{ParsingError, Positioned, RangeStream, RangeStreamOnce, SimpleError, SimpleInfo,
+use primitives::{EasyError, EasyInfo, ParsingError, Positioned, RangeStream, RangeStreamOnce,
                  StreamOnce, StreamingError, Tracked};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
-/// well as string variants holding simple descriptions.
+/// well as string variants holding easy descriptions.
 ///
 /// As there is implementations of `From` for `String` and `&'static str` the
 /// constructor need not be used directly as calling `msg.into()` should turn a message into the
@@ -19,12 +19,12 @@ pub enum Info<T, R> {
     Borrowed(&'static str),
 }
 
-impl<T, R> From<SimpleInfo<T, R>> for Info<T, R> {
-    fn from(info: SimpleInfo<T, R>) -> Self {
+impl<T, R> From<EasyInfo<T, R>> for Info<T, R> {
+    fn from(info: EasyInfo<T, R>) -> Self {
         match info {
-            SimpleInfo::Token(b) => Info::Token(b),
-            SimpleInfo::Range(b) => Info::Range(b),
-            SimpleInfo::Borrowed(b) => Info::Borrowed(b),
+            EasyInfo::Token(b) => Info::Token(b),
+            EasyInfo::Range(b) => Info::Range(b),
+            EasyInfo::Borrowed(b) => Info::Borrowed(b),
         }
     }
 }
@@ -117,12 +117,12 @@ pub enum Error<T, R> {
     Other(Box<StdError + Send + Sync>),
 }
 
-impl<T, R> From<SimpleError<T, R>> for Error<T, R> {
-    fn from(err: SimpleError<T, R>) -> Self {
+impl<T, R> From<EasyError<T, R>> for Error<T, R> {
+    fn from(err: EasyError<T, R>) -> Self {
         match err {
-            SimpleError::Message(info) => Error::Message(info.into()),
-            SimpleError::Expected(info) => Error::Expected(info.into()),
-            SimpleError::Unexpected(info) => Error::Unexpected(info.into()),
+            EasyError::Message(info) => Error::Message(info.into()),
+            EasyError::Expected(info) => Error::Expected(info.into()),
+            EasyError::Unexpected(info) => Error::Unexpected(info.into()),
         }
     }
 }
@@ -406,7 +406,7 @@ impl<T, R> Error<T, R> {
     ///   ,123
     /// ";
     /// let result = spaces().with(char('.').or(char('a')).or(digit()))
-    ///     .simple_parse(State::new(input));
+    ///     .easy_parse(State::new(input));
     /// let m = format!("{}", result.unwrap_err());
     /// let expected = r"Parse error at line: 2, column: 3
     /// Unexpected `,`
@@ -589,7 +589,7 @@ impl<P, I, R> ParseError<P, I, R> {
     /// println!(
     ///     "{}",
     ///     range(&"HTTP"[..])
-    ///         .simple_parse("HTT")
+    ///         .easy_parse("HTT")
     ///         .unwrap_err()
     ///         .map_range(|bytes| format!("{:?}", bytes))
     /// );
@@ -643,9 +643,9 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct SimpleStream<S>(pub S);
+pub struct EasyStream<S>(pub S);
 
-impl<S> StreamOnce for SimpleStream<S>
+impl<S> StreamOnce for EasyStream<S>
 where
     S: StreamOnce + Positioned,
     S::Position: Default,
@@ -667,7 +667,7 @@ where
     }
 }
 
-impl<S> RangeStreamOnce for SimpleStream<S>
+impl<S> RangeStreamOnce for EasyStream<S>
 where
     S: RangeStream,
     S::Error: ParsingError<S::Item, S::Range, S::Position>,
@@ -696,7 +696,7 @@ where
     }
 }
 
-impl<S> Positioned for SimpleStream<S>
+impl<S> Positioned for EasyStream<S>
 where
     S: StreamOnce + Positioned,
     S::Position: Default,

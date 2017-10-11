@@ -12,7 +12,7 @@ use combinator::{and_then, expected, flat_map, map, message, or, skip, then, wit
                  Expected, FlatMap, Iter, Map, Message, Or, Skip, Then, With};
 
 #[cfg(feature = "std")]
-use simple::Error;
+use easy::Error;
 
 #[macro_export]
 macro_rules! ctry {
@@ -48,7 +48,7 @@ impl PointerOffset {
     /// # use combine::*;
     /// # fn main() {
     /// let text = "b";
-    /// let err = token('a').simple_parse(text).unwrap_err();
+    /// let err = token('a').easy_parse(text).unwrap_err();
     /// assert_eq!(err.position.0, text.as_ptr() as usize);
     /// assert_eq!(err.map_position(|p| p.translate_position(text)).position, 0);
     /// # }
@@ -62,21 +62,21 @@ impl PointerOffset {
     }
 }
 
-impl<R> From<char> for SimpleInfo<char, R> {
-    fn from(s: char) -> SimpleInfo<char, R> {
-        SimpleInfo::Token(s)
+impl<R> From<char> for EasyInfo<char, R> {
+    fn from(s: char) -> EasyInfo<char, R> {
+        EasyInfo::Token(s)
     }
 }
 
-impl<T, R> From<&'static str> for SimpleInfo<T, R> {
-    fn from(s: &'static str) -> SimpleInfo<T, R> {
-        SimpleInfo::Borrowed(s)
+impl<T, R> From<&'static str> for EasyInfo<T, R> {
+    fn from(s: &'static str) -> EasyInfo<T, R> {
+        EasyInfo::Borrowed(s)
     }
 }
 
-impl<R> From<u8> for SimpleInfo<u8, R> {
-    fn from(s: u8) -> SimpleInfo<u8, R> {
-        SimpleInfo::Token(s)
+impl<R> From<u8> for EasyInfo<u8, R> {
+    fn from(s: u8) -> EasyInfo<u8, R> {
+        EasyInfo::Token(s)
     }
 }
 
@@ -191,7 +191,7 @@ impl<T> Consumed<T> {
     ///     }
     /// }
     /// let result = many(parser(char))
-    ///     .simple_parse(r#"abc\"\\"#);
+    ///     .easy_parse(r#"abc\"\\"#);
     /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
     /// }
     /// ```
@@ -233,7 +233,7 @@ impl<T> Consumed<T> {
 pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
 
 #[derive(Clone, Debug)]
-pub enum SimpleInfo<T, R> {
+pub enum EasyInfo<T, R> {
     Token(T),
     Range(R),
     Borrowed(&'static str),
@@ -241,13 +241,13 @@ pub enum SimpleInfo<T, R> {
 
 /// Enum used to store information about an error that has occurred during parsing.
 #[derive(Debug)]
-pub enum SimpleError<T, R> {
+pub enum EasyError<T, R> {
     /// Error indicating an unexpected token has been encountered in the stream
-    Unexpected(SimpleInfo<T, R>),
+    Unexpected(EasyInfo<T, R>),
     /// Error indicating that the parser expected something else
-    Expected(SimpleInfo<T, R>),
+    Expected(EasyInfo<T, R>),
     /// Generic message
-    Message(SimpleInfo<T, R>),
+    Message(EasyInfo<T, R>),
 }
 
 pub trait StreamingError<Item, Range>: Sized + PartialEq {
@@ -256,11 +256,11 @@ pub trait StreamingError<Item, Range>: Sized + PartialEq {
     fn unexpected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn unexpected(info: SimpleInfo<Item, Range>) -> Self {
+    fn unexpected(info: EasyInfo<Item, Range>) -> Self {
         match info {
-            SimpleInfo::Token(b) => Self::unexpected_token(b),
-            SimpleInfo::Range(b) => Self::unexpected_range(b),
-            SimpleInfo::Borrowed(b) => Self::unexpected_static_message(b),
+            EasyInfo::Token(b) => Self::unexpected_token(b),
+            EasyInfo::Range(b) => Self::unexpected_range(b),
+            EasyInfo::Borrowed(b) => Self::unexpected_static_message(b),
         }
     }
     fn unexpected_static_message(msg: &'static str) -> Self {
@@ -272,11 +272,11 @@ pub trait StreamingError<Item, Range>: Sized + PartialEq {
     fn expected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn expected(info: SimpleInfo<Item, Range>) -> Self {
+    fn expected(info: EasyInfo<Item, Range>) -> Self {
         match info {
-            SimpleInfo::Token(b) => Self::expected_token(b),
-            SimpleInfo::Range(b) => Self::expected_range(b),
-            SimpleInfo::Borrowed(b) => Self::expected_static_message(b),
+            EasyInfo::Token(b) => Self::expected_token(b),
+            EasyInfo::Range(b) => Self::expected_range(b),
+            EasyInfo::Borrowed(b) => Self::expected_static_message(b),
         }
     }
     fn expected_static_message(msg: &'static str) -> Self {
@@ -291,11 +291,11 @@ pub trait StreamingError<Item, Range>: Sized + PartialEq {
     fn message_static_message(msg: &'static str) -> Self {
         Self::message_message(msg)
     }
-    fn message(info: SimpleInfo<Item, Range>) -> Self {
+    fn message(info: EasyInfo<Item, Range>) -> Self {
         match info {
-            SimpleInfo::Token(b) => Self::message_token(b),
-            SimpleInfo::Range(b) => Self::message_range(b),
-            SimpleInfo::Borrowed(b) => Self::message_static_message(b),
+            EasyInfo::Token(b) => Self::message_token(b),
+            EasyInfo::Range(b) => Self::message_range(b),
+            EasyInfo::Borrowed(b) => Self::message_static_message(b),
         }
     }
 
@@ -329,15 +329,15 @@ pub trait ParsingError<Item, Range, Position>: Sized + PartialEq {
 
     fn add(&mut self, err: Self::StreamError);
 
-    fn add_expected(&mut self, info: SimpleInfo<Item, Range>) {
+    fn add_expected(&mut self, info: EasyInfo<Item, Range>) {
         self.add(Self::StreamError::expected(info))
     }
 
-    fn add_unexpected(&mut self, info: SimpleInfo<Item, Range>) {
+    fn add_unexpected(&mut self, info: EasyInfo<Item, Range>) {
         self.add(Self::StreamError::unexpected(info))
     }
 
-    fn add_message(&mut self, info: SimpleInfo<Item, Range>) {
+    fn add_message(&mut self, info: EasyInfo<Item, Range>) {
         self.add(Self::StreamError::message(info))
     }
 
@@ -741,7 +741,7 @@ impl fmt::Display for StringStreamError {
             match *self {
                 UnexpectedParse => "unexpected parse",
                 Eoi => "unexpected end of input",
-                CharacterBoundary => CHAR_BOUNDARY_ERROR_MESSAGE
+                CharacterBoundary => CHAR_BOUNDARY_ERROR_MESSAGE,
             }
         )
     }
@@ -1264,19 +1264,19 @@ pub trait Parser {
     ///
     /// [`ParseError`]: struct.ParseError.html
     #[cfg(feature = "std")]
-    fn simple_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), ::simple::StreamError<I>>
+    fn easy_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), ::easy::StreamError<I>>
     where
         I: Stream,
-        ::simple::SimpleStream<I>: StreamOnce<
+        ::easy::EasyStream<I>: StreamOnce<
             Item = I::Item,
             Range = I::Range,
-            Error = ::simple::StreamError<::simple::SimpleStream<I>>,
+            Error = ::easy::StreamError<::easy::EasyStream<I>>,
             Position = I::Position,
         >,
         I::Position: Default,
-        Self: Sized + Parser<Input = ::simple::SimpleStream<I>>,
+        Self: Sized + Parser<Input = ::easy::EasyStream<I>>,
     {
-        match self.parse_stream(::simple::SimpleStream(input)) {
+        match self.parse_stream(::easy::EasyStream(input)) {
             Ok((v, state)) => Ok((v, state.into_inner().0)),
             Err(error) => Err(error.into_inner().error),
         }
@@ -1328,7 +1328,7 @@ pub trait Parser {
         let mut result = self.parse_lazy(input.clone());
         if let FastResult::EmptyErr(ref mut error) = result {
             if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                error.error.add_unexpected(SimpleInfo::Token(t));
+                error.error.add_unexpected(EasyInfo::Token(t));
             }
             self.add_error(error);
         }
@@ -1519,12 +1519,12 @@ pub trait Parser {
     /// # use combine::*;
     /// # use combine::char::digit;
     /// # use combine::primitives::Consumed;
-    /// # use combine::simple::{Error, SimpleStream};
+    /// # use combine::easy::{Error, EasyStream};
     /// # fn main() {
     /// let result = digit()
     ///     .then(|d| parser(move |input| {
-    ///             // Force input to be a SimpleStream<&str>
-    ///             let _: SimpleStream<&str> = input;
+    ///             // Force input to be a EasyStream<&str>
+    ///             let _: EasyStream<&str> = input;
     ///         if d == '9' {
     ///             Ok((9, Consumed::Empty(input)))
     ///         }
@@ -1534,7 +1534,7 @@ pub trait Parser {
     ///             Err((Consumed::Empty(err)))
     ///         }
     ///     }))
-    ///     .simple_parse("9");
+    ///     .easy_parse("9");
     /// assert_eq!(result, Ok((9, "")));
     /// # }
     /// ```
@@ -1598,12 +1598,12 @@ pub trait Parser {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::simple::Error;
+    /// # use combine::easy::Error;
     /// # use combine::state::SourcePosition;
     /// # fn main() {
     /// let result = token('9')
     ///     .message("Not a nine")
-    ///     .simple_parse(State::new("8"));
+    ///     .easy_parse(State::new("8"));
     /// assert_eq!(result, Err(ParseError {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
@@ -1617,7 +1617,7 @@ pub trait Parser {
     fn message<S>(self, msg: S) -> Message<Self>
     where
         Self: Sized,
-        S: Into<SimpleInfo<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
+        S: Into<EasyInfo<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
     {
         message(self, msg.into())
     }
@@ -1629,12 +1629,12 @@ pub trait Parser {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::simple::Error;
+    /// # use combine::easy::Error;
     /// # use combine::state::SourcePosition;
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
-    ///     .simple_parse(State::new("8"));
+    ///     .easy_parse(State::new("8"));
     /// assert_eq!(result, Err(ParseError {
     ///     position: SourcePosition::default(),
     ///     errors: vec![Error::Unexpected('8'.into()), Error::Expected("nine".into())]
@@ -1644,7 +1644,7 @@ pub trait Parser {
     fn expected<S>(self, msg: S) -> Expected<Self>
     where
         Self: Sized,
-        S: Into<SimpleInfo<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
+        S: Into<EasyInfo<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
     {
         expected(self, msg.into())
     }
@@ -1660,9 +1660,9 @@ pub trait Parser {
     /// # fn main() {
     /// let mut parser = many1(digit())
     ///     .and_then(|s: String| s.parse::<i32>());
-    /// let result = parser.simple_parse(State::new("1234")).map(|(x, state)| (x, state.input));
+    /// let result = parser.easy_parse(State::new("1234")).map(|(x, state)| (x, state.input));
     /// assert_eq!(result, Ok((1234, "")));
-    /// let result = parser.simple_parse(State::new("999999999999999999999999"));
+    /// let result = parser.easy_parse(State::new("999999999999999999999999"));
     /// assert!(result.is_err());
     /// // Errors are report as if they occured at the start of the parse
     /// assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
@@ -1806,7 +1806,10 @@ mod tests {
         assert_eq!("123".uncons_range::<UnexpectedParse>(3), Ok("123"));
         assert_eq!((&[1][..]).uncons_range::<UnexpectedParse>(1), Ok(&[1][..]));
         let s: &[u8] = &[];
-        assert_eq!(SliceStream(s).uncons_range::<UnexpectedParse>(0), Ok(&[][..]));
+        assert_eq!(
+            SliceStream(s).uncons_range::<UnexpectedParse>(0),
+            Ok(&[][..])
+        );
     }
 }
 

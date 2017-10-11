@@ -9,7 +9,7 @@ use std::fmt;
 use combine::*;
 use combine::primitives::{RangeStream, UnexpectedParse};
 use combine::range::{range, take_while1};
-use combine::simple::SimpleStream;
+use combine::easy::EasyStream;
 
 #[derive(Debug)]
 struct Request<'a> {
@@ -114,7 +114,7 @@ where
 static REQUESTS: &'static [u8] = include_bytes!("http-requests.txt");
 
 fn http_requests_small(b: &mut Bencher) {
-    http_requests_bench(b, SimpleStream(REQUESTS))
+    http_requests_bench(b, EasyStream(REQUESTS))
 }
 
 fn http_requests_large(b: &mut Bencher) {
@@ -124,7 +124,7 @@ fn http_requests_large(b: &mut Bencher) {
     for buf in iter::repeat(REQUESTS).take(5) {
         buffer.extend_from_slice(buf);
     }
-    http_requests_bench(b, SimpleStream(&buffer[..]))
+    http_requests_bench(b, EasyStream(&buffer[..]))
 }
 
 fn http_requests_large_cheap_error(b: &mut Bencher) {

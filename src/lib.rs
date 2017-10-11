@@ -5,7 +5,7 @@
 //! is succesful, returns a value together with the remaining input.
 //! A parser combinator is a function which takes one or more parsers and returns a new parser.
 //! For instance the [`many`] parser can be used to convert a parser for single digits into one that
-//! parses multiple digits. By modeling parsers in this way it becomes simple to compose complex
+//! parses multiple digits. By modeling parsers in this way it becomes easy to compose complex
 //! parsers in an almost declarative way.
 //!
 //! # Overview
@@ -29,7 +29,7 @@
 //! fn main() {
 //!     // Wrapping a `&str` with `State` provides automatic line and column tracking. If `State`
 //!     // was not used the positions would instead only be pointers into the `&str`
-//!     if let Err(err) = digit().or(letter()).simple_parse(State::new("|")) {
+//!     if let Err(err) = digit().or(letter()).easy_parse(State::new("|")) {
 //!         assert_eq!(MSG, format!("{}", err));
 //!     }
 //! }
@@ -71,7 +71,7 @@
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
 //!     let result: Result<(Vec<i32>, &str), StreamError<&str>> =
-//!         integer_list.simple_parse(input);
+//!         integer_list.easy_parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
 //!         Err(err) => println!("{}", err)
@@ -167,7 +167,7 @@ pub use primitives::{ConsumedResult, ParseResult, Parser, ParsingError, Position
 
 #[doc(inline)]
 #[cfg(feature = "std")]
-pub use simple::{ParseError, StreamError};
+pub use easy::{ParseError, StreamError};
 
 #[doc(inline)]
 pub use state::State;
@@ -278,15 +278,15 @@ macro_rules! impl_token_parser {
 /// }
 ///
 /// fn main() {
-///     assert_eq!(integer().simple_parse("123"), Ok((123, "")));
-///     assert!(integer().simple_parse("!").is_err());
+///     assert_eq!(integer().easy_parse("123"), Ok((123, "")));
+///     assert!(integer().easy_parse("!").is_err());
 ///
 ///     assert_eq!(
-///         integer_or_string().simple_parse("123"),
+///         integer_or_string().easy_parse("123"),
 ///         Ok((IntOrString::Int(123), ""))
 ///     );
 ///     assert_eq!(
-///         integer_or_string().simple_parse("abc"),
+///         integer_or_string().easy_parse("abc"),
 ///         Ok((IntOrString::String("abc".to_string()), ""))
 ///     );
 ///     assert_eq!(twice(|| digit()).parse("123"), Ok((('1', '2'), "3")));
@@ -570,9 +570,9 @@ pub mod byte;
 pub mod char;
 /// Module containing stateful stream wrappers.
 pub mod state;
-/// Module containing simple errors.
+/// Module containing easy errors.
 #[cfg(feature = "std")]
-pub mod simple;
+pub mod easy;
 #[cfg(feature = "regex")]
 /// Module containing regex parsers.
 pub mod regex;
@@ -580,13 +580,13 @@ pub mod regex;
 pub mod buffered_stream;
 
 #[cfg(feature = "std")]
-pub fn simple_parse<P, I>(mut parser: P, input: I) -> Result<(P::Output, I), StreamError<I>>
+pub fn easy_parse<P, I>(mut parser: P, input: I) -> Result<(P::Output, I), StreamError<I>>
 where
-    P: Parser<Input = ::simple::SimpleStream<I>>,
+    P: Parser<Input = ::easy::EasyStream<I>>,
     I: Stream,
     I::Position: Default,
 {
-    parser.simple_parse(input)
+    parser.easy_parse(input)
 }
 
 #[doc(hidden)]
@@ -632,7 +632,7 @@ mod tests {
 mod std_tests {
     use super::*;
     use super::primitives::{Consumed, IteratorStream};
-    use super::simple::Error;
+    use super::easy::Error;
     use char::{alpha_num, char, digit, letter, spaces, string};
 
     use state::SourcePosition;
@@ -640,7 +640,7 @@ mod std_tests {
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.simple_parse(State::new("ab")).unwrap_err();
+        let err = p.easy_parse(State::new("ab")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
@@ -770,7 +770,7 @@ mod std_tests {
         let input = r"
 ,123
 ";
-        let result = expr().simple_parse(State::new(input));
+        let result = expr().easy_parse(State::new(input));
         let err = ParseError {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
@@ -823,11 +823,11 @@ mod std_tests {
             .skip(parser(follow))
             .map(|x| x.to_string())
             .or(many1(digit()));
-        match p.simple_parse(State::new("le123")) {
+        match p.easy_parse(State::new("le123")) {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 }),
         }
-        match p.simple_parse(State::new("let1")) {
+        match p.easy_parse(State::new("let1")) {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 4 }),
         }
@@ -836,14 +836,14 @@ mod std_tests {
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
-        let err = p.simple_parse(State::new("ab,abc")).unwrap_err();
+        let err = p.easy_parse(State::new("ab,abc")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
     #[test]
     fn inner_error_consume() {
         let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
-        let result = p.simple_parse(State::new("[1][2][]"));
+        let result = p.easy_parse(State::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
@@ -878,7 +878,7 @@ mod std_tests {
             }
         }
         let result: Result<((), _), ParseError<_, char, &str>> =
-            Parser::simple_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
+            Parser::easy_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {
@@ -935,7 +935,7 @@ mod std_tests {
 
         let input = &[CloneOnly("x".to_string()), CloneOnly("y".to_string())][..];
         let result = token(CloneOnly("z".to_string()))
-            .simple_parse(input)
+            .easy_parse(input)
             .map_err(|e| e.map_position(|p| p.translate_position(input)))
             .map_err(|e| {
                 ExtractedError(

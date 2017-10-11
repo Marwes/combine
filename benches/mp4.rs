@@ -62,9 +62,9 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), StreamError<&[u8]>> {
         value(MP4Box::Unknown),
     ));
     let data_interpreter =
-        mp4_box.flat_map(|box_data| box_parser.simple_parse(box_data).map(|t| t.0));
+        mp4_box.flat_map(|box_data| box_parser.easy_parse(box_data).map(|t| t.0));
 
-    many(data_interpreter).simple_parse(data)
+    many(data_interpreter).easy_parse(data)
 }
 
 fn run_test(b: &mut Bencher, data: &[u8]) {

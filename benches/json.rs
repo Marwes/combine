@@ -194,7 +194,7 @@ fn json_test() {
     "false"  : false,
     "null" : null
 }"#;
-    let result = Json::value().simple_parse(input);
+    let result = Json::value().easy_parse(input);
     let expected = Object(
         vec![
             ("array", Array(vec![Number(1.0), String("".to_string())])),
@@ -231,7 +231,7 @@ fn test_data() -> String {
 fn bench_json(bencher: &mut Bencher) {
     let data = test_data();
     let mut parser = Json::value();
-    match parser.simple_parse(State::new(&data[..])) {
+    match parser.easy_parse(State::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -240,7 +240,7 @@ fn bench_json(bencher: &mut Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.simple_parse(State::new(&data[..]));
+        let result = parser.easy_parse(State::new(&data[..]));
         black_box(result)
     });
 }
@@ -284,7 +284,7 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     bencher.iter(|| {
         let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
-        match parser.simple_parse(State::with_positioner(
+        match parser.easy_parse(State::with_positioner(
             buffer.as_stream(),
             SourcePosition::default(),
         )) {
