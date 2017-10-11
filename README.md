@@ -66,6 +66,16 @@ The easiest way to contribute is to just open an issue about any problems you en
 
 Here is a list containing most of the breaking changes in older versions of combine (parser-combinators).
 
+A detailed list can be found in 
+
+### 3.0.0-alpha.4
+
+* Error handling has been completely rewritten to support `#![no_std]`. 
+* `ParseError` is now `easy::Errors` and `StreamError` is now `easy::StreamErrors`.
+* To keep using `ParseError` as the error type the `easy_parse` function should be used instead of `parse`.
+
+See [CHANGELOG.md](https://github.com/Marwes/combine/blob/master/CHANGELOG.md) for a complete list of breaking changes.
+
 ### 3.0.0-alpha.1
 
 * Deprecated items have been changed or removed. Upgrade to the latest version of 2.x first and fix all

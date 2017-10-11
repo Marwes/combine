@@ -250,6 +250,8 @@ pub enum EasyError<T, R> {
     Message(EasyInfo<T, R>),
 }
 
+/// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
+/// Usually this is composed into a `ParseError`
 pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn unexpected_token(token: Item) -> Self;
     fn unexpected_range(token: Range) -> Self;
@@ -316,17 +318,34 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
         T: StreamError<Item, Range>;
 }
 
+/// Trait which defines a gluon parse error.
+///
+/// A parse error is composed of one or more `StreamError`s
 pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     type StreamError: StreamError<Item, Range>;
+
+    /// Constructs an empty error.
+    ///
+    /// An empty error is expected to be cheap to create as it is frequently created and discarded.
     fn empty(position: Position) -> Self;
+
+    /// Creates a `ParseError` from a single `Self::StreamError`
     fn from_error(position: Position, err: Self::StreamError) -> Self;
 
+    /// Sets the position of this `ParseError`
     fn set_position(&mut self, position: Position);
-
+s
+    /// Merges two errors. If they exist at the same position the errors of `other` are
+    /// added to `self` (using the semantics of `add`). If they are not at the same
+    /// position the error furthest ahead are returned, ignoring the other `ParseError`.
     fn merge(self, other: Self) -> Self {
         other
     }
 
+    /// Adds a `StreamError` to `self`.
+    /// 
+    /// It is up to each individual error type to define what adding an error does, some may push
+    /// it to a vector while others may only keep `self` or `err` to avoid allocation
     fn add(&mut self, err: Self::StreamError);
 
     fn add_expected(&mut self, info: EasyInfo<Item, Range>) {
@@ -341,10 +360,12 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
         self.add(Self::StreamError::message(info))
     }
 
+    /// Sets `info` as the *only* `Expected` error of `self`
     fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::StreamError, f: F)
     where
         F: FnOnce(&mut Tracked<Self>);
 
+    /// Does a best-effort conversion of `self` into another `ParseError`
     fn into_other<T>(self) -> T
     where
         T: ParseError<Item, Range, Position>;
@@ -1262,7 +1283,7 @@ pub trait Parser {
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
     /// This function wraps requires `Self::Input == easy::Stream<I>` which makes it return
     /// return `easy::Errors` if an error occurs.
-    /// 
+    ///
     /// [`ParseError`] otherwise.
     ///
     /// [`ParseError`]: struct.ParseError.html
