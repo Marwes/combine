@@ -15,7 +15,7 @@ use combine::state::State;
 #[cfg(feature = "std")]
 use combine::state::SourcePosition;
 #[cfg(feature = "std")]
-use combine::easy::ParseError;
+use combine::easy;
 
 enum Error<E> {
     Io(io::Error),
@@ -140,7 +140,7 @@ fn ini_error() {
     let result = ini().easy_parse(State::new(text)).map(|t| t.0);
     assert_eq!(
         result,
-        Err(ParseError {
+        Err(easy::Errors {
             position: SourcePosition { line: 1, column: 7 },
             errors: vec![
                 Error::end_of_input(),
@@ -163,7 +163,7 @@ fn main() {
 }
 
 #[cfg(feature = "std")]
-fn main_<R>(mut read: R) -> Result<(), Error<ParseError<SourcePosition, char, String>>>
+fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<SourcePosition, char, String>>>
 where
     R: Read,
 {

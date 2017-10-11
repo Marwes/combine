@@ -2,7 +2,7 @@ use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::fmt;
 
-use primitives::{Positioned, StreamOnce, StreamingError};
+use primitives::{Positioned, StreamError, StreamOnce};
 
 /// A `BufferedStreamRef` wraps an instance `StreamOnce`, allowing it to be used as a `Stream`.
 pub struct BufferedStreamRef<'a, I>
@@ -69,7 +69,7 @@ where
     #[inline]
     fn uncons<E>(&mut self, offset: usize) -> Result<I::Item, E>
     where
-        E: StreamingError<I::Item, I::Range>,
+        E: StreamError<I::Item, I::Range>,
     {
         if offset >= self.offset {
             let position = self.iter.position();
@@ -84,7 +84,7 @@ where
             Ok(item)
         } else if offset < self.offset - self.buffer.len() {
             // We have backtracked to far
-            Err(StreamingError::message_static_message(
+            Err(StreamError::message_static_message(
                 "Backtracked to far".into(),
             ))
         } else {
@@ -148,7 +148,7 @@ where
     #[inline]
     fn uncons<E>(&self, offset: usize) -> Result<I::Item, E>
     where
-        E: StreamingError<I::Item, I::Range>,
+        E: StreamError<I::Item, I::Range>,
     {
         unsafe { (*self.buffer.get()).uncons(offset) }
     }
@@ -187,7 +187,7 @@ where
     #[inline]
     fn uncons<E>(&mut self) -> Result<I::Item, E>
     where
-        E: StreamingError<Self::Item, Self::Range>,
+        E: StreamError<Self::Item, Self::Range>,
     {
         let value = try!(self.buffer.uncons(self.offset));
         self.offset += 1;

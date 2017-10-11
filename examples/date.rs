@@ -15,7 +15,7 @@ use combine::state::State;
 #[cfg(feature = "std")]
 use combine::state::SourcePosition;
 #[cfg(feature = "std")]
-use combine::easy::ParseError;
+use combine::easy;
 
 enum Error<E> {
     Io(io::Error),
@@ -212,7 +212,7 @@ fn main() {
 }
 
 #[cfg(feature = "std")]
-fn main_<R>(mut read: R) -> Result<(), Error<ParseError<SourcePosition, char, String>>>
+fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<SourcePosition, char, String>>>
 where
     R: Read,
 {

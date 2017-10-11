@@ -1,6 +1,6 @@
 use lib::marker::PhantomData;
 
-use primitives::{ConsumedResult, EasyInfo, Parser, ParsingError, RangeStream, RangeStreamOnce,
+use primitives::{ConsumedResult, EasyInfo, ParseError, Parser, RangeStream, RangeStreamOnce,
                  StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 

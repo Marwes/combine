@@ -1,7 +1,7 @@
 use lib::iter::FromIterator;
 use lib::marker::PhantomData;
-use primitives::{Consumed, ConsumedResult, EasyInfo, ParseResult, Parser, ParsingError,
-                 Positioned, Stream, StreamOnce, StreamingError, Tracked, UnexpectedParse};
+use primitives::{Consumed, ConsumedResult, EasyInfo, ParseError, ParseResult, Parser, Positioned,
+                 Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 use ErrorOffset;
@@ -273,7 +273,7 @@ where
                         return if consumed {
                             let mut errors = <Self::Input as StreamOnce>::Error::from_error(
                                 start,
-                                StreamingError::unexpected(EasyInfo::Token(other)),
+                                StreamError::unexpected(EasyInfo::Token(other)),
                             );
                             errors.add_expected(self.expected.clone());
                             ConsumedErr(errors)
@@ -430,7 +430,6 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::easy::Info;
 /// # fn main() {
 /// let result = many(one_of("abc".chars()))
 ///     .parse("abd");
@@ -479,7 +478,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::easy::{Error, Info};
+/// # use combine::easy;
 /// # use combine::state::State;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
@@ -488,10 +487,10 @@ where
 /// assert_eq!(result, Ok((b"xy"[..].to_owned(), &b"b"[..])));
 ///
 /// let result = parser.easy_parse(State::new(&b"ab"[..]));
-/// assert_eq!(result, Err(ParseError {
+/// assert_eq!(result, Err(easy::Errors {
 ///     position: 0,
 ///     errors: vec![
-///         Error::Unexpected(Info::Token(b'a')),
+///         easy::Error::Unexpected(easy::Info::Token(b'a')),
 ///     ]
 /// }));
 /// # }
@@ -803,7 +802,7 @@ where
         EmptyErr(match prev_err {
             None => I::Error::from_error(
                 input.position(),
-                StreamingError::message_static_message("parser choice is empty"),
+                StreamError::message_static_message("parser choice is empty"),
             ).into(),
             Some(mut prev_err) => {
                 if prev_err.offset != ErrorOffset(1) {
@@ -879,7 +878,7 @@ where
         if len < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamingError::message_message(
+                StreamError::message_message(
                     format_args!("expected {} more elements", self.min - len),
                 ),
             );
@@ -1014,7 +1013,7 @@ where
         EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        errors.error.add(StreamingError::unexpected(self.0.clone()));
+        errors.error.add(StreamError::unexpected(self.0.clone()));
     }
 }
 /// Always fails with `message` as an unexpected error.
@@ -1023,7 +1022,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::StreamingError;
+/// # use combine::primitives::StreamError;
 /// # fn main() {
 /// let result = unexpected("token")
 ///     .easy_parse("a");
@@ -1033,7 +1032,7 @@ where
 ///         .unwrap()
 ///         .errors
 ///         .iter()
-///         .any(|m| *m == StreamingError::unexpected("token".into()))
+///         .any(|m| *m == StreamError::unexpected("token".into()))
 /// );
 /// # }
 /// ```
@@ -1139,16 +1138,16 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::easy::Error;
+/// # use combine::easy;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = eof();
 /// assert_eq!(parser.easy_parse(State::new("")), Ok(((), State::new(""))));
-/// assert_eq!(parser.easy_parse(State::new("x")), Err(ParseError {
+/// assert_eq!(parser.easy_parse(State::new("x")), Err(easy::Errors {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
-///         Error::Unexpected('x'.into()),
-///         Error::Expected("end of input".into())
+///         easy::Error::Unexpected('x'.into()),
+///         easy::Error::Expected("end of input".into())
 ///     ]
 /// }));
 /// # }
@@ -1500,7 +1499,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::easy::Error;
+/// # use combine::easy;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
@@ -1508,11 +1507,11 @@ where
 ///                       .map(|(vec, state)| (vec, state.input));
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
 /// let result_err = parser.easy_parse(State::new(""));
-/// assert_eq!(result_err, Err(ParseError {
+/// assert_eq!(result_err, Err(easy::Errors {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
-///         Error::end_of_input(),
-///         Error::Expected("digit".into())
+///         easy::Error::end_of_input(),
+///         easy::Error::Expected("digit".into())
 ///     ]
 /// }));
 /// # }
@@ -1642,7 +1641,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::easy::Error;
+/// # use combine::easy;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
@@ -1650,11 +1649,11 @@ where
 ///                       .map(|(vec, state)| (vec, state.input));
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
 /// let result_err = parser.easy_parse(State::new(""));
-/// assert_eq!(result_err, Err(ParseError {
+/// assert_eq!(result_err, Err(easy::Errors {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
-///         Error::end_of_input(),
-///         Error::Expected("digit".into())
+///         easy::Error::end_of_input(),
+///         easy::Error::Expected("digit".into())
 ///     ]
 /// }));
 /// # }
@@ -1693,12 +1692,12 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// extern crate combine;
 /// # use combine::*;
 /// # use combine::char::digit;
-/// # use combine::primitives::{Consumed, StreamingError};
-/// # use combine::easy::{ParseError, EasyStream};
+/// # use combine::primitives::{Consumed, StreamError};
+/// # use combine::easy;
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     // Help type inference out
-///     let _: EasyStream<&str> = input;
+///     let _: easy::Stream<&str> = input;
 ///     let position = input.position();
 ///     let (char_digit, input) = try!(digit().parse_stream(input));
 ///     let d = (char_digit as i32) - ('0' as i32);
@@ -1707,9 +1706,9 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///     }
 ///     else {
 ///         //Return an empty error since we only tested the first token of the stream
-///         let errors = ParseError::new(
+///         let errors = easy::Errors::new(
 ///             position,
-///             StreamingError::expected(From::from("even number"))
+///             StreamError::expected(From::from("even number"))
 ///         );
 ///         Err(Consumed::Empty(errors.into()))
 ///     }
@@ -2335,7 +2334,7 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        ParsingError::set_expected(errors, StreamingError::expected(self.1.clone()), |errors| {
+        ParseError::set_expected(errors, StreamError::expected(self.1.clone()), |errors| {
             self.0.add_error(errors);
         })
     }
@@ -2362,8 +2361,8 @@ where
     I: Stream,
     P: Parser<Input = I>,
     F: FnMut(P::Output) -> Result<O, E>,
-    E: Into<<I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError>,
-    I::Error: ParsingError<I::Item, I::Range, I::Position>,
+    E: Into<<I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = P::Input;
     type Output = O;
@@ -2401,7 +2400,7 @@ where
     P: Parser<Input = I>,
     F: FnMut(P::Output) -> Result<O, E>,
     I: Stream,
-    E: Into<<I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError>,
+    E: Into<<I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError>,
 {
     AndThen(p, f)
 }
@@ -2420,7 +2419,7 @@ macro_rules! tuple_parser {
         #[allow(non_snake_case)]
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
             where Input: Stream,
-                  Input::Error: ParsingError<Input::Item, Input::Range, Input::Position>,
+                  Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
                   $h: Parser<Input=Input>,
                   $($id: Parser<Input=Input>),+
         {
@@ -2472,7 +2471,7 @@ macro_rules! tuple_parser {
                         EmptyErr(mut err) => {
                             if first_empty_parser != 0 {
                                 if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                                    err.error.add(StreamingError::unexpected_token(t));
+                                    err.error.add(StreamError::unexpected_token(t));
                                 }
                                 add_error!(err);
                                 return ConsumedErr(err.error)
@@ -2695,7 +2694,7 @@ where
 /// impl Interner {
 ///     fn string<I>(&self, input: I) -> ParseResult<u32, I>
 ///         where I: Stream<Item=char>,
-///               I::Error: ParsingError<I::Item, I::Range, I::Position>,
+///               I::Error: ParseError<I::Item, I::Range, I::Position>,
 ///     {
 ///         many(letter())
 ///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
@@ -2849,7 +2848,7 @@ mod tests {
 mod tests_std {
     use super::*;
     use primitives::Parser;
-    use easy::{Error, ParseError, StreamError};
+    use easy::{Error, Errors, StreamErrors};
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
 
@@ -2879,7 +2878,7 @@ mod tests_std {
     #[test]
     fn sep_by_consumed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(Vec<(char, char)>, &str), StreamError<&str>> =
+        let result_err: Result<(Vec<(char, char)>, &str), StreamErrors<&str>> =
             parser2.easy_parse("a,bc");
         assert!(result_err.is_err());
     }
@@ -2893,7 +2892,7 @@ mod tests_std {
             .expected("my expected digit");
         assert_eq!(
             parser.easy_parse(State::new("a")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition::default(),
                 errors: vec![
                     Error::Unexpected('a'.into()),
@@ -2910,7 +2909,7 @@ mod tests_std {
         let result = parser.easy_parse(State::new("a"));
         assert_eq!(
             result,
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition::default(),
                 errors: vec![
                     Error::Unexpected('a'.into()),
@@ -2942,7 +2941,7 @@ mod tests_std {
 
         assert!(ok.easy_parse(State::new(input)).is_ok());
 
-        let empty_expected = Err(ParseError {
+        let empty_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 1 },
             errors: vec![
                 Error::Unexpected('h'.into()),
@@ -2951,7 +2950,7 @@ mod tests_std {
             ],
         });
 
-        let consumed_expected = Err(ParseError {
+        let consumed_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 2 },
             errors: vec![
                 Error::Unexpected('i'.into()),
@@ -2991,7 +2990,7 @@ mod tests_std {
 
         assert!(ok.easy_parse(State::new(input)).is_ok());
 
-        let empty_expected = Err(ParseError {
+        let empty_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 1 },
             errors: vec![
                 Error::Unexpected('h'.into()),
@@ -2999,7 +2998,7 @@ mod tests_std {
             ],
         });
 
-        let consumed_expected = Err(ParseError {
+        let consumed_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 2 },
             errors: vec![Error::Unexpected('i'.into()), Error::Expected('o'.into())],
         });
@@ -3018,7 +3017,7 @@ mod tests_std {
         // Ensure try adds error messages exactly once
         assert_eq!(
             try(unexpected("test")).easy_parse(State::new("hi")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
                     Error::Unexpected('h'.into()),
@@ -3028,7 +3027,7 @@ mod tests_std {
         );
         assert_eq!(
             try(char('h').with(unexpected("test"))).easy_parse(State::new("hi")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 2 },
                 errors: vec![
                     Error::Unexpected('i'.into()),
@@ -3044,7 +3043,7 @@ mod tests_std {
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
                     Error::Unexpected('c'.into()),
@@ -3061,7 +3060,7 @@ mod tests_std {
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
                     Error::Unexpected('c'.into()),
@@ -3078,7 +3077,7 @@ mod tests_std {
 
         assert_eq!(
             parser.easy_parse(State::new("bc")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 2 },
                 errors: vec![
                     Error::Unexpected('c'.into()),
@@ -3098,7 +3097,7 @@ mod tests_std {
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
                     Error::Expected('a'.into()),
@@ -3120,7 +3119,7 @@ mod tests_std {
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
                     Error::Expected('a'.into()),
@@ -3143,7 +3142,7 @@ mod tests_std {
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
-            Err(ParseError {
+            Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
                     Error::Expected('1'.into()),

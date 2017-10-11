@@ -57,7 +57,8 @@
 //! ```
 //! extern crate combine;
 //! use combine::char::{spaces, digit, char};
-//! use combine::{many1, sep_by, Parser, StreamError};
+//! use combine::{many1, sep_by, Parser};
+//! use combine::easy;
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -70,7 +71,7 @@
 //!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
-//!     let result: Result<(Vec<i32>, &str), StreamError<&str>> =
+//!     let result: Result<(Vec<i32>, &str), easy::StreamErrors<&str>> =
 //!         integer_list.easy_parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
@@ -162,12 +163,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseResult, Parser, ParsingError, Positioned, Stream,
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
                      StreamOnce};
-
-#[doc(inline)]
-#[cfg(feature = "std")]
-pub use easy::{ParseError, StreamError};
 
 #[doc(inline)]
 pub use state::State;
@@ -191,11 +188,11 @@ macro_rules! impl_token_parser {
     #[derive(Clone)]
     pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
         where I: Stream<Item=$ty>,
-              I::Error: ParsingError<$ty, I::Range, I::Position>
+              I::Error: ParseError<$ty, I::Range, I::Position>
               $(, $ty_var : Parser<Input=I>)*;
     impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
         where I: Stream<Item=$ty>,
-              I::Error: ParsingError<$ty, I::Range, I::Position>
+              I::Error: ParseError<$ty, I::Range, I::Position>
               $(, $ty_var : Parser<Input=I>)*
     {
         type Input = I;
@@ -222,14 +219,14 @@ macro_rules! impl_token_parser {
 /// extern crate combine;
 /// use combine::char::digit;
 /// use combine::{any, choice, many1, Parser, Stream};
-/// use combine::primitives::ParsingError;
+/// use combine::primitives::ParseError;
 ///
 /// parser!{
 ///     fn integer[I]()(I) -> i32
 ///     where [
 ///         I: Stream<Item = char>,
-///         I::Error: ParsingError<char, I::Range, I::Position>,
-///         <I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError:
+///         I::Error: ParseError<char, I::Range, I::Position>,
+///         <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError:
 ///             From<::std::num::ParseIntError>,
 ///     ]
 ///     {
@@ -253,8 +250,8 @@ macro_rules! impl_token_parser {
 ///     pub fn integer_or_string[I]()(I) -> IntOrString
 ///     where [
 ///         I: Stream<Item = char>,
-///         I::Error: ParsingError<char, I::Range, I::Position>,
-///         <I::Error as ParsingError<I::Item, I::Range, I::Position>>::StreamError:
+///         I::Error: ParseError<char, I::Range, I::Position>,
+///         <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError:
 ///             From<::std::num::ParseIntError>,
 ///     ]
 ///     {
@@ -456,7 +453,7 @@ macro_rules! combine_parser_impl {
             $(#[$derive])*
             pub struct $type_name<$($type_params)*>
                 where <$input_type as $crate::primitives::StreamOnce>::Error:
-                    $crate::primitives::ParsingError<
+                    $crate::primitives::ParseError<
                         <$input_type as $crate::primitives::StreamOnce>::Item,
                         <$input_type as $crate::primitives::StreamOnce>::Range,
                         <$input_type as $crate::primitives::StreamOnce>::Position
@@ -471,7 +468,7 @@ macro_rules! combine_parser_impl {
             #[allow(non_shorthand_field_patterns)]
             impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
                 where <$input_type as $crate::primitives::StreamOnce>::Error:
-                        $crate::primitives::ParsingError<
+                        $crate::primitives::ParseError<
                             <$input_type as $crate::primitives::StreamOnce>::Item,
                             <$input_type as $crate::primitives::StreamOnce>::Range,
                             <$input_type as $crate::primitives::StreamOnce>::Position
@@ -507,7 +504,7 @@ macro_rules! combine_parser_impl {
                     $($arg : $arg_type),*
                 ) -> self::$type_name<$($type_params)*>
                 where <$input_type as $crate::primitives::StreamOnce>::Error:
-                        $crate::primitives::ParsingError<
+                        $crate::primitives::ParseError<
                             <$input_type as $crate::primitives::StreamOnce>::Item,
                             <$input_type as $crate::primitives::StreamOnce>::Range,
                             <$input_type as $crate::primitives::StreamOnce>::Position
@@ -529,7 +526,7 @@ macro_rules! combine_parser_impl {
                 $($arg : $arg_type),*
             ) -> self::$name::$type_name<$($type_params)*>
             where <$input_type as $crate::primitives::StreamOnce>::Error:
-                    $crate::primitives::ParsingError<
+                    $crate::primitives::ParseError<
                         <$input_type as $crate::primitives::StreamOnce>::Item,
                         <$input_type as $crate::primitives::StreamOnce>::Range,
                         <$input_type as $crate::primitives::StreamOnce>::Position
@@ -623,8 +620,9 @@ mod std_tests {
     use super::*;
     use super::primitives::{Consumed, IteratorStream};
     use super::easy::Error;
-    use char::{alpha_num, char, digit, letter, spaces, string};
 
+    use char::{alpha_num, char, digit, letter, spaces, string};
+    use easy::{Errors, StreamErrors};
     use state::SourcePosition;
 
     #[test]
@@ -636,13 +634,13 @@ mod std_tests {
 
     fn follow<I>(input: I) -> ParseResult<(), I>
     where
-        I: Stream<Item = char, Error = StreamError<I>>,
+        I: Stream<Item = char, Error = StreamErrors<I>>,
         I::Position: Default,
     {
         match input.clone().uncons::<Error<_, _>>() {
             Ok(c) => if c.is_alphanumeric() {
                 let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(ParseError::new(input.position(), e).into()))
+                Err(Consumed::Empty(Errors::new(input.position(), e).into()))
             } else {
                 Ok(((), Consumed::Empty(input)))
             },
@@ -653,7 +651,7 @@ mod std_tests {
     fn integer<'a, I>(input: I) -> ParseResult<i64, I>
     where
         I: Stream<Item = char>,
-        I::Error: ParsingError<I::Item, I::Range, I::Position>,
+        I::Error: ParseError<I::Item, I::Range, I::Position>,
     {
         let (s, input) = try!(
             many1::<String, _>(digit())
@@ -761,7 +759,7 @@ mod std_tests {
 ,123
 ";
         let result = expr().easy_parse(State::new(input));
-        let err = ParseError {
+        let err = Errors {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
                 Error::Unexpected(','.into()),
@@ -777,7 +775,7 @@ mod std_tests {
     fn term<I>(input: I) -> ParseResult<Expr, I>
     where
         I: Stream<Item = char>,
-        I::Error: ParsingError<I::Item, I::Range, I::Position>,
+        I::Error: ParseError<I::Item, I::Range, I::Position>,
     {
         fn times(l: Expr, r: Expr) -> Expr {
             Expr::Times(Box::new(l), Box::new(r))
@@ -867,7 +865,7 @@ mod std_tests {
                 "error"
             }
         }
-        let result: Result<((), _), ParseError<_, char, &str>> =
+        let result: Result<((), _), Errors<_, char, &str>> =
             Parser::easy_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError

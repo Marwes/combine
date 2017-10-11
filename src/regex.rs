@@ -37,8 +37,8 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, FullRangeStream, Parser, ParsingError, StreamOnce,
-                 StreamingError, Tracked};
+use primitives::{ConsumedResult, FullRangeStream, ParseError, Parser, StreamError, StreamOnce,
+                 Tracked};
 use primitives::FastResult::*;
 use range::take;
 
@@ -222,7 +222,7 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamingError::expected_message(
+        error.error.add(StreamError::expected_message(
             format_args!("/{}/", self.0.as_str()),
         ))
     }
@@ -275,7 +275,7 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamingError::expected_message(
+        error.error.add(StreamError::expected_message(
             format_args!("/{}/", self.0.as_str()),
         ))
     }
@@ -330,7 +330,7 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamingError::expected_message(
+        error.error.add(StreamError::expected_message(
             format_args!("/{}/", self.0.as_str()),
         ))
     }
@@ -387,7 +387,7 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamingError::expected_message(
+        error.error.add(StreamError::expected_message(
             format_args!("/{}/", self.0.as_str()),
         ))
     }
@@ -449,7 +449,7 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamingError::expected_message(
+        error.error.add(StreamError::expected_message(
             format_args!("/{}/", self.0.as_str()),
         ))
     }

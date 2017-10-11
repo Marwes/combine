@@ -11,8 +11,7 @@ use std::path::Path;
 use bencher::{black_box, Bencher};
 
 use pc::buffered_stream::BufferedStream;
-use pc::primitives::{Consumed, IteratorStream, ParseResult, Parser, ParsingError, Stream,
-                     StreamOnce};
+use pc::primitives::{Consumed, IteratorStream, ParseError, ParseResult, Parser, Stream, StreamOnce};
 use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};
@@ -32,7 +31,7 @@ fn lex<P>(p: P) -> Skip<P, Spaces<P::Input>>
 where
     P: Parser,
     P::Input: Stream<Item = char>,
-    <P::Input as StreamOnce>::Error: ParsingError<
+    <P::Input as StreamOnce>::Error: ParseError<
         <P::Input as StreamOnce>::Item,
         <P::Input as StreamOnce>::Range,
         <P::Input as StreamOnce>::Position,
@@ -48,7 +47,7 @@ type JsonParser<O, I> = Expected<FnPtrParser<O, I>>;
 fn fn_parser<O, I>(f: fn(I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
 where
     I: Stream<Item = char>,
-    I::Error: ParsingError<I::Item, I::Range, I::Position>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     parser(f).expected(err)
 }
@@ -56,7 +55,7 @@ where
 impl<I> Json<I>
 where
     I: Stream<Item = char>,
-    I::Error: ParsingError<I::Item, I::Range, I::Position>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     fn integer() -> JsonParser<i64, I> {
         fn_parser(Json::<I>::integer_, "integer")
