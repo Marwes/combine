@@ -1260,6 +1260,9 @@ pub trait Parser {
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
+    /// This function wraps requires `Self::Input == easy::Stream<I>` which makes it return
+    /// return `easy::Errors` if an error occurs.
+    /// 
     /// [`ParseError`] otherwise.
     ///
     /// [`ParseError`]: struct.ParseError.html

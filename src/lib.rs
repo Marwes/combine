@@ -567,7 +567,7 @@ pub mod byte;
 pub mod char;
 /// Module containing stateful stream wrappers.
 pub mod state;
-/// Module containing easy errors.
+/// Module containing easy to use and descriptive errors.
 #[cfg(feature = "std")]
 pub mod easy;
 #[cfg(feature = "regex")]
