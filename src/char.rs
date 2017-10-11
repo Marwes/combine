@@ -18,7 +18,6 @@ where
     token(c)
 }
 
-pub use self::digit::Digit;
 parser!{
     #[derive(Copy, Clone)]
     pub struct Digit;

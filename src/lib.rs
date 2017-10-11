@@ -401,6 +401,17 @@ macro_rules! combine_add_error {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! export_parser_type {
+    (pub $type_name: ident $parser_name: ident) => {
+        pub use self::$parser_name::$type_name;
+    };
+    ($($t: tt)*) => {
+
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! combine_parser_impl {
     (
         ( $($pub_: tt)* )
@@ -461,6 +472,8 @@ macro_rules! combine_parser_impl {
                 }
             }
         }
+
+        export_parser_type!( $($pub_)* $type_name $name);
 
         $(#[$attr])*
         #[inline(always)]

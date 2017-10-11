@@ -825,7 +825,6 @@ where
     }
 }
 
-pub type SkipCount<P> = skip_count::SkipCount<P>;
 parser!{
     #[derive(Copy, Clone)]
     pub struct SkipCount;
@@ -921,7 +920,6 @@ where
     }
 }
 
-pub type SkipCountMinMax<P> = skip_count_min_max::SkipCountMinMax<P>;
 parser!{
     #[derive(Copy, Clone)]
     pub struct SkipCountMinMax;

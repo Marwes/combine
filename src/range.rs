@@ -37,7 +37,6 @@ where
     }
 }
 
-pub type Recognize<P> = recognize::Recognize<P>;
 parser!{
     #[derive(Clone)]
     pub struct Recognize;
