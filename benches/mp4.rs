@@ -15,6 +15,7 @@ use byteorder::{BigEndian, ByteOrder};
 
 use combine::*;
 use combine::range::{range, take};
+use combine::easy::StreamErrors;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct FileType<'a> {
@@ -34,7 +35,7 @@ enum MP4Box<'a> {
     Unknown,
 }
 
-fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), StreamError<&[u8]>> {
+fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), StreamErrors<&[u8]>> {
     let brand_name = || take(4).and_then(from_utf8);
     let filetype_box = (
         range(&b"ftyp"[..]),
