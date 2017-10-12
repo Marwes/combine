@@ -1,6 +1,8 @@
-// The feature `buffered_stream` must be enabled to run these tests
+#![cfg(feature = "std")]
 extern crate combine;
-use combine::primitives::{BufferedStream, Error, IteratorStream};
+use combine::primitives::IteratorStream;
+use combine::buffered_stream::BufferedStream;
+use combine::easy::Error;
 use combine::char::{char, digit, spaces, string};
 use combine::{choice, many, sep_by, try, Parser, Positioned, many1};
 use combine::state::State;
@@ -54,7 +56,7 @@ fn shared_stream_insufficent_backtrack() {
         try(string("ananas")),
     ]);
     let mut parser = sep_by(value, char(','));
-    let result: Result<Vec<&str>, _> = parser.parse(stream).map(|t| t.0);
+    let result: Result<Vec<&str>, _> = parser.easy_parse(stream).map(|t| t.0);
     assert!(result.is_err());
     assert!(
         result

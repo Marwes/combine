@@ -1,1 +1,2 @@
 newline_style = "Native"
+error_on_line_overflow_comments = false

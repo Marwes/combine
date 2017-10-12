@@ -1,17 +1,38 @@
 //! Parser example for ISO8601 dates. This does not handle the entire specification but it should
 //! show the gist of it and be easy to extend to parse additional forms.
-
 #[macro_use]
 extern crate combine;
 
 use std::env;
-use std::error::Error as StdError;
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
 use combine::char::{char, digit};
 use combine::{choice, many, optional, Parser, Stream};
 use combine::state::State;
+
+#[cfg(feature = "std")]
+use combine::state::SourcePosition;
+#[cfg(feature = "std")]
+use combine::easy;
+
+enum Error<E> {
+    Io(io::Error),
+    Parse(E),
+}
+
+impl<E> fmt::Display for Error<E>
+where
+    E: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Io(ref err) => write!(f, "{}", err),
+            Error::Parse(ref err) => write!(f, "{}", err),
+        }
+    }
+}
 
 #[derive(PartialEq, Debug)]
 pub struct Date {
@@ -181,7 +202,7 @@ fn test() {
 
 fn main() {
     let result = match env::args().nth(1) {
-        Some(file) => File::open(file).map_err(From::from).and_then(main_),
+        Some(file) => File::open(file).map_err(Error::Io).and_then(main_),
         None => main_(io::stdin()),
     };
     match result {
@@ -190,14 +211,26 @@ fn main() {
     }
 }
 
-fn main_<R>(mut read: R) -> Result<(), Box<StdError>>
+#[cfg(feature = "std")]
+fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<SourcePosition, char, String>>>
 where
     R: Read,
 {
     let mut text = String::new();
-    read.read_to_string(&mut text)?;
+    read.read_to_string(&mut text).map_err(Error::Io)?;
     date_time()
-        .parse(State::new(&*text))
-        .map_err(|err| err.map_range(|s| s.to_string()))?;
+        .easy_parse(State::new(&*text))
+        .map_err(|err| Error::Parse(err.map_range(|s| s.to_string())))?;
+    Ok(())
+}
+
+#[cfg(not(feature = "std"))]
+fn main_<R>(mut read: R) -> Result<(), Error<::combine::primitives::StringStreamError>>
+where
+    R: Read,
+{
+    let mut text = String::new();
+    read.read_to_string(&mut text).map_err(Error::Io)?;
+    date_time().parse(State::new(&*text)).map_err(Error::Parse)?;
     Ok(())
 }

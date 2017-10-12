@@ -1,11 +1,11 @@
 extern crate ascii;
 
-use std::marker::PhantomData;
+use lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Info, Parser, Stream, StreamError, Tracked};
+use primitives::{ConsumedResult, Info, ParseError, Parser, Stream, StreamOnce, Tracked};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
@@ -20,6 +20,7 @@ use primitives::{ConsumedResult, Info, Parser, Stream, StreamError, Tracked};
 pub fn byte<I>(c: u8) -> Token<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     token(c)
 }
@@ -47,6 +48,7 @@ macro_rules! byte_parser {
 pub fn digit<I>() -> Digit<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(digit, Digit, is_digit)
 }
@@ -67,6 +69,7 @@ impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn space<I>() -> Space<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(space, Space, is_whitespace)
 }
@@ -86,6 +89,7 @@ impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
 pub fn spaces<I>() -> Spaces<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
@@ -104,6 +108,7 @@ impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn newline<I>() -> Newline<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     Newline(
         satisfy(static_fn!((ch, u8) -> bool { ch == b'\n' })).expected("lf newline"),
@@ -126,6 +131,7 @@ impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newl
 pub fn crlf<I>() -> CrLf<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     CrLf(
         satisfy(static_fn!((ch, u8) -> bool { ch == b'\r' }))
@@ -148,6 +154,7 @@ impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn tab<I>() -> Tab<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     Tab(
         satisfy(static_fn!((ch, u8) -> bool { ch == b'\t' })).expected("tab"),
@@ -168,6 +175,7 @@ impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn upper<I>() -> Upper<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(upper, Upper, is_uppercase)
 }
@@ -185,6 +193,7 @@ impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn lower<I>() -> Lower<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(lower, Lower, is_lowercase)
 }
@@ -203,6 +212,7 @@ impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn alpha_num<I>() -> AlphaNum<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
@@ -221,6 +231,7 @@ impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn letter<I>() -> Letter<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(letter, Letter, is_alphabetic)
 }
@@ -239,6 +250,7 @@ impl_token_parser! { OctDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn oct_digit<I>() -> OctDigit<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     OctDigit(
         satisfy(static_fn!((ch, u8) -> bool { ch >= b'0' && ch <= b'7' })).expected("octal digit"),
@@ -259,6 +271,7 @@ impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 pub fn hex_digit<I>() -> HexDigit<I>
 where
     I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
@@ -266,11 +279,13 @@ where
 #[derive(Copy, Clone)]
 pub struct Bytes<I>(&'static [u8], PhantomData<I>)
 where
-    I: Stream<Item = u8>;
+    I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>;
 
 impl<'a, I> Parser for Bytes<I>
 where
     I: Stream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
     type Output = &'static [u8];
@@ -280,7 +295,7 @@ where
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
     }
-    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         tokens::<_, _, I>(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
@@ -308,6 +323,7 @@ where
 pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
 where
     I: Stream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     Bytes(s, PhantomData)
 }
@@ -315,12 +331,14 @@ where
 #[derive(Copy, Clone)]
 pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>)
 where
-    I: Stream<Item = u8>;
+    I: Stream<Item = u8>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>;
 
 impl<'a, C, I> Parser for BytesCmp<C, I>
 where
     C: FnMut(u8, u8) -> bool,
     I: Stream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
     type Output = &'static [u8];
@@ -329,9 +347,10 @@ where
         let cmp = &mut self.1;
         tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
     }
-    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         let cmp = &mut self.1;
-        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
+        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter())
+            .add_error(errors)
     }
 }
 
@@ -344,7 +363,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::byte::bytes_cmp;
-/// # use combine::primitives::Info;
+/// # use combine::easy::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))
@@ -360,6 +379,7 @@ pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
 where
     C: FnMut(u8, u8) -> bool,
     I: Stream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     BytesCmp(s, cmp, PhantomData)
 }
@@ -371,6 +391,8 @@ pub mod num {
     use range::take;
 
     use byteorder::{ByteOrder, BE, LE};
+
+    use lib::mem::size_of;
 
     macro_rules! integer_parser {
         (
@@ -384,17 +406,23 @@ pub mod num {
             impl<'a, B, I> Parser for $type_name<B, I>
             where
                 I: RangeStream<Range = &'a [u8]>,
+                I::Error: ParseError<I::Item, I::Range, I::Position>,
                 B: ByteOrder,
             {
                 type Input = I;
                 type Output = $func_name;
 
                 #[inline]
-                fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-                    take(::std::mem::size_of::<Self::Output>()).map(B::$read_name).parse_lazy(input)
+                fn parse_lazy(
+                    &mut self,
+                    input: Self::Input
+                    ) -> ConsumedResult<Self::Output, Self::Input> {
+                    take(size_of::<Self::Output>())
+                        .map(B::$read_name)
+                        .parse_lazy(input)
                 }
-                fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
-                    take::<I>(::std::mem::size_of::<Self::Output>()).add_error(errors)
+                fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+                    take::<I>(size_of::<Self::Output>()).add_error(errors)
                 }
             }
 
@@ -403,6 +431,7 @@ pub mod num {
             pub fn $func_name<'a, B, I>() -> $type_name<B, I>
             where
                 I: RangeStream<Range = &'a[u8]>,
+                I::Error: ParseError<I::Item, I::Range, I::Position>,
                 B: ByteOrder,
             {
                 $type_name(PhantomData)
@@ -413,6 +442,7 @@ pub mod num {
             pub fn $be_name<'a, I>() -> $type_name<BE, I>
             where
                 I: RangeStream<Range = &'a[u8]>,
+                I::Error: ParseError<I::Item, I::Range, I::Position>,
             {
                 $func_name()
             }
@@ -422,6 +452,7 @@ pub mod num {
             pub fn $le_name<'a, I>() -> $type_name<LE, I>
             where
                 I: RangeStream<Range = &'a[u8]>,
+                I::Error: ParseError<I::Item, I::Range, I::Position>,
             {
                 $func_name()
             }

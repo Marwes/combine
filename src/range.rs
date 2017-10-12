@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use lib::marker::PhantomData;
 
-use primitives::{ConsumedResult, Error, Info, ParseError, Parser, RangeStream, StreamError,
-                 StreamOnce, Tracked};
+use primitives::{ConsumedResult, Info, ParseError, Parser, RangeStream, RangeStreamOnce,
+                 StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -24,16 +24,14 @@ where
             Ok(other) => if other == self.0 {
                 ConsumedOk((other, input))
             } else {
-                EmptyErr(ParseError::empty(position).into())
+                EmptyErr(I::Error::empty(position).into())
             },
-            Err(err) => EmptyErr(ParseError::new(position, err).into()),
+            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
         }
     }
-    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         // TODO Add unexpected message?
-        errors
-            .error
-            .add_error(Error::Expected(Info::Range(self.0.clone())));
+        errors.error.add_expected(Info::Range(self.0.clone()));
     }
 }
 
@@ -83,7 +81,7 @@ where
         let distance = input.distance(&new_input.into_inner());
         take(distance).parse_lazy(input).map(|range| (range, value))
     }
-    fn add_error(&mut self, errors: &mut Tracked<StreamError<Self::Input>>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
@@ -155,7 +153,7 @@ where
         let position = input.position();
         match input.uncons_range(self.0) {
             Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(ParseError::new(position, err).into()),
+            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
         }
     }
 }
@@ -241,7 +239,7 @@ where
             ConsumedOk((v, input)) => ConsumedOk((v, input)),
             EmptyOk((_, input)) => {
                 let position = input.position();
-                EmptyErr(ParseError::empty(position).into())
+                EmptyErr(I::Error::empty(position).into())
             }
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
@@ -296,7 +294,7 @@ where
             match look_ahead_input.clone().uncons_range(len) {
                 Ok(xs) => {
                     if xs == self.0 {
-                        if let Ok(consumed) = input.uncons_range(to_consume) {
+                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(to_consume) {
                             if to_consume == 0 {
                                 return EmptyOk((consumed, input));
                             } else {
@@ -309,12 +307,14 @@ where
                         unreachable!();
                     } else {
                         to_consume += 1;
-                        if look_ahead_input.uncons().is_err() {
+                        if look_ahead_input.uncons::<UnexpectedParse>().is_err() {
                             unreachable!();
                         }
                     }
                 }
-                Err(e) => return EmptyErr(ParseError::new(look_ahead_input.position(), e).into()),
+                Err(e) => {
+                    return EmptyErr(I::Error::from_error(look_ahead_input.position(), e).into())
+                }
             };
         }
     }

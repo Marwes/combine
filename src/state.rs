@@ -1,7 +1,10 @@
-use std::fmt;
+use lib::fmt;
 
-use primitives::{Error, FullRangeStream, IteratorStream, Positioned, RangeStream, ReadStream,
-                 SliceStream, StreamOnce};
+use primitives::{FullRangeStream, IteratorStream, ParseError, Positioned, RangeStreamOnce,
+                 SliceStream, StreamError, StreamOnce};
+
+#[cfg(feature = "std")]
+use primitives::ReadStream;
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -40,6 +43,7 @@ impl<T> DefaultPositioned for IteratorStream<T> {
     type Positioner = IndexPositioner;
 }
 
+#[cfg(feature = "std")]
 impl<R> DefaultPositioned for ReadStream<R> {
     type Positioner = IndexPositioner;
 }
@@ -48,20 +52,21 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// the `Positioner` trait to track the position.
 ///
 /// ```
+/// # #![cfg(feature = "std")]
 /// # extern crate combine;
-/// # use combine::{token, Parser, ParseError};
-/// # use combine::primitives::{Error};
-/// # use combine::state::{State, IndexPositioner};
+/// # use combine::{token, Parser};
+/// # use combine::easy;
+/// # use combine::state::State;
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
-///         .parse(State::new(&b"8"[..]));
-///     assert_eq!(result, Err(ParseError {
+///         .easy_parse(State::new(&b"8"[..]));
+///     assert_eq!(result, Err(easy::Errors {
 ///         position: 0,
 ///         errors: vec![
-///             Error::Unexpected(b'8'.into()),
-///             Error::Expected(b'9'.into()),
-///             Error::Message("Not a nine".into())
+///             easy::Error::Unexpected(b'8'.into()),
+///             easy::Error::Expected(b'9'.into()),
+///             easy::Error::Message("Not a nine".into())
 ///         ]
 ///     }));
 /// # }
@@ -99,29 +104,38 @@ where
     }
 }
 
-impl<I, X> Positioned for State<I, X>
+impl<I, X, E> Positioned for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
+    E: StreamError<I::Item, I::Range>,
+    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = E>,
+    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = E>,
 {
-    type Position = X::Position;
-
     #[inline(always)]
     fn position(&self) -> Self::Position {
         self.positioner.position()
     }
 }
 
-impl<I, X> StreamOnce for State<I, X>
+impl<I, X, S> StreamOnce for State<I, X>
 where
     I: StreamOnce,
     X: Positioner<I::Item>,
+    S: StreamError<I::Item, I::Range>,
+    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
+    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
 {
     type Item = I::Item;
     type Range = I::Range;
+    type Position = X::Position;
+    type Error = I::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, Error<I::Item, I::Range>> {
+    fn uncons<E>(&mut self) -> Result<I::Item, E>
+    where
+        E: StreamError<I::Item, I::Range>,
+    {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -226,14 +240,20 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 }
 
 
-impl<I, X> RangeStream for State<I, X>
+impl<I, X, S> RangeStreamOnce for State<I, X>
 where
-    I: RangeStream,
+    I: RangeStreamOnce,
     X: Clone + RangePositioner<I::Item, I::Range>,
+    S: StreamError<I::Item, I::Range>,
+    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
+    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
     I::Position: Clone + Ord,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<I::Range, Error<I::Item, I::Range>> {
+    fn uncons_range<E>(&mut self, size: usize) -> Result<I::Range, E>
+    where
+        E: StreamError<I::Item, I::Range>,
+    {
         self.input.uncons_range(size).map(|range| {
             self.positioner.update_range(&range);
             range
@@ -241,9 +261,10 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, Error<I::Item, I::Range>>
+    fn uncons_while<E, F>(&mut self, mut predicate: F) -> Result<I::Range, E>
     where
         F: FnMut(I::Item) -> bool,
+        E: StreamError<I::Item, I::Range>,
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while(|t| if predicate(t.clone()) {
@@ -260,10 +281,13 @@ where
     }
 }
 
-impl<I, X> FullRangeStream for State<I, X>
+impl<I, X, E> FullRangeStream for State<I, X>
 where
     I: FullRangeStream,
     I::Position: Clone + Ord,
+    E: StreamError<I::Item, I::Range>,
+    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = E>,
+    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = E>,
     X: Clone + RangePositioner<I::Item, I::Range>,
 {
     fn range(&self) -> Self::Range {
@@ -272,7 +296,7 @@ where
 }
 
 
-#[cfg(test)]
+#[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
     use primitives::Parser;
