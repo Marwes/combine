@@ -134,6 +134,7 @@ type=LL(1)
     assert_eq!(result, Ok(expected));
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn ini_error() {
     let text = "[error";
@@ -143,9 +144,9 @@ fn ini_error() {
         Err(easy::Errors {
             position: SourcePosition { line: 1, column: 7 },
             errors: vec![
-                Error::end_of_input(),
-                Error::Expected(']'.into()),
-                Error::Message("while parsing section".into()),
+                easy::Error::end_of_input(),
+                easy::Error::Expected(']'.into()),
+                easy::Error::Message("while parsing section".into()),
             ],
         })
     );
