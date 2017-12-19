@@ -320,7 +320,6 @@ where
     }
 }
 
-
 /// Zero-copy parser which reads a range of 0 or more tokens until `r` is found.
 ///
 /// The range `r` will not be consumed. If `r` is not found, the parser will

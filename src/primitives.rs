@@ -343,7 +343,7 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     }
 
     /// Adds a `StreamError` to `self`.
-    /// 
+    ///
     /// It is up to each individual error type to define what adding an error does, some may push
     /// it to a vector while others may only keep `self` or `err` to avoid allocation
     fn add(&mut self, err: Self::StreamError);
@@ -444,7 +444,6 @@ impl<Item, Range> StreamError<Item, Range> for UnexpectedParse {
         UnexpectedParse::Eoi
     }
 
-
     #[inline]
     fn into_other<T>(self) -> T
     where
@@ -543,9 +542,11 @@ where
     I: Stream,
 {
     let position = input.position();
-    let x = try!(input.uncons().map_err(|err| {
-        Consumed::Empty(I::Error::from_error(position, err).into())
-    }));
+    let x = try!(
+        input
+            .uncons()
+            .map_err(|err| Consumed::Empty(I::Error::from_error(position, err).into()))
+    );
     Ok((x, Consumed::Consumed(input)))
 }
 
@@ -767,7 +768,6 @@ impl fmt::Display for StringStreamError {
         )
     }
 }
-
 
 impl<Item, Range> StreamError<Item, Range> for StringStreamError {
     #[inline]
@@ -1032,7 +1032,6 @@ where
 #[derive(Copy, Clone, Debug)]
 pub struct IteratorStream<I>(I);
 
-
 impl<I> IteratorStream<I>
 where
     I: Iterator,
@@ -1211,7 +1210,6 @@ where
         }
     }
 }
-
 
 /// A `Result` type which has the consumed status flattened into the result.
 /// Conversions to and from `std::result::Result` can be done using `result.into()` or
@@ -1613,8 +1611,7 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output)
-            -> Result<B, <Self::Input as StreamOnce>::Error>,
+        F: FnMut(Self::Output) -> Result<B, <Self::Input as StreamOnce>::Error>,
     {
         flat_map(self, f)
     }

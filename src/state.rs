@@ -239,7 +239,6 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
     }
 }
 
-
 impl<I, X, S> RangeStreamOnce for State<I, X>
 where
     I: RangeStreamOnce,
@@ -267,11 +266,13 @@ where
         E: StreamError<I::Item, I::Range>,
     {
         let positioner = &mut self.positioner;
-        self.input.uncons_while(|t| if predicate(t.clone()) {
-            positioner.update(&t);
-            true
-        } else {
-            false
+        self.input.uncons_while(|t| {
+            if predicate(t.clone()) {
+                positioner.update(&t);
+                true
+            } else {
+                false
+            }
         })
     }
 
@@ -294,7 +295,6 @@ where
         self.input.range()
     }
 }
-
 
 #[cfg(all(feature = "std", test))]
 mod tests {

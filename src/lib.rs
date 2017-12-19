@@ -540,7 +540,6 @@ macro_rules! combine_parser_impl {
     };
 }
 
-
 pub extern crate byteorder;
 
 // Facade over the core types we need
@@ -579,7 +578,6 @@ pub mod buffered_stream;
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
 pub struct ErrorOffset(u8);
-
 
 #[cfg(test)]
 mod tests {
@@ -710,7 +708,6 @@ mod std_tests {
         assert_eq!(result, Ok((123i64, state)));
     }
 
-
     #[derive(Debug, PartialEq)]
     pub enum Expr {
         Id(String),
@@ -803,7 +800,6 @@ mod std_tests {
         );
         assert_eq!(result, Expr::Plus(Box::new(e1), Box::new(e2)));
     }
-
 
     #[test]
     fn error_position() {

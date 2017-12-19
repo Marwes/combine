@@ -75,8 +75,6 @@ where
     Any(PhantomData)
 }
 
-
-
 #[derive(Copy, Clone)]
 pub struct Satisfy<I, P> {
     predicate: P,
@@ -107,10 +105,12 @@ where
     type Output = I::Item;
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
-        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
-            Some(c)
-        } else {
-            None
+        satisfy_impl(input, |c| {
+            if (self.predicate)(c.clone()) {
+                Some(c)
+            } else {
+                None
+            }
         })
     }
 }
@@ -348,7 +348,6 @@ where
     }
 }
 
-
 #[derive(Copy, Clone)]
 pub struct Position<I>
 where
@@ -562,7 +561,6 @@ where
     }
 }
 
-
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
 ///
@@ -682,7 +680,7 @@ macro_rules! tuple_choice_parser_inner {
                 &mut self,
                 input: Self::Input
             ) -> ConsumedResult<Self::Output, Self::Input> {
-            let ($(ref mut $id),+) = *self;
+                let ($(ref mut $id),+) = *self;
                 do_choice!(input ( $($id)+ ) )
             }
             fn add_error_choice(
@@ -878,9 +876,10 @@ where
         if len < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamError::message_message(
-                    format_args!("expected {} more elements", self.min - len),
-                ),
+                StreamError::message_message(format_args!(
+                    "expected {} more elements",
+                    self.min - len
+                )),
             );
             ConsumedErr(err)
         } else {
@@ -1276,7 +1275,6 @@ where
     Many(p, PhantomData)
 }
 
-
 #[derive(Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<F, P> Parser for Many1<F, P>
@@ -1302,7 +1300,6 @@ where
         self.0.add_error(errors)
     }
 }
-
 
 #[derive(Clone)]
 #[doc(hidden)]
@@ -2261,8 +2258,7 @@ where
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     P: Parser,
-    F: FnMut(P::Output)
-        -> Result<B, <P::Input as StreamOnce>::Error>,
+    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }
@@ -2414,8 +2410,18 @@ macro_rules! dispatch_on {
     } }
 }
 
+trait SeqParser {
+    type Input: StreamOnce;
+    type Output;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
+}
+
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
+        // struct Seq<'a>( $(&'a mut $id ),* );
+
         #[allow(non_snake_case)]
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
             where Input: Stream,
@@ -2435,14 +2441,36 @@ macro_rules! tuple_parser {
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
 
-                macro_rules! add_error {
-                    ($err: expr) => {
+                fn add_errors<Input2, $h $(, $id)*>(
+                    input: &mut Input2,
+                    mut err: Tracked<Input2::Error>,
+                    first_empty_parser: usize,
+                    offset: u8,
+                    $h: &mut $h $(, $id : &mut $id )*
+                ) -> ConsumedResult<($h::Output, $($id::Output),+), Input2>
+                    where Input2: Stream,
+                          Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
+                          $h: Parser<Input=Input2>,
+                          $($id: Parser<Input=Input2>),+
+                {
+                    if first_empty_parser != 0 {
+                        if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                            err.error.add(StreamError::unexpected_token(t));
+                        }
                         dispatch_on!(0, |i, p| {
                             if i >= first_empty_parser {
-                                Parser::add_error(p, &mut $err);
+                                Parser::add_error(p, &mut err);
                             }
                         }; $h, $($id),*);
+                        ConsumedErr(err.error)
+                    } else {
+                        err.offset = ErrorOffset(offset);
+                        EmptyErr(err)
                     }
+                }
+
+                macro_rules! add_errors {
+                    ($err: ident, $offset: expr) => { add_errors(&mut input, $err, first_empty_parser, $offset, $h, $($id),*) }
                 }
 
                 let temp = match $h.parse_lazy(input) {
@@ -2468,18 +2496,7 @@ macro_rules! tuple_parser {
                             input = new_input;
                             x
                         }
-                        EmptyErr(mut err) => {
-                            if first_empty_parser != 0 {
-                                if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                                    err.error.add(StreamError::unexpected_token(t));
-                                }
-                                add_error!(err);
-                                return ConsumedErr(err.error)
-                            } else {
-                                err.offset = ErrorOffset(offset);
-                                return EmptyErr(err)
-                            }
-                        }
+                        EmptyErr(err) => return add_errors!(err, offset),
                         ConsumedErr(err) => return ConsumedErr(err),
                         EmptyOk((x, new_input)) => {
                             input = new_input;
@@ -2489,10 +2506,12 @@ macro_rules! tuple_parser {
                     offset = offset.saturating_add($id.parser_count().0);
                     let $id = temp;
                 )+
+
+                let value = (($h, $($id),+), input);
                 if first_empty_parser != 0 {
-                    ConsumedOk((($h, $($id),+), input))
+                    ConsumedOk(value)
                 } else {
-                    EmptyOk((($h, $($id),+), input))
+                    EmptyOk(value)
                 }
             }
 
@@ -2615,7 +2634,6 @@ macro_rules! seq_parser_impl {
         seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
     };
 }
-
 
 /// Sequences multiple parsers and builds a struct out of them.
 ///
@@ -2744,10 +2762,12 @@ where
         match self.0.parse_lazy(input.clone()) {
             EmptyOk((_, rest)) => {
                 let result = (0..)
-                    .scan((), |_, _| if input.position() != rest.position() {
-                        Some(input.uncons())
-                    } else {
-                        None
+                    .scan((), |_, _| {
+                        if input.position() != rest.position() {
+                            Some(input.uncons())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -2759,10 +2779,12 @@ where
             }
             ConsumedOk((_, rest)) => {
                 let result = (0..)
-                    .scan((), |_, _| if input.position() != rest.position() {
-                        Some(input.uncons())
-                    } else {
-                        None
+                    .scan((), |_, _| {
+                        if input.position() != rest.position() {
+                            Some(input.uncons())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -2823,7 +2845,6 @@ mod tests {
         let mut parser = (digit(), token(','), digit(), token(','), letter());
         assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
     }
-
 
     #[test]
     fn issue_99() {
@@ -3131,8 +3152,6 @@ mod tests_std {
             })
         );
     }
-
-
 
     #[test]
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {

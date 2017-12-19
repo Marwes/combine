@@ -202,7 +202,6 @@ impl<'a> Regex<&'a [u8]> for self::regex::bytes::Regex {
     }
 }
 
-
 pub struct Match<R, I>(R, PhantomData<I>);
 
 impl<'a, R, I> Parser for Match<R, I>
@@ -222,9 +221,10 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -275,9 +275,10 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -330,9 +331,10 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -387,9 +389,10 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -449,9 +452,10 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
