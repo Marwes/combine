@@ -682,7 +682,7 @@ macro_rules! tuple_choice_parser_inner {
                 &mut self,
                 input: Self::Input
             ) -> ConsumedResult<Self::Output, Self::Input> {
-            let ($(ref mut $id),+) = *self;
+                let ($(ref mut $id),+) = *self;
                 do_choice!(input ( $($id)+ ) )
             }
             fn add_error_choice(
@@ -2414,8 +2414,18 @@ macro_rules! dispatch_on {
     } }
 }
 
+trait SeqParser {
+    type Input: StreamOnce;
+    type Output;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
+}
+
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
+        // struct Seq<'a>( $(&'a mut $id ),* );
+
         #[allow(non_snake_case)]
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
             where Input: Stream,
@@ -2435,14 +2445,21 @@ macro_rules! tuple_parser {
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
 
-                macro_rules! add_error {
-                    ($err: expr) => {
-                        dispatch_on!(0, |i, p| {
-                            if i >= first_empty_parser {
-                                Parser::add_error(p, &mut $err);
-                            }
-                        }; $h, $($id),*);
-                    }
+                fn add_errors<Input2, $h $(, $id)*>(first_empty_parser: usize, err: &mut Tracked<Input2::Error>, $h: &mut $h $(, $id : &mut $id )*)
+                    where Input2: Stream,
+                          Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
+                          $h: Parser<Input=Input2>,
+                          $($id: Parser<Input=Input2>),+
+                {
+                    dispatch_on!(0, |i, p| {
+                        if i >= first_empty_parser {
+                            Parser::add_error(p, err);
+                        }
+                    }; $h, $($id),*);
+                }
+
+                macro_rules! add_errors {
+                    ($err: ident) => { add_errors(first_empty_parser, &mut $err, $h, $($id),*) }
                 }
 
                 let temp = match $h.parse_lazy(input) {
@@ -2473,7 +2490,7 @@ macro_rules! tuple_parser {
                                 if let Ok(t) = input.uncons::<UnexpectedParse>() {
                                     err.error.add(StreamError::unexpected_token(t));
                                 }
-                                add_error!(err);
+                                add_errors!(err);
                                 return ConsumedErr(err.error)
                             } else {
                                 err.offset = ErrorOffset(offset);
