@@ -2442,24 +2442,35 @@ macro_rules! tuple_parser {
                 let mut current_parser = 0;
 
                 fn add_errors<Input2, $h $(, $id)*>(
+                    input: &mut Input2,
+                    mut err: Tracked<Input2::Error>,
                     first_empty_parser: usize,
-                    err: &mut Tracked<Input2::Error>,
+                    offset: u8,
                     $h: &mut $h $(, $id : &mut $id )*
-                )
+                ) -> ConsumedResult<($h::Output, $($id::Output),+), Input2>
                     where Input2: Stream,
                           Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
                           $h: Parser<Input=Input2>,
                           $($id: Parser<Input=Input2>),+
                 {
-                    dispatch_on!(0, |i, p| {
-                        if i >= first_empty_parser {
-                            Parser::add_error(p, err);
+                    if first_empty_parser != 0 {
+                        if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                            err.error.add(StreamError::unexpected_token(t));
                         }
-                    }; $h, $($id),*);
+                        dispatch_on!(0, |i, p| {
+                            if i >= first_empty_parser {
+                                Parser::add_error(p, &mut err);
+                            }
+                        }; $h, $($id),*);
+                        ConsumedErr(err.error)
+                    } else {
+                        err.offset = ErrorOffset(offset);
+                        EmptyErr(err)
+                    }
                 }
 
                 macro_rules! add_errors {
-                    ($err: ident) => { add_errors(first_empty_parser, &mut $err, $h, $($id),*) }
+                    ($err: ident, $offset: expr) => { add_errors(&mut input, $err, first_empty_parser, $offset, $h, $($id),*) }
                 }
 
                 let temp = match $h.parse_lazy(input) {
@@ -2485,18 +2496,7 @@ macro_rules! tuple_parser {
                             input = new_input;
                             x
                         }
-                        EmptyErr(mut err) => {
-                            if first_empty_parser != 0 {
-                                if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                                    err.error.add(StreamError::unexpected_token(t));
-                                }
-                                add_errors!(err);
-                                return ConsumedErr(err.error)
-                            } else {
-                                err.offset = ErrorOffset(offset);
-                                return EmptyErr(err)
-                            }
-                        }
+                        EmptyErr(err) => return add_errors!(err, offset),
                         ConsumedErr(err) => return ConsumedErr(err),
                         EmptyOk((x, new_input)) => {
                             input = new_input;
