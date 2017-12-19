@@ -75,8 +75,6 @@ where
     Any(PhantomData)
 }
 
-
-
 #[derive(Copy, Clone)]
 pub struct Satisfy<I, P> {
     predicate: P,
@@ -107,10 +105,12 @@ where
     type Output = I::Item;
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
-        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
-            Some(c)
-        } else {
-            None
+        satisfy_impl(input, |c| {
+            if (self.predicate)(c.clone()) {
+                Some(c)
+            } else {
+                None
+            }
         })
     }
 }
@@ -348,7 +348,6 @@ where
     }
 }
 
-
 #[derive(Copy, Clone)]
 pub struct Position<I>
 where
@@ -561,7 +560,6 @@ where
         _marker: PhantomData,
     }
 }
-
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
@@ -878,9 +876,10 @@ where
         if len < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamError::message_message(
-                    format_args!("expected {} more elements", self.min - len),
-                ),
+                StreamError::message_message(format_args!(
+                    "expected {} more elements",
+                    self.min - len
+                )),
             );
             ConsumedErr(err)
         } else {
@@ -1276,7 +1275,6 @@ where
     Many(p, PhantomData)
 }
 
-
 #[derive(Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<F, P> Parser for Many1<F, P>
@@ -1302,7 +1300,6 @@ where
         self.0.add_error(errors)
     }
 }
-
 
 #[derive(Clone)]
 #[doc(hidden)]
@@ -2261,8 +2258,7 @@ where
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     P: Parser,
-    F: FnMut(P::Output)
-        -> Result<B, <P::Input as StreamOnce>::Error>,
+    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }
@@ -2445,7 +2441,11 @@ macro_rules! tuple_parser {
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
 
-                fn add_errors<Input2, $h $(, $id)*>(first_empty_parser: usize, err: &mut Tracked<Input2::Error>, $h: &mut $h $(, $id : &mut $id )*)
+                fn add_errors<Input2, $h $(, $id)*>(
+                    first_empty_parser: usize,
+                    err: &mut Tracked<Input2::Error>,
+                    $h: &mut $h $(, $id : &mut $id )*
+                )
                     where Input2: Stream,
                           Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
                           $h: Parser<Input=Input2>,
@@ -2633,7 +2633,6 @@ macro_rules! seq_parser_impl {
     };
 }
 
-
 /// Sequences multiple parsers and builds a struct out of them.
 ///
 /// ```
@@ -2761,10 +2760,12 @@ where
         match self.0.parse_lazy(input.clone()) {
             EmptyOk((_, rest)) => {
                 let result = (0..)
-                    .scan((), |_, _| if input.position() != rest.position() {
-                        Some(input.uncons())
-                    } else {
-                        None
+                    .scan((), |_, _| {
+                        if input.position() != rest.position() {
+                            Some(input.uncons())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -2776,10 +2777,12 @@ where
             }
             ConsumedOk((_, rest)) => {
                 let result = (0..)
-                    .scan((), |_, _| if input.position() != rest.position() {
-                        Some(input.uncons())
-                    } else {
-                        None
+                    .scan((), |_, _| {
+                        if input.position() != rest.position() {
+                            Some(input.uncons())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -2840,7 +2843,6 @@ mod tests {
         let mut parser = (digit(), token(','), digit(), token(','), letter());
         assert_eq!(parser.parse("1,2,z"), Ok((('1', ',', '2', ',', 'z'), "")));
     }
-
 
     #[test]
     fn issue_99() {
@@ -3148,8 +3150,6 @@ mod tests_std {
             })
         );
     }
-
-
 
     #[test]
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {

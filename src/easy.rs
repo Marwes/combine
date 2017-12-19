@@ -2,8 +2,8 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{EasyError, Info as PrimitiveInfo, ParseError, Positioned, RangeStream, RangeStreamOnce,
-                 StreamError, StreamOnce, Tracked};
+use primitives::{EasyError, Info as PrimitiveInfo, ParseError, Positioned, RangeStream,
+                 RangeStreamOnce, StreamError, StreamOnce, Tracked};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding easy descriptions.
@@ -200,7 +200,6 @@ where
         err.into()
     }
 
-
     #[inline]
     fn into_other<T>(self) -> T
     where
@@ -248,7 +247,6 @@ where
 
     #[inline]
     fn set_position(&mut self, _position: Position) {}
-
 
     #[inline]
     fn add(&mut self, err: Self::StreamError) {
@@ -315,13 +313,15 @@ where
         // Replace all expected errors that were added from the previous add_error
         // with this expected error
         let mut i = 0;
-        self_.error.errors.retain(|e| if i < start {
-            i += 1;
-            true
-        } else {
-            match *e {
-                Error::Expected(_) => false,
-                _ => true,
+        self_.error.errors.retain(|e| {
+            if i < start {
+                i += 1;
+                true
+            } else {
+                match *e {
+                    Error::Expected(_) => false,
+                    _ => true,
+                }
             }
         });
         self_.error.add(info);
@@ -370,9 +370,9 @@ impl<T, R> Error<T, R> {
 impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     fn eq(&self, other: &Error<T, R>) -> bool {
         match (self, other) {
-            (&Error::Unexpected(ref l), &Error::Unexpected(ref r)) |
-            (&Error::Expected(ref l), &Error::Expected(ref r)) |
-            (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
+            (&Error::Unexpected(ref l), &Error::Unexpected(ref r))
+            | (&Error::Expected(ref l), &Error::Expected(ref r))
+            | (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
             _ => false,
         }
     }

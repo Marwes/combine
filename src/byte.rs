@@ -349,8 +349,7 @@ where
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         let cmp = &mut self.1;
-        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter())
-            .add_error(errors)
+        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
 

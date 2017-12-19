@@ -24,8 +24,7 @@ where
         write!(
             f,
             "BufferedStreamRef {{ offset: {:?} buffer_offset: {:?} }}",
-            self.offset,
-            buffer_offset
+            self.offset, buffer_offset
         )
     }
 }
@@ -88,11 +87,9 @@ where
                 "Backtracked to far".into(),
             ))
         } else {
-            Ok(
-                self.buffer[self.buffer.len() - (self.offset - offset)]
-                    .0
-                    .clone(),
-            )
+            Ok(self.buffer[self.buffer.len() - (self.offset - offset)]
+                .0
+                .clone())
         }
     }
 
