@@ -2506,10 +2506,12 @@ macro_rules! tuple_parser {
                     offset = offset.saturating_add($id.parser_count().0);
                     let $id = temp;
                 )+
+
+                let value = (($h, $($id),+), input);
                 if first_empty_parser != 0 {
-                    ConsumedOk((($h, $($id),+), input))
+                    ConsumedOk(value)
                 } else {
-                    EmptyOk((($h, $($id),+), input))
+                    EmptyOk(value)
                 }
             }
 
