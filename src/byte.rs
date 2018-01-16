@@ -289,6 +289,8 @@ where
 {
     type Input = I;
     type Output = &'static [u8];
+    type PartialState = ();
+
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
@@ -342,6 +344,8 @@ where
 {
     type Input = I;
     type Output = &'static [u8];
+    type PartialState = ();
+
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let cmp = &mut self.1;
@@ -410,6 +414,7 @@ pub mod num {
             {
                 type Input = I;
                 type Output = $func_name;
+                type PartialState = ();
 
                 #[inline]
                 fn parse_lazy(

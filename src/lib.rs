@@ -197,6 +197,7 @@ macro_rules! impl_token_parser {
     {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
+        type PartialState = <$inner_type as Parser>::PartialState;
         #[inline]
         fn parse_lazy(&mut self,
                       input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -429,6 +430,17 @@ macro_rules! combine_parser_impl {
                 __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
             }
 
+            // FIXME Verify lifetimes
+            pub struct PartialState(*mut (), fn (*mut ()));
+
+            impl Drop for PartialState {
+                fn drop(&mut self) {
+                    if self.0 != ::std::ptr::null_mut() {
+                        (self.1)(self.0)
+                    }
+                }
+            }
+
             // We want this to work on older compilers, at least for a while
             #[allow(non_shorthand_field_patterns)]
             impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
@@ -442,15 +454,29 @@ macro_rules! combine_parser_impl {
             {
                 type Input = $input_type;
                 type Output = $output_type;
+                type PartialState = PartialState;
 
                 #[inline]
-                fn parse_lazy(
+                fn parse_partial(
                     &mut self,
-                    input: $input_type
+                    input: $input_type,
+                    state: &mut Option<Self::PartialState>,
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
+                    let ref mut child_state = state.as_mut().map(|state| {
+                         let v = unsafe { ::std::ptr::read(state.0 as *mut _) };
+                         state.0 = ::std::ptr::null_mut();
+                         v
+                    });
                     let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                    $parser.parse_lazy(input)
+                    let result = $parser.parse_lazy(input);
+
+                    fn mk_partialstate<T>(value: T) -> PartialState {
+                        PartialState(Box::into_raw(Box::new(value)) as *mut (), |p| unsafe { Box::from_raw(p as *mut T); })
+                    }
+                    *state = child_state.take().map(mk_partialstate);
+
+                    result
                 }
 
                 #[inline]
@@ -810,7 +836,7 @@ mod std_tests {
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<Input = _, Output = char>> = Box::new(digit());
+        let mut parser: Box<Parser<Input = _, Output = char, PartialState = _>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }

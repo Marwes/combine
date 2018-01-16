@@ -15,6 +15,7 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -74,6 +75,7 @@ where
 {
     type Input = P::Input;
     type Output = (<P::Input as StreamOnce>::Range, P::Output);
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -147,6 +149,7 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -193,6 +196,7 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -232,6 +236,7 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -281,6 +286,7 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {

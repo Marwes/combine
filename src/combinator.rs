@@ -18,17 +18,13 @@ macro_rules! impl_parser {
         where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
         type Input = <$first as Parser>::Input;
         type Output = <$inner_type as Parser>::Output;
-        fn parse_stream(&mut self,
-                       input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
-            self.0.parse_stream(input)
-        }
-        fn parse_stream_consumed(&mut self,
-                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_stream_consumed(input)
-        }
-        fn parse_lazy(&mut self,
-                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_lazy(input)
+        type PartialState = <$inner_type as Parser>::PartialState;
+        fn parse_partial(
+            &mut self,
+            input: Self::Input,
+            state: &mut Option<Self::PartialState>,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_partial(input, state)
         }
         fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
             self.0.add_error(error)
@@ -46,6 +42,8 @@ where
 {
     type Input = I;
     type Output = I::Item;
+    type PartialState = ();
+
     #[inline]
     fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<I::Item, I> {
         let position = input.position();
@@ -106,8 +104,10 @@ where
 {
     type Input = I;
     type Output = I::Item;
+    type PartialState = ();
+
     #[inline]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
             Some(c)
         } else {
@@ -152,8 +152,9 @@ where
 {
     type Input = I;
     type Output = R;
+    type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<R, I> {
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         satisfy_impl(input, &mut self.predicate)
     }
 }
@@ -211,6 +212,7 @@ where
 {
     type Input = I;
     type Output = I::Item;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
@@ -263,6 +265,7 @@ where
 {
     type Input = I;
     type Output = T;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, mut input: I) -> ConsumedResult<T, I> {
         let start = input.position();
@@ -363,6 +366,7 @@ where
 {
     type Input = I;
     type Output = I::Position;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Position, I> {
@@ -412,6 +416,7 @@ where
 {
     type Input = I;
     type Output = I::Item;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
@@ -466,6 +471,7 @@ where
 {
     type Input = I;
     type Output = I::Item;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
@@ -479,7 +485,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::easy;
-/// # use combine::state::State;
+/// # use combine::state::PartialState;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
 /// let result = parser.easy_parse(State::new(&b"xyb"[..]))
@@ -522,12 +528,29 @@ where
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = (usize, P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<F, P::Input> {
+        let mut count = state.as_ref().map_or(0, |t| t.0);
         let mut iter = self.parser.by_ref().iter(input);
-        let value = iter.by_ref().take(self.count).collect();
-        iter.into_result_fast(value)
+
+        let value = iter.by_ref()
+            .take_while(|_| {
+                if count == 0 {
+                    false
+                } else {
+                    count -= 1;
+                    true
+                }
+            })
+            .collect();
+
+        iter.into_result_fast(count, state).map(|_| value)
     }
 
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -598,7 +621,14 @@ macro_rules! choice {
 pub trait ChoiceParser {
     type Input: Stream;
     type Output;
-    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
+    type PartialState;
+
+    fn parse_choice(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input>;
+
     fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>);
 }
 
@@ -608,10 +638,15 @@ where
 {
     type Input = P::Input;
     type Output = P::Output;
+    type PartialState = P::PartialState;
 
     #[inline(always)]
-    fn parse_choice(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        (**self).parse_choice(input)
+    fn parse_choice(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_choice(input, state)
     }
     fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         (**self).add_error_choice(error)
@@ -676,10 +711,13 @@ macro_rules! tuple_choice_parser_inner {
         {
             type Input = Input;
             type Output = Output;
+            type PartialState = ();
+
             #[inline]
             fn parse_choice(
                 &mut self,
-                input: Self::Input
+                input: Self::Input,
+                state: &mut Option<Self::PartialState>,
             ) -> ConsumedResult<Self::Output, Self::Input> {
                 let ($(ref mut $id),+) = *self;
                 do_choice!(input ( $($id)+ ) )
@@ -710,13 +748,15 @@ macro_rules! array_choice_parser {
         {
             type Input = P::Input;
             type Output = P::Output;
+            type PartialState = ();
 
             #[inline(always)]
             fn parse_choice(
                 &mut self,
-                input: Self::Input
+                input: Self::Input,
+                state: &mut Option<Self::PartialState>,
             ) -> ConsumedResult<Self::Output, Self::Input> {
-                self[..].parse_choice(input)
+                self[..].parse_choice(input, state)
             }
             fn add_error_choice(
                 &mut self,
@@ -745,10 +785,15 @@ where
 {
     type Input = P::Input;
     type Output = P::Output;
+    type PartialState = P::PartialState;
 
     #[inline(always)]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.0.parse_choice(input)
+    fn parse_partial(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_choice(input, state)
     }
 
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -763,8 +808,13 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
     #[inline]
-    fn parse_choice(&mut self, input: I) -> ConsumedResult<O, I> {
+    fn parse_choice(
+        &mut self,
+        input: I,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<O, I> {
         let mut prev_err = None;
         let mut last_parser_having_non_1_offset = 0;
         for i in 0..self.len() {
@@ -868,22 +918,39 @@ where
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = (usize, P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let mut count = state.as_ref().map_or(0, |t| t.0);
+        let max = self.max;
+
         let mut iter = self.parser.by_ref().iter(input);
-        let mut len = 0usize;
-        let value = iter.by_ref().take(self.max).inspect(|_| len += 1).collect();
-        if len < self.min {
+        let value = iter.by_ref()
+            .take_while(|_| {
+                if count < max {
+                    count += 1;
+                    true
+                } else {
+                    false
+                }
+            })
+            .collect();
+        if count < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamError::message_message(
-                    format_args!("expected {} more elements", self.min - len),
-                ),
+                StreamError::message_message(format_args!(
+                    "expected {} more elements",
+                    self.min - count
+                )),
             );
             ConsumedErr(err)
         } else {
-            iter.into_result_fast(value)
+            iter.into_result_fast(count, state).map(|_| value)
         }
     }
 
@@ -1007,6 +1074,7 @@ where
 {
     type Input = I;
     type Output = ();
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
         EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())
@@ -1053,6 +1121,7 @@ where
 {
     type Input = I;
     type Output = T;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<T, I> {
         EmptyOk((self.0.clone(), input))
@@ -1118,6 +1187,7 @@ where
 {
     type Input = I;
     type Output = ();
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<(), I> {
@@ -1164,6 +1234,7 @@ pub struct Iter<P: Parser> {
     input: P::Input,
     consumed: bool,
     state: State<<P::Input as StreamOnce>::Error>,
+    partial_state: Option<P::PartialState>,
 }
 
 enum State<E> {
@@ -1179,22 +1250,34 @@ impl<P: Parser> Iter<P> {
             input: input,
             consumed: false,
             state: State::Ok,
+            partial_state: None,
         }
     }
     /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
-        self.into_result_fast(value).into()
+    pub fn into_result<O>(
+        self,
+        value: O,
+        partial_state: &mut Option<(O, P::PartialState)>,
+    ) -> ParseResult<O, P::Input> {
+        self.into_result_fast(value, partial_state).into()
     }
 
-    fn into_result_fast<O>(self, value: O) -> ConsumedResult<O, P::Input> {
+    fn into_result_fast<O>(
+        self,
+        value: O,
+        partial_state: &mut Option<(O, P::PartialState)>,
+    ) -> ConsumedResult<O, P::Input> {
         match self.state {
             State::Ok | State::EmptyErr => if self.consumed {
                 ConsumedOk((value, self.input))
             } else {
                 EmptyOk((value, self.input))
             },
-            State::ConsumedErr(e) => ConsumedErr(e),
+            State::ConsumedErr(e) => {
+                *partial_state = self.partial_state.map(|s| (value, s));
+                ConsumedErr(e)
+            }
         }
     }
 }
@@ -1203,7 +1286,9 @@ impl<P: Parser> Iterator for Iter<P> {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
         match self.state {
-            State::Ok => match self.parser.parse_lazy(self.input.clone()) {
+            State::Ok => match self.parser
+                .parse_partial(self.input.clone(), &mut self.partial_state)
+            {
                 EmptyOk((v, input)) => {
                     self.input = input;
                     Some(v)
@@ -1228,20 +1313,31 @@ impl<P: Parser> Iterator for Iter<P> {
 }
 
 #[derive(Copy, Clone)]
-pub struct Many<F, P>(P, PhantomData<F>)
-where
-    P: Parser;
+pub struct Many<F, P>(P, PhantomData<F>);
+
 impl<F, P> Parser for Many<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
 {
     type Input = P::Input;
     type Output = F;
-    fn parse_stream_consumed(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    type PartialState = (F, P::PartialState);
+
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        // TODO
+        let (mut elements, child_state) = match state.take() {
+            Some((elements, child_state)) => (elements, Some(child_state)),
+            None => (F::default(), None),
+        };
         let mut iter = (&mut self.0).iter(input);
-        let result = iter.by_ref().collect();
-        iter.into_result_fast(result)
+        iter.partial_state = child_state;
+        elements.extend(iter.by_ref());
+        iter.into_result_fast(elements, state)
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -1270,7 +1366,7 @@ where
 pub fn many<F, P>(p: P) -> Many<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
 {
     Many(p, PhantomData)
 }
@@ -1279,22 +1375,34 @@ where
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<F, P> Parser for Many1<F, P>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = (F, P::PartialState);
+
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<F, P::Input> {
         let (first, input) = ctry!(self.0.parse_lazy(input));
+        // TODO
+        let (mut elements, child_state) = match state.take() {
+            Some((elements, child_state)) => (elements, Some(child_state)),
+            None => (F::default(), None),
+        };
         let mut iter = Iter {
             parser: &mut self.0,
             consumed: !input.is_empty(),
             input: input.into_inner(),
             state: State::Ok,
+            partial_state: child_state,
         };
         let result = Some(first).into_iter().chain(iter.by_ref()).collect();
-        iter.into_result_fast(result)
+        iter.into_result_fast(result, state)
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
@@ -1305,6 +1413,22 @@ where
 #[doc(hidden)]
 // FIXME Should not be public
 pub struct Sink<T>(PhantomData<T>);
+
+impl<T> Default for Sink<T> {
+    fn default() -> Self {
+        Sink(PhantomData)
+    }
+}
+
+impl<A> Extend<A> for Sink<A> {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = A>,
+    {
+        for _ in iter {}
+    }
+}
+
 impl<A> FromIterator<A> for Sink<A> {
     fn from_iter<T>(iter: T) -> Self
     where
@@ -1385,7 +1509,7 @@ where
 #[inline(always)]
 pub fn many1<F, P>(p: P) -> Many1<F, P>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
 {
     Many1(p, PhantomData)
@@ -1399,20 +1523,25 @@ pub struct SepBy<F, P, S> {
 }
 impl<F, P, S> Parser for SepBy<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<F, P::Input> {
         sep_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| {
                 Ok((None.into_iter().collect(), Consumed::Empty(input)))
             }))
-            .parse_lazy(input)
+            .parse_partial(input, state)
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -1442,7 +1571,7 @@ where
 #[inline(always)]
 pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -1461,22 +1590,35 @@ pub struct SepBy1<F, P, S> {
 }
 impl<F, P, S> Parser for SepBy1<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = (F, ()); // FIXME P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<F, P::Input> {
         let (first, rest) = ctry!(self.parser.parse_lazy(input.clone()));
+
+        // TODO
+        let (mut elements, child_state) = match state.take() {
+            Some((elements, child_state)) => (elements, Some(child_state)),
+            None => (F::default(), None),
+        };
 
         rest.combine_consumed(move |input| {
             let rest = (&mut self.separator).with(&mut self.parser);
             let mut iter = Iter::new(rest, input);
-            let result = Some(first).into_iter().chain(iter.by_ref()).collect();
-            iter.into_result_fast(result)
+
+            elements.extend(Some(first));
+            elements.extend(iter.by_ref());
+            iter.into_result_fast(elements, state)
         })
     }
 
@@ -1516,7 +1658,7 @@ where
 #[inline(always)]
 pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -1536,20 +1678,25 @@ pub struct SepEndBy<F, P, S> {
 
 impl<F, P, S> Parser for SepEndBy<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<F, P::Input> {
         sep_end_by1(&mut self.parser, &mut self.separator)
             .or(parser(|input| {
                 Ok((None.into_iter().collect(), Consumed::Empty(input)))
             }))
-            .parse_lazy(input)
+            .parse_partial(input, state)
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -1579,7 +1726,7 @@ where
 #[inline(always)]
 pub fn sep_end_by<F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -1599,26 +1746,38 @@ pub struct SepEndBy1<F, P, S> {
 
 impl<F, P, S> Parser for SepEndBy1<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = (F, ()); // FIXME P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<F, P::Input> {
         let (first, input) = ctry!(self.parser.parse_lazy(input.clone()));
+
+        // TODO
+        let (mut elements, child_state) = match state.take() {
+            Some((elements, child_state)) => (elements, Some(child_state)),
+            None => (F::default(), None),
+        };
 
         input.combine_consumed(|input| {
             let rest = (&mut self.separator).with(optional(&mut self.parser));
             let mut iter = Iter::new(rest, input);
-            let result = Some(first)
-                .into_iter()
-                // Parse elements until `self.parser` returns `None`
-                .chain(iter.by_ref().scan((), |_, x| x))
-                .collect();
-            iter.into_result_fast(result)
+            iter.partial_state = child_state;
+
+            elements.extend(Some(first));
+            // Parse elements until `self.parser` returns `None`
+            elements.extend(iter.by_ref().scan((), |_, x| x));
+
+            iter.into_result_fast(elements, state)
         })
     }
 
@@ -1658,7 +1817,7 @@ where
 #[inline(always)]
 pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 where
-    F: FromIterator<P::Output>,
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -1672,6 +1831,7 @@ where
 impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
+    type PartialState = ();
     fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         self(input)
     }
@@ -1732,6 +1892,7 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
     fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         (self.0)(input)
     }
@@ -1743,6 +1904,7 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
     fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         self(input)
     }
@@ -1756,6 +1918,7 @@ where
 {
     type Input = P::Input;
     type Output = Option<P::Output>;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<Option<P::Output>, P::Input> {
         match self.0.parse_lazy(input.clone()) {
@@ -1830,6 +1993,7 @@ where
 {
     type Input = I;
     type Output = P::Output;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<P::Output, I> {
@@ -1890,6 +2054,7 @@ where
 {
     type Input = I;
     type Output = P::Output;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<P::Output, I> {
         // FIXME FastResult
@@ -1952,6 +2117,7 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
     #[inline]
     fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
         self.0.parse_stream(input).map_err(Consumed::into_empty)
@@ -1992,6 +2158,7 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
@@ -2041,9 +2208,14 @@ where
 {
     type Input = I;
     type Output = P2::Output;
+    type PartialState = <(P1, P2) as Parser>::PartialState;
     #[inline]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
-        self.0.parse_lazy(input).map(|(_, b)| b)
+    fn parse_partial(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_partial(input, state).map(|(_, b)| b)
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
@@ -2075,6 +2247,7 @@ where
 {
     type Input = I;
     type Output = P1::Output;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
         self.0.parse_lazy(input).map(|(a, _)| a)
@@ -2107,6 +2280,7 @@ where
 {
     type Input = I;
     type Output = P::Output;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<Self::Output, I> {
@@ -2158,6 +2332,7 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
     #[inline(always)]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
         self.0.parse_lazy(input)
@@ -2186,7 +2361,9 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct Map<P, F>(P, F);
+pub struct Map<P, F>(P, F)
+where
+    P: Parser;
 impl<I, A, B, P, F> Parser for Map<P, F>
 where
     I: Stream,
@@ -2195,9 +2372,14 @@ where
 {
     type Input = I;
     type Output = B;
+    type PartialState = P::PartialState;
     #[inline]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
-        match self.0.parse_lazy(input) {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        match self.0.parse_partial(input, state) {
             ConsumedOk((x, input)) => ConsumedOk(((self.1)(x), input)),
             EmptyOk((x, input)) => EmptyOk(((self.1)(x), input)),
             ConsumedErr(err) => ConsumedErr(err),
@@ -2231,6 +2413,7 @@ where
 {
     type Input = I;
     type Output = B;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<B, I> {
         match self.0.parse_lazy(input) {
@@ -2274,6 +2457,7 @@ where
 {
     type Input = N::Input;
     type Output = N::Output;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         match self.0.parse_lazy(input) {
@@ -2324,10 +2508,15 @@ where
 {
     type Input = P::Input;
     type Output = P::Output;
+    type PartialState = P::PartialState;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.0.parse_lazy(input)
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_partial(input, state)
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -2363,6 +2552,7 @@ where
 {
     type Input = P::Input;
     type Output = O;
+    type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<O, Self::Input> {
         let position = input.position();
@@ -2411,14 +2601,6 @@ macro_rules! dispatch_on {
     } }
 }
 
-trait SeqParser {
-    type Input: StreamOnce;
-    type Output;
-
-    #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input>;
-}
-
 macro_rules! tuple_parser {
     ($h: ident, $($id: ident),+) => {
         // struct Seq<'a>( $(&'a mut $id ),* );
@@ -2432,12 +2614,15 @@ macro_rules! tuple_parser {
         {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
+            type PartialState = ();
 
             #[inline]
             #[allow(unused_assignments)]
-            fn parse_lazy(&mut self,
-                          mut input: Input)
-                          -> ConsumedResult<($h::Output, $($id::Output),+), Input> {
+            fn parse_partial(
+                &mut self,
+                mut input: Self::Input,
+                state: &mut Option<Self::PartialState>,
+            ) -> ConsumedResult<Self::Output, Self::Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
@@ -2692,6 +2877,7 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
@@ -2757,6 +2943,7 @@ where
 {
     type Input = P::Input;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, mut input: P::Input) -> ConsumedResult<F, P::Input> {
@@ -3180,7 +3367,8 @@ mod tests_std {
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {
         let mut p1 = char('1');
         let mut p2 = (optional(char('b')), char('2')).map(|t| t.1);
-        let mut parser = choice::<[&mut Parser<Input = _, Output = _>; 2]>([&mut p1, &mut p2]);
+        let mut parser =
+            choice::<[&mut Parser<Input = _, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
 
         assert_eq!(
             parser.easy_parse(State::new("c")),

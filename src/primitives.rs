@@ -1120,7 +1120,7 @@ where
     /// use combine::byte::*;
     /// use combine::primitives::ReadStream;
     /// use combine::buffered_stream::BufferedStream;
-    /// use combine::state::State;
+    /// use combine::state::PartialState;
     /// use std::io::Read;
     ///
     /// # fn main() {
@@ -1192,6 +1192,21 @@ impl<T, E> FastResult<T, E> {
             EmptyOk(t) => f(t),
             ConsumedErr(e) => ConsumedErr(e),
             EmptyErr(e) => EmptyErr(e),
+        }
+    }
+
+    pub fn map_err<F, E2>(self, f: F) -> FastResult<T, F::Output>
+    where
+        F: FnOnce(E) -> E2,
+    {
+        match self {
+            ConsumedOk(t) => ConsumedOk(t),
+            EmptyOk(t) => EmptyOk(t),
+            ConsumedErr(e) => ConsumedErr(f(e)),
+            EmptyErr(e) => EmptyErr(Tracked {
+                error: f(e.error),
+                offset: e.offset,
+            }),
         }
     }
 }
@@ -1277,6 +1292,7 @@ pub trait Parser {
     type Input: Stream;
     /// The type which is returned if the parser is successful.
     type Output;
+    type PartialState;
 
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
@@ -1381,7 +1397,17 @@ pub trait Parser {
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.parse_stream(input).into()
+        self.parse_partial(input, &mut None)
+    }
+
+    // TODO
+    fn parse_partial(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let _ = state;
+        self.parse_lazy(input)
     }
 
     /// Adds the first error that would normally be returned by this parser if it failed with an
@@ -1725,9 +1751,9 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter(self, input: Self::Input) -> Iter<Self>
+    fn iter(self, input: <Self as Parser>::Input) -> Iter<Self>
     where
-        Self: Sized,
+        Self: Parser + Sized,
     {
         Iter::new(self, input)
     }
@@ -1753,7 +1779,11 @@ pub trait Parser {
     /// # }
     /// ```
     #[cfg(feature = "std")]
-    fn boxed<'a>(self) -> Box<Parser<Input = Self::Input, Output = Self::Output> + 'a>
+    fn boxed<'a>(
+        self,
+    ) -> Box<
+        Parser<Input = Self::Input, Output = Self::Output, PartialState = Self::PartialState> + 'a,
+    >
     where
         Self: Sized + 'a,
     {
@@ -1836,20 +1866,15 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = P::PartialState;
 
     #[inline(always)]
-    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
-        (**self).parse_stream(input)
-    }
-
-    #[inline(always)]
-    fn parse_stream_consumed(&mut self, input: I) -> ConsumedResult<O, I> {
-        (**self).parse_stream_consumed(input)
-    }
-
-    #[inline(always)]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
-        (**self).parse_lazy(input)
+    fn parse_partial(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_partial(input, state)
     }
 
     #[inline(always)]
@@ -1866,20 +1891,15 @@ where
 {
     type Input = I;
     type Output = O;
+    type PartialState = P::PartialState;
 
     #[inline(always)]
-    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
-        (**self).parse_stream(input)
-    }
-
-    #[inline(always)]
-    fn parse_stream_consumed(&mut self, input: I) -> ConsumedResult<O, I> {
-        (**self).parse_stream_consumed(input)
-    }
-
-    #[inline(always)]
-    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
-        (**self).parse_lazy(input)
+    fn parse_partial(
+        &mut self,
+        input: Self::Input,
+        state: &mut Option<Self::PartialState>,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_partial(input, state)
     }
 
     #[inline(always)]

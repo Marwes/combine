@@ -315,6 +315,8 @@ where
 {
     type Input = I;
     type Output = &'static str;
+    type PartialState = ();
+
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(eq, self.0.into(), self.0.chars())
@@ -361,6 +363,8 @@ where
 {
     type Input = I;
     type Output = &'static str;
+    type PartialState = ();
+
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(&mut self.1, self.0.into(), self.0.chars())
