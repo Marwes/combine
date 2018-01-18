@@ -938,14 +938,11 @@ where
         let max = self.max;
 
         let mut iter = self.parser.by_ref().partial_iter(input, child_state);
-        elements.extend(iter.by_ref().take_while(|_| {
-            if *count < max {
-                *count += 1;
-                true
-            } else {
-                false
-            }
-        }));
+        elements.extend(
+            iter.by_ref()
+                .take(self.max - *count)
+                .inspect(|_| *count += 1),
+        );
         if *count < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
