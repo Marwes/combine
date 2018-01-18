@@ -16,7 +16,7 @@ fn shared_stream_buffer() {
         c
     });
     let buffer = BufferedStream::new(State::new(IteratorStream::new(text)), 1);
-    let int: &mut Parser<Input = _, Output = _> =
+    let int: &mut Parser<Input = _, Output = _, PartialState = _> =
         &mut many(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = sep_by(int, char(','))
         .parse(buffer.as_stream())
@@ -32,7 +32,7 @@ fn shared_stream_backtrack() {
     let buffer = BufferedStream::new(State::new(IteratorStream::new(&mut iter)), 2);
     let stream = buffer.as_stream();
 
-    let value: &mut Parser<Input = _, Output = _> = &mut choice([
+    let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
         try(string("apple")),
         try(string("orange")),
         try(string("ananas")),
@@ -50,7 +50,7 @@ fn shared_stream_insufficent_backtrack() {
     let buffer = BufferedStream::new(State::new(IteratorStream::new(&mut iter)), 1);
     let stream = buffer.as_stream();
 
-    let value: &mut Parser<Input = _, Output = _> = &mut choice([
+    let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
         try(string("apple")),
         try(string("orange")),
         try(string("ananas")),

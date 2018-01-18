@@ -312,15 +312,13 @@ where
         // Replace all expected errors that were added from the previous add_error
         // with this expected error
         let mut i = 0;
-        self_.error.errors.retain(|e| {
-            if i < start {
-                i += 1;
-                true
-            } else {
-                match *e {
-                    Error::Expected(_) => false,
-                    _ => true,
-                }
+        self_.error.errors.retain(|e| if i < start {
+            i += 1;
+            true
+        } else {
+            match *e {
+                Error::Expected(_) => false,
+                _ => true,
             }
         });
         self_.error.add(info);
@@ -369,9 +367,9 @@ impl<T, R> Error<T, R> {
 impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     fn eq(&self, other: &Error<T, R>) -> bool {
         match (self, other) {
-            (&Error::Unexpected(ref l), &Error::Unexpected(ref r))
-            | (&Error::Expected(ref l), &Error::Expected(ref r))
-            | (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
+            (&Error::Unexpected(ref l), &Error::Unexpected(ref r)) |
+            (&Error::Expected(ref l), &Error::Expected(ref r)) |
+            (&Error::Message(ref l), &Error::Message(ref r)) => l == r,
             _ => false,
         }
     }
@@ -463,8 +461,11 @@ impl<T, R> Error<T, R> {
 }
 
 /// Alias over `ParseError` for `StreamOnce` types
-pub type StreamErrors<S> =
-    Errors<<S as StreamOnce>::Position, <S as StreamOnce>::Item, <S as StreamOnce>::Range>;
+pub type StreamErrors<S> = Errors<
+    <S as StreamOnce>::Position,
+    <S as StreamOnce>::Item,
+    <S as StreamOnce>::Range,
+>;
 
 /// Struct which hold information about an error that occured at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occured in the same position.

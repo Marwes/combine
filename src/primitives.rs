@@ -544,11 +544,9 @@ where
     I: Stream,
 {
     let position = input.position();
-    let x = try!(
-        input
-            .uncons()
-            .map_err(|err| Consumed::Empty(I::Error::from_error(position, err).into()))
-    );
+    let x = try!(input.uncons().map_err(|err| {
+        Consumed::Empty(I::Error::from_error(position, err).into())
+    }));
     Ok((x, Consumed::Consumed(input)))
 }
 
@@ -1292,7 +1290,7 @@ pub trait Parser {
     type Input: Stream;
     /// The type which is returned if the parser is successful.
     type Output;
-    type PartialState;
+    type PartialState: Default;
 
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
@@ -1397,14 +1395,14 @@ pub trait Parser {
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.parse_partial(input, &mut None)
+        self.parse_partial(input, &mut Default::default())
     }
 
     // TODO
     fn parse_partial(
         &mut self,
         input: Self::Input,
-        state: &mut Option<Self::PartialState>,
+        state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         let _ = state;
         self.parse_lazy(input)
@@ -1634,7 +1632,8 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output) -> Result<B, <Self::Input as StreamOnce>::Error>,
+        F: FnMut(Self::Output)
+            -> Result<B, <Self::Input as StreamOnce>::Error>,
     {
         flat_map(self, f)
     }
@@ -1751,11 +1750,15 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter(self, input: <Self as Parser>::Input) -> Iter<Self>
+    fn iter<'a>(
+        self,
+        input: <Self as Parser>::Input,
+        partial_state: &'a mut Self::PartialState,
+    ) -> Iter<'a, Self>
     where
         Self: Parser + Sized,
     {
-        Iter::new(self, input)
+        Iter::new(self, input, partial_state)
     }
 
     /// Turns the parser into a trait object by putting it in a `Box`. Can be used to easily
@@ -1872,7 +1875,7 @@ where
     fn parse_partial(
         &mut self,
         input: Self::Input,
-        state: &mut Option<Self::PartialState>,
+        state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         (**self).parse_partial(input, state)
     }
@@ -1897,7 +1900,7 @@ where
     fn parse_partial(
         &mut self,
         input: Self::Input,
-        state: &mut Option<Self::PartialState>,
+        state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         (**self).parse_partial(input, state)
     }

@@ -433,6 +433,12 @@ macro_rules! combine_parser_impl {
             // FIXME Verify lifetimes
             pub struct PartialState(*mut (), fn (*mut ()));
 
+            impl Default for PartialState {
+                fn default() -> Self {
+                    PartialState(::std::ptr::null_mut(), |_| ())
+                }
+            }
+
             impl Drop for PartialState {
                 fn drop(&mut self) {
                     if self.0 != ::std::ptr::null_mut() {
@@ -460,21 +466,32 @@ macro_rules! combine_parser_impl {
                 fn parse_partial(
                     &mut self,
                     input: $input_type,
-                    state: &mut Option<Self::PartialState>,
+                    state: &mut Self::PartialState,
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
-                    let ref mut child_state = state.as_mut().map(|state| {
-                         let v = unsafe { ::std::ptr::read(state.0 as *mut _) };
-                         state.0 = ::std::ptr::null_mut();
-                         v
-                    });
-                    let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                    let result = $parser.parse_lazy(input);
+                    let mut new_child_state;
+                    let result = {
+                        let child_state = if state.0 == ::std::ptr::null_mut() {
+                            new_child_state = Some(Default::default());
+                            new_child_state.as_mut().unwrap()
+                        } else {
+                            new_child_state = None;
+                            unsafe { &mut * (state.0 as *mut _) }
+                        };
+
+                        let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                        $parser.parse_lazy(input)
+                    };
 
                     fn mk_partialstate<T>(value: T) -> PartialState {
                         PartialState(Box::into_raw(Box::new(value)) as *mut (), |p| unsafe { Box::from_raw(p as *mut T); })
                     }
-                    *state = child_state.take().map(mk_partialstate);
+                    if let $crate::primitives::FastResult::ConsumedErr(_) = result {
+                        if state.0 == ::std::ptr::null_mut() {
+                            // FIXME Make None unreachable for LLVM
+                            *state = mk_partialstate(new_child_state.unwrap());
+                        }
+                    }
 
                     result
                 }

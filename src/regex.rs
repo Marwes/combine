@@ -221,10 +221,9 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(format_args!(
-            "/{}/",
-            self.0.as_str()
-        )))
+        error.error.add(StreamError::expected_message(
+            format_args!("/{}/", self.0.as_str()),
+        ))
     }
 }
 
@@ -275,10 +274,9 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(format_args!(
-            "/{}/",
-            self.0.as_str()
-        )))
+        error.error.add(StreamError::expected_message(
+            format_args!("/{}/", self.0.as_str()),
+        ))
     }
 }
 
@@ -331,10 +329,9 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(format_args!(
-            "/{}/",
-            self.0.as_str()
-        )))
+        error.error.add(StreamError::expected_message(
+            format_args!("/{}/", self.0.as_str()),
+        ))
     }
 }
 
@@ -389,10 +386,9 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(format_args!(
-            "/{}/",
-            self.0.as_str()
-        )))
+        error.error.add(StreamError::expected_message(
+            format_args!("/{}/", self.0.as_str()),
+        ))
     }
 }
 
@@ -452,10 +448,9 @@ where
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(format_args!(
-            "/{}/",
-            self.0.as_str()
-        )))
+        error.error.add(StreamError::expected_message(
+            format_args!("/{}/", self.0.as_str()),
+        ))
     }
 }
 

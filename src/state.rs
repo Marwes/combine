@@ -266,13 +266,11 @@ where
         E: StreamError<I::Item, I::Range>,
     {
         let positioner = &mut self.positioner;
-        self.input.uncons_while(|t| {
-            if predicate(t.clone()) {
-                positioner.update(&t);
-                true
-            } else {
-                false
-            }
+        self.input.uncons_while(|t| if predicate(t.clone()) {
+            positioner.update(&t);
+            true
+        } else {
+            false
         })
     }
 
