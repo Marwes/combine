@@ -644,9 +644,10 @@ where
     fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<F, P::Input> {
         let mut iter = self.parser.by_ref().iter(input);
         let mut len = 0usize;
-        let value = iter.by_ref().take(self.max).inspect(|_| { len += 1 }).collect();
+        let value = iter.by_ref().take(self.max).inspect(|_| len += 1).collect();
         if len < self.min {
-            let message = Error::Message(format!("expected {} more elements", self.min - len).into());
+            let message =
+                Error::Message(format!("expected {} more elements", self.min - len).into());
             ConsumedErr(ParseError::new(iter.input.position(), message))
         } else {
             iter.into_result_fast(value)

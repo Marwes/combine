@@ -88,11 +88,11 @@ fn parse_http_request(input: &[u8]) -> Result<((Request, Vec<Header>), &[u8]), P
         token(b':'),
         many1(message_header_line),
     ).map(|(name, _, value)| {
-            Header {
-                name: name,
-                value: value,
-            }
-        });
+        Header {
+            name: name,
+            value: value,
+        }
+    });
 
     let mut request = (
         request_line,

@@ -1331,7 +1331,7 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<E>>> for FastResult<T, E> {
     fn into(self) -> Result<Consumed<T>, Consumed<E>> {
         match self {
             ConsumedOk(t) => Ok(Consumed::Consumed(t)),
-            EmptyOk(t) => Ok(Consumed::Empty(t)), 
+            EmptyOk(t) => Ok(Consumed::Empty(t)),
             ConsumedErr(e) => Err(Consumed::Consumed(e)),
             EmptyErr(e) => Err(Consumed::Empty(e)),
         }
@@ -1346,7 +1346,7 @@ where
         use self::FastResult::*;
         match self {
             ConsumedOk((t, i)) => Ok((t, Consumed::Consumed(i))),
-            EmptyOk((t, i)) => Ok((t, Consumed::Empty(i))), 
+            EmptyOk((t, i)) => Ok((t, Consumed::Empty(i))),
             ConsumedErr(e) => Err(Consumed::Consumed(e)),
             EmptyErr(e) => Err(Consumed::Empty(e)),
         }

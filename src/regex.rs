@@ -43,11 +43,10 @@ use range::take;
 
 struct First<T>(Option<T>);
 
-impl<A> FromIterator<A> for First<A>
-{
+impl<A> FromIterator<A> for First<A> {
     fn from_iter<T>(iter: T) -> Self
     where
-        T: IntoIterator<Item = A>
+        T: IntoIterator<Item = A>,
     {
         First(iter.into_iter().next())
     }

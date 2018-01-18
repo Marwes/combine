@@ -114,7 +114,7 @@ where
                 'n' => '\n',
                 'r' => '\r',
                 't' => '\t',
-                c => c,//Should never happen
+                c => c, //Should never happen
             }
         });
         match c {

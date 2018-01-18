@@ -169,10 +169,10 @@ pub use primitives::from_iter;
 
 #[doc(inline)]
 pub use combinator::{any, between, choice, count, count_min_max, env_parser, eof, look_ahead,
-                     many, none_of, not_followed_by, one_of, optional, parser, position,
-                     satisfy, satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max,
-                     skip_many, token, tokens, try, unexpected, value, chainl1, chainr1, many1,
-                     sep_by1, sep_end_by1, skip_many1};
+                     many, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
+                     satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max, skip_many,
+                     token, tokens, try, unexpected, value, chainl1, chainr1, many1, sep_by1,
+                     sep_end_by1, skip_many1};
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {

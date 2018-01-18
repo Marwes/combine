@@ -2,8 +2,8 @@
 #[macro_use]
 extern crate bencher;
 
-extern crate combine;
 extern crate byteorder;
+extern crate combine;
 
 use bencher::{black_box, Bencher};
 
@@ -42,12 +42,12 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
         take(4),
         many(brand_name()),
     ).map(|(_, m, v, c)| {
-            MP4Box::Ftyp(FileType {
-                major_brand: m,
-                major_brand_version: v,
-                compatible_brands: c,
-            })
-        });
+        MP4Box::Ftyp(FileType {
+            major_brand: m,
+            major_brand_version: v,
+            compatible_brands: c,
+        })
+    });
 
     let mp4_box = take(4)
         .map(BigEndian::read_u32)
