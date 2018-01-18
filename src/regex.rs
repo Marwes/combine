@@ -213,7 +213,7 @@ where
     type Output = I::Range;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         if self.0.is_match(input.range()) {
             EmptyOk((input.range(), input))
         } else {
@@ -221,9 +221,10 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -266,7 +267,7 @@ where
     type Output = I::Range;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -274,9 +275,10 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -324,14 +326,15 @@ where
     type Output = F;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -378,7 +381,7 @@ where
     type Output = F;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -386,9 +389,10 @@ where
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 
@@ -443,14 +447,15 @@ where
     type Output = G;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        error.error.add(StreamError::expected_message(
-            format_args!("/{}/", self.0.as_str()),
-        ))
+        error.error.add(StreamError::expected_message(format_args!(
+            "/{}/",
+            self.0.as_str()
+        )))
     }
 }
 

@@ -318,7 +318,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(eq, self.0.into(), self.0.chars())
             .parse_lazy(input)
             .map(|_| self.0)
@@ -366,7 +366,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(&mut self.1, self.0.into(), self.0.chars())
             .parse_lazy(input)
             .map(|_| self.0)

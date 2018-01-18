@@ -20,10 +20,10 @@ use easy::Error;
 macro_rules! ctry {
     ($result: expr) => {
         match $result {
-            $crate::primitives::FastResult::ConsumedOk((x, i)) =>
-                (x, $crate::primitives::Consumed::Consumed(i)),
-            $crate::primitives::FastResult::EmptyOk((x, i)) =>
-                (x, $crate::primitives::Consumed::Empty(i)),
+            $crate::primitives::FastResult::ConsumedOk(x) =>
+                (x, $crate::primitives::Consumed::Consumed(())),
+            $crate::primitives::FastResult::EmptyOk(x) =>
+                (x, $crate::primitives::Consumed::Empty(())),
             $crate::primitives::FastResult::ConsumedErr(err) =>
                 return $crate::primitives::FastResult::ConsumedErr(err.into()),
             $crate::primitives::FastResult::EmptyErr(err) =>
@@ -170,7 +170,7 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char<I>(input: I) -> ParseResult<char, I>
+    /// fn char<I>input: I) -> ParseResult<char, I>
     ///     where I: Stream<Item = char>,
     ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
     /// {
@@ -211,15 +211,14 @@ impl<T> Consumed<T> {
             Consumed::Empty(x) => f(x),
         }
     }
-    pub fn combine_consumed<F, U, I>(self, f: F) -> ConsumedResult<U, I>
+    pub fn combine_consumed<F, U, E>(self, f: F) -> FastResult<U, E>
     where
-        F: FnOnce(T) -> ConsumedResult<U, I>,
-        I: StreamOnce + Positioned,
+        F: FnOnce(T) -> FastResult<U, E>,
     {
         use self::FastResult::*;
         match self {
             Consumed::Consumed(x) => match f(x) {
-                EmptyOk((v, rest)) => ConsumedOk((v, rest)),
+                EmptyOk(v) => ConsumedOk(v),
                 EmptyErr(err) => ConsumedErr(err.error),
                 y => y,
             },
@@ -232,7 +231,8 @@ impl<T> Consumed<T> {
 /// successful or not.
 /// `O` is the type that is output on success.
 /// `I` is the specific stream type used in the parser.
-pub type ParseResult<O, I> = Result<(O, Consumed<I>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
+pub type ParseResult<O, I> = Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
+pub type ParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 
 #[derive(Clone, Debug)]
 pub enum Info<T, R> {
@@ -539,15 +539,17 @@ where
 }
 
 #[inline]
-pub fn uncons<I>(mut input: I) -> ParseResult<I::Item, I>
+pub fn uncons<I>(input: &mut I) -> ParseResult<I::Item, I>
 where
     I: Stream,
 {
     let position = input.position();
-    let x = try!(input.uncons().map_err(|err| {
-        Consumed::Empty(I::Error::from_error(position, err).into())
-    }));
-    Ok((x, Consumed::Consumed(input)))
+    let x = try!(
+        input
+            .uncons()
+            .map_err(|err| Consumed::Empty(I::Error::from_error(position, err).into()))
+    );
+    Ok((x, Consumed::Consumed(())))
 }
 
 /// A `RangeStream` is an extension of `StreamOnce` which allows for zero copy parsing.
@@ -592,7 +594,7 @@ pub trait FullRangeStream: RangeStream {
 
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
-pub fn uncons_while<I, F>(mut input: I, predicate: F) -> ConsumedResult<I::Range, I>
+pub fn uncons_while<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
 where
     F: FnMut(I::Item) -> bool,
     I: RangeStream,
@@ -601,9 +603,9 @@ where
     match input.uncons_while(predicate) {
         Err(err) => EmptyErr(I::Error::from_error(input.position(), err).into()),
         Ok(x) => if x.len() == 0 {
-            EmptyOk((x, input))
+            EmptyOk(x)
         } else {
-            ConsumedOk((x, input))
+            ConsumedOk(x)
         },
     }
 }
@@ -1122,7 +1124,7 @@ where
     /// use std::io::Read;
     ///
     /// # fn main() {
-    /// let mut input: &[u8] = b"123,";
+    /// let input: &[u8] = b"123,";
     /// let stream = BufferedStream::new(State::new(ReadStream::new(&mut input)), 1);
     /// let result = (many(digit()), byte(b','))
     ///     .parse(stream.as_stream())
@@ -1209,17 +1211,14 @@ impl<T, E> FastResult<T, E> {
     }
 }
 
-impl<T, E> ConsumedResult<T, E>
-where
-    E: StreamOnce + Positioned,
-{
-    pub fn map<F, T2>(self, f: F) -> ConsumedResult<F::Output, E>
+impl<T, E> FastResult<T, E> {
+    pub fn map<F, T2>(self, f: F) -> FastResult<F::Output, E>
     where
         F: FnOnce(T) -> T2,
     {
         match self {
-            ConsumedOk((t, i)) => ConsumedOk((f(t), i)),
-            EmptyOk((t, i)) => EmptyOk((f(t), i)),
+            ConsumedOk(t) => ConsumedOk(f(t)),
+            EmptyOk(t) => EmptyOk(f(t)),
             ConsumedErr(e) => ConsumedErr(e),
             EmptyErr(e) => EmptyErr(e),
         }
@@ -1229,7 +1228,7 @@ where
 /// A `Result` type which has the consumed status flattened into the result.
 /// Conversions to and from `std::result::Result` can be done using `result.into()` or
 /// `From::from(result)`
-pub type ConsumedResult<O, I> = FastResult<(O, I), <I as StreamOnce>::Error>;
+pub type ConsumedResult<O, I> = FastResult<O, <I as StreamOnce>::Error>;
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> {
     fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
@@ -1242,30 +1241,24 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> 
     }
 }
 
-impl<O, I> Into<ParseResult<O, I>> for ConsumedResult<O, I>
-where
-    I: StreamOnce + Positioned,
-{
-    fn into(self) -> ParseResult<O, I> {
+impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
+    fn into(self) -> ParseResult2<O, E> {
         use self::FastResult::*;
         match self {
-            ConsumedOk((t, i)) => Ok((t, Consumed::Consumed(i))),
-            EmptyOk((t, i)) => Ok((t, Consumed::Empty(i))),
+            ConsumedOk(t) => Ok((t, Consumed::Consumed(()))),
+            EmptyOk(t) => Ok((t, Consumed::Empty(()))),
             ConsumedErr(e) => Err(Consumed::Consumed(e.into())),
             EmptyErr(e) => Err(Consumed::Empty(e)),
         }
     }
 }
 
-impl<O, I> From<ParseResult<O, I>> for ConsumedResult<O, I>
-where
-    I: StreamOnce + Positioned,
-{
-    fn from(result: ParseResult<O, I>) -> ConsumedResult<O, I> {
+impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
+    fn from(result: ParseResult2<O, E>) -> FastResult<O, E> {
         use self::FastResult::*;
         match result {
-            Ok((t, Consumed::Consumed(i))) => ConsumedOk((t, i)),
-            Ok((t, Consumed::Empty(i))) => EmptyOk((t, i)),
+            Ok((t, Consumed::Consumed(()))) => ConsumedOk(t),
+            Ok((t, Consumed::Empty(()))) => EmptyOk(t),
             Err(Consumed::Consumed(e)) => ConsumedErr(e.error),
             Err(Consumed::Empty(e)) => EmptyErr(e),
         }
@@ -1314,8 +1307,9 @@ pub trait Parser {
         I::Position: Default,
         Self: Sized + Parser<Input = ::easy::Stream<I>>,
     {
-        match self.parse_stream(::easy::Stream(input)) {
-            Ok((v, state)) => Ok((v, state.into_inner().0)),
+        let mut input = ::easy::Stream(input);
+        match self.parse_stream(&mut input) {
+            Ok((v, _)) => Ok((v, input.0)),
             Err(error) => Err(error.into_inner().error),
         }
     }
@@ -1328,10 +1322,10 @@ pub trait Parser {
     /// [`ParseError`]: primitives/struct.ParseError.html
     fn parse(
         &mut self,
-        input: Self::Input,
+        mut input: Self::Input,
     ) -> Result<(Self::Output, Self::Input), <Self::Input as StreamOnce>::Error> {
-        match self.parse_stream(input) {
-            Ok((v, state)) => Ok((v, state.into_inner())),
+        match self.parse_stream(&mut input) {
+            Ok((v, state)) => Ok((v, input)),
             Err(error) => Err(error.into_inner().error),
         }
     }
@@ -1345,7 +1339,7 @@ pub trait Parser {
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
     /// [`Consumed`]: enum.Consumed.html
     #[inline(always)]
-    fn parse_stream(&mut self, input: Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_stream(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.parse_stream_consumed(input).into()
     }
 
@@ -1361,11 +1355,12 @@ pub trait Parser {
     #[inline]
     fn parse_stream_consumed(
         &mut self,
-        mut input: Self::Input,
+        input: &mut Self::Input,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        let mut result = self.parse_lazy(input.clone());
+        let mut before = input.clone();
+        let mut result = self.parse_lazy(input);
         if let FastResult::EmptyErr(ref mut error) = result {
-            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+            if let Ok(t) = before.uncons::<UnexpectedParse>() {
                 error.error.add_unexpected(Info::Token(t));
             }
             self.add_error(error);
@@ -1394,14 +1389,14 @@ pub trait Parser {
     /// [`ParseError`]: struct.ParseError.html
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.parse_partial(input, &mut Default::default())
     }
 
     // TODO
     fn parse_partial(
         &mut self,
-        input: Self::Input,
+        input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         let _ = state;
@@ -1632,8 +1627,7 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output)
-            -> Result<B, <Self::Input as StreamOnce>::Error>,
+        F: FnMut(Self::Output) -> Result<B, <Self::Input as StreamOnce>::Error>,
     {
         flat_map(self, f)
     }
@@ -1750,7 +1744,7 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter<'a>(self, input: <Self as Parser>::Input) -> Iter<Self, Self::PartialState>
+    fn iter<'a>(self, input: &'a mut <Self as Parser>::Input) -> Iter<'a, Self, Self::PartialState>
     where
         Self: Parser + Sized,
     {
@@ -1780,11 +1774,11 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn partial_iter<'a>(
+    fn partial_iter<'a, 's>(
         self,
-        input: <Self as Parser>::Input,
-        partial_state: &'a mut Self::PartialState,
-    ) -> Iter<Self, &'a mut Self::PartialState>
+        input: &'a mut <Self as Parser>::Input,
+        partial_state: &'s mut Self::PartialState,
+    ) -> Iter<'a, Self, &'s mut Self::PartialState>
     where
         Self: Parser + Sized,
     {
@@ -1904,7 +1898,7 @@ where
     #[inline(always)]
     fn parse_partial(
         &mut self,
-        input: Self::Input,
+        input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         (**self).parse_partial(input, state)
@@ -1929,7 +1923,7 @@ where
     #[inline(always)]
     fn parse_partial(
         &mut self,
-        input: Self::Input,
+        input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         (**self).parse_partial(input, state)

@@ -292,7 +292,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
@@ -347,7 +347,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let cmp = &mut self.1;
         tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
     }
@@ -419,7 +419,7 @@ pub mod num {
                 #[inline]
                 fn parse_lazy(
                     &mut self,
-                    input: Self::Input
+                    input: &mut Self::Input
                     ) -> ConsumedResult<Self::Output, Self::Input> {
                     take(size_of::<Self::Output>())
                         .map(B::$read_name)

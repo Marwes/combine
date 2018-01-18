@@ -64,7 +64,7 @@ fn is_http_version(c: u8) -> bool {
     c >= b'0' && c <= b'9' || c == b'.'
 }
 
-fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
+fn parse_http_request<'a, I>input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
 where
     I: RangeStream<Item = u8, Range = &'a [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,

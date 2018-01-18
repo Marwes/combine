@@ -18,12 +18,12 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         use primitives::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
             Ok(other) => if other == self.0 {
-                ConsumedOk((other, input))
+                ConsumedOk(other)
             } else {
                 EmptyErr(I::Error::empty(position).into())
             },
@@ -78,9 +78,11 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let (value, new_input) = ctry!(self.0.parse_lazy(input.clone()));
-        let distance = input.distance(&new_input.into_inner());
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let before = input.clone();
+        let (value, new_input) = ctry!(self.0.parse_lazy(input));
+        let distance = before.distance(input);
+        *input = before;
         take(distance).parse_lazy(input).map(|range| (range, value))
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -152,10 +154,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let position = input.position();
         match input.uncons_range(self.0) {
-            Ok(x) => ConsumedOk((x, input)),
+            Ok(x) => ConsumedOk(x),
             Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
         }
     }
@@ -199,7 +201,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         ::primitives::uncons_while(input, &mut self.0)
     }
 }
@@ -239,10 +241,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         match ::primitives::uncons_while(input, &mut self.0) {
-            ConsumedOk((v, input)) => ConsumedOk((v, input)),
-            EmptyOk((_, input)) => {
+            ConsumedOk(v) => ConsumedOk(v),
+            EmptyOk(_) => {
                 let position = input.position();
                 EmptyErr(I::Error::empty(position).into())
             }
@@ -289,7 +291,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         use primitives::Range;
 
         let len = self.0.len();
@@ -302,9 +304,9 @@ where
                     if xs == self.0 {
                         if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(to_consume) {
                             if to_consume == 0 {
-                                return EmptyOk((consumed, input));
+                                return EmptyOk(consumed);
                             } else {
-                                return ConsumedOk((consumed, input));
+                                return ConsumedOk(consumed);
                             }
                         }
 

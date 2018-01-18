@@ -86,10 +86,7 @@ where
 {
     /// Creates a new `State<I, X>` from an input stream and a positioner.
     pub fn with_positioner(input: I, positioner: X) -> State<I, X> {
-        State {
-            input: input,
-            positioner: positioner,
-        }
+        State { input, positioner }
     }
 }
 
@@ -266,11 +263,13 @@ where
         E: StreamError<I::Item, I::Range>,
     {
         let positioner = &mut self.positioner;
-        self.input.uncons_while(|t| if predicate(t.clone()) {
-            positioner.update(&t);
-            true
-        } else {
-            false
+        self.input.uncons_while(|t| {
+            if predicate(t.clone()) {
+                positioner.update(&t);
+                true
+            } else {
+                false
+            }
         })
     }
 

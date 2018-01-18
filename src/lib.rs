@@ -200,7 +200,7 @@ macro_rules! impl_token_parser {
         type PartialState = <$inner_type as Parser>::PartialState;
         #[inline]
         fn parse_lazy(&mut self,
-                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+                      input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
         fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -465,7 +465,7 @@ macro_rules! combine_parser_impl {
                 #[inline]
                 fn parse_partial(
                     &mut self,
-                    input: $input_type,
+                    input: &mut Self::Input,
                     state: &mut Self::PartialState,
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
@@ -643,7 +643,7 @@ mod std_tests {
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
-    fn follow<I>(input: I) -> ParseResult<(), I>
+    fn follow<I>(input: &mut I) -> ParseResult<(), I>
     where
         I: Stream<Item = char, Error = StreamErrors<I>>,
         I::Position: Default,
@@ -653,13 +653,14 @@ mod std_tests {
                 let e = Error::Unexpected(c.into());
                 Err(Consumed::Empty(Errors::new(input.position(), e).into()))
             } else {
-                Ok(((), Consumed::Empty(input)))
+                let _ = input.uncons::<Error<_, _>>();
+                Ok(((), Consumed::Empty(())))
             },
-            Err(_) => Ok(((), Consumed::Empty(input))),
+            Err(_) => Ok(((), Consumed::Empty(()))),
         }
     }
 
-    fn integer<'a, I>(input: I) -> ParseResult<i64, I>
+    fn integer<'a, I>(input: &mut I) -> ParseResult<i64, I>
     where
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -711,14 +712,18 @@ mod std_tests {
         let source = r"
 123
 ";
+        let mut parsed_state = State::with_positioner(source, SourcePosition::new());
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
-            .parse_stream(State::with_positioner(source, SourcePosition::new()));
+            .parse_stream(&mut parsed_state);
         let state = Consumed::Consumed(State {
             positioner: SourcePosition { line: 3, column: 1 },
             input: "",
         });
-        assert_eq!(result, Ok((123i64, state)));
+        assert_eq!(
+            result.map(|(x, c)| (x, c.map(|_| parsed_state))),
+            Ok((123i64, state))
+        );
     }
 
     #[derive(Debug, PartialEq)]
@@ -782,7 +787,7 @@ mod std_tests {
         assert_eq!(result, Err(err));
     }
 
-    fn term<I>(input: I) -> ParseResult<Expr, I>
+    fn term<I>(input: &mut I) -> ParseResult<Expr, I>
     where
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
