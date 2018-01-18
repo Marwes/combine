@@ -3466,6 +3466,7 @@ mod tests_std {
                 ],
             })
         );
+        */
     }
 
     #[test]
@@ -3492,6 +3493,8 @@ mod tests_std {
 
     #[test]
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {
+        unimplemented!()
+        /*
         let mut p1 = char('1');
         let mut p2 = (optional(char('b')), char('2')).map(|t| t.1);
         let mut parser =
