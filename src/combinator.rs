@@ -3230,6 +3230,36 @@ mod tests_std {
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
 
+    struct NoPartial<P>(P);
+
+    impl<P> Parser for NoPartial<P>
+    where
+        P: Parser,
+    {
+        type Input = <P as Parser>::Input;
+        type Output = <P as Parser>::Output;
+        type PartialState = ();
+
+        fn parse_lazy(
+            &mut self,
+            input: &mut Self::Input,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_lazy(input)
+        }
+
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_partial(input, &mut Default::default())
+        }
+
+        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            self.0.add_error(error)
+        }
+    }
+
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {
         s: String,
@@ -3486,7 +3516,6 @@ mod tests_std {
                 ],
             })
         );
-        */
     }
 
     #[test]
@@ -3513,10 +3542,8 @@ mod tests_std {
 
     #[test]
     fn sequence_in_choice_array_parser_empty_err_where_first_parser_delay_errors() {
-        unimplemented!()
-        /*
         let mut p1 = char('1');
-        let mut p2 = (optional(char('b')), char('2')).map(|t| t.1);
+        let mut p2 = NoPartial((optional(char('b')), char('2')).map(|t| t.1));
         let mut parser =
             choice::<[&mut Parser<Input = _, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
 
