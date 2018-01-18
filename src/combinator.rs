@@ -1385,8 +1385,10 @@ where
             state: State::Ok,
             partial_state: child_state,
         };
-        let result = Some(first).into_iter().chain(iter.by_ref()).collect();
-        iter.into_result_fast(result)
+        elements.extend(Some(first));
+        elements.extend(iter.by_ref());
+
+        iter.into_result_fast(mem::replace(elements, F::default()))
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
@@ -1580,7 +1582,7 @@ where
 {
     type Input = P::Input;
     type Output = F;
-    type PartialState = (F, ()); // FIXME P::PartialState);
+    type PartialState = (F, <(S, P) as Parser>::PartialState);
 
     #[inline]
     fn parse_partial(
@@ -1733,7 +1735,7 @@ where
 {
     type Input = P::Input;
     type Output = F;
-    type PartialState = (F, ()); // FIXME P::PartialState);
+    type PartialState = (F, <(S, Optional<P>) as Parser>::PartialState);
 
     #[inline]
     fn parse_partial(
@@ -1895,10 +1897,15 @@ where
 {
     type Input = P::Input;
     type Output = Option<P::Output>;
-    type PartialState = ();
+    type PartialState = P::PartialState;
+
     #[inline]
-    fn parse_lazy(&mut self, input: P::Input) -> ConsumedResult<Option<P::Output>, P::Input> {
-        match self.0.parse_lazy(input.clone()) {
+    fn parse_partial(
+        &mut self,
+        input: P::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Option<P::Output>, P::Input> {
+        match self.0.parse_partial(input.clone(), state) {
             EmptyOk((x, rest)) => EmptyOk((Some(x), rest)),
             ConsumedOk((x, rest)) => ConsumedOk((Some(x), rest)),
             ConsumedErr(err) => ConsumedErr(err),
@@ -2585,8 +2592,43 @@ macro_rules! dispatch_on {
     } }
 }
 
+#[doc(hidden)]
+pub enum Either<T, U> {
+    Value(T),
+    State(U),
+}
+
+impl<T, U: Default> Default for Either<T, U> {
+    fn default() -> Self {
+        Either::State(U::default())
+    }
+}
+
+impl<T, U> Either<T, U>
+where
+    U: Default,
+{
+    fn unwrap_value(&mut self) -> T {
+        match mem::replace(self, Either::State(U::default())) {
+            Either::Value(t) => t,
+            Either::State(_) => unreachable!(),
+        }
+    }
+}
+
 macro_rules! tuple_parser {
-    ($h: ident, $($id: ident),+) => {
+    ($partial_state: ident; $h: ident, $($id: ident),+) => {
+        #[allow(non_snake_case)]
+        #[derive(Default)]
+        pub struct $partial_state < $h $(, $id )* > {
+            $h: $h,
+            $(
+                $id: $id,
+            )*
+            offset: u8,
+            _marker: PhantomData <( $h $(, $id)* )>,
+        }
+
         // struct Seq<'a>( $(&'a mut $id ),* );
 
         #[allow(non_snake_case)]
@@ -2598,14 +2640,15 @@ macro_rules! tuple_parser {
         {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
-            type PartialState = ();
+            type PartialState = $partial_state<
+                Either<$h::Output, $h::PartialState> $(, Either<$id::Output, $id::PartialState>)*
+            >;
 
             #[inline]
             #[allow(unused_assignments)]
-            fn parse_partial(
+            fn parse_lazy(
                 &mut self,
                 mut input: Self::Input,
-                state: &mut Self::PartialState,
             ) -> ConsumedResult<Self::Output, Self::Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
                 let mut first_empty_parser = 0;
@@ -2685,6 +2728,106 @@ macro_rules! tuple_parser {
                 }
             }
 
+            #[inline]
+            #[allow(unused_assignments)]
+            fn parse_partial(
+                &mut self,
+                mut input: Self::Input,
+                state: &mut Self::PartialState,
+            ) -> ConsumedResult<Self::Output, Self::Input> {
+                let (ref mut $h, $(ref mut $id),+) = *self;
+                let mut first_empty_parser = 0;
+                let mut current_parser = 0;
+
+                fn add_errors<Input2, $h $(, $id)*>(
+                    input: &mut Input2,
+                    mut err: Tracked<Input2::Error>,
+                    first_empty_parser: usize,
+                    offset: u8,
+                    $h: &mut $h $(, $id : &mut $id )*
+                ) -> ConsumedResult<($h::Output, $($id::Output),+), Input2>
+                    where Input2: Stream,
+                          Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
+                          $h: Parser<Input=Input2>,
+                          $($id: Parser<Input=Input2>),+
+                {
+                    if first_empty_parser != 0 {
+                        if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                            err.error.add(StreamError::unexpected_token(t));
+                        }
+                        dispatch_on!(0, |i, p| {
+                            if i >= first_empty_parser {
+                                Parser::add_error(p, &mut err);
+                            }
+                        }; $h, $($id),*);
+                        ConsumedErr(err.error)
+                    } else {
+                        err.offset = ErrorOffset(offset);
+                        EmptyErr(err)
+                    }
+                }
+
+                macro_rules! add_errors {
+                    ($err: ident, $offset: expr) => { add_errors(&mut input, $err, first_empty_parser, $offset, $h, $($id),*) }
+                }
+                
+                if let Either::State(_) = state.$h {
+                    let temp = if let Either::State(ref mut child_state) = state.$h {
+                        let temp = match $h.parse_partial(input, child_state) {
+                            ConsumedOk((x, new_input)) => {
+                                first_empty_parser = current_parser + 1;
+                                input = new_input;
+                                x
+                            }
+                            EmptyErr(err) => return EmptyErr(err),
+                            ConsumedErr(err) => return ConsumedErr(err),
+                            EmptyOk((x, new_input)) => {
+                                input = new_input;
+                                x
+                            }
+                        };
+                        state.offset = $h.parser_count().0.saturating_add(1);
+                        temp
+                    } else {
+                        unreachable!()
+                    };
+                    state.$h = Either::Value(temp);
+                }
+
+                $(
+                    if let Either::State(_) = state.$id {
+                        let temp = if let Either::State(ref mut child_state) = state.$id {
+                            current_parser += 1;
+                            let temp = match $id.parse_partial(input.clone(), child_state) {
+                                ConsumedOk((x, new_input)) => {
+                                    first_empty_parser = current_parser + 1;
+                                    input = new_input;
+                                    x
+                                }
+                                EmptyErr(err) => return add_errors!(err, state.offset),
+                                ConsumedErr(err) => return ConsumedErr(err),
+                                EmptyOk((x, new_input)) => {
+                                    input = new_input;
+                                    x
+                                }
+                            };
+                            state.offset = state.offset.saturating_add($id.parser_count().0);
+                            temp
+                        } else {
+                            unreachable!()
+                        };
+                        state.$id = Either::Value(temp);
+                    }
+                )+
+
+                let value = ((state.$h.unwrap_value(), $(state.$id.unwrap_value()),+), input);
+                if first_empty_parser != 0 {
+                    ConsumedOk(value)
+                } else {
+                    EmptyOk(value)
+                }
+            }
+
             #[inline(always)]
             fn parser_count(&self) -> ErrorOffset {
                 let (ref $h, $(ref $id),+) = *self;
@@ -2713,17 +2856,17 @@ macro_rules! tuple_parser {
     }
 }
 
-tuple_parser!(A, B);
-tuple_parser!(A, B, C);
-tuple_parser!(A, B, C, D);
-tuple_parser!(A, B, C, D, E);
-tuple_parser!(A, B, C, D, E, F);
-tuple_parser!(A, B, C, D, E, F, G);
-tuple_parser!(A, B, C, D, E, F, G, H);
-tuple_parser!(A, B, C, D, E, F, G, H, I);
-tuple_parser!(A, B, C, D, E, F, G, H, I, J);
-tuple_parser!(A, B, C, D, E, F, G, H, I, J, K);
-tuple_parser!(A, B, C, D, E, F, G, H, I, J, K, L);
+tuple_parser!(PartialState2; A, B);
+tuple_parser!(PartialState3; A, B, C);
+tuple_parser!(PartialState4; A, B, C, D);
+tuple_parser!(PartialState5; A, B, C, D, E);
+tuple_parser!(PartialState6; A, B, C, D, E, F);
+tuple_parser!(PartialState7; A, B, C, D, E, F, G);
+tuple_parser!(PartialState8; A, B, C, D, E, F, G, H);
+tuple_parser!(PartialState9; A, B, C, D, E, F, G, H, I);
+tuple_parser!(PartialState10; A, B, C, D, E, F, G, H, I, J);
+tuple_parser!(PartialState11; A, B, C, D, E, F, G, H, I, J, K);
+tuple_parser!(PartialState12; A, B, C, D, E, F, G, H, I, J, K, L);
 
 #[macro_export]
 #[doc(hidden)]

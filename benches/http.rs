@@ -1,12 +1,13 @@
 #[macro_use]
 extern crate bencher;
+#[macro_use]
 extern crate combine;
 
 use bencher::{black_box, Bencher};
 
 use std::fmt;
 
-use combine::*;
+use combine::{many, token, ParseError, Parser, many1};
 use combine::primitives::{RangeStream, UnexpectedParse};
 use combine::range::{range, take_while1};
 use combine::easy;
