@@ -394,7 +394,7 @@ macro_rules! combine_add_error {
     ) => { {
         let mut parser = $parser;
         {
-            let _: &mut Parser<Input = $input_type, Output = $output_type> = &mut parser;
+            let _: &mut $crate::Parser<Input = $input_type, Output = $output_type> = &mut parser;
         }
         parser.add_error($errors)
     } }
@@ -413,6 +413,7 @@ macro_rules! combine_parser_impl {
         { $($parser: tt)* }
     ) => {
         mod $name {
+            #[allow(unused_imports)]
             use super::*;
 
             $(#[$derive])*
