@@ -170,15 +170,15 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char<I>input: I) -> ParseResult<char, I>
+    /// fn char<I>(input: &mut I) -> ParseResult<char, I>
     ///     where I: Stream<Item = char>,
     ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
     /// {
-    ///     let (c, input) = try!(satisfy(|c| c != '"').parse_stream(input));
+    ///     let (c, consumed) = try!(satisfy(|c| c != '"').parse_stream(input));
     ///     match c {
     ///         //Since the `char` parser has already consumed some of the input `combine` is used
     ///         //propagate the consumed state to the next part of the parser
-    ///         '\\' => input.combine(|input| {
+    ///         '\\' => consumed.combine(|_| {
     ///             satisfy(|c| c == '"' || c == '\\')
     ///                 .map(|c| {
     ///                     match c {
@@ -189,7 +189,7 @@ impl<T> Consumed<T> {
     ///                 })
     ///                 .parse_stream(input)
     ///             }),
-    ///         _ => Ok((c, input))
+    ///         _ => Ok((c, consumed))
     ///     }
     /// }
     /// let result = many(parser(char))
@@ -197,10 +197,9 @@ impl<T> Consumed<T> {
     /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
     /// }
     /// ```
-    pub fn combine<F, U, I>(self, f: F) -> ParseResult<U, I>
+    pub fn combine<F, U, E>(self, f: F) -> ParseResult2<U, E>
     where
-        F: FnOnce(T) -> ParseResult<U, I>,
-        I: StreamOnce + Positioned,
+        F: FnOnce(T) -> ParseResult2<U, E>,
     {
         match self {
             Consumed::Consumed(x) => match f(x) {
@@ -1125,7 +1124,7 @@ where
     ///
     /// # fn main() {
     /// let input: &[u8] = b"123,";
-    /// let stream = BufferedStream::new(State::new(ReadStream::new(&mut input)), 1);
+    /// let stream = BufferedStream::new(State::new(ReadStream::new(input)), 1);
     /// let result = (many(digit()), byte(b','))
     ///     .parse(stream.as_stream())
     ///     .map(|t| t.0);
@@ -1428,15 +1427,19 @@ pub trait Parser {
     /// # use combine::*;
     /// # use combine::primitives::Consumed;
     /// # use combine::char::{digit, letter};
-    /// fn test() -> ParseResult<(char, char), &'static str> {
+    /// fn test(input: &mut &'static str) -> ParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
-    ///     let ((d, _), input) = try!((p.by_ref(), letter()).parse_stream("1a23"));
-    ///     let (d2, input) = try!(input.combine(|input| p.parse_stream(input)));
-    ///     Ok(((d, d2), input))
+    ///     let ((d, _), consumed) = try!((p.by_ref(), letter()).parse_stream(input));
+    ///     let (d2, consumed) = try!(consumed.combine(|_| p.parse_stream(input)));
+    ///     Ok(((d, d2), consumed))
     /// }
     ///
     /// fn main() {
-    ///     assert_eq!(test(), Ok((('1', '2'), Consumed::Consumed("3"))));
+    ///     let mut input = "1a23";
+    ///     assert_eq!(
+    ///         test(&mut input).map(|(t, c)| (t, c.map(|_| input))),
+    ///         Ok((('1', '2'), Consumed::Consumed("3")))
+    ///     );
     /// }
     /// ```
     fn by_ref(&mut self) -> &mut Self
@@ -1795,10 +1798,10 @@ pub trait Parser {
     /// fn test<'input, F>(
     ///     c: char,
     ///     f: F)
-    ///     -> Box<Parser<Input = &'input str, Output = (char, char)>>
+    ///     -> Box<Parser<Input = &'input str, Output = (char, char), PartialState = ()>>
     ///     where F: FnMut(char) -> bool + 'static
     /// {
-    ///     (token(c), satisfy(f)).boxed()
+    ///     ::combine::combinator::no_partial((token(c), satisfy(f))).boxed()
     /// }
     /// let result = test('a', |c| c >= 'a' && c <= 'f')
     ///     .parse("ac");
@@ -1911,13 +1914,12 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<I, O, P: ?Sized> Parser for Box<P>
+impl<P> Parser for Box<P>
 where
-    I: Stream,
-    P: Parser<Input = I, Output = O>,
+    P: ?Sized + Parser,
 {
-    type Input = I;
-    type Output = O;
+    type Input = P::Input;
+    type Output = P::Output;
     type PartialState = P::PartialState;
 
     #[inline(always)]

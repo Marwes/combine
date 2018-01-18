@@ -1846,12 +1846,12 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     // Help type inference out
-///     let _: easy::Stream<&str> = input;
+///     let _: &mut easy::Stream<&str> = input;
 ///     let position = input.position();
-///     let (char_digit, input) = try!(digit().parse_stream(input));
+///     let (char_digit, consumed) = try!(digit().parse_stream(input));
 ///     let d = (char_digit as i32) - ('0' as i32);
 ///     if d % 2 == 0 {
-///         Ok((d, input))
+///         Ok((d, consumed))
 ///     }
 ///     else {
 ///         //Return an empty error since we only tested the first token of the stream
@@ -3039,7 +3039,7 @@ where
 /// # fn main() {
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
-///     fn string<I>(&self, input: &mut Self::Input) -> ParseResult<u32, I>
+///     fn string<I>(&self, input: &mut I) -> ParseResult<u32, I>
 ///         where I: Stream<Item=char>,
 ///               I::Error: ParseError<I::Item, I::Range, I::Position>,
 ///     {
@@ -3183,6 +3183,42 @@ where
     }
 }
 
+pub struct NoPartial<P>(P);
+
+impl<P> Parser for NoPartial<P>
+where
+    P: Parser,
+{
+    type Input = <P as Parser>::Input;
+    type Output = <P as Parser>::Output;
+    type PartialState = ();
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_lazy(input)
+    }
+
+    #[inline]
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        _state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_lazy(input)
+    }
+
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(error)
+    }
+}
+
+pub fn no_partial<P>(p: P) -> NoPartial<P>
+where
+    P: Parser,
+{
+    NoPartial(p)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3229,36 +3265,6 @@ mod tests_std {
     use easy::{Error, Errors, StreamErrors};
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
-
-    struct NoPartial<P>(P);
-
-    impl<P> Parser for NoPartial<P>
-    where
-        P: Parser,
-    {
-        type Input = <P as Parser>::Input;
-        type Output = <P as Parser>::Output;
-        type PartialState = ();
-
-        fn parse_lazy(
-            &mut self,
-            input: &mut Self::Input,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_lazy(input)
-        }
-
-        fn parse_partial(
-            &mut self,
-            input: &mut Self::Input,
-            state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_partial(input, &mut Default::default())
-        }
-
-        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-            self.0.add_error(error)
-        }
-    }
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {

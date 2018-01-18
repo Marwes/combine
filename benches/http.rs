@@ -27,26 +27,26 @@ struct Header<'a> {
 
 fn is_token(c: u8) -> bool {
     match c {
-        128...255 |
-        0...31 |
-        b'(' |
-        b')' |
-        b'<' |
-        b'>' |
-        b'@' |
-        b',' |
-        b';' |
-        b':' |
-        b'\\' |
-        b'"' |
-        b'/' |
-        b'[' |
-        b']' |
-        b'?' |
-        b'=' |
-        b'{' |
-        b'}' |
-        b' ' => false,
+        128...255
+        | 0...31
+        | b'('
+        | b')'
+        | b'<'
+        | b'>'
+        | b'@'
+        | b','
+        | b';'
+        | b':'
+        | b'\\'
+        | b'"'
+        | b'/'
+        | b'['
+        | b']'
+        | b'?'
+        | b'='
+        | b'{'
+        | b'}'
+        | b' ' => false,
         _ => true,
     }
 }
@@ -64,7 +64,7 @@ fn is_http_version(c: u8) -> bool {
     c >= b'0' && c <= b'9' || c == b'.'
 }
 
-fn parse_http_request<'a, I>input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
+fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
 where
     I: RangeStream<Item = u8, Range = &'a [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -74,16 +74,13 @@ where
 
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
-    let request_line = struct_parser!(
-        Request {
+    let request_line = struct_parser!(Request {
             method: take_while1(is_token),
             _: take_while1(is_space),
             uri: take_while1(is_not_space),
             _: take_while1(is_space),
             version: http_version,
-        }
-    );
-
+        });
 
     let message_header_line = (
         take_while1(is_horizontal_space),
@@ -95,11 +92,9 @@ where
         take_while1(is_token),
         token(b':'),
         many1(message_header_line),
-    ).map(|(name, _, value)| {
-        Header {
-            name: name,
-            value: value,
-        }
+    ).map(|(name, _, value)| Header {
+        name: name,
+        value: value,
     });
 
     let mut request = (

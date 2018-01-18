@@ -41,10 +41,10 @@ where
 }
 struct Json<I>(::std::marker::PhantomData<fn(I) -> I>);
 
-type FnPtrParser<O, I> = FnParser<I, fn(I) -> ParseResult<O, I>>;
+type FnPtrParser<O, I> = FnParser<I, fn(&mut I) -> ParseResult<O, I>>;
 type JsonParser<O, I> = Expected<FnPtrParser<O, I>>;
 
-fn fn_parser<O, I>(f: fn(I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
+fn fn_parser<O, I>(f: fn(&mut I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -60,7 +60,7 @@ where
     fn integer() -> JsonParser<i64, I> {
         fn_parser(Json::<I>::integer_, "integer")
     }
-    fn integer_(input: I) -> ParseResult<i64, I> {
+    fn integer_(input: &mut I) -> ParseResult<i64, I> {
         let (s, input) = try!(lex(many1::<String, _>(digit())).parse_lazy(input).into());
         let mut n = 0;
         for c in s.chars() {
@@ -72,7 +72,7 @@ where
     fn number() -> JsonParser<f64, I> {
         fn_parser(Json::<I>::number_, "number")
     }
-    fn number_(input: I) -> ParseResult<f64, I> {
+    fn number_(input: &mut I) -> ParseResult<f64, I> {
         let i = char('0')
             .map(|_| 0.0)
             .or(Json::<I>::integer().map(|x| x as f64));
@@ -89,29 +89,27 @@ where
 
         let exp =
             satisfy(|c| c == 'e' || c == 'E').with(optional(char('-')).and(Json::<I>::integer()));
-        lex(
-            optional(char('-'))
-                .and(i)
-                .map(|(sign, n)| if sign.is_some() { -n } else { n })
-                .and(optional(char('.')).with(fractional))
-                .map(|(x, y)| if x >= 0.0 { x + y } else { x - y })
-                .and(optional(exp))
-                .map(|(n, exp_option)| match exp_option {
-                    Some((sign, e)) => {
-                        let e = if sign.is_some() { -e } else { e };
-                        n * 10.0f64.powi(e as i32)
-                    }
-                    None => n,
-                }),
-        ).parse_lazy(input)
+        lex(optional(char('-'))
+            .and(i)
+            .map(|(sign, n)| if sign.is_some() { -n } else { n })
+            .and(optional(char('.')).with(fractional))
+            .map(|(x, y)| if x >= 0.0 { x + y } else { x - y })
+            .and(optional(exp))
+            .map(|(n, exp_option)| match exp_option {
+                Some((sign, e)) => {
+                    let e = if sign.is_some() { -e } else { e };
+                    n * 10.0f64.powi(e as i32)
+                }
+                None => n,
+            })).parse_lazy(input)
             .into()
     }
 
     fn char() -> JsonParser<char, I> {
         fn_parser(Json::<I>::char_, "char")
     }
-    fn char_(input: I) -> ParseResult<char, I> {
-        let (c, input) = try!(any().parse_lazy(input).into());
+    fn char_(input: &mut I) -> ParseResult<char, I> {
+        let (c, consumed) = try!(any().parse_lazy(input).into());
         let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().any(|x| x == c)).map(|c| {
             match c {
                 '"' => '"',
@@ -126,17 +124,15 @@ where
             }
         });
         match c {
-            '\\' => input.combine(|input| back_slash_char.parse_stream(input)),
-            '"' => Err(Consumed::Empty(
-                I::Error::empty(input.into_inner().position()).into(),
-            )),
-            _ => Ok((c, input)),
+            '\\' => consumed.combine(|_| back_slash_char.parse_stream(input)),
+            '"' => Err(Consumed::Empty(I::Error::empty(input.position()).into())),
+            _ => Ok((c, consumed)),
         }
     }
     fn string() -> JsonParser<String, I> {
         fn_parser(Json::<I>::string_, "string")
     }
-    fn string_(input: I) -> ParseResult<String, I> {
+    fn string_(input: &mut I) -> ParseResult<String, I> {
         between(char('"'), lex(char('"')), many(Json::<I>::char()))
             .parse_lazy(input)
             .into()
@@ -145,7 +141,7 @@ where
     fn object() -> JsonParser<Value, I> {
         fn_parser(Json::<I>::object_, "object")
     }
-    fn object_(input: I) -> ParseResult<Value, I> {
+    fn object_(input: &mut I) -> ParseResult<Value, I> {
         let field = (Json::<I>::string(), lex(char(':')), Json::<I>::value()).map(|t| (t.0, t.2));
         let fields = sep_by(field, lex(char(',')));
         between(lex(char('{')), lex(char('}')), fields)
@@ -155,10 +151,10 @@ where
     }
 
     fn value() -> FnPtrParser<Value, I> {
-        parser(Json::<I>::value_ as fn(_) -> _)
+        parser(Json::<I>::value_)
     }
     #[allow(unconditional_recursion)]
-    fn value_(input: I) -> ParseResult<Value, I> {
+    fn value_(input: &mut I) -> ParseResult<Value, I> {
         let array = between(
             lex(char('[')),
             lex(char(']')),
