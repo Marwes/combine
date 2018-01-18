@@ -1803,8 +1803,8 @@ impl<'a, I: Stream, O> Parser for FnMut(I) -> ParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
     type PartialState = ();
-    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
-        self(input)
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+        self(input).into()
     }
 }
 
@@ -1864,8 +1864,8 @@ where
     type Input = I;
     type Output = O;
     type PartialState = ();
-    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
-        (self.0)(input)
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+        (self.0)(input).into()
     }
 }
 
@@ -1876,8 +1876,8 @@ where
     type Input = I;
     type Output = O;
     type PartialState = ();
-    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
-        self(input)
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+        self(input).into()
     }
 }
 
@@ -2090,8 +2090,15 @@ where
     type Output = O;
     type PartialState = ();
     #[inline]
-    fn parse_stream(&mut self, input: I) -> ParseResult<O, I> {
-        self.0.parse_stream(input).map_err(Consumed::into_empty)
+    fn parse_stream_consumed(&mut self, input: I) -> ConsumedResult<O, I> {
+        self.parse_lazy(input)
+    }
+    #[inline]
+    fn parse_lazy(&mut self, input: I) -> ConsumedResult<O, I> {
+        self.0
+            .parse_stream(input)
+            .map_err(Consumed::into_empty)
+            .into()
     }
 }
 
