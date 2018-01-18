@@ -552,6 +552,7 @@ macro_rules! combine_parser_impl {
     };
 }
 
+extern crate unreachable;
 pub extern crate byteorder;
 pub extern crate either;
 

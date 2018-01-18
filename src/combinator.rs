@@ -89,17 +89,16 @@ where
     I: Stream,
     P: FnMut(I::Item) -> Option<R>,
 {
-    let position = input.position();
-    let mut temp = input.clone();
-    match temp.uncons() {
+    let temp = input.clone();
+    match input.uncons() {
         Ok(c) => match predicate(c.clone()) {
-            Some(c) => {
+            Some(c) => ConsumedOk(c),
+            None => {
                 *input = temp;
-                ConsumedOk(c)
+                EmptyErr(I::Error::empty(input.position()).into())
             }
-            None => EmptyErr(I::Error::empty(position).into()),
         },
-        Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
+        Err(err) => EmptyErr(I::Error::from_error(input.position(), err).into()),
     }
 }
 
@@ -2225,6 +2224,11 @@ where
     type Input = I;
     type Output = P2::Output;
     type PartialState = <(P1, P2) as Parser>::PartialState;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_lazy(input).map(|(_, b)| b)
+    }
     #[inline]
     fn parse_partial(
         &mut self,
@@ -2389,6 +2393,17 @@ where
     type Input = I;
     type Output = B;
     type PartialState = P::PartialState;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        match self.0.parse_lazy(input) {
+            ConsumedOk(x) => ConsumedOk((self.1)(x)),
+            EmptyOk(x) => EmptyOk((self.1)(x)),
+            ConsumedErr(err) => ConsumedErr(err),
+            EmptyErr(err) => EmptyErr(err),
+        }
+    }
+
     #[inline]
     fn parse_partial(
         &mut self,
@@ -2632,10 +2647,10 @@ impl<T, U> Either<T, U>
 where
     U: Default,
 {
-    fn unwrap_value(&mut self) -> T {
+    unsafe fn unwrap_value(&mut self) -> T {
         match mem::replace(self, Either::State(U::default())) {
             Either::Value(t) => t,
-            Either::State(_) => unreachable!(),
+            Either::State(_) => ::unreachable::unreachable(),
         }
     }
 }
@@ -2808,6 +2823,8 @@ macro_rules! tuple_parser {
                         unreachable!()
                     };
                     state.$h = Either::Value(temp);
+                } else {
+                    unsafe { ::unreachable::unreachable() }
                 }
 
                 $(
@@ -2831,10 +2848,12 @@ macro_rules! tuple_parser {
                             unreachable!()
                         };
                         state.$id = Either::Value(temp);
+                    } else {
+                        unsafe { ::unreachable::unreachable() }
                     }
                 )+
 
-                let value = (state.$h.unwrap_value(), $(state.$id.unwrap_value()),+);
+                let value = unsafe { (state.$h.unwrap_value(), $(state.$id.unwrap_value()),+) };
                 if first_empty_parser != 0 {
                     ConsumedOk(value)
                 } else {

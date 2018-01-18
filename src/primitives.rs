@@ -1387,12 +1387,13 @@ pub trait Parser {
     /// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
     /// [`ParseError`]: struct.ParseError.html
     /// [`add_error`]: trait.Parser.html#method.add_error
-    #[inline]
+    #[inline(always)]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         self.parse_partial(input, &mut Default::default())
     }
 
     // TODO
+    #[inline(always)]
     fn parse_partial(
         &mut self,
         input: &mut Self::Input,
