@@ -89,16 +89,13 @@ where
     I: Stream,
     P: FnMut(I::Item) -> Option<R>,
 {
-    let temp = input.clone();
+    let position = input.position();
     match input.uncons() {
         Ok(c) => match predicate(c.clone()) {
             Some(c) => ConsumedOk(c),
-            None => {
-                *input = temp;
-                EmptyErr(I::Error::empty(input.position()).into())
-            }
+            None => EmptyErr(I::Error::empty(position).into()),
         },
-        Err(err) => EmptyErr(I::Error::from_error(input.position(), err).into()),
+        Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
     }
 }
 
@@ -2738,12 +2735,16 @@ macro_rules! tuple_parser {
                 let $h = temp;
                 $(
                     current_parser += 1;
+                    let before = input.clone();
                     let temp = match $id.parse_lazy(input) {
                         ConsumedOk(x) => {
                             first_empty_parser = current_parser + 1;
                             x
                         }
-                        EmptyErr(err) => return add_errors!(err, offset),
+                        EmptyErr(err) => {
+                            *input = before;
+                            return add_errors!(err, offset)
+                        }
                         ConsumedErr(err) => return ConsumedErr(err),
                         EmptyOk(x) => {
                             x
@@ -2831,12 +2832,16 @@ macro_rules! tuple_parser {
                     if let Either::State(_) = state.$id {
                         let temp = if let Either::State(ref mut child_state) = state.$id {
                             current_parser += 1;
+                            let before = input.clone();
                             let temp = match $id.parse_partial(input, child_state) {
                                 ConsumedOk(x) => {
                                     first_empty_parser = current_parser + 1;
                                     x
                                 }
-                                EmptyErr(err) => return add_errors!(err, state.offset),
+                                EmptyErr(err) => {
+                                    *input = before;
+                                    return add_errors!(err, state.offset)
+                                }
                                 ConsumedErr(err) => return ConsumedErr(err),
                                 EmptyOk(x) => {
                                     x
