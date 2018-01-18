@@ -280,7 +280,7 @@ where
         let mut consumed = false;
         for c in self.tokens.clone() {
             match ::primitives::uncons(input) {
-                Ok((other, rest)) => {
+                Ok((other, _)) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
                             let mut errors = <Self::Input as StreamOnce>::Error::from_error(
@@ -935,7 +935,6 @@ where
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         let (ref mut count, ref mut elements, ref mut child_state) = *state;
-        let max = self.max;
 
         let mut iter = self.parser.by_ref().partial_iter(input, child_state);
         elements.extend(
@@ -1126,7 +1125,7 @@ where
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<T, I> {
+    fn parse_lazy(&mut self, _: &mut Self::Input) -> ConsumedResult<T, I> {
         EmptyOk(self.0.clone())
     }
 }

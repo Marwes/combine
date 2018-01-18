@@ -80,7 +80,7 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let before = input.clone();
-        let (value, new_input) = ctry!(self.0.parse_lazy(input));
+        let (value, _) = ctry!(self.0.parse_lazy(input));
         let distance = before.distance(input);
         *input = before;
         take(distance).parse_lazy(input).map(|range| (range, value))

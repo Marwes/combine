@@ -1324,7 +1324,7 @@ pub trait Parser {
         mut input: Self::Input,
     ) -> Result<(Self::Output, Self::Input), <Self::Input as StreamOnce>::Error> {
         match self.parse_stream(&mut input) {
-            Ok((v, state)) => Ok((v, input)),
+            Ok((v, _)) => Ok((v, input)),
             Err(error) => Err(error.into_inner().error),
         }
     }
