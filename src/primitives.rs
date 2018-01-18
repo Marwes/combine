@@ -1750,11 +1750,41 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter<'a>(
+    fn iter<'a>(self, input: <Self as Parser>::Input) -> Iter<Self, Self::PartialState>
+    where
+        Self: Parser + Sized,
+    {
+        Iter::new(self, input, Default::default())
+    }
+
+    /// Creates an iterator from a parser and a state. Can be used as an alternative to [`many`]
+    /// when collecting directly into a `FromIterator` type is not desirable.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::{char, digit};
+    /// # fn main() {
+    /// let mut buffer = String::new();
+    /// let number = parser(|input| {
+    ///     buffer.clear();
+    ///     let mut iter = digit().iter(input);
+    ///     buffer.extend(&mut iter);
+    ///     let i = buffer.parse::<i32>().unwrap();
+    ///     iter.into_result(i)
+    /// });
+    /// let result = sep_by(number, char(','))
+    ///     .parse("123,45,6");
+    /// assert_eq!(result, Ok((vec![123, 45, 6], "")));
+    /// # }
+    /// ```
+    ///
+    /// [`many`]: ../combinator/fn.many.html
+    fn partial_iter<'a>(
         self,
         input: <Self as Parser>::Input,
         partial_state: &'a mut Self::PartialState,
-    ) -> Iter<'a, Self>
+    ) -> Iter<Self, &'a mut Self::PartialState>
     where
         Self: Parser + Sized,
     {

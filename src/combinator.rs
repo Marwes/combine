@@ -539,7 +539,7 @@ where
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
         let count = &mut state.0;
-        let mut iter = self.parser.by_ref().iter(input, &mut state.1);
+        let mut iter = self.parser.by_ref().partial_iter(input, &mut state.1);
 
         let value = iter.by_ref()
             .take_while(|_| if *count == 0 {
@@ -925,7 +925,7 @@ where
         let count = &mut state.0;
         let max = self.max;
 
-        let mut iter = self.parser.by_ref().iter(input, &mut state.1);
+        let mut iter = self.parser.by_ref().partial_iter(input, &mut state.1);
         let value = iter.by_ref()
             .take_while(|_| if *count < max {
                 *count += 1;
@@ -1222,12 +1222,12 @@ where
     Eof(PhantomData)
 }
 
-pub struct Iter<'a, P: Parser + 'a> {
+pub struct Iter<P: Parser, S> {
     parser: P,
     input: P::Input,
     consumed: bool,
     state: State<<P::Input as StreamOnce>::Error>,
-    partial_state: &'a mut P::PartialState,
+    partial_state: S,
 }
 
 enum State<E> {
@@ -1236,8 +1236,11 @@ enum State<E> {
     ConsumedErr(E),
 }
 
-impl<'a, P: Parser> Iter<'a, P> {
-    pub fn new(parser: P, input: P::Input, partial_state: &'a mut P::PartialState) -> Self {
+impl<P: Parser, S> Iter<P, S>
+where
+    S: ::std::borrow::BorrowMut<P::PartialState>,
+{
+    pub fn new(parser: P, input: P::Input, partial_state: S) -> Self {
         Iter {
             parser: parser,
             input: input,
@@ -1264,12 +1267,15 @@ impl<'a, P: Parser> Iter<'a, P> {
     }
 }
 
-impl<'a, P: Parser> Iterator for Iter<'a, P> {
+impl<P: Parser, S> Iterator for Iter<P, S>
+where
+    S: ::std::borrow::BorrowMut<P::PartialState>,
+{
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
         match self.state {
             State::Ok => match self.parser
-                .parse_partial(self.input.clone(), self.partial_state)
+                .parse_partial(self.input.clone(), self.partial_state.borrow_mut())
             {
                 EmptyOk((v, input)) => {
                     self.input = input;
@@ -1314,7 +1320,7 @@ where
         // TODO
         let (ref mut elements, ref mut child_state) = *state;
 
-        let mut iter = (&mut self.0).iter(input, child_state);
+        let mut iter = (&mut self.0).partial_iter(input, child_state);
         elements.extend(iter.by_ref());
         iter.into_result_fast(mem::replace(elements, F::default()))
     }
