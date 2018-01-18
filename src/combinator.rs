@@ -487,7 +487,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::easy;
-/// # use combine::state::PartialState;
+/// # use combine::state::State;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
 /// let result = parser.easy_parse(State::new(&b"xyb"[..]))

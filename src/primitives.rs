@@ -1118,7 +1118,7 @@ where
     /// use combine::byte::*;
     /// use combine::primitives::ReadStream;
     /// use combine::buffered_stream::BufferedStream;
-    /// use combine::state::PartialState;
+    /// use combine::state::State;
     /// use std::io::Read;
     ///
     /// # fn main() {
