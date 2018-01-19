@@ -2632,8 +2632,9 @@ macro_rules! dispatch_on {
     ($i: expr, $f: expr;) => {
     };
     ($i: expr, $f: expr; $first: ident $(, $id: ident)*) => { {
-        $f($i, $first);
-        dispatch_on!($i + 1, $f; $($id),*);
+        if $f($i, $first) {
+            dispatch_on!($i + 1, $f; $($id),*);
+        }
     } }
 }
 
@@ -2711,18 +2712,25 @@ macro_rules! tuple_parser {
                           $h: Parser<Input=Input2>,
                           $($id: Parser<Input=Input2>),+
                 {
+                    err.offset = ErrorOffset(offset);
                     if first_empty_parser != 0 {
                         if let Ok(t) = input.uncons::<UnexpectedParse>() {
                             err.error.add(StreamError::unexpected_token(t));
                         }
-                        dispatch_on!(0, |i, p| {
+                        dispatch_on!(0, |i, mut p| {
                             if i >= first_empty_parser {
-                                Parser::add_error(p, &mut err);
+                                Parser::add_error(&mut p, &mut err);
+                                if err.offset <= ErrorOffset(1) {
+                                    return false;
+                                }
+                                err.offset = ErrorOffset(
+                                    err.offset.0.saturating_sub(Parser::parser_count(&p).0)
+                                );
                             }
+                            true
                         }; $h, $($id),*);
                         ConsumedErr(err.error)
                     } else {
-                        err.offset = ErrorOffset(offset);
                         EmptyErr(err)
                     }
                 }
@@ -2794,18 +2802,25 @@ macro_rules! tuple_parser {
                           $h: Parser<Input=Input2>,
                           $($id: Parser<Input=Input2>),+
                 {
+                    err.offset = ErrorOffset(offset);
                     if first_empty_parser != 0 {
                         if let Ok(t) = input.uncons::<UnexpectedParse>() {
                             err.error.add(StreamError::unexpected_token(t));
                         }
-                        dispatch_on!(0, |i, p| {
+                        dispatch_on!(0, |i, mut p| {
                             if i >= first_empty_parser {
-                                Parser::add_error(p, &mut err);
+                                Parser::add_error(&mut p, &mut err);
+                                if err.offset <= ErrorOffset(1) {
+                                    return false;
+                                }
                             }
+                            err.offset = ErrorOffset(
+                                err.offset.0.saturating_sub(Parser::parser_count(&p).0)
+                            );
+                        true
                         }; $h, $($id),*);
                         ConsumedErr(err.error)
                     } else {
-                        err.offset = ErrorOffset(offset);
                         EmptyErr(err)
                     }
                 }
@@ -3484,6 +3499,27 @@ mod tests_std {
                     Error::Unexpected('i'.into()),
                     Error::Unexpected("test".into()),
                 ],
+            })
+        );
+    }
+
+    #[test]
+    fn sequence_error() {
+        let mut parser = (char('a'), char('b'), char('c'));
+
+        assert_eq!(
+            parser.easy_parse(State::new("c")),
+            Err(Errors {
+                position: SourcePosition { line: 1, column: 1 },
+                errors: vec![Error::Unexpected('c'.into()), Error::Expected('a'.into())],
+            })
+        );
+
+        assert_eq!(
+            parser.easy_parse(State::new("ac")),
+            Err(Errors {
+                position: SourcePosition { line: 1, column: 2 },
+                errors: vec![Error::Unexpected('c'.into()), Error::Expected('b'.into())],
             })
         );
     }
