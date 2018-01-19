@@ -1358,6 +1358,17 @@ pub trait Parser {
         }
     }
 
+    fn parse_with_state(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> Result<Self::Output, <Self::Input as StreamOnce>::Error> {
+        match self.parse_stream_consumed_partial(input, state).into() {
+            Ok((v, _)) => Ok(v),
+            Err(error) => Err(error.into_inner().error),
+        }
+    }
+
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
     ///
     /// On success returns `Ok((value, new_state))`, and on failure returns `Err(error)`.
@@ -1385,8 +1396,17 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
     ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.parse_stream_consumed_partial(input, &mut Default::default())
+    }
+
+    #[inline]
+    fn parse_stream_consumed_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
         let before = input.checkpoint();
-        let mut result = self.parse_lazy(input);
+        let mut result = self.parse_partial(input, state);
         if let FastResult::EmptyErr(ref mut error) = result {
             input.reset(before.clone());
             if let Ok(t) = input.uncons::<UnexpectedParse>() {
