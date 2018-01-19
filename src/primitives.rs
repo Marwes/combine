@@ -5,6 +5,8 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::io::{Bytes, Read};
 
+use either::Either;
+
 use self::FastResult::*;
 
 use combinator::{and_then, expected, flat_map, map, message, or, skip, then, with, AndThen,
@@ -1820,7 +1822,76 @@ pub trait Parser {
     {
         Box::new(self)
     }
+
+    /// Wraps the parser into the `Either` enum which allows combinators such as `then` to return
+    /// multiple different parser types (merging them to one)
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::{digit, letter};
+    /// # fn main() {
+    /// let mut parser = any().then(|c|
+    ///     if c == '#' {
+    ///         skip_many(satisfy(|c| c != '\n'))
+    ///             .with(value("".to_string()))
+    ///             .left()
+    ///     } else {
+    ///         many1(letter())
+    ///             .map(move |mut s: String| { s.insert(0, c); s })
+    ///             .right()
+    ///     });
+    ///
+    /// let result = parser.parse("ac2");
+    /// assert_eq!(result, Ok(("ac".to_string(), "2")));
+    ///
+    /// let result = parser.parse("# ac2");
+    /// assert_eq!(result, Ok(("".to_string(), "")));
+    /// # }
+    /// ```
+    fn left<R>(self) -> Either<Self, R>
+    where
+        Self: Sized,
+        R: Parser<Input = Self::Input, Output = Self::Output>,
+    {
+        Either::Left(self)
+    }
+
+    /// Wraps the parser into the `Either` enum which allows combinators such as `then` to return
+    /// multiple different parser types (merging them to one)
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::{digit, letter};
+    /// # fn main() {
+    /// let mut parser = any().then(|c|
+    ///     if c == '#' {
+    ///         skip_many(satisfy(|c| c != '\n'))
+    ///             .with(value("".to_string()))
+    ///             .left()
+    ///     } else {
+    ///         many1(letter())
+    ///             .map(move |mut s: String| { s.insert(0, c); s })
+    ///             .right()
+    ///     });
+    ///
+    /// let result = parser.parse("ac2");
+    /// assert_eq!(result, Ok(("ac".to_string(), "2")));
+    ///
+    /// let result = parser.parse("# ac2");
+    /// assert_eq!(result, Ok(("".to_string(), "")));
+    /// # }
+    /// ```
+    fn right<L>(self) -> Either<L, Self>
+    where
+        Self: Sized,
+        L: Parser<Input = Self::Input, Output = Self::Output>,
+    {
+        Either::Right(self)
+    }
 }
+
 impl<'a, I, O, P: ?Sized> Parser for &'a mut P
 where
     I: Stream,

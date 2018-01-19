@@ -477,6 +477,7 @@ macro_rules! combine_parser_impl {
 
 
 pub extern crate byteorder;
+pub extern crate either;
 
 /// Module containing the primitive types which is used to create and compose more advanced
 /// parsers.

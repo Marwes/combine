@@ -1,5 +1,8 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
+
+use either::Either;
+
 use primitives::{Consumed, ConsumedResult, Error, Info, ParseError, ParseResult, Parser, Stream,
                  StreamOnce};
 use primitives::FastResult::*;
@@ -2507,6 +2510,32 @@ where
     F: FromIterator<<P::Input as StreamOnce>::Item>,
 {
     Recognize(parser, PhantomData)
+}
+
+
+impl<L, R> Parser for Either<L, R>
+where
+    L: Parser,
+    R: Parser<Input = L::Input, Output = L::Output>,
+{
+    type Input = L::Input;
+    type Output = L::Output;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        match *self {
+            Either::Left(ref mut x) => x.parse_lazy(input),
+            Either::Right(ref mut x) => x.parse_lazy(input),
+        }
+    }
+
+    #[inline]
+    fn add_error(&mut self, errors: &mut ParseError<Self::Input>) {
+        match *self {
+            Either::Left(ref mut x) => x.add_error(errors),
+            Either::Right(ref mut x) => x.add_error(errors),
+        }
+    }
 }
 
 #[cfg(test)]
