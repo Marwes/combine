@@ -1537,6 +1537,8 @@ pub trait Parser {
     /// Parses using `self` and then passes the value to `f` which returns a parser used to parse
     /// the rest of the input.
     ///
+    /// Since the parser returned from `f` must have a single
+    ///
     /// ```
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
@@ -1546,21 +1548,14 @@ pub trait Parser {
     /// # use combine::easy;
     /// # fn main() {
     /// let result = digit()
-    ///     .then(|d| parser(move |input| {
-    ///             // Force input to be a easy::Stream<&str>
-    ///             let _: easy::Stream<&str> = input;
+    ///     .then(|d| {
     ///         if d == '9' {
-    ///             Ok((9, Consumed::Empty(input)))
+    ///             value(9).left()
     ///         }
     ///         else {
-    ///             let position = input.position();
-    ///             let err = easy::Errors::new(
-    ///                 position,
-    ///                 easy::Error::Message("Not a nine".into()),
-    ///             ).into();
-    ///             Err((Consumed::Empty(err)))
+    ///             unexpected(d).map(|_| 0).message("Not a nine").right()
     ///         }
-    ///     }))
+    ///     })
     ///     .easy_parse("9");
     /// assert_eq!(result, Ok((9, "")));
     /// # }
