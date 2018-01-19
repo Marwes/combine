@@ -295,26 +295,26 @@ macro_rules! parser {
         $(#[$attr:meta])*
         pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
-            { $($parser: tt)* }
+        $parser: block
     ) => {
         parser!{
             $(#[$attr])*
             pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
                 where []
-            { $($parser)* }
+            $parser
         }
     };
     (
         $(#[$attr:meta])*
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
-            { $($parser: tt)* }
+        $parser: block
     ) => {
         parser!{
             $(#[$attr])*
             fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
                 where []
-            { $($parser)* }
+            $parser
         }
     };
     (
@@ -322,14 +322,14 @@ macro_rules! parser {
         pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        { $($parser: tt)* }
+        $parser: block
     ) => {
         parser!{
             pub struct __Parser;
             $(#[$attr])*
             pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
-            { $($parser)* }
+            $parser
         }
     };
     (
@@ -337,14 +337,14 @@ macro_rules! parser {
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        { $($parser: tt)* }
+        $parser: block
     ) => {
         parser!{
             struct __Parser;
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
-            { $($parser)* }
+            $parser
         }
     };
     (
@@ -354,7 +354,7 @@ macro_rules! parser {
         pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        { $($parser: tt)* }
+        $parser: block
     ) => {
         combine_parser_impl!{
             (pub)
@@ -363,7 +363,7 @@ macro_rules! parser {
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
-            { $($parser)* }
+            $parser
         }
     };
     (
@@ -373,7 +373,7 @@ macro_rules! parser {
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        { $($parser: tt)* }
+        $parser: block
     ) => {
         combine_parser_impl!{
             ()
@@ -382,45 +382,9 @@ macro_rules! parser {
             $(#[$attr:meta])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
-            { $($parser)* }
+            $parser
         }
     };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! combine_parse_lazy {
-    ($input: ident
-        $stmt: stmt; $($parser: tt)*
-    ) => { {
-        $stmt;
-        combine_parse_lazy!{$input $($parser)*}
-    } };
-    ($input: ident
-        $parser: expr
-    ) => {
-        $parser.parse_lazy($input)
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! combine_add_error {
-    ($errors: ident ($input_type : ty, $output_type : ty)
-        $stmt: stmt; $($parser: tt)*
-    ) => { {
-        $stmt;
-        combine_add_error!{$errors ($input_type, $output_type) $($parser)*}
-    } };
-    ($errors: ident ($input_type : ty, $output_type : ty)
-        $parser: expr
-    ) => { {
-        let mut parser = $parser;
-        {
-            let _: &mut $crate::Parser<Input = $input_type, Output = $output_type> = &mut parser;
-        }
-        parser.add_error($errors)
-    } }
 }
 
 #[doc(hidden)]
@@ -445,7 +409,7 @@ macro_rules! combine_parser_impl {
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
-        { $($parser: tt)* }
+        $parser: block
     ) => {
         mod $name {
             #[allow(unused_imports)]
@@ -486,7 +450,7 @@ macro_rules! combine_parser_impl {
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
                     let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                    combine_parse_lazy!(input $($parser)*)
+                    $parser.parse_lazy(input)
                 }
 
                 #[inline]
@@ -497,7 +461,11 @@ macro_rules! combine_parser_impl {
                         >)
                 {
                     let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
-                    combine_add_error!(errors ($input_type, $output_type) $($parser)*)
+                    let mut parser = $parser;
+                    {
+                        let _: &mut $crate::Parser<Input = $input_type, Output = $output_type> = &mut parser;
+                    }
+                    parser.add_error(errors)
                 }
             }
             #[inline(always)]

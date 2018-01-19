@@ -5,7 +5,14 @@ parser!{
     fn test[I]()(I) -> ()
         where [I: ::combine::Stream<Item = char>]
     {
-        ::combine::combinator::value(())
+        use combine::combinator::value;
+        let _ = ();
+        fn _test() { }
+        match Some(1) {
+            Some(_) => (),
+            None => (),
+        }
+        value(())
     }
 }
 
