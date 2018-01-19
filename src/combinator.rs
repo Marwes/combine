@@ -110,12 +110,10 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        satisfy_impl(input, |c| {
-            if (self.predicate)(c.clone()) {
-                Some(c)
-            } else {
-                None
-            }
+        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
+            Some(c)
+        } else {
+            None
         })
     }
 }
@@ -941,10 +939,9 @@ where
         if *count < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamError::message_message(format_args!(
-                    "expected {} more elements",
-                    self.min - *count
-                )),
+                StreamError::message_message(
+                    format_args!("expected {} more elements", self.min - *count),
+                ),
             );
             ConsumedErr(err)
         } else {
@@ -1532,9 +1529,9 @@ where
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
         sep_by1(&mut self.parser, &mut self.separator)
-            .or(parser(|_| {
-                Ok((None.into_iter().collect(), Consumed::Empty(())))
-            }))
+            .or(parser(
+                |_| Ok((None.into_iter().collect(), Consumed::Empty(()))),
+            ))
             .parse_partial(input, state)
     }
 
@@ -1684,9 +1681,9 @@ where
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
         sep_end_by1(&mut self.parser, &mut self.separator)
-            .or(parser(|_| {
-                Ok((None.into_iter().collect(), Consumed::Empty(())))
-            }))
+            .or(parser(
+                |_| Ok((None.into_iter().collect(), Consumed::Empty(()))),
+            ))
             .parse_partial(input, state)
     }
 
@@ -2469,7 +2466,8 @@ where
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     P: Parser,
-    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
+    F: FnMut(P::Output)
+        -> Result<B, <P::Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }
@@ -2824,8 +2822,6 @@ macro_rules! tuple_parser {
                         unreachable!()
                     };
                     state.$h = Either::Value(temp);
-                } else {
-                    unsafe { ::unreachable::unreachable() }
                 }
 
                 $(
@@ -2853,8 +2849,6 @@ macro_rules! tuple_parser {
                             unreachable!()
                         };
                         state.$id = Either::Value(temp);
-                    } else {
-                        unsafe { ::unreachable::unreachable() }
                     }
                 )+
 
@@ -3116,12 +3110,10 @@ where
         match self.0.parse_lazy(input) {
             EmptyOk(_) => {
                 let result = (0..)
-                    .scan((), |_, _| {
-                        if before.position() != input.position() {
-                            Some(before.uncons())
-                        } else {
-                            None
-                        }
+                    .scan((), |_, _| if before.position() != input.position() {
+                        Some(before.uncons())
+                    } else {
+                        None
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -3133,12 +3125,10 @@ where
             }
             ConsumedOk(_) => {
                 let result = (0..)
-                    .scan((), |_, _| {
-                        if before.position() != input.position() {
-                            Some(before.uncons())
-                        } else {
-                            None
-                        }
+                    .scan((), |_, _| if before.position() != input.position() {
+                        Some(before.uncons())
+                    } else {
+                        None
                     })
                     .collect::<Result<_, _>>();
                 match result {
