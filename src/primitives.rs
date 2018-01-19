@@ -527,12 +527,41 @@ pub trait StreamOnce {
         E: StreamError<Self::Item, Self::Range>;
 }
 
+pub trait Resetable {
+    type Checkpoint: Clone;
+
+    fn checkpoint(&self) -> Self::Checkpoint;
+    fn reset(&mut self, checkpoint: Self::Checkpoint);
+}
+
+#[macro_export]
+macro_rules! clone_resetable {
+    (( $($params: tt)* ) $ty: ty) => {
+        impl<$($params)*> Resetable for $ty
+        {
+            type Checkpoint = Self;
+
+            fn checkpoint(&self) -> Self {
+                self.clone()
+            }
+            fn reset(&mut self, checkpoint: Self) {
+                *self = checkpoint;
+            }
+        }
+    }
+}
+
+clone_resetable!{('a) &'a str}
+clone_resetable!{('a, T) &'a [T]}
+clone_resetable!{('a, T) SliceStream<'a, T> }
+clone_resetable!{(T: Clone) IteratorStream<T>}
+
 /// A stream of tokens which can be duplicated
-pub trait Stream: StreamOnce + Positioned + Clone {}
+pub trait Stream: StreamOnce + Resetable + Positioned {}
 
 impl<I> Stream for I
 where
-    I: StreamOnce + Positioned + Clone,
+    I: StreamOnce + Positioned + Resetable,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
 }
@@ -552,7 +581,7 @@ where
 }
 
 /// A `RangeStream` is an extension of `StreamOnce` which allows for zero copy parsing.
-pub trait RangeStreamOnce: StreamOnce {
+pub trait RangeStreamOnce: StreamOnce + Resetable {
     /// Takes `size` elements from the stream.
     /// Fails if the length of the stream is less than `size`.
     fn uncons_range<E>(&mut self, size: usize) -> Result<Self::Range, E>
@@ -569,11 +598,11 @@ pub trait RangeStreamOnce: StreamOnce {
     /// Returns the distance between `self` and `end`. The returned `usize` must be so that
     ///
     /// ```ignore
-    /// let start = stream.clone();
+    /// let start = stream.checkpoint();
     /// stream.uncons_range(distance);
-    /// start.distance() == distance
+    /// stream.distance(&start) == distance
     /// ```
-    fn distance(&self, end: &Self) -> usize;
+    fn distance(&self, end: &Self::Checkpoint) -> usize;
 }
 
 /// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
@@ -670,7 +699,7 @@ impl<'a> RangeStreamOnce for &'a str {
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {
-        end.position().0 - self.position().0
+        self.position().0 - end.position().0
     }
 }
 
@@ -726,7 +755,7 @@ where
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {
-        end.position().0 - self.position().0
+        self.position().0 - end.position().0
     }
 }
 
@@ -1126,7 +1155,7 @@ where
     /// let input: &[u8] = b"123,";
     /// let stream = BufferedStream::new(State::new(ReadStream::new(input)), 1);
     /// let result = (many(digit()), byte(b','))
-    ///     .parse(stream.as_stream())
+    ///     .parse(stream)
     ///     .map(|t| t.0);
     /// assert_eq!(result, Ok((vec![b'1', b'2', b'3'], b',')));
     /// # }
@@ -1356,10 +1385,12 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        let mut before = input.clone();
+        let before = input.checkpoint();
         let mut result = self.parse_lazy(input);
         if let FastResult::EmptyErr(ref mut error) = result {
-            if let Ok(t) = before.uncons::<UnexpectedParse>() {
+            input.reset(before.clone());
+            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                input.reset(before);
                 error.error.add_unexpected(Info::Token(t));
             }
             self.add_error(error);

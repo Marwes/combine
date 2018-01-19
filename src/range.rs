@@ -1,7 +1,7 @@
 use lib::marker::PhantomData;
 
 use primitives::{ConsumedResult, Info, ParseError, Parser, RangeStream, RangeStreamOnce,
-                 StreamOnce, Tracked, UnexpectedParse};
+                 Resetable, StreamOnce, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -79,10 +79,10 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let before = input.clone();
+        let before = input.checkpoint();
         let (value, _) = ctry!(self.0.parse_lazy(input));
-        let distance = before.distance(input);
-        *input = before;
+        let distance = input.distance(&before);
+        input.reset(before);
         take(distance).parse_lazy(input).map(|range| (range, value))
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -296,12 +296,15 @@ where
 
         let len = self.0.len();
         let mut to_consume = 0;
-        let mut look_ahead_input = input.clone();
+        let before = input.checkpoint();
 
         loop {
-            match look_ahead_input.clone().uncons_range(len) {
+            let look_ahead_input = input.checkpoint();
+
+            match input.uncons_range(len) {
                 Ok(xs) => {
                     if xs == self.0 {
+                        input.reset(before);
                         if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(to_consume) {
                             if to_consume == 0 {
                                 return EmptyOk(consumed);
@@ -314,14 +317,16 @@ where
                         // because we've already done it on look_ahead_input.
                         unreachable!();
                     } else {
+                        input.reset(look_ahead_input);
                         to_consume += 1;
-                        if look_ahead_input.uncons::<UnexpectedParse>().is_err() {
+                        if input.uncons::<UnexpectedParse>().is_err() {
                             unreachable!();
                         }
                     }
                 }
                 Err(e) => {
-                    return EmptyErr(I::Error::from_error(look_ahead_input.position(), e).into())
+                    input.reset(look_ahead_input);
+                    return EmptyErr(I::Error::from_error(input.position(), e).into());
                 }
             };
         }

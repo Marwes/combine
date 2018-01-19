@@ -141,7 +141,7 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
 
 fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I: RangeStream<Item = u8, Range = &'a [u8]> + Clone,
     I::Error: ParseError<I::Item, I::Range, I::Position> + fmt::Debug,
 {
     b.iter(|| {

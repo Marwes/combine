@@ -279,10 +279,7 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     bencher.iter(|| {
         let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = Json::value();
-        match parser.easy_parse(State::with_positioner(
-            buffer.as_stream(),
-            SourcePosition::default(),
-        )) {
+        match parser.easy_parse(State::with_positioner(buffer, SourcePosition::default())) {
             Ok((Value::Array(v), _)) => {
                 black_box(v);
             }

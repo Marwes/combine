@@ -3,7 +3,7 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use primitives::{EasyError, FullRangeStream, Info as PrimitiveInfo, ParseError, Positioned,
-                 RangeStream, RangeStreamOnce, StreamError, StreamOnce, Tracked};
+                 RangeStream, RangeStreamOnce, Resetable, StreamError, StreamOnce, Tracked};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding easy descriptions.
@@ -640,6 +640,20 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 #[derive(Copy, Clone, Debug)]
 pub struct Stream<S>(pub S);
 
+impl<S> Resetable for Stream<S>
+where
+    S: Resetable,
+{
+    type Checkpoint = S::Checkpoint;
+
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.0.checkpoint()
+    }
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        self.0.reset(checkpoint);
+    }
+}
+
 impl<S> StreamOnce for Stream<S>
 where
     S: StreamOnce + Positioned,
@@ -683,8 +697,8 @@ where
     }
 
     #[inline]
-    fn distance(&self, end: &Self) -> usize {
-        self.0.distance(&end.0)
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
+        self.0.distance(end)
     }
 }
 

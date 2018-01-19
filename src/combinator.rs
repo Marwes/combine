@@ -3,7 +3,7 @@ use lib::marker::PhantomData;
 use lib::mem;
 
 use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser, Positioned,
-                 Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
+                 Resetable, Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
 
 use either::Either;
 
@@ -110,10 +110,12 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
-            Some(c)
-        } else {
-            None
+        satisfy_impl(input, |c| {
+            if (self.predicate)(c.clone()) {
+                Some(c)
+            } else {
+                None
+            }
         })
     }
 }
@@ -215,6 +217,7 @@ where
     type Input = I;
     type Output = I::Item;
     type PartialState = ();
+
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Item, I> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
@@ -679,13 +682,13 @@ macro_rules! do_choice {
     } };
     ($input: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
         let parser = $head;
-        let before = $input.clone();
+        let before = $input.checkpoint();
         match parser.parse_lazy($input) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => ConsumedErr(err),
             EmptyErr($head) => {
-                *$input = before;
+                $input.reset(before);
                 do_choice!($input ( $($tail)* ) $($all)* parser $head)
             }
         } }
@@ -817,9 +820,10 @@ where
     ) -> ConsumedResult<O, I> {
         let mut prev_err = None;
         let mut last_parser_having_non_1_offset = 0;
-        let before = input.clone();
+        let before = input.checkpoint();
         for i in 0..self.len() {
-            *input = before.clone();
+            input.reset(before.clone());
+
             match self[i].parse_lazy(input) {
                 consumed_err @ ConsumedErr(_) => return consumed_err,
                 EmptyErr(err) => {
@@ -939,9 +943,10 @@ where
         if *count < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamError::message_message(
-                    format_args!("expected {} more elements", self.min - *count),
-                ),
+                StreamError::message_message(format_args!(
+                    "expected {} more elements",
+                    self.min - *count
+                )),
             );
             ConsumedErr(err)
         } else {
@@ -1186,9 +1191,13 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<(), I> {
-        match input.clone().uncons::<UnexpectedParse>() {
+        let before = input.checkpoint();
+        match input.uncons::<UnexpectedParse>() {
             Err(ref err) if *err == UnexpectedParse::Eoi => EmptyOk(()),
-            _ => EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into()),
+            _ => {
+                input.reset(before);
+                EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())
+            }
         }
     }
 
@@ -1280,7 +1289,7 @@ where
     fn next(&mut self) -> Option<P::Output> {
         match self.state {
             State::Ok => {
-                let before = self.input.clone();
+                let before = self.input.checkpoint();
                 match self.parser
                     .parse_partial(self.input, self.partial_state.borrow_mut())
                 {
@@ -1290,7 +1299,7 @@ where
                         Some(v)
                     }
                     EmptyErr(_) => {
-                        *self.input = before;
+                        self.input.reset(before);
                         self.state = State::EmptyErr;
                         None
                     }
@@ -1529,9 +1538,9 @@ where
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
         sep_by1(&mut self.parser, &mut self.separator)
-            .or(parser(
-                |_| Ok((None.into_iter().collect(), Consumed::Empty(()))),
-            ))
+            .or(parser(|_| {
+                Ok((None.into_iter().collect(), Consumed::Empty(())))
+            }))
             .parse_partial(input, state)
     }
 
@@ -1681,9 +1690,9 @@ where
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
         sep_end_by1(&mut self.parser, &mut self.separator)
-            .or(parser(
-                |_| Ok((None.into_iter().collect(), Consumed::Empty(()))),
-            ))
+            .or(parser(|_| {
+                Ok((None.into_iter().collect(), Consumed::Empty(())))
+            }))
             .parse_partial(input, state)
     }
 
@@ -1910,13 +1919,13 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Option<P::Output>, P::Input> {
-        let before = input.clone();
+        let before = input.checkpoint();
         match self.0.parse_partial(input, state) {
             EmptyOk(x) => EmptyOk(Some(x)),
             ConsumedOk(x) => ConsumedOk(Some(x)),
             ConsumedErr(err) => ConsumedErr(err),
             EmptyErr(_) => {
-                *input = before;
+                input.reset(before);
                 EmptyOk(None)
             }
         }
@@ -1992,7 +2001,7 @@ where
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<P::Output, I> {
         let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
         loop {
-            let before = input.clone();
+            let before = input.checkpoint();
             match (&mut self.1, &mut self.0).parse_lazy(input).into() {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
@@ -2000,7 +2009,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    *input = before;
+                    input.reset(before);
                     break;
                 }
             }
@@ -2054,7 +2063,7 @@ where
         // FIXME FastResult
         let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
         loop {
-            let before = input.clone();
+            let before = input.checkpoint();
             let op = match self.1.parse_lazy(input).into() {
                 Ok((x, rest)) => {
                     consumed = consumed.merge(rest);
@@ -2062,11 +2071,11 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    *input = before;
+                    input.reset(before);
                     break;
                 }
             };
-            let before = input.clone();
+            let before = input.checkpoint();
             match self.parse_lazy(input).into() {
                 Ok((r, rest)) => {
                     l = op(l, r);
@@ -2074,7 +2083,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    *input = before;
+                    input.reset(before);
                     break;
                 }
             }
@@ -2171,7 +2180,10 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
-        let (o, _input) = ctry!(self.0.parse_lazy(&mut input.clone()));
+        let before = input.checkpoint();
+        let result = self.0.parse_lazy(input);
+        input.reset(before);
+        let (o, _input) = ctry!(result);
         EmptyOk(o)
     }
 
@@ -2466,8 +2478,7 @@ where
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     P: Parser,
-    F: FnMut(P::Output)
-        -> Result<B, <P::Input as StreamOnce>::Error>,
+    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }
@@ -2627,25 +2638,25 @@ macro_rules! dispatch_on {
 }
 
 #[doc(hidden)]
-pub enum Either<T, U> {
+pub enum SequenceState<T, U> {
     Value(T),
     State(U),
 }
 
-impl<T, U: Default> Default for Either<T, U> {
+impl<T, U: Default> Default for SequenceState<T, U> {
     fn default() -> Self {
-        Either::State(U::default())
+        SequenceState::State(U::default())
     }
 }
 
-impl<T, U> Either<T, U>
+impl<T, U> SequenceState<T, U>
 where
     U: Default,
 {
     unsafe fn unwrap_value(&mut self) -> T {
-        match mem::replace(self, Either::State(U::default())) {
-            Either::Value(t) => t,
-            Either::State(_) => ::unreachable::unreachable(),
+        match mem::replace(self, SequenceState::State(U::default())) {
+            SequenceState::Value(t) => t,
+            SequenceState::State(_) => ::unreachable::unreachable(),
         }
     }
 }
@@ -2675,7 +2686,7 @@ macro_rules! tuple_parser {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
             type PartialState = $partial_state<
-                Either<$h::Output, $h::PartialState> $(, Either<$id::Output, $id::PartialState>)*
+                SequenceState<$h::Output, $h::PartialState> $(, SequenceState<$id::Output, $id::PartialState>)*
             >;
 
             #[inline]
@@ -2733,14 +2744,14 @@ macro_rules! tuple_parser {
                 let $h = temp;
                 $(
                     current_parser += 1;
-                    let before = input.clone();
+                    let before = input.checkpoint();
                     let temp = match $id.parse_lazy(input) {
                         ConsumedOk(x) => {
                             first_empty_parser = current_parser + 1;
                             x
                         }
                         EmptyErr(err) => {
-                            *input = before;
+                            input.reset(before);
                             return add_errors!(err, offset)
                         }
                         ConsumedErr(err) => return ConsumedErr(err),
@@ -2803,8 +2814,8 @@ macro_rules! tuple_parser {
                     ($err: ident, $offset: expr) => { add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
                 }
 
-                if let Either::State(_) = state.$h {
-                    let temp = if let Either::State(ref mut child_state) = state.$h {
+                if let SequenceState::State(_) = state.$h {
+                    let temp = if let SequenceState::State(ref mut child_state) = state.$h {
                         let temp = match $h.parse_partial(input, child_state) {
                             ConsumedOk(x) => {
                                 first_empty_parser = current_parser + 1;
@@ -2821,21 +2832,21 @@ macro_rules! tuple_parser {
                     } else {
                         unreachable!()
                     };
-                    state.$h = Either::Value(temp);
+                    state.$h = SequenceState::Value(temp);
                 }
 
                 $(
-                    if let Either::State(_) = state.$id {
-                        let temp = if let Either::State(ref mut child_state) = state.$id {
+                    if let SequenceState::State(_) = state.$id {
+                        let temp = if let SequenceState::State(ref mut child_state) = state.$id {
                             current_parser += 1;
-                            let before = input.clone();
+                            let before = input.checkpoint();
                             let temp = match $id.parse_partial(input, child_state) {
                                 ConsumedOk(x) => {
                                     first_empty_parser = current_parser + 1;
                                     x
                                 }
                                 EmptyErr(err) => {
-                                    *input = before;
+                                    input.reset(before);
                                     return add_errors!(err, state.offset)
                                 }
                                 ConsumedErr(err) => return ConsumedErr(err),
@@ -2848,7 +2859,7 @@ macro_rules! tuple_parser {
                         } else {
                             unreachable!()
                         };
-                        state.$id = Either::Value(temp);
+                        state.$id = SequenceState::Value(temp);
                     }
                 )+
 
@@ -3098,6 +3109,7 @@ pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
 impl<P, F> Parser for Recognize<F, P>
 where
     P: Parser,
+    <P::Input as StreamOnce>::Position: ::std::fmt::Debug,
     F: FromIterator<<P::Input as StreamOnce>::Item>,
 {
     type Input = P::Input;
@@ -3106,35 +3118,47 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<F, P::Input> {
-        let mut before = input.clone();
+        let before = input.checkpoint();
         match self.0.parse_lazy(input) {
             EmptyOk(_) => {
+                let last_position = input.position();
+                input.reset(before);
+
                 let result = (0..)
-                    .scan((), |_, _| if before.position() != input.position() {
-                        Some(before.uncons())
-                    } else {
-                        None
+                    .scan((), |_, _| {
+                        if input.position() != last_position {
+                            Some(input.uncons())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Result<_, _>>();
+
                 match result {
                     Ok(x) => EmptyOk(x),
                     Err(err) => EmptyErr(
-                        <P::Input as StreamOnce>::Error::from_error(before.position(), err).into(),
+                        <P::Input as StreamOnce>::Error::from_error(input.position(), err).into(),
                     ),
                 }
             }
             ConsumedOk(_) => {
+                let last_position = input.position();
+                input.reset(before);
+
                 let result = (0..)
-                    .scan((), |_, _| if before.position() != input.position() {
-                        Some(before.uncons())
-                    } else {
-                        None
+                    .scan((), |_, _| {
+                        if input.position() != last_position {
+                            Some(input.uncons())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Result<_, _>>();
+
                 match result {
                     Ok(x) => ConsumedOk(x),
                     Err(err) => ConsumedErr(
-                        <P::Input as StreamOnce>::Error::from_error(before.position(), err).into(),
+                        <P::Input as StreamOnce>::Error::from_error(input.position(), err).into(),
                     ),
                 }
             }
@@ -3170,7 +3194,6 @@ where
     Recognize(parser, PhantomData)
 }
 
-
 impl<L, R> Parser for Either<L, R>
 where
     L: Parser,
@@ -3178,9 +3201,10 @@ where
 {
     type Input = L::Input;
     type Output = L::Output;
+    type PartialState = Option<Either<L::PartialState, R::PartialState>>;
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         match *self {
             Either::Left(ref mut x) => x.parse_lazy(input),
             Either::Right(ref mut x) => x.parse_lazy(input),

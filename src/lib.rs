@@ -630,7 +630,7 @@ mod tests {
 #[cfg(all(feature = "std", test))]
 mod std_tests {
     use super::*;
-    use super::primitives::{Consumed, IteratorStream};
+    use super::primitives::{Consumed, IteratorStream, Resetable};
     use super::easy::Error;
 
     use char::{alpha_num, char, digit, letter, spaces, string};
@@ -649,12 +649,13 @@ mod std_tests {
         I: Stream<Item = char, Error = StreamErrors<I>>,
         I::Position: Default,
     {
-        match input.clone().uncons::<Error<_, _>>() {
+        let before = input.checkpoint();
+        match input.uncons::<Error<_, _>>() {
             Ok(c) => if c.is_alphanumeric() {
+                input.reset(before);
                 let e = Error::Unexpected(c.into());
                 Err(Consumed::Empty(Errors::new(input.position(), e).into()))
             } else {
-                let _ = input.uncons::<Error<_, _>>();
                 Ok(((), Consumed::Empty(())))
             },
             Err(_) => Ok(((), Consumed::Empty(()))),
@@ -745,16 +746,14 @@ mod std_tests {
             let integer = parser(integer);
             let array = between(char('['), char(']'), sep_by(expr(), char(','))).expected("[");
             let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
-            let spaces = spaces();
-            spaces
-                .clone()
+            spaces()
                 .with(
                     word.map(Expr::Id)
                         .or(integer.map(Expr::Int))
                         .or(array.map(Expr::Array))
                         .or(paren_expr),
                 )
-                .skip(spaces)
+                .skip(spaces())
         }
     }
 
