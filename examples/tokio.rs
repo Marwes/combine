@@ -13,8 +13,8 @@ use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::range::{range, take};
-use combine::{skip_many, Parser, many1};
+use combine::range::{range, recognize, take};
+use combine::{skip_many, Parser};
 use combine::easy::{self, Error as CombineError, Errors};
 use combine::byte::digit;
 
@@ -90,11 +90,11 @@ impl Decoder for LanguageServerDecoder {
                         (
                             skip_many(range(&b"\r\n"[..])),
                             range(&b"Content-Length: "[..]),
-                            many1(digit()),
+                            recognize(digit()),
                             range(&b"\r\n\r\n"[..]),
                         ).map(|t| t.2)
-                            .and_then(|digits: Vec<u8>| unsafe {
-                                String::from_utf8_unchecked(digits).parse::<usize>()
+                            .and_then(|digits: &[u8]| unsafe {
+                                str::from_utf8_unchecked(digits).parse::<usize>()
                             }),
                         src
                     );
