@@ -24,6 +24,7 @@ path = "src/lib.rs"
 [dependencies]
 ascii = "0.7.0"
 byteorder = "1.1.0"
+either = "1"
 regex = { version = "0.2.0", optional = true }
 
 [dev-dependencies]

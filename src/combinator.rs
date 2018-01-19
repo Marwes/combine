@@ -2,6 +2,9 @@ use lib::iter::FromIterator;
 use lib::marker::PhantomData;
 use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser, Positioned,
                  Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
+
+use either::Either;
+
 use primitives::FastResult::*;
 
 use ErrorOffset;
@@ -105,12 +108,10 @@ where
     type Output = I::Item;
     #[inline]
     fn parse_lazy(&mut self, input: I) -> ConsumedResult<I::Item, I> {
-        satisfy_impl(input, |c| {
-            if (self.predicate)(c.clone()) {
-                Some(c)
-            } else {
-                None
-            }
+        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
+            Some(c)
+        } else {
+            None
         })
     }
 }
@@ -876,10 +877,9 @@ where
         if len < self.min {
             let err = <P::Input as StreamOnce>::Error::from_error(
                 iter.input.position(),
-                StreamError::message_message(format_args!(
-                    "expected {} more elements",
-                    self.min - len
-                )),
+                StreamError::message_message(
+                    format_args!("expected {} more elements", self.min - len),
+                ),
             );
             ConsumedErr(err)
         } else {
@@ -2258,7 +2258,8 @@ where
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     P: Parser,
-    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
+    F: FnMut(P::Output)
+        -> Result<B, <P::Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }
@@ -2762,12 +2763,10 @@ where
         match self.0.parse_lazy(input.clone()) {
             EmptyOk((_, rest)) => {
                 let result = (0..)
-                    .scan((), |_, _| {
-                        if input.position() != rest.position() {
-                            Some(input.uncons())
-                        } else {
-                            None
-                        }
+                    .scan((), |_, _| if input.position() != rest.position() {
+                        Some(input.uncons())
+                    } else {
+                        None
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -2779,12 +2778,10 @@ where
             }
             ConsumedOk((_, rest)) => {
                 let result = (0..)
-                    .scan((), |_, _| {
-                        if input.position() != rest.position() {
-                            Some(input.uncons())
-                        } else {
-                            None
-                        }
+                    .scan((), |_, _| if input.position() != rest.position() {
+                        Some(input.uncons())
+                    } else {
+                        None
                     })
                     .collect::<Result<_, _>>();
                 match result {
@@ -2824,6 +2821,32 @@ where
     F: FromIterator<<P::Input as StreamOnce>::Item>,
 {
     Recognize(parser, PhantomData)
+}
+
+
+impl<L, R> Parser for Either<L, R>
+where
+    L: Parser,
+    R: Parser<Input = L::Input, Output = L::Output>,
+{
+    type Input = L::Input;
+    type Output = L::Output;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        match *self {
+            Either::Left(ref mut x) => x.parse_lazy(input),
+            Either::Right(ref mut x) => x.parse_lazy(input),
+        }
+    }
+
+    #[inline]
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        match *self {
+            Either::Left(ref mut x) => x.add_error(error),
+            Either::Right(ref mut x) => x.add_error(error),
+        }
+    }
 }
 
 #[cfg(test)]

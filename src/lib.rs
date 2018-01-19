@@ -542,6 +542,7 @@ macro_rules! combine_parser_impl {
 }
 
 pub extern crate byteorder;
+pub extern crate either;
 
 // Facade over the core types we need
 // Public but hidden to be accessible in macros
