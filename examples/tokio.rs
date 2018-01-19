@@ -17,7 +17,7 @@ use tokio_io::codec::Decoder;
 
 use combine::primitives::{ParseError, PointerOffset, StreamOnce};
 use combine::range::{range, recognize, take};
-use combine::{skip_many, Parser};
+use combine::{skip_many, Parser, skip_many1};
 use combine::easy::{self, Error as CombineError, Errors};
 use combine::byte::digit;
 
@@ -87,7 +87,7 @@ parser! {
         (
             skip_many(range(&b"\r\n"[..])),
             range(&b"Content-Length: "[..]).map(|_| content_length_parses.set(content_length_parses.get() + 1)),
-            recognize(digit()),
+            recognize(skip_many1(digit())),
             range(&b"\r\n\r\n"[..]),
         ).map(|t| t.2)
             .and_then(|digits: &[u8]| unsafe {
