@@ -940,16 +940,16 @@ where
                 .inspect(|_| *count += 1),
         );
         if *count < self.min {
-            let err = <P::Input as StreamOnce>::Error::from_error(
-                iter.input.position(),
-                StreamError::message_message(format_args!(
-                    "expected {} more elements",
-                    self.min - *count
-                )),
-            );
-            ConsumedErr(err)
+            let err = StreamError::message_message(format_args!(
+                "expected {} more elements",
+                self.min - *count
+            ));
+            iter.fail(err)
         } else {
-            iter.into_result_fast(elements)
+            iter.into_result_fast(elements).map(|x| {
+                *count = 0;
+                x
+            })
         }
     }
 
@@ -1295,6 +1295,30 @@ where
                 }
             }
             State::ConsumedErr(e) => ConsumedErr(e),
+        }
+    }
+
+    fn fail<T>(
+        self,
+        err: <<P::Input as StreamOnce>::Error as ParseError<
+            <P::Input as StreamOnce>::Item,
+            <P::Input as StreamOnce>::Range,
+            <P::Input as StreamOnce>::Position,
+        >>::StreamError,
+    ) -> ConsumedResult<T, P::Input> {
+        match self.state {
+            State::Ok | State::EmptyErr => {
+                let err = <P::Input as StreamOnce>::Error::from_error(self.input.position(), err);
+                if self.consumed {
+                    ConsumedErr(err)
+                } else {
+                    EmptyErr(err.into())
+                }
+            }
+            State::ConsumedErr(mut e) => {
+                e.add(err);
+                ConsumedErr(e)
+            }
         }
     }
 }
@@ -2523,24 +2547,58 @@ where
 {
     type Input = N::Input;
     type Output = N::Output;
-    type PartialState = ();
+    type PartialState = (P::PartialState, Option<(bool, N)>, N::PartialState);
+
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        match self.0.parse_lazy(input) {
-            EmptyOk(value) => {
-                let mut next = (self.1)(value);
-                next.parse_stream_consumed(input)
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let (ref mut p_state, ref mut n_parser_cache, ref mut n_state) = *state;
+
+        if n_parser_cache.is_none() {
+            match self.0.parse_partial(input, p_state) {
+                EmptyOk(value) => {
+                    *n_parser_cache = Some((false, (self.1)(value)));
+                }
+                ConsumedOk(value) => {
+                    *n_parser_cache = Some((true, (self.1)(value)));
+                }
+                EmptyErr(err) => return EmptyErr(err),
+                ConsumedErr(err) => return ConsumedErr(err),
             }
-            ConsumedOk(value) => {
-                let mut next = (self.1)(value);
-                match next.parse_stream_consumed(input) {
-                    EmptyOk(x) | ConsumedOk(x) => ConsumedOk(x),
-                    EmptyErr(x) => ConsumedErr(x.error),
-                    ConsumedErr(x) => ConsumedErr(x),
+        }
+
+        let result = n_parser_cache
+            .as_mut()
+            .unwrap()
+            .1
+            .parse_stream_consumed_partial(input, n_state);
+        match result {
+            EmptyOk(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedOk(x)
+                } else {
+                    EmptyOk(x)
                 }
             }
-            EmptyErr(err) => EmptyErr(err),
-            ConsumedErr(err) => ConsumedErr(err),
+            ConsumedOk(x) => {
+                *n_parser_cache = None;
+                ConsumedOk(x)
+            }
+            EmptyErr(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedErr(x.error)
+                } else {
+                    EmptyErr(x)
+                }
+            }
+            ConsumedErr(x) => ConsumedErr(x),
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -2559,6 +2617,86 @@ where
     N: Parser<Input = P::Input>,
 {
     Then(p, f)
+}
+
+#[derive(Copy, Clone)]
+pub struct ThenPartial<P, F>(P, F);
+impl<P, N, F> Parser for ThenPartial<P, F>
+where
+    F: FnMut(&mut P::Output) -> N,
+    P: Parser,
+    N: Parser<Input = P::Input>,
+{
+    type Input = N::Input;
+    type Output = N::Output;
+    type PartialState = (P::PartialState, Option<(bool, P::Output)>, N::PartialState);
+
+    #[inline]
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let (ref mut p_state, ref mut n_parser_cache, ref mut n_state) = *state;
+
+        if n_parser_cache.is_none() {
+            match self.0.parse_partial(input, p_state) {
+                EmptyOk(value) => {
+                    *n_parser_cache = Some((false, value));
+                }
+                ConsumedOk(value) => {
+                    *n_parser_cache = Some((true, value));
+                }
+                EmptyErr(err) => return EmptyErr(err),
+                ConsumedErr(err) => return ConsumedErr(err),
+            }
+        }
+
+        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
+            .parse_stream_consumed_partial(input, n_state);
+        match result {
+            EmptyOk(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedOk(x)
+                } else {
+                    EmptyOk(x)
+                }
+            }
+            ConsumedOk(x) => {
+                *n_parser_cache = None;
+                ConsumedOk(x)
+            }
+            EmptyErr(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedErr(x.error)
+                } else {
+                    EmptyErr(x)
+                }
+            }
+            ConsumedErr(x) => ConsumedErr(x),
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(errors);
+    }
+}
+
+/// Equivalent to [`p.then_partial(f)`].
+///
+/// [`p.then_partial(f)`]: ../primitives/trait.Parser.html#method.then_partial
+#[inline(always)]
+pub fn then_partial<P, F, N>(p: P, f: F) -> ThenPartial<P, F>
+where
+    F: FnMut(&mut P::Output) -> N,
+    P: Parser,
+    N: Parser<Input = P::Input>,
+{
+    ThenPartial(p, f)
 }
 
 #[derive(Clone)]
@@ -2669,14 +2807,20 @@ macro_rules! dispatch_on {
 }
 
 #[doc(hidden)]
-pub enum SequenceState<T, U> {
-    Value(T),
-    State(U),
+pub struct SequenceState<T, U> {
+    value: Option<T>,
+    state: U,
 }
+
+#[doc(hidden)]
+pub type ParserSequenceState<P> = SequenceState<<P as Parser>::Output, <P as Parser>::PartialState>;
 
 impl<T, U: Default> Default for SequenceState<T, U> {
     fn default() -> Self {
-        SequenceState::State(U::default())
+        SequenceState {
+            value: None,
+            state: U::default(),
+        }
     }
 }
 
@@ -2685,9 +2829,9 @@ where
     U: Default,
 {
     unsafe fn unwrap_value(&mut self) -> T {
-        match mem::replace(self, SequenceState::State(U::default())) {
-            SequenceState::Value(t) => t,
-            SequenceState::State(_) => ::unreachable::unreachable(),
+        match self.value.take() {
+            Some(t) => t,
+            None => ::unreachable::unreachable(),
         }
     }
 }
@@ -2859,52 +3003,42 @@ macro_rules! tuple_parser {
                     ($err: ident, $offset: expr) => { add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
                 }
 
-                if let SequenceState::State(_) = state.$h {
-                    let temp = if let SequenceState::State(ref mut child_state) = state.$h {
-                        let temp = match $h.parse_partial(input, child_state) {
+                if let None = state.$h.value {
+                    let temp = match $h.parse_partial(input, &mut state.$h.state) {
+                        ConsumedOk(x) => {
+                            first_empty_parser = current_parser + 1;
+                            x
+                        }
+                        EmptyErr(err) => return EmptyErr(err),
+                        ConsumedErr(err) => return ConsumedErr(err),
+                        EmptyOk(x) => {
+                            x
+                        }
+                    };
+                    state.offset = $h.parser_count().0.saturating_add(1);
+                    state.$h.value = Some(temp);
+                }
+
+                $(
+                    if let None = state.$id.value {
+                        current_parser += 1;
+                        let before = input.checkpoint();
+                        let temp = match $id.parse_partial(input, &mut state.$id.state) {
                             ConsumedOk(x) => {
                                 first_empty_parser = current_parser + 1;
                                 x
                             }
-                            EmptyErr(err) => return EmptyErr(err),
+                            EmptyErr(err) => {
+                                input.reset(before);
+                                return add_errors!(err, state.offset)
+                            }
                             ConsumedErr(err) => return ConsumedErr(err),
                             EmptyOk(x) => {
                                 x
                             }
                         };
-                        state.offset = $h.parser_count().0.saturating_add(1);
-                        temp
-                    } else {
-                        unreachable!()
-                    };
-                    state.$h = SequenceState::Value(temp);
-                }
-
-                $(
-                    if let SequenceState::State(_) = state.$id {
-                        let temp = if let SequenceState::State(ref mut child_state) = state.$id {
-                            current_parser += 1;
-                            let before = input.checkpoint();
-                            let temp = match $id.parse_partial(input, child_state) {
-                                ConsumedOk(x) => {
-                                    first_empty_parser = current_parser + 1;
-                                    x
-                                }
-                                EmptyErr(err) => {
-                                    input.reset(before);
-                                    return add_errors!(err, state.offset)
-                                }
-                                ConsumedErr(err) => return ConsumedErr(err),
-                                EmptyOk(x) => {
-                                    x
-                                }
-                            };
-                            state.offset = state.offset.saturating_add($id.parser_count().0);
-                            temp
-                        } else {
-                            unreachable!()
-                        };
-                        state.$id = SequenceState::Value(temp);
+                        state.offset = state.offset.saturating_add($id.parser_count().0);
+                        state.$id.value = Some(temp);
                     }
                 )+
 
@@ -3702,5 +3836,13 @@ mod tests_std {
     fn sep_end_by1_dont_eat_separator_twice() {
         let mut parser = sep_end_by1(digit(), token(';'));
         assert_eq!(parser.parse("1;;"), Ok((vec!['1'], ";")));
+    }
+
+    #[test]
+    fn count_min_max_empty_error() {
+        assert_eq!(
+            count_min_max(1, 1, char('a')).or(value(vec![])).parse("b"),
+            Ok((vec![], "b"))
+        );
     }
 }

@@ -10,8 +10,8 @@ use either::Either;
 use self::FastResult::*;
 
 use ErrorOffset;
-use combinator::{and_then, expected, flat_map, map, message, or, skip, then, with, AndThen,
-                 Expected, FlatMap, Iter, Map, Message, Or, Skip, Then, With};
+use combinator::{and_then, expected, flat_map, map, message, or, skip, then, then_partial, with,
+                 AndThen, Expected, FlatMap, Iter, Map, Message, Or, Skip, Then, ThenPartial, With};
 
 #[cfg(feature = "std")]
 use easy::Error;
@@ -1747,7 +1747,10 @@ pub trait Parser {
     /// Parses using `self` and then passes the value to `f` which returns a parser used to parse
     /// the rest of the input.
     ///
-    /// Since the parser returned from `f` must have a single
+    /// Since the parser returned from `f` must have a single type it can be useful to use the
+    /// `left` and `right` methods to merge parsers of differing types into one.
+    ///
+    /// If you are using partial parsing you may want to use `partial_then` instead.
     ///
     /// ```
     /// # #![cfg(feature = "std")]
@@ -1777,6 +1780,45 @@ pub trait Parser {
         N: Parser<Input = Self::Input>,
     {
         then(self, f)
+    }
+
+    /// Variant of `then` which parses using `self` and then passes the value to `f` as a `&mut` reference.
+    ///
+    /// Useful when doing partial parsing since it does not need to store the parser returned by
+    /// `f` in the partial state. Instead it will call `f` each to request a new parser each time
+    /// parsing resumes and that parser is needed.
+    ///
+    /// Since the parser returned from `f` must have a single type it can be useful to use the
+    /// `left` and `right` methods to merge parsers of differing types into one.
+    ///
+    /// ```
+    /// # #![cfg(feature = "std")]
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::char::digit;
+    /// # use combine::primitives::Consumed;
+    /// # use combine::easy;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .then_partial(|d| {
+    ///         if *d == '9' {
+    ///             value(9).left()
+    ///         }
+    ///         else {
+    ///             unexpected(*d).map(|_| 0).message("Not a nine").right()
+    ///         }
+    ///     })
+    ///     .easy_parse("9");
+    /// assert_eq!(result, Ok((9, "")));
+    /// # }
+    /// ```
+    fn then_partial<N, F>(self, f: F) -> ThenPartial<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(&mut Self::Output) -> N,
+        N: Parser<Input = Self::Input>,
+    {
+        then_partial(self, f)
     }
 
     /// Uses `f` to map over the parsed value.

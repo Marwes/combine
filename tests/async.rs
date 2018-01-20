@@ -21,10 +21,10 @@ use tokio_io::codec::FramedRead;
 use tokio_io::codec::Decoder;
 
 use combine::range::range;
-use combine::many1;
+use combine::{any, count_min_max, skip_many, many1};
 use combine::primitives::RangeStream;
 use combine::easy;
-use combine::char::digit;
+use combine::char::{char, digit};
 
 macro_rules! impl_decoder {
     ($typ: ident, $item: ty, $parser: expr) => {
@@ -63,15 +63,6 @@ macro_rules! impl_decoder {
     }
 }
 
-parser!{
-    type PartialState = Option<Box<Any>>;
-    fn basic_parser['a, I]()(I) -> String
-    where [ I: RangeStream<Item = char, Range = &'a str> ]
-    {
-        many1(digit()).skip(range(&"\r\n"[..]).map(|_| ()))
-    }
-}
-
 use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
 
 fn run_decoder<D, S>(input: &str, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
@@ -92,10 +83,19 @@ where
         .wait()
 }
 
+parser!{
+    type PartialState = Option<Box<Any>>;
+    fn basic_parser['a, I]()(I) -> String
+        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    {
+        many1(digit()).skip(range(&"\r\n"[..]).map(|_| ()))
+    }
+}
+
 impl_decoder!{ Basic, String, basic_parser() }
 
 #[test]
-fn basic_no_errors() {
+fn many1_skip_no_errors() {
     let input = "123\r\n\
                  456\r\n";
 
@@ -105,8 +105,22 @@ fn basic_no_errors() {
     assert_eq!(result.unwrap(), vec!["123".to_string(), "456".to_string()]);
 }
 
+parser!{
+    type PartialState = Option<Box<Any>>;
+    fn prefix_many_then_parser['a, I]()(I) -> String
+        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    {
+        (char('#'), skip_many(char(' ')), many1(digit()))
+            .then_partial(|t| {
+                let s: &String = &t.2;
+                let c = s.parse().unwrap();
+                count_min_max(c, c, any())
+            })
+    }
+}
+
 quickcheck! {
-    fn basic(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn many1_skip(seq: PartialWithErrors<GenWouldBlock>) -> () {
 
         let input = "123\r\n\
                      456\r\n\
@@ -120,6 +134,24 @@ quickcheck! {
         assert_eq!(
             result.unwrap(),
             vec!["123".to_string(), "456".to_string(), "1".to_string(), "5".to_string(), "666666".to_string()]
+        );
+    }
+
+    fn prefix_many_then(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String, prefix_many_then_parser() }
+
+        let input = "# 1a\
+                     # 4abcd\
+                     #0\
+                     #3:?a\
+                     #10abcdefghij";
+
+        let result = run_decoder(input, seq, TestParser::default());
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["a", "abcd", "", ":?a", "abcdefghij"],
         );
     }
 }
