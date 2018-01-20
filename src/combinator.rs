@@ -2273,10 +2273,14 @@ where
 {
     type Input = I;
     type Output = P1::Output;
-    type PartialState = ();
+    type PartialState = <(P1, P2) as Parser>::PartialState;
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, I> {
-        self.0.parse_lazy(input).map(|(a, _)| a)
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, I> {
+        self.0.parse_partial(input, state).map(|(a, _)| a)
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
