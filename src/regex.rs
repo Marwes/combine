@@ -211,11 +211,12 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         if self.0.is_match(input.range()) {
-            EmptyOk((input.range(), input))
+            EmptyOk(input.range())
         } else {
             EmptyErr(I::Error::empty(input.position()).into())
         }
@@ -265,6 +266,7 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -324,6 +326,7 @@ where
 {
     type Input = I;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -379,6 +382,7 @@ where
 {
     type Input = I;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -445,6 +449,7 @@ where
 {
     type Input = I;
     type Output = G;
+    type PartialState = ();
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
