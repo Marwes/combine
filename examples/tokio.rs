@@ -6,6 +6,7 @@ extern crate futures;
 extern crate partial_io;
 extern crate tokio_io;
 
+use std::any::Any;
 use std::rc::Rc;
 use std::cell::Cell;
 use std::str;
@@ -23,7 +24,7 @@ use combine::easy::{self, Error as CombineError, Errors};
 use combine::byte::digit;
 
 pub struct LanguageServerDecoder {
-    state: decode_parser::PartialState,
+    state: Option<Box<Any>>,
     content_length_parses: Rc<Cell<i32>>,
 }
 
@@ -37,6 +38,7 @@ impl LanguageServerDecoder {
 }
 
 parser! {
+    type PartialState = Option<Box<Any>>;
     fn decode_parser['a](content_length_parses: Rc<Cell<i32>>)(easy::Stream<&'a [u8]>) -> Vec<u8>
     where [ <easy::Stream<&'a [u8]> as StreamOnce>::Error:
                 ParseError<u8, &'a [u8], PointerOffset, StreamError = easy::Error<u8, &'a [u8]>>

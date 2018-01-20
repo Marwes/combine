@@ -1184,7 +1184,8 @@ where
 pub struct Tracked<E> {
     /// The error returned
     pub error: E,
-    #[doc(hidden)] pub offset: ErrorOffset,
+    #[doc(hidden)]
+    pub offset: ErrorOffset,
 }
 
 impl<E> From<E> for Tracked<E> {

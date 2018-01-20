@@ -327,6 +327,7 @@ macro_rules! parser {
     ) => {
         parser!{
             pub struct __Parser;
+            type PartialState = (());
             $(#[$attr])*
             pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -340,8 +341,11 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        parser!{
+        combine_parser_impl!{
+            ()
+            ()
             struct __Parser;
+            type PartialState = (());
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -359,8 +363,10 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             (pub)
+            (pub)
             $(#[$derive])*
             struct $type_name;
+            type PartialState = (());
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -378,8 +384,120 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             ()
+            ()
             $(#[$derive])*
             struct $type_name;
+            type PartialState = (());
+            $(#[$attr:meta])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            $parser: block
+    ) => {
+        parser!{
+            type PartialState = $partial_state;
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            $parser: block
+    ) => {
+        parser!{
+            type PartialState = $partial_state;
+            $(#[$attr])*
+            fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            (pub)
+            ()
+            struct __Parser;
+            type PartialState = ($partial_state);
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        parser!{
+            struct __Parser;
+            type PartialState = ($partial_state);
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        pub struct $type_name: ident;
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            (pub)
+            (pub)
+            $(#[$derive])*
+            struct $type_name;
+            type PartialState = ($partial_state);
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        struct $type_name: ident;
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            ()
+            ()
+            $(#[$derive])*
+            struct $type_name;
+            type PartialState = ($partial_state);
             $(#[$attr:meta])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -401,11 +519,49 @@ macro_rules! export_parser_type {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! combine_parse_partial {
+    ((()) $input: ident $state: ident $parser: block) => { {
+        let _ = $state;
+        let ref mut state = Default::default();
+        $parser.parse_partial($input, state)
+    } };
+    (($ignored: ty) $input: ident $state: ident $parser: block) => { {
+        let input = $input;
+        let state = $state;
+
+        let mut new_child_state;
+        let result = {
+            let child_state = if let None = *state {
+                new_child_state = Some(Default::default());
+                new_child_state.as_mut().unwrap()
+            } else {
+                new_child_state = None;
+                state.as_mut().unwrap().downcast_mut().unwrap()
+            };
+
+            $parser.parse_partial(input, child_state)
+        };
+
+        if let $crate::primitives::FastResult::ConsumedErr(_) = result {
+            if let None = *state {
+                // FIXME Make None unreachable for LLVM
+                *state = Some(Box::new(new_child_state.unwrap()));
+            }
+        }
+
+        result
+    } }
+}
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! combine_parser_impl {
     (
         ( $($pub_: tt)* )
+        ( $($pub_type: tt)* )
         $(#[$derive:meta])*
         struct $type_name: ident;
+        type PartialState = ($($partial_state: tt)*);
         $(#[$attr:meta])*
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
@@ -430,23 +586,6 @@ macro_rules! combine_parser_impl {
                 __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
             }
 
-            // FIXME Verify lifetimes
-            pub struct PartialState(*mut (), fn (*mut ()));
-
-            impl Default for PartialState {
-                fn default() -> Self {
-                    PartialState(::std::ptr::null_mut(), |_| ())
-                }
-            }
-
-            impl Drop for PartialState {
-                fn drop(&mut self) {
-                    if self.0 != ::std::ptr::null_mut() {
-                        (self.1)(self.0)
-                    }
-                }
-            }
-
             // We want this to work on older compilers, at least for a while
             #[allow(non_shorthand_field_patterns)]
             impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
@@ -460,7 +599,7 @@ macro_rules! combine_parser_impl {
             {
                 type Input = $input_type;
                 type Output = $output_type;
-                type PartialState = PartialState;
+                type PartialState = $($partial_state)*;
 
                 #[inline]
                 fn parse_partial(
@@ -469,31 +608,8 @@ macro_rules! combine_parser_impl {
                     state: &mut Self::PartialState,
                     ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
                 {
-                    let mut new_child_state;
-                    let result = {
-                        let child_state = if state.0 == ::std::ptr::null_mut() {
-                            new_child_state = Some(Default::default());
-                            new_child_state.as_mut().unwrap()
-                        } else {
-                            new_child_state = None;
-                            unsafe { &mut * (state.0 as *mut _) }
-                        };
-
-                        let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                        $parser.parse_lazy(input)
-                    };
-
-                    fn mk_partialstate<T>(value: T) -> PartialState {
-                        PartialState(Box::into_raw(Box::new(value)) as *mut (), |p| unsafe { Box::from_raw(p as *mut T); })
-                    }
-                    if let $crate::primitives::FastResult::ConsumedErr(_) = result {
-                        if state.0 == ::std::ptr::null_mut() {
-                            // FIXME Make None unreachable for LLVM
-                            *state = mk_partialstate(new_child_state.unwrap());
-                        }
-                    }
-
-                    result
+                    let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                    combine_parse_partial!(($($partial_state)*) input state $parser)
                 }
 
                 #[inline]
@@ -506,7 +622,7 @@ macro_rules! combine_parser_impl {
                     let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
                     let mut parser = $parser;
                     {
-                        let _: &mut $crate::Parser<Input = $input_type, Output = $output_type> = &mut parser;
+                        let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
                     }
                     parser.add_error(errors)
                 }
@@ -530,7 +646,7 @@ macro_rules! combine_parser_impl {
             }
         }
 
-        export_parser_type!( $($pub_)* $type_name $name);
+        export_parser_type!( $($pub_type)* $type_name $name);
 
         $(#[$attr])*
         #[inline(always)]
@@ -552,9 +668,9 @@ macro_rules! combine_parser_impl {
     };
 }
 
-extern crate unreachable;
 pub extern crate byteorder;
 pub extern crate either;
+extern crate unreachable;
 
 // Facade over the core types we need
 // Public but hidden to be accessible in macros

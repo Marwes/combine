@@ -331,9 +331,7 @@ where
     }
 
     fn is_unexpected_end_of_input(&self) -> bool {
-        self.errors
-            .iter()
-            .any(ParseError::<_, _, Position>::is_unexpected_end_of_input)
+        self.errors.iter().any(|err| *err == Error::end_of_input())
     }
 
     #[inline]
