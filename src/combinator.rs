@@ -3227,6 +3227,34 @@ where
     }
 
     #[inline]
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        match *self {
+            Either::Left(ref mut x) => {
+                match *state {
+                    None | Some(Either::Right(_)) => {
+                        *state = Some(Either::Left(L::PartialState::default()))
+                    }
+                    Some(Either::Left(_)) => (),
+                }
+                x.parse_partial(input, state.as_mut().unwrap().as_mut().left().unwrap())
+            }
+            Either::Right(ref mut x) => {
+                match *state {
+                    None | Some(Either::Left(_)) => {
+                        *state = Some(Either::Right(R::PartialState::default()))
+                    }
+                    Some(Either::Right(_)) => (),
+                }
+                x.parse_partial(input, state.as_mut().unwrap().as_mut().right().unwrap())
+            }
+        }
+    }
+
+    #[inline]
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         match *self {
             Either::Left(ref mut x) => x.add_error(error),
