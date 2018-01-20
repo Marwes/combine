@@ -588,6 +588,7 @@ pub mod easy;
 pub mod regex;
 #[cfg(feature = "std")]
 pub mod buffered_stream;
+pub mod async;
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]

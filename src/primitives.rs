@@ -366,6 +366,8 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     where
         F: FnOnce(&mut Tracked<Self>);
 
+    fn is_unexpected_end_of_input(&self) -> bool;
+
     /// Does a best-effort conversion of `self` into another `ParseError`
     fn into_other<T>(self) -> T
     where
@@ -488,6 +490,10 @@ where
     {
         f(self_);
         self_.error = info;
+    }
+
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == UnexpectedParse::Eoi
     }
 
     #[inline]
@@ -899,6 +905,10 @@ where
     {
         f(self_);
         self_.error = info;
+    }
+
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == StringStreamError::Eoi
     }
 
     #[inline]

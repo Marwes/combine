@@ -15,54 +15,12 @@ use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::primitives::{ParseError, PointerOffset, StreamOnce};
+use combine::primitives::{ParseError, PointerOffset, RangeStream, RangeStreamOnce, Resetable,
+                          StreamOnce};
 use combine::range::{range, recognize, take};
 use combine::{skip_many, Parser, skip_many1};
 use combine::easy::{self, Error as CombineError, Errors};
 use combine::byte::digit;
-
-fn combine_decode<'a, P, R>(
-    mut parser: P,
-    src: &'a [u8],
-    partial_state: &mut P::PartialState,
-) -> Result<Option<(R, usize)>, Errors<usize, u8, String>>
-where
-    P: Parser<Input = easy::Stream<&'a [u8]>, Output = R>,
-{
-    let mut input = easy::Stream(&src[..]);
-    match parser.parse_with_state(&mut input, partial_state) {
-        Ok(message) => Ok(Some((message, src.len() - input.0.len()))),
-        Err(err) => {
-            return if err.errors
-                .iter()
-                .any(|err| *err == CombineError::end_of_input())
-            {
-                Ok(None)
-            } else {
-                Err(err.map_range(|r| {
-                    str::from_utf8(r)
-                        .ok()
-                        .map_or_else(|| format!("{:?}", r), |s| s.to_string())
-                }).map_position(|p| p.translate_position(&src[..])))
-            }
-        }
-    }
-}
-
-macro_rules! decode {
-    ($parser: expr, $src: expr, $state: expr) => {
-        {
-            let (output, removed_len) = {
-                match combine_decode($parser, &$src[..], $state)? {
-                    None => return Ok(None),
-                    Some(x) => x,
-                }
-            };
-            $src.split_to(removed_len);
-            output
-        }
-    };
-}
 
 pub struct LanguageServerDecoder {
     state: decode_parser::PartialState,
@@ -102,12 +60,28 @@ impl Decoder for LanguageServerDecoder {
     type Error = Box<::std::error::Error + Send + Sync>;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let message = decode!(
+        let opt = combine::async::decode(
             decode_parser(self.content_length_parses.clone()),
-            src,
-            &mut self.state
-        );
-        Ok(Some(String::from_utf8(message)?))
+            easy::Stream(&src[..]),
+            &mut self.state,
+        ).map_err(|err| {
+            // Since err contains references into `src` we must remove these before
+            // returning the error and before we call `split_to` to remove the input we
+            // just consumed
+            err.map_range(|r| {
+                str::from_utf8(r)
+                    .ok()
+                    .map_or_else(|| format!("{:?}", r), |s| s.to_string())
+            }).map_position(|p| p.translate_position(&src[..]))
+        })?;
+
+        match opt {
+            None => Ok(None),
+            Some((output, removed_len)) => {
+                src.split_to(removed_len);
+                Ok(Some(String::from_utf8(output)?))
+            }
+        }
     }
 }
 
@@ -124,9 +98,10 @@ fn main() {
                  true";
 
     let seq = vec![
-        PartialOp::Limited(2),
-        PartialOp::Limited(1),
         PartialOp::Limited(20),
+        PartialOp::Limited(0),
+        PartialOp::Limited(1),
+        PartialOp::Limited(1),
     ];
     let ref mut reader = Cursor::new(input.as_bytes());
     let partial_reader = PartialAsyncRead::new(reader, seq);
