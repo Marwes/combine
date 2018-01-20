@@ -531,6 +531,10 @@ pub trait StreamOnce {
     fn uncons<E>(&mut self) -> Result<Self::Item, E>
     where
         E: StreamError<Self::Item, Self::Range>;
+
+    fn is_partial(&self) -> bool {
+        false
+    }
 }
 
 pub trait Resetable {
@@ -573,17 +577,15 @@ where
 }
 
 #[inline]
-pub fn uncons<I>(input: &mut I) -> ParseResult<I::Item, I>
+pub fn uncons<I>(input: &mut I) -> ConsumedResult<I::Item, I>
 where
-    I: Stream,
+    I: ?Sized + Stream,
 {
     let position = input.position();
-    let x = try!(
-        input
-            .uncons()
-            .map_err(|err| Consumed::Empty(I::Error::from_error(position, err).into()))
-    );
-    Ok((x, Consumed::Consumed(())))
+    match input.uncons() {
+        Ok(x) => ConsumedOk(x),
+        Err(err) => wrap_stream_error(input, err),
+    }
 }
 
 /// A `RangeStream` is an extension of `StreamOnce` which allows for zero copy parsing.
@@ -626,16 +628,49 @@ pub trait FullRangeStream: RangeStream {
     fn range(&self) -> Self::Range;
 }
 
+#[doc(hidden)]
+#[inline]
+pub fn wrap_stream_error<T, I>(
+    input: &I,
+    err: <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError,
+) -> ConsumedResult<T, I>
+where
+    I: ?Sized + StreamOnce + Positioned,
+{
+    let err = I::Error::from_error(input.position(), err);
+    if input.is_partial() {
+        ConsumedErr(err)
+    } else {
+        EmptyErr(err.into())
+    }
+}
+
+#[inline]
+pub fn uncons_range<I>(input: &mut I, size: usize) -> ConsumedResult<I::Range, I>
+where
+    I: ?Sized + RangeStream,
+    I::Range: Range,
+{
+    match input.uncons_range(size) {
+        Err(err) => wrap_stream_error(input, err),
+        Ok(x) => if x.len() == 0 {
+            EmptyOk(x)
+        } else {
+            ConsumedOk(x)
+        },
+    }
+}
+
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
 pub fn uncons_while<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
 where
     F: FnMut(I::Item) -> bool,
-    I: RangeStream,
+    I: ?Sized + RangeStream,
     I::Range: Range,
 {
     match input.uncons_while(predicate) {
-        Err(err) => EmptyErr(I::Error::from_error(input.position(), err).into()),
+        Err(err) => wrap_stream_error(input, err),
         Ok(x) => if x.len() == 0 {
             EmptyOk(x)
         } else {
@@ -973,6 +1008,96 @@ where
             }
             None => Err(E::end_of_input()),
         }
+    }
+}
+
+/// Stream type which indicates that the stream is partial if end of input is reached
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct PartialStream<S>(pub S);
+
+impl<S> Positioned for PartialStream<S>
+where
+    S: Positioned,
+{
+    #[inline(always)]
+    fn position(&self) -> Self::Position {
+        self.0.position()
+    }
+}
+
+impl<S> Resetable for PartialStream<S>
+where
+    S: Resetable,
+{
+    type Checkpoint = S::Checkpoint;
+
+    #[inline(always)]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.0.checkpoint()
+    }
+
+    #[inline(always)]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        self.0.reset(checkpoint);
+    }
+}
+
+impl<S> StreamOnce for PartialStream<S>
+where
+    S: StreamOnce,
+{
+    type Item = S::Item;
+    type Range = S::Range;
+    type Position = S::Position;
+    type Error = S::Error;
+
+    #[inline(always)]
+    fn uncons<E>(&mut self) -> Result<S::Item, E>
+    where
+        E: StreamError<Self::Item, Self::Range>,
+    {
+        self.0.uncons()
+    }
+
+    fn is_partial(&self) -> bool {
+        true
+    }
+}
+
+impl<S> RangeStreamOnce for PartialStream<S>
+where
+    S: RangeStreamOnce,
+{
+    #[inline(always)]
+    fn uncons_range<E>(&mut self, size: usize) -> Result<Self::Range, E>
+    where
+        E: StreamError<Self::Item, Self::Range>,
+    {
+        self.0.uncons_range(size)
+    }
+
+    #[inline(always)]
+    fn uncons_while<E, F>(&mut self, f: F) -> Result<Self::Range, E>
+    where
+        F: FnMut(Self::Item) -> bool,
+        E: StreamError<Self::Item, Self::Range>,
+    {
+        self.0.uncons_while(f)
+    }
+
+    #[inline(always)]
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
+        self.0.distance(end)
+    }
+}
+
+impl<S> FullRangeStream for PartialStream<S>
+where
+    S: FullRangeStream,
+{
+    #[inline(always)]
+    fn range(&self) -> Self::Range {
+        self.0.range()
     }
 }
 

@@ -875,7 +875,7 @@ mod std_tests {
     }
 
     #[test]
-    fn expression() {
+    fn expression_basic() {
         let result = sep_by(expr(), char(',')).parse("int, 100, [[], 123]");
         let exprs = vec![
             Expr::Id("int".to_string()),

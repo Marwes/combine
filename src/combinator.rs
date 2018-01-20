@@ -2,8 +2,8 @@ use lib::iter::FromIterator;
 use lib::marker::PhantomData;
 use lib::mem;
 
-use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser, Positioned,
-                 Resetable, Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
+use primitives::{uncons, Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser,
+                 Positioned, Resetable, Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
 
 use either::Either;
 
@@ -48,11 +48,7 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Item, I> {
-        let position = input.position();
-        match input.uncons() {
-            Ok(x) => ConsumedOk(x),
-            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
-        }
+        uncons(input)
     }
 }
 
@@ -90,12 +86,13 @@ where
     P: FnMut(I::Item) -> Option<R>,
 {
     let position = input.position();
-    match input.uncons() {
-        Ok(c) => match predicate(c.clone()) {
+    match uncons(input) {
+        EmptyOk(c) | ConsumedOk(c) => match predicate(c.clone()) {
             Some(c) => ConsumedOk(c),
             None => EmptyErr(I::Error::empty(position).into()),
         },
-        Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
+        EmptyErr(err) => EmptyErr(err),
+        ConsumedErr(err) => ConsumedErr(err),
     }
 }
 
@@ -277,7 +274,7 @@ where
         let mut consumed = false;
         for c in self.tokens.clone() {
             match ::primitives::uncons(input) {
-                Ok((other, _)) => {
+                ConsumedOk(other) | EmptyOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
                             let mut errors = <Self::Input as StreamOnce>::Error::from_error(
@@ -292,15 +289,17 @@ where
                     }
                     consumed = true;
                 }
-                Err(error) => {
-                    return error.combine_consumed(|mut error: Tracked<I::Error>| {
-                        error.error.set_position(start);
-                        if consumed {
-                            ConsumedErr(error.error)
-                        } else {
-                            EmptyErr(error.into())
-                        }
-                    });
+                EmptyErr(mut error) => {
+                    error.error.set_position(start);
+                    return if consumed {
+                        ConsumedErr(error.error)
+                    } else {
+                        EmptyErr(error.into())
+                    };
+                }
+                ConsumedErr(mut error) => {
+                    error.set_position(start);
+                    return ConsumedErr(error);
                 }
             }
         }
@@ -549,7 +548,7 @@ where
                 .inspect(|_| *count += 1),
         );
 
-        iter.into_result_fast(mem::replace(elements, F::default()))
+        iter.into_result_fast(elements)
     }
 
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -950,7 +949,7 @@ where
             );
             ConsumedErr(err)
         } else {
-            iter.into_result_fast(mem::replace(elements, F::default()))
+            iter.into_result_fast(elements)
         }
     }
 
@@ -1266,16 +1265,35 @@ where
     /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
     pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
-        self.into_result_fast(value).into()
+        self.into_result_(value).into()
     }
 
-    fn into_result_fast<O>(self, value: O) -> ConsumedResult<O, P::Input> {
+    fn into_result_<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => if self.consumed {
-                ConsumedOk(value)
-            } else {
-                EmptyOk(value)
-            },
+            State::Ok | State::EmptyErr => {
+                if self.consumed {
+                    ConsumedOk(value)
+                } else {
+                    EmptyOk(value)
+                }
+            }
+            State::ConsumedErr(e) => ConsumedErr(e),
+        }
+    }
+
+    fn into_result_fast<O>(self, value: &mut O) -> ConsumedResult<O, P::Input>
+    where
+        O: Default,
+    {
+        match self.state {
+            State::Ok | State::EmptyErr => {
+                let value = mem::replace(value, O::default());
+                if self.consumed {
+                    ConsumedOk(value)
+                } else {
+                    EmptyOk(value)
+                }
+            }
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
@@ -1336,7 +1354,7 @@ where
 
         let mut iter = (&mut self.0).partial_iter(input, child_state);
         elements.extend(iter.by_ref());
-        iter.into_result_fast(mem::replace(elements, F::default()))
+        iter.into_result_fast(elements)
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -1379,7 +1397,7 @@ where
 {
     type Input = P::Input;
     type Output = F;
-    type PartialState = (F, P::PartialState);
+    type PartialState = (bool, bool, F, P::PartialState);
 
     #[inline]
     fn parse_partial(
@@ -1387,26 +1405,60 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
-        let (first, consumed) = ctry!(self.0.parse_lazy(input));
+        let (ref mut parsed_one, ref mut consumed_state, ref mut elements, ref mut child_state) =
+            *state;
 
-        // TODO
-        let (ref mut elements, ref mut child_state) = *state;
+        if !*parsed_one {
+            let (first, consumed) = ctry!(self.0.parse_partial(input, child_state));
+            elements.extend(Some(first));
+            // TODO Should EmptyOk be an error?
+            *consumed_state = !consumed.is_empty();
+            *parsed_one = true;
+        }
 
         let mut iter = Iter {
             parser: &mut self.0,
-            consumed: !consumed.is_empty(),
+            consumed: *consumed_state,
             input: input,
             state: State::Ok,
             partial_state: child_state,
         };
-        elements.extend(Some(first));
         elements.extend(iter.by_ref());
 
-        iter.into_result_fast(mem::replace(elements, F::default()))
+        iter.into_result_fast(elements).map(|x| {
+            *parsed_one = false;
+            x
+        })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
+}
+
+/// Parses `p` one or more times returning a collection with the values from `p`.
+///
+/// If the returned collection cannot be inferred type annotations must be supplied, either by
+/// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
+/// calling many1 `many1::<Vec<_>, _>(...)`.
+///
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::digit;
+/// # fn main() {
+/// let result = many1::<Vec<_>, _>(digit())
+///     .parse("A123");
+/// assert!(result.is_err());
+/// # }
+/// ```
+#[inline(always)]
+pub fn many1<F, P>(p: P) -> Many1<F, P>
+where
+    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    P: Parser,
+{
+    Many1(p, PhantomData)
 }
 
 #[derive(Clone)]
@@ -1487,32 +1539,6 @@ where
     let ignore1: fn(P::Output) = ignore;
     let ignore2: fn(Sink<()>) = ignore;
     SkipMany1(many1(p.map(ignore1)).map(ignore2))
-}
-
-/// Parses `p` one or more times returning a collection with the values from `p`.
-///
-/// If the returned collection cannot be inferred type annotations must be supplied, either by
-/// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling many1 `many1::<Vec<_>, _>(...)`.
-///
-///
-/// ```
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::char::digit;
-/// # fn main() {
-/// let result = many1::<Vec<_>, _>(digit())
-///     .parse("A123");
-/// assert!(result.is_err());
-/// # }
-/// ```
-#[inline(always)]
-pub fn many1<F, P>(p: P) -> Many1<F, P>
-where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
-    P: Parser,
-{
-    Many1(p, PhantomData)
 }
 
 #[derive(Copy, Clone)]
@@ -1615,7 +1641,7 @@ where
 
             elements.extend(Some(first));
             elements.extend(iter.by_ref());
-            iter.into_result_fast(mem::replace(elements, F::default()))
+            iter.into_result_fast(elements)
         })
     }
 
@@ -1770,7 +1796,7 @@ where
             // Parse elements until `self.parser` returns `None`
             elements.extend(iter.by_ref().scan((), |_, x| x));
 
-            iter.into_result_fast(mem::replace(elements, F::default()))
+            iter.into_result_fast(elements)
         })
     }
 

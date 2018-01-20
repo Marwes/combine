@@ -1,7 +1,8 @@
 use lib::marker::PhantomData;
 
-use primitives::{ConsumedResult, Info, ParseError, Parser, RangeStream, RangeStreamOnce,
-                 Resetable, StreamOnce, Tracked, UnexpectedParse};
+use primitives::{uncons_range, uncons_while, wrap_stream_error, ConsumedResult, Info, ParseError,
+                 Parser, RangeStream, RangeStreamOnce, Resetable, StreamOnce, Tracked,
+                 UnexpectedParse};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -27,7 +28,7 @@ where
             } else {
                 EmptyErr(I::Error::empty(position).into())
             },
-            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
+            Err(err) => wrap_stream_error(input, err),
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -155,11 +156,7 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let position = input.position();
-        match input.uncons_range(self.0) {
-            Ok(x) => ConsumedOk(x),
-            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
-        }
+        uncons_range(input, self.0)
     }
 }
 
@@ -242,7 +239,7 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        match ::primitives::uncons_while(input, &mut self.0) {
+        match uncons_while(input, &mut self.0) {
             ConsumedOk(v) => ConsumedOk(v),
             EmptyOk(_) => {
                 let position = input.position();
@@ -326,7 +323,7 @@ where
                 }
                 Err(e) => {
                     input.reset(look_ahead_input);
-                    return EmptyErr(I::Error::from_error(input.position(), e).into());
+                    return wrap_stream_error(input, e);
                 }
             };
         }

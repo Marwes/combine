@@ -36,6 +36,7 @@ futures = "0.1"
 tokio-io = "0.1"
 partial-io = { version = "0.3", features = ["tokio", "quickcheck"] }
 bytes = "0.4"
+quickcheck = "0.6"
 
 [features]
 default = ["std"]

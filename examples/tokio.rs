@@ -62,7 +62,7 @@ impl Decoder for LanguageServerDecoder {
     type Error = Box<::std::error::Error + Send + Sync>;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let opt = combine::async::decode(
+        let (opt, removed_len) = combine::async::decode(
             decode_parser(self.content_length_parses.clone()),
             easy::Stream(&src[..]),
             &mut self.state,
@@ -77,12 +77,10 @@ impl Decoder for LanguageServerDecoder {
             }).map_position(|p| p.translate_position(&src[..]))
         })?;
 
+        src.split_to(removed_len);
         match opt {
             None => Ok(None),
-            Some((output, removed_len)) => {
-                src.split_to(removed_len);
-                Ok(Some(String::from_utf8(output)?))
-            }
+            Some(output) => Ok(Some(String::from_utf8(output)?)),
         }
     }
 }

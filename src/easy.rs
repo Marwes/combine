@@ -676,10 +676,11 @@ where
     where
         E: StreamError<Self::Item, Self::Range>,
     {
-        match self.0.uncons() {
-            Ok(t) => Ok(t),
-            Err(err) => Err(err),
-        }
+        self.0.uncons()
+    }
+
+    fn is_partial(&self) -> bool {
+        self.0.is_partial()
     }
 }
 
