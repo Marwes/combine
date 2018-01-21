@@ -22,6 +22,12 @@ macro_rules! impl_parser {
         type Input = <$first as Parser>::Input;
         type Output = <$inner_type as Parser>::Output;
         type PartialState = <$inner_type as Parser>::PartialState;
+        fn parse_lazy(
+            &mut self,
+            input: &mut Self::Input,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_lazy(input)
+        }
         fn parse_partial(
             &mut self,
             input: &mut Self::Input,
@@ -1709,10 +1715,9 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
-        let (first, rest) = ctry!(self.parser.parse_lazy(input));
-
-        // TODO
         let (ref mut elements, ref mut child_state) = *state;
+
+        let (first, rest) = ctry!(self.parser.parse_partial(input, &mut child_state.B.state));
 
         rest.combine_consumed(move |_| {
             let rest = (&mut self.separator).with(&mut self.parser);
@@ -1865,10 +1870,9 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<F, P::Input> {
-        let (first, rest) = ctry!(self.parser.parse_lazy(input));
-
-        // TODO
         let (ref mut elements, ref mut child_state) = *state;
+
+        let (first, rest) = ctry!(self.parser.parse_partial(input, &mut child_state.B.state));
 
         rest.combine_consumed(|_| {
             let rest = (&mut self.separator).with(optional(&mut self.parser));
@@ -2103,19 +2107,38 @@ where
 {
     type Input = I;
     type Output = P::Output;
-    type PartialState = ();
+    type PartialState = (
+        Option<(P::Output, Consumed<()>)>,
+        <(Op, P) as Parser>::PartialState,
+    );
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<P::Output, I> {
-        let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<P::Output, I> {
+        let (ref mut l_state, ref mut child_state) = *state;
+
+        let (mut l, mut consumed) = match l_state.take() {
+            Some(x) => x,
+            None => ctry!(self.0.parse_partial(input, &mut child_state.B.state)),
+        };
+
         loop {
             let before = input.checkpoint();
-            match (&mut self.1, &mut self.0).parse_lazy(input).into() {
+            match (&mut self.1, &mut self.0)
+                .parse_partial(input, child_state)
+                .into()
+            {
                 Ok(((op, r), rest)) => {
                     l = op(l, r);
                     consumed = consumed.merge(rest);
                 }
-                Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
+                Err(Consumed::Consumed(err)) => {
+                    *l_state = Some((l, consumed));
+                    return ConsumedErr(err.error);
+                }
                 Err(Consumed::Empty(_)) => {
                     input.reset(before);
                     break;
@@ -2418,11 +2441,15 @@ where
 {
     type Input = I;
     type Output = P::Output;
-    type PartialState = ();
+    type PartialState = P::PartialState;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, I> {
-        match self.0.parse_lazy(input) {
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, I> {
+        match self.0.parse_partial(input, state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
 

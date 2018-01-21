@@ -1582,7 +1582,20 @@ pub trait Parser {
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline(always)]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        self.parse_partial(input, &mut Default::default())
+        if input.is_partial() {
+            // If a partial parser were called from a non-partial parser (as it is here) we must
+            // reset the input to before the partial parser were called on errors that consumed
+            // data as that parser's partial state was just temporary and it will not be able to
+            // resume itself
+            let before = input.checkpoint();
+            let result = self.parse_partial(input, &mut Default::default());
+            if let ConsumedErr(_) = result {
+                input.reset(before);
+            }
+            result
+        } else {
+            self.parse_partial(input, &mut Default::default())
+        }
     }
 
     // TODO

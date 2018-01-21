@@ -198,11 +198,23 @@ macro_rules! impl_token_parser {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
         type PartialState = <$inner_type as Parser>::PartialState;
+
         #[inline]
         fn parse_lazy(&mut self,
                       input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
+
+        #[inline]
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input>
+        {
+            self.0.parse_partial(input, state)
+        }
+
         fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
             self.0.add_error(errors)
         }

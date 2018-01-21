@@ -22,6 +22,7 @@ use tokio_io::codec::Decoder;
 
 use combine::range::range;
 use combine::{any, count_min_max, skip_many, many1};
+use combine::combinator::no_partial;
 use combine::primitives::RangeStream;
 use combine::easy;
 use combine::char::{char, digit, letter};
@@ -130,6 +131,17 @@ parser!{
     }
 }
 
+parser!{
+    type PartialState = Option<Box<Any>>;
+    fn no_partial_parser['a, I]()(I) -> String
+        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    {
+        no_partial(many1(digit()))
+            .or(many1(letter()))
+            .skip(range(&"\r\n"[..]))
+    }
+}
+
 quickcheck! {
     fn many1_skip(seq: PartialWithErrors<GenWouldBlock>) -> () {
 
@@ -168,6 +180,24 @@ quickcheck! {
 
     fn choice(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String, choice_parser() }
+
+        let input = "1\r\n\
+                     abcd\r\n\
+                     123\r\n\
+                     abc\r\n\
+                     1232751\r\n";
+
+        let result = run_decoder(input, seq, TestParser::default());
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["1", "abcd", "123", "abc", "1232751"],
+        );
+    }
+
+    fn inner_no_partial(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String, no_partial_parser() }
 
         let input = "1\r\n\
                      abcd\r\n\
