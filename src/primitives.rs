@@ -950,17 +950,17 @@ impl<'a, T> Clone for SliceStream<'a, T> {
 
 impl<'a, T> Positioned for SliceStream<'a, T>
 where
-    T: PartialEq + Clone + 'a,
+    T: PartialEq + 'a,
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        self.0.position()
+        PointerOffset(self.0.as_ptr() as usize)
     }
 }
 
 impl<'a, T> StreamOnce for SliceStream<'a, T>
 where
-    T: Clone + PartialEq + 'a,
+    T: PartialEq + 'a,
 {
     type Item = &'a T;
     type Range = &'a [T];
@@ -984,7 +984,7 @@ where
 
 impl<'a, T> RangeStreamOnce for SliceStream<'a, T>
 where
-    T: Clone + PartialEq + 'a,
+    T: PartialEq + 'a,
 {
     #[inline]
     fn uncons_range<E>(&mut self, size: usize) -> Result<&'a [T], E>
@@ -1014,13 +1014,13 @@ where
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {
-        self.0.distance(&end.0)
+        end.0.len() - self.0.len()
     }
 }
 
 impl<'a, T> FullRangeStream for SliceStream<'a, T>
 where
-    T: Clone + PartialEq + 'a,
+    T: PartialEq + 'a,
 {
     fn range(&self) -> Self::Range {
         self.0
