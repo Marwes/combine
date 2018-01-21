@@ -581,7 +581,6 @@ pub fn uncons<I>(input: &mut I) -> ConsumedResult<I::Item, I>
 where
     I: ?Sized + Stream,
 {
-    let position = input.position();
     match input.uncons() {
         Ok(x) => ConsumedOk(x),
         Err(err) => wrap_stream_error(input, err),
@@ -1331,6 +1330,13 @@ pub enum FastResult<T, E> {
 }
 
 impl<T, E> FastResult<T, E> {
+    #[inline]
+    pub fn is_ok(&self) -> bool {
+        match *self {
+            ConsumedOk(_) | EmptyOk(_) => true,
+            ConsumedErr(_) | EmptyErr(_) => false,
+        }
+    }
     pub fn as_ref(&self) -> FastResult<&T, &E> {
         match *self {
             ConsumedOk(ref t) => ConsumedOk(t),

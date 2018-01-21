@@ -1,3 +1,5 @@
+#![cfg(feature = "std")]
+
 extern crate bytes;
 #[macro_use]
 extern crate combine;

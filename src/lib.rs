@@ -747,7 +747,7 @@ mod tests {
 #[cfg(all(feature = "std", test))]
 mod std_tests {
     use super::*;
-    use super::primitives::{Consumed, IteratorStream, Resetable};
+    use super::primitives::{Consumed, IteratorStream};
     use super::easy::Error;
 
     use char::{alpha_num, char, digit, letter, spaces, string};

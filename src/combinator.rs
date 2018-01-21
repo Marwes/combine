@@ -662,7 +662,7 @@ macro_rules! merge {
 }
 
 macro_rules! do_choice {
-    ($input: ident ( ) $($parser: ident $error: ident)+) => { {
+    ($input: ident $partial_state: ident $state: ident ( ) $($parser: ident $error: ident)+) => { {
         let mut error = Tracked::from(merge!($($error)+));
         // If offset != 1 then the nested parser is a sequence of parsers where 1 or
         // more parsers returned `EmptyOk` before the parser finally failed with
@@ -680,32 +680,50 @@ macro_rules! do_choice {
         )+
         EmptyErr(error)
     } };
-    ($input: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
+    ($input: ident $partial_state: ident $state: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
         let parser = $head;
         let before = $input.checkpoint();
-        match parser.parse_lazy($input) {
+        let mut state = $head::PartialState::default();
+        match parser.parse_partial($input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
-            ConsumedErr(err) => ConsumedErr(err),
+            ConsumedErr(err) => {
+                *$state = self::$partial_state::$head(state);
+                ConsumedErr(err)
+            }
             EmptyErr($head) => {
                 $input.reset(before);
-                do_choice!($input ( $($tail)* ) $($all)* parser $head)
+                do_choice!($input $partial_state $state ( $($tail)* ) $($all)* parser $head)
             }
-        } }
-    }
+        }
+    } }
 }
 
 macro_rules! tuple_choice_parser {
     ($head: ident) => {
     };
     ($head: ident $($id: ident)+) => {
-        tuple_choice_parser_inner!($head $($id)+);
+        tuple_choice_parser_inner!($head; $head $($id)+);
         tuple_choice_parser!($($id)+);
     };
 }
 
 macro_rules! tuple_choice_parser_inner {
-    ($($id: ident)+) => {
+    ($partial_state: ident; $($id: ident)+) => {
+        #[doc(hidden)]
+        pub enum $partial_state<$($id),+> {
+            Empty,
+            $(
+                $id($id),
+            )+
+        }
+
+        impl<$($id),+> Default for self::$partial_state<$($id),+> {
+            fn default() -> Self {
+                self::$partial_state::Empty
+            }
+        }
+
         #[allow(non_snake_case)]
         impl<Input, Output $(,$id)+> ChoiceParser for ($($id),+)
         where
@@ -714,7 +732,7 @@ macro_rules! tuple_choice_parser_inner {
         {
             type Input = Input;
             type Output = Output;
-            type PartialState = ();
+            type PartialState = self::$partial_state<$($id::PartialState),+>;
 
             #[inline]
             fn parse_choice(
@@ -723,7 +741,21 @@ macro_rules! tuple_choice_parser_inner {
                 state: &mut Self::PartialState,
             ) -> ConsumedResult<Self::Output, Self::Input> {
                 let ($(ref mut $id),+) = *self;
-                do_choice!(input ( $($id)+ ) )
+                match *state {
+                    self::$partial_state::Empty => do_choice!(input $partial_state state ( $($id)+ ) ),
+                    $(
+                        self::$partial_state::$id(_) => {
+                            let result = match *state {
+                                self::$partial_state::$id(ref mut state) => $id.parse_partial(input, state),
+                                _ => unreachable!()
+                            };
+                            if result.is_ok() {
+                                *state = self::$partial_state::Empty;
+                            }
+                            result
+                        }
+                    )+
+                }
             }
             fn add_error_choice(
                 &mut self,
@@ -751,7 +783,7 @@ macro_rules! array_choice_parser {
         {
             type Input = P::Input;
             type Output = P::Output;
-            type PartialState = ();
+            type PartialState = <[P] as ChoiceParser>::PartialState;
 
             #[inline(always)]
             fn parse_choice(
@@ -811,7 +843,7 @@ where
 {
     type Input = I;
     type Output = O;
-    type PartialState = ();
+    type PartialState = (usize, P::PartialState);
     #[inline]
     fn parse_choice(
         &mut self,
@@ -821,11 +853,25 @@ where
         let mut prev_err = None;
         let mut last_parser_having_non_1_offset = 0;
         let before = input.checkpoint();
+
+        let (ref mut index_state, ref mut child_state) = *state;
+        if *index_state != 0 {
+            return self[*index_state - 1]
+                .parse_partial(input, child_state)
+                .map(|x| {
+                    *index_state = 0;
+                    x
+                });
+        }
+
         for i in 0..self.len() {
             input.reset(before.clone());
 
-            match self[i].parse_lazy(input) {
-                consumed_err @ ConsumedErr(_) => return consumed_err,
+            match self[i].parse_partial(input, child_state) {
+                consumed_err @ ConsumedErr(_) => {
+                    *index_state = i + 1;
+                    return consumed_err;
+                }
                 EmptyErr(err) => {
                     prev_err = match prev_err {
                         None => Some(err),
@@ -851,7 +897,10 @@ where
                         }
                     };
                 }
-                ok @ ConsumedOk(_) | ok @ EmptyOk(_) => return ok,
+                ok @ ConsumedOk(_) | ok @ EmptyOk(_) => {
+                    *index_state = 0;
+                    return ok;
+                }
             }
         }
         EmptyErr(match prev_err {
