@@ -660,6 +660,16 @@ where
     }
 }
 
+fn input_at_eof<I>(input: &mut I) -> bool
+where
+    I: ?Sized + Stream,
+{
+    let before = input.checkpoint();
+    let x = input.uncons::<UnexpectedParse>() == Err(UnexpectedParse::Eoi);
+    input.reset(before);
+    x
+}
+
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
 pub fn uncons_while<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
@@ -670,11 +680,22 @@ where
 {
     match input.uncons_while(predicate) {
         Err(err) => wrap_stream_error(input, err),
-        Ok(x) => if x.len() == 0 {
-            EmptyOk(x)
-        } else {
-            ConsumedOk(x)
-        },
+        Ok(x) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                if x.len() == 0 {
+                    EmptyOk(x)
+                } else {
+                    ConsumedOk(x)
+                }
+            }
+        }
     }
 }
 
@@ -795,7 +816,7 @@ where
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {
-        self.position().0 - end.position().0
+        end.len() - self.len()
     }
 }
 
@@ -2200,6 +2221,23 @@ mod tests {
             SliceStream(s).uncons_range::<UnexpectedParse>(0),
             Ok(&[][..])
         );
+    }
+
+    #[test]
+    fn larger_than_1_byte_items_return_correct_distance() {
+        let mut input = &[123i32, 0i32][..];
+
+        let before = input.checkpoint();
+        assert_eq!(input.distance(&before), 0);
+
+        input.uncons::<UnexpectedParse>().unwrap();
+        assert_eq!(input.distance(&before), 1);
+
+        input.uncons::<UnexpectedParse>().unwrap();
+        assert_eq!(input.distance(&before), 2);
+
+        input.reset(before.clone());
+        assert_eq!(input.distance(&before), 0);
     }
 }
 
