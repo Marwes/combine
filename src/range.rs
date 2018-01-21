@@ -65,6 +65,49 @@ parser!{
     }
 }
 
+fn parse_partial_range<F, I>(
+    input: &mut I,
+    distance_state: &mut usize,
+    f: F,
+) -> ConsumedResult<I::Range, I>
+where
+    F: FnOnce(&mut I) -> ConsumedResult<I::Range, I>,
+    I: RangeStream,
+    I::Range: ::primitives::Range,
+{
+    let before = input.checkpoint();
+
+    if *distance_state == 0 {
+        let result = f(input);
+        if let ConsumedErr(_) = result {
+            *distance_state = input.distance(&before);
+            input.reset(before);
+        }
+        result
+    } else {
+        if let Err(_) = input.uncons_range::<UnexpectedParse>(*distance_state) {
+            panic!("recognize errored when restoring the input stream to its expected state");
+        }
+
+        match f(input) {
+            ConsumedOk(_) | EmptyOk(_) => (),
+            EmptyErr(err) => return EmptyErr(err),
+            ConsumedErr(err) => {
+                *distance_state = input.distance(&before);
+                input.reset(before);
+                return ConsumedErr(err);
+            }
+        }
+
+        let distance = input.distance(&before);
+        input.reset(before);
+        take(distance).parse_lazy(input).map(|range| {
+            *distance_state = 0;
+            range
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct RecognizeWithValue<P>(P);
 
@@ -76,15 +119,37 @@ where
 {
     type Input = P::Input;
     type Output = (<P::Input as StreamOnce>::Range, P::Output);
-    type PartialState = ();
+    type PartialState = (usize, P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let (ref mut distance_state, ref mut child_state) = *state;
+
         let before = input.checkpoint();
-        let (value, _) = ctry!(self.0.parse_lazy(input));
+        if let Err(_) = input.uncons_range::<UnexpectedParse>(*distance_state) {
+            panic!("recognize errored when restoring the input stream to its expected state");
+        }
+
+        let value = match self.0.parse_partial(input, child_state) {
+            ConsumedOk(x) | EmptyOk(x) => x,
+            EmptyErr(err) => return EmptyErr(err),
+            ConsumedErr(err) => {
+                *distance_state = input.distance(&before);
+                input.reset(before);
+                return ConsumedErr(err);
+            }
+        };
+
         let distance = input.distance(&before);
         input.reset(before);
-        take(distance).parse_lazy(input).map(|range| (range, value))
+        take(distance).parse_lazy(input).map(|range| {
+            *distance_state = 0;
+            (range, value)
+        })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
@@ -195,11 +260,15 @@ where
 {
     type Input = I;
     type Output = I::Range;
-    type PartialState = ();
+    type PartialState = usize;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        ::primitives::uncons_while(input, &mut self.0)
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        parse_partial_range(input, state, |input| uncons_while(input, &mut self.0))
     }
 }
 
@@ -235,19 +304,43 @@ where
 {
     type Input = I;
     type Output = I::Range;
-    type PartialState = ();
+    type PartialState = usize;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        match uncons_while(input, &mut self.0) {
-            ConsumedOk(v) => ConsumedOk(v),
-            EmptyOk(_) => {
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        distance_state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let before = input.checkpoint();
+        let result = uncons_while(input, &mut self.0);
+        if let ConsumedErr(_) = result {
+            *distance_state = input.distance(&before);
+            input.reset(before);
+        }
+        if let EmptyOk(_) = result {
+            let position = input.position();
+            EmptyErr(I::Error::empty(position).into())
+        } else {
+            result
+        }
+    }
+
+    #[inline]
+    fn parse_resume(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        parse_partial_range(input, state, |input| {
+            let result = uncons_while(input, &mut self.0);
+            if let EmptyOk(_) = result {
                 let position = input.position();
                 EmptyErr(I::Error::empty(position).into())
+            } else {
+                result
             }
-            EmptyErr(err) => EmptyErr(err),
-            ConsumedErr(err) => ConsumedErr(err),
-        }
+        })
     }
 }
 
@@ -285,15 +378,21 @@ where
 {
     type Input = I;
     type Output = I::Range;
-    type PartialState = ();
+    type PartialState = usize;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        to_consume: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
         use primitives::Range;
 
         let len = self.0.len();
-        let mut to_consume = 0;
         let before = input.checkpoint();
+
+        // Skip until the end of the last parse attempt
+        ctry!(uncons_range(input, *to_consume));
 
         loop {
             let look_ahead_input = input.checkpoint();
@@ -302,10 +401,11 @@ where
                 Ok(xs) => {
                     if xs == self.0 {
                         input.reset(before);
-                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(to_consume) {
-                            if to_consume == 0 {
+                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(*to_consume) {
+                            if *to_consume == 0 {
                                 return EmptyOk(consumed);
                             } else {
+                                *to_consume = 0;
                                 return ConsumedOk(consumed);
                             }
                         }
@@ -315,14 +415,14 @@ where
                         unreachable!();
                     } else {
                         input.reset(look_ahead_input);
-                        to_consume += 1;
+                        *to_consume += 1;
                         if input.uncons::<UnexpectedParse>().is_err() {
                             unreachable!();
                         }
                     }
                 }
                 Err(e) => {
-                    input.reset(look_ahead_input);
+                    input.reset(before);
                     return wrap_stream_error(input, e);
                 }
             };

@@ -1630,6 +1630,15 @@ pub trait Parser {
         self.parse_lazy(input)
     }
 
+    #[inline(always)]
+    fn parse_resume(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.parse_partial(input, state)
+    }
+
     /// Adds the first error that would normally be returned by this parser if it failed with an
     /// `EmptyErr` result.
     ///

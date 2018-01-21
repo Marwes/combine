@@ -20,7 +20,7 @@ use tokio_io::codec::FramedRead;
 
 use tokio_io::codec::Decoder;
 
-use combine::range::range;
+use combine::range::{range, recognize_with_value, take_while};
 use combine::{any, count_min_max, skip_many, Parser, many1};
 use combine::combinator::{boxed_partial_state, no_partial, optional, recognize, skip_many1};
 use combine::primitives::RangeStream;
@@ -216,6 +216,58 @@ quickcheck! {
                     (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
                 )
                 .skip(range(&"\r\n"[..]))
+            )
+        }
+
+        let input = "1.0\r\n\
+                     123.123\r\n\
+                     17824\r\n\
+                     3.14\r\n\
+                     1.\r\n\
+                     2\r\n";
+
+        let result = run_decoder(input, seq, TestParser::default());
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["1.0", "123.123", "17824", "3.14", "1.", "2"],
+        );
+    }
+
+    fn recognize_range_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String,
+            boxed_partial_state(
+                recognize_with_value(
+                    (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
+                )
+                .map(|(r, _)| String::from(r))
+                .skip(range(&"\r\n"[..]))
+            )
+        }
+
+        let input = "1.0\r\n\
+                     123.123\r\n\
+                     17824\r\n\
+                     3.14\r\n\
+                     1.\r\n\
+                     2\r\n";
+
+        let result = run_decoder(input, seq, TestParser::default());
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["1.0", "123.123", "17824", "3.14", "1.", "2"],
+        );
+    }
+
+    fn take_while_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String,
+            boxed_partial_state(
+                take_while(|c| c != '\r')
+                    .map(String::from)
+                    .skip(range("\r\n"))
             )
         }
 
