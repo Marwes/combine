@@ -662,7 +662,7 @@ macro_rules! merge {
 }
 
 macro_rules! do_choice {
-    ($input: ident $partial_state: ident $state: ident ( ) $($parser: ident $error: ident)+) => { {
+    ($input: ident $before_position: ident $before: ident $partial_state: ident $state: ident ( ) $($parser: ident $error: ident)+) => { {
         let mut error = Tracked::from(merge!($($error)+));
         // If offset != 1 then the nested parser is a sequence of parsers where 1 or
         // more parsers returned `EmptyOk` before the parser finally failed with
@@ -680,20 +680,24 @@ macro_rules! do_choice {
         )+
         EmptyErr(error)
     } };
-    ($input: ident $partial_state: ident $state: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
+    ($input: ident $before_position: ident $before: ident $partial_state: ident $state: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
         let parser = $head;
-        let before = $input.checkpoint();
         let mut state = $head::PartialState::default();
         match parser.parse_partial($input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => {
-                *$state = self::$partial_state::$head(state);
+                // If we get `ConsumedErr` but the input is the same this is a partial parse we
+                // cannot commit to so leave the state as `Empty` to retry all the parsers
+                // on the next call to  `parse_partial`
+                if $input.position() != $before_position {
+                    *$state = self::$partial_state::$head(state);
+                }
                 ConsumedErr(err)
             }
             EmptyErr($head) => {
-                $input.reset(before);
-                do_choice!($input $partial_state $state ( $($tail)* ) $($all)* parser $head)
+                $input.reset($before.clone());
+                do_choice!($input $before_position $before $partial_state $state ( $($tail)* ) $($all)* parser $head)
             }
         }
     } }
@@ -742,7 +746,11 @@ macro_rules! tuple_choice_parser_inner {
             ) -> ConsumedResult<Self::Output, Self::Input> {
                 let ($(ref mut $id),+) = *self;
                 match *state {
-                    self::$partial_state::Empty => do_choice!(input $partial_state state ( $($id)+ ) ),
+                    self::$partial_state::Empty => {
+                        let before_position = input.position();
+                        let before = input.checkpoint();
+                        do_choice!(input before_position before $partial_state state ( $($id)+ ) )
+                    }
                     $(
                         self::$partial_state::$id(_) => {
                             let result = match *state {
@@ -1623,7 +1631,10 @@ where
 {
     type Input = P::Input;
     type Output = F;
-    type PartialState = ();
+    type PartialState = <Or<
+        SepBy1<F, P, S>,
+        FnParser<P::Input, fn(&mut Self::Input) -> ParseResult<F, Self::Input>>,
+    > as Parser>::PartialState;
 
     #[inline]
     fn parse_partial(
@@ -1775,7 +1786,10 @@ where
 {
     type Input = P::Input;
     type Output = F;
-    type PartialState = ();
+    type PartialState = <Or<
+        SepEndBy1<F, P, S>,
+        FnParser<P::Input, fn(&mut Self::Input) -> ParseResult<F, Self::Input>>,
+    > as Parser>::PartialState;
 
     #[inline]
     fn parse_partial(
@@ -2456,11 +2470,17 @@ where
 {
     type Input = I;
     type Output = O;
-    type PartialState = ();
+    type PartialState = <Choice<(P1, P2)> as Parser>::PartialState;
+
     #[inline(always)]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
-        self.0.parse_lazy(input)
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<O, I> {
+        self.0.parse_partial(input, state)
     }
+
     #[inline]
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         if errors.offset != ErrorOffset(0) {
