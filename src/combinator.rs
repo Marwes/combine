@@ -1,6 +1,7 @@
 use lib::iter::FromIterator;
 use lib::marker::PhantomData;
 use lib::mem;
+use lib::borrow::BorrowMut;
 
 use primitives::{uncons, Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser,
                  Positioned, Resetable, Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
@@ -1251,7 +1252,7 @@ enum State<E> {
 
 impl<'a, P: Parser, S> Iter<'a, P, S>
 where
-    S: ::std::borrow::BorrowMut<P::PartialState>,
+    S: BorrowMut<P::PartialState>,
 {
     pub fn new(parser: P, input: &'a mut P::Input, partial_state: S) -> Self {
         Iter {
@@ -1325,7 +1326,7 @@ where
 
 impl<'a, P: Parser, S> Iterator for Iter<'a, P, S>
 where
-    S: ::std::borrow::BorrowMut<P::PartialState>,
+    S: BorrowMut<P::PartialState>,
 {
     type Item = P::Output;
     fn next(&mut self) -> Option<P::Output> {
@@ -3288,7 +3289,6 @@ pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
 impl<P, F> Parser for Recognize<F, P>
 where
     P: Parser,
-    <P::Input as StreamOnce>::Position: ::std::fmt::Debug,
     F: FromIterator<<P::Input as StreamOnce>::Item>,
 {
     type Input = P::Input;
