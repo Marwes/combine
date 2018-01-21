@@ -88,7 +88,7 @@ parser!{
     fn basic_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
     {
-        many1(digit()).skip(range(&"\r\n"[..]).map(|_| ()))
+        many1(digit()).skip(range(&"\r\n"[..]))
     }
 }
 

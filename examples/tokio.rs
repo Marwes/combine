@@ -16,11 +16,10 @@ use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::primitives::{ParseError, PointerOffset, RangeStream, RangeStreamOnce, Resetable,
-                          StreamOnce};
+use combine::primitives::{ParseError, PartialStream, RangeStream};
 use combine::range::{range, recognize, take};
-use combine::{skip_many, Parser, skip_many1};
-use combine::easy::{self, Error as CombineError, Errors};
+use combine::{skip_many, skip_many1};
+use combine::easy;
 use combine::byte::digit;
 
 pub struct LanguageServerDecoder {
@@ -39,21 +38,29 @@ impl LanguageServerDecoder {
 
 parser! {
     type PartialState = Option<Box<Any>>;
-    fn decode_parser['a](content_length_parses: Rc<Cell<i32>>)(easy::Stream<&'a [u8]>) -> Vec<u8>
-    where [ <easy::Stream<&'a [u8]> as StreamOnce>::Error:
-                ParseError<u8, &'a [u8], PointerOffset, StreamError = easy::Error<u8, &'a [u8]>>
+    fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
+    where [ I: RangeStream<Item = u8, Range = &'a [u8], Error = easy::StreamErrors<I>>,
+            I::Error: ParseError<u8, &'a [u8], I::Position, StreamError = easy::Error<u8, &'a [u8]>>,
         ]
     {
+        let content_length =
+            range(&b"Content-Length: "[..])
+                .with(
+                    recognize(skip_many1(digit()))
+                        .and_then(|digits: &[u8]| unsafe {
+                            str::from_utf8_unchecked(digits).parse::<usize>()
+                        })
+                )
+                .map(|x| {
+                    content_length_parses.set(content_length_parses.get() + 1);
+                    x
+                });
         (
             skip_many(range(&b"\r\n"[..])),
-            range(&b"Content-Length: "[..]).map(|_| content_length_parses.set(content_length_parses.get() + 1)),
-            recognize(skip_many1(digit())),
-            range(&b"\r\n\r\n"[..]),
-        ).map(|t| t.2)
-            .and_then(|digits: &[u8]| unsafe {
-                str::from_utf8_unchecked(digits).parse::<usize>()
-            })
-            .then(|message_length| take(message_length).map(|bytes: &[u8]| bytes.to_owned()))
+            content_length,
+            range(&b"\r\n\r\n"[..]).map(|_| ()),
+        ).map(|t| t.1)
+            .then_partial(|&mut message_length| take(message_length).map(|bytes: &[u8]| bytes.to_owned()))
     }
 }
 
@@ -62,25 +69,40 @@ impl Decoder for LanguageServerDecoder {
     type Error = Box<::std::error::Error + Send + Sync>;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        println!("Decoding `{:?}`", str::from_utf8(src).unwrap_or("NOT UTF8"));
+
         let (opt, removed_len) = combine::async::decode(
             decode_parser(self.content_length_parses.clone()),
-            easy::Stream(&src[..]),
+            easy::Stream(PartialStream(&src[..])),
             &mut self.state,
         ).map_err(|err| {
             // Since err contains references into `src` we must remove these before
             // returning the error and before we call `split_to` to remove the input we
             // just consumed
-            err.map_range(|r| {
+            let err = err.map_range(|r| {
                 str::from_utf8(r)
                     .ok()
                     .map_or_else(|| format!("{:?}", r), |s| s.to_string())
-            }).map_position(|p| p.translate_position(&src[..]))
+            }).map_position(|p| p.translate_position(&src[..]));
+            format!("{}\nIn input: `{}`", err, str::from_utf8(src).unwrap())
         })?;
 
+        println!(
+            "Accepted {} bytes: `{:?}`",
+            removed_len,
+            str::from_utf8(&src[..removed_len]).unwrap_or("NOT UTF8")
+        );
         src.split_to(removed_len);
         match opt {
-            None => Ok(None),
-            Some(output) => Ok(Some(String::from_utf8(output)?)),
+            None => {
+                println!("Requesting more input!");
+                Ok(None)
+            }
+            Some(output) => {
+                let value = String::from_utf8(output)?;
+                println!("Decoded `{}`", value);
+                Ok(Some(value))
+            }
         }
     }
 }
@@ -99,9 +121,9 @@ fn main() {
 
     let seq = vec![
         PartialOp::Limited(20),
-        PartialOp::Limited(0),
         PartialOp::Limited(1),
-        PartialOp::Limited(1),
+        PartialOp::Limited(2),
+        PartialOp::Limited(3),
     ];
     let ref mut reader = Cursor::new(input.as_bytes());
     let partial_reader = PartialAsyncRead::new(reader, seq);
@@ -112,10 +134,17 @@ fn main() {
     let result = FramedRead::new(partial_reader, decoder).collect().wait();
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
-    assert_eq!(
-        result.unwrap(),
-        vec!["123456".to_string(), "true".to_string()]
-    );
+    let values = result.unwrap();
 
-    assert_eq!(content_length_parses.get(), 2);
+    let expected_values = ["123456", "true"];
+    assert_eq!(values, expected_values);
+
+    assert_eq!(content_length_parses.get(), expected_values.len() as i32);
+
+    println!("Successfully parsed: `{}`", input);
+    println!(
+        "Found {} items and never repeated a completed parse!",
+        values.len(),
+    );
+    println!("Result: {:?}", values);
 }
