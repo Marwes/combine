@@ -3385,59 +3385,73 @@ pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
 impl<P, F> Parser for Recognize<F, P>
 where
     P: Parser,
-    F: FromIterator<<P::Input as StreamOnce>::Item>,
+    F: Default + Extend<<P::Input as StreamOnce>::Item>,
 {
     type Input = P::Input;
     type Output = F;
-    type PartialState = ();
+    type PartialState = (F, P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<F, P::Input> {
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<F, P::Input> {
+        let (ref mut elements, ref mut child_state) = *state;
+
         let before = input.checkpoint();
-        match self.0.parse_lazy(input) {
+        match self.0.parse_partial(input, child_state) {
             EmptyOk(_) => {
                 let last_position = input.position();
                 input.reset(before);
 
-                let result = (0..)
-                    .scan((), |_, _| {
-                        if input.position() != last_position {
-                            Some(input.uncons())
-                        } else {
-                            None
+                while input.position() != last_position {
+                    match input.uncons() {
+                        Ok(elem) => elements.extend(Some(elem)),
+                        Err(err) => {
+                            return EmptyErr(
+                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
+                                    .into(),
+                            )
                         }
-                    })
-                    .collect::<Result<_, _>>();
-
-                match result {
-                    Ok(x) => EmptyOk(x),
-                    Err(err) => EmptyErr(
-                        <P::Input as StreamOnce>::Error::from_error(input.position(), err).into(),
-                    ),
+                    }
                 }
+                EmptyOk(mem::replace(elements, F::default()))
             }
             ConsumedOk(_) => {
                 let last_position = input.position();
                 input.reset(before);
 
-                let result = (0..)
-                    .scan((), |_, _| {
-                        if input.position() != last_position {
-                            Some(input.uncons())
-                        } else {
-                            None
+                while input.position() != last_position {
+                    match input.uncons() {
+                        Ok(elem) => elements.extend(Some(elem)),
+                        Err(err) => {
+                            return ConsumedErr(
+                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
+                                    .into(),
+                            )
                         }
-                    })
-                    .collect::<Result<_, _>>();
-
-                match result {
-                    Ok(x) => ConsumedOk(x),
-                    Err(err) => ConsumedErr(
-                        <P::Input as StreamOnce>::Error::from_error(input.position(), err).into(),
-                    ),
+                    }
                 }
+                ConsumedOk(mem::replace(elements, F::default()))
             }
-            ConsumedErr(err) => ConsumedErr(err),
+            ConsumedErr(err) => {
+                let last_position = input.position();
+                input.reset(before);
+
+                while input.position() != last_position {
+                    match input.uncons() {
+                        Ok(elem) => elements.extend(Some(elem)),
+                        Err(err) => {
+                            return ConsumedErr(
+                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
+                                    .into(),
+                            )
+                        }
+                    }
+                }
+                ConsumedErr(err)
+            }
             EmptyErr(err) => EmptyErr(err),
         }
     }
@@ -3464,7 +3478,7 @@ where
 pub fn recognize<F, P>(parser: P) -> Recognize<F, P>
 where
     P: Parser,
-    F: FromIterator<<P::Input as StreamOnce>::Item>,
+    F: Default + Extend<<P::Input as StreamOnce>::Item>,
 {
     Recognize(parser, PhantomData)
 }

@@ -22,7 +22,7 @@ use tokio_io::codec::Decoder;
 
 use combine::range::range;
 use combine::{any, count_min_max, skip_many, Parser, many1};
-use combine::combinator::{boxed_partial_state, no_partial};
+use combine::combinator::{boxed_partial_state, no_partial, optional, recognize, skip_many1};
 use combine::primitives::RangeStream;
 use combine::easy;
 use combine::char::{char, digit, letter};
@@ -132,7 +132,7 @@ parser!{
 }
 
 quickcheck! {
-    fn many1_skip(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn many1_skip_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
 
         let input = "123\r\n\
                      456\r\n\
@@ -149,7 +149,7 @@ quickcheck! {
         );
     }
 
-    fn prefix_many_then(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn prefix_many_then_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String, prefix_many_then_parser() }
 
         let input = "# 1a\
@@ -167,7 +167,7 @@ quickcheck! {
         );
     }
 
-    fn choice(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn choice_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String, choice_parser() }
 
         let input = "1\r\n\
@@ -185,13 +185,13 @@ quickcheck! {
         );
     }
 
-    fn inner_no_partial(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn inner_no_partial_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             boxed_partial_state(
                 no_partial(many1(digit()))
                     .or(many1(letter()))
                     .skip(range(&"\r\n"[..]))
-                )
+            )
         }
 
         let input = "1\r\n\
@@ -206,6 +206,32 @@ quickcheck! {
         assert_eq!(
             result.unwrap(),
             ["1", "abcd", "123", "abc", "1232751"],
+        );
+    }
+
+    fn recognize_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String,
+            boxed_partial_state(
+                recognize(
+                    (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
+                )
+                .skip(range(&"\r\n"[..]))
+            )
+        }
+
+        let input = "1.0\r\n\
+                     123.123\r\n\
+                     17824\r\n\
+                     3.14\r\n\
+                     1.\r\n\
+                     2\r\n";
+
+        let result = run_decoder(input, seq, TestParser::default());
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["1.0", "123.123", "17824", "3.14", "1.", "2"],
         );
     }
 }
