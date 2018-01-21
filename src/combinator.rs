@@ -3586,6 +3586,70 @@ where
     }
 }
 
+#[cfg(feature = "std")]
+#[doc(hidden)]
+pub struct BoxedPartialState<P>(P);
+
+#[cfg(feature = "std")]
+impl<P> Parser for BoxedPartialState<P>
+where
+    P: Parser,
+    P::PartialState: 'static,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+    type PartialState = Option<Box<::std::any::Any>>;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_lazy(input)
+    }
+
+    #[inline]
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let mut new_child_state;
+        let result = {
+            let child_state = if let None = *state {
+                new_child_state = Some(Default::default());
+                new_child_state.as_mut().unwrap()
+            } else {
+                new_child_state = None;
+                state.as_mut().unwrap().downcast_mut().unwrap()
+            };
+
+            self.0.parse_partial(input, child_state)
+        };
+
+        if let ConsumedErr(_) = result {
+            if let None = *state {
+                // FIXME Make None unreachable for LLVM
+                *state = Some(Box::new(new_child_state.unwrap()));
+            }
+        }
+
+        result
+    }
+
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(error)
+    }
+}
+
+#[cfg(feature = "std")]
+// TODO Make part of public API
+#[doc(hidden)]
+pub fn boxed_partial_state<P>(p: P) -> BoxedPartialState<P>
+where
+    P: Parser,
+    P::PartialState: 'static,
+{
+    BoxedPartialState(p)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
