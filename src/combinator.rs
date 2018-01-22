@@ -2946,7 +2946,45 @@ macro_rules! tuple_parser {
             _marker: PhantomData <( $h $(, $id)* )>,
         }
 
-        // struct Seq<'a>( $(&'a mut $id ),* );
+
+        #[allow(non_snake_case)]
+        impl<Input, $h $(, $id)*> $partial_state<$h $(, $id)*>
+        where Input: Stream,
+              Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+              $h: Parser<Input=Input>,
+              $($id: Parser<Input=Input>),+
+        {
+            fn add_errors(
+                input: &mut Input,
+                mut err: Tracked<Input::Error>,
+                first_empty_parser: usize,
+                offset: u8,
+                $h: &mut $h $(, $id : &mut $id )*
+            ) -> ConsumedResult<($h::Output, $($id::Output),+), Input>
+            {
+                err.offset = ErrorOffset(offset);
+                if first_empty_parser != 0 {
+                    if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                        err.error.add(StreamError::unexpected_token(t));
+                    }
+                    dispatch_on!(0, |i, mut p| {
+                        if i >= first_empty_parser {
+                            Parser::add_error(&mut p, &mut err);
+                            if err.offset <= ErrorOffset(1) {
+                                return false;
+                            }
+                        }
+                            err.offset = ErrorOffset(
+                                err.offset.0.saturating_sub(Parser::parser_count(&p).0)
+                            );
+                        true
+                    }; $h, $($id),*);
+                    ConsumedErr(err.error)
+                } else {
+                    EmptyErr(err)
+                }
+            }
+        }
 
         #[allow(non_snake_case)]
         impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
@@ -2971,43 +3009,8 @@ macro_rules! tuple_parser {
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
 
-                fn add_errors<Input2, $h $(, $id)*>(
-                    input: &mut Input2,
-                    mut err: Tracked<Input2::Error>,
-                    first_empty_parser: usize,
-                    offset: u8,
-                    $h: &mut $h $(, $id : &mut $id )*
-                ) -> ConsumedResult<($h::Output, $($id::Output),+), Input2>
-                    where Input2: Stream,
-                          Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
-                          $h: Parser<Input=Input2>,
-                          $($id: Parser<Input=Input2>),+
-                {
-                    err.offset = ErrorOffset(offset);
-                    if first_empty_parser != 0 {
-                        if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                            err.error.add(StreamError::unexpected_token(t));
-                        }
-                        dispatch_on!(0, |i, mut p| {
-                            if i >= first_empty_parser {
-                                Parser::add_error(&mut p, &mut err);
-                                if err.offset <= ErrorOffset(1) {
-                                    return false;
-                                }
-                                err.offset = ErrorOffset(
-                                    err.offset.0.saturating_sub(Parser::parser_count(&p).0)
-                                );
-                            }
-                            true
-                        }; $h, $($id),*);
-                        ConsumedErr(err.error)
-                    } else {
-                        EmptyErr(err)
-                    }
-                }
-
                 macro_rules! add_errors {
-                    ($err: ident, $offset: expr) => { add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
+                    ($err: ident, $offset: expr) => { $partial_state::add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
                 }
 
                 let temp = match $h.parse_lazy(input) {
@@ -3061,43 +3064,8 @@ macro_rules! tuple_parser {
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
 
-                fn add_errors<Input2, $h $(, $id)*>(
-                    input: &mut Input2,
-                    mut err: Tracked<Input2::Error>,
-                    first_empty_parser: usize,
-                    offset: u8,
-                    $h: &mut $h $(, $id : &mut $id )*
-                ) -> ConsumedResult<($h::Output, $($id::Output),+), Input2>
-                    where Input2: Stream,
-                          Input2::Error: ParseError<Input2::Item, Input2::Range, Input2::Position>,
-                          $h: Parser<Input=Input2>,
-                          $($id: Parser<Input=Input2>),+
-                {
-                    err.offset = ErrorOffset(offset);
-                    if first_empty_parser != 0 {
-                        if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                            err.error.add(StreamError::unexpected_token(t));
-                        }
-                        dispatch_on!(0, |i, mut p| {
-                            if i >= first_empty_parser {
-                                Parser::add_error(&mut p, &mut err);
-                                if err.offset <= ErrorOffset(1) {
-                                    return false;
-                                }
-                            }
-                            err.offset = ErrorOffset(
-                                err.offset.0.saturating_sub(Parser::parser_count(&p).0)
-                            );
-                        true
-                        }; $h, $($id),*);
-                        ConsumedErr(err.error)
-                    } else {
-                        EmptyErr(err)
-                    }
-                }
-
                 macro_rules! add_errors {
-                    ($err: ident, $offset: expr) => { add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
+                    ($err: ident, $offset: expr) => { $partial_state::add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
                 }
 
                 if let None = state.$h.value {
