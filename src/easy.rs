@@ -464,11 +464,8 @@ impl<T, R> Error<T, R> {
 }
 
 /// Alias over `ParseError` for `StreamOnce` types
-pub type StreamErrors<S> = Errors<
-    <S as StreamOnce>::Position,
-    <S as StreamOnce>::Item,
-    <S as StreamOnce>::Range,
->;
+pub type StreamErrors<S> =
+    Errors<<S as StreamOnce>::Position, <S as StreamOnce>::Item, <S as StreamOnce>::Range>;
 
 /// Struct which hold information about an error that occured at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occured in the same position.
