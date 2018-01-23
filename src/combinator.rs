@@ -3,8 +3,9 @@ use lib::marker::PhantomData;
 use lib::mem;
 use lib::borrow::BorrowMut;
 
-use primitives::{uncons, Consumed, ConsumedResult, Info, ParseError, ParseResult, Parser,
-                 Positioned, Resetable, Stream, StreamError, StreamOnce, Tracked, UnexpectedParse};
+use primitives::{uncons, Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult,
+                 Parser, Positioned, Resetable, Stream, StreamError, StreamOnce, Tracked,
+                 UnexpectedParse};
 
 use either::Either;
 
@@ -668,7 +669,15 @@ macro_rules! merge {
 }
 
 macro_rules! do_choice {
-    ($input: ident $before_position: ident $before: ident $partial_state: ident $state: ident ( ) $($parser: ident $error: ident)+) => { {
+    (
+        $input: ident
+        $before_position: ident
+        $before: ident
+        $partial_state: ident
+        $state: ident
+        ( )
+        $($parser: ident $error: ident)+
+    ) => { {
         let mut error = Tracked::from(merge!($($error)+));
         // If offset != 1 then the nested parser is a sequence of parsers where 1 or
         // more parsers returned `EmptyOk` before the parser finally failed with
@@ -686,7 +695,15 @@ macro_rules! do_choice {
         )+
         EmptyErr(error)
     } };
-    ($input: ident $before_position: ident $before: ident $partial_state: ident $state: ident ( $head: ident $($tail: ident)* ) $($all: ident)*) => { {
+    (
+        $input: ident
+        $before_position: ident
+        $before: ident
+        $partial_state: ident
+        $state: ident
+        ( $head: ident $($tail: ident)* )
+        $($all: ident)*
+    ) => { {
         let parser = $head;
         let mut state = $head::PartialState::default();
         match parser.parse_partial($input, &mut state) {
@@ -703,7 +720,17 @@ macro_rules! do_choice {
             }
             EmptyErr($head) => {
                 $input.reset($before.clone());
-                do_choice!($input $before_position $before $partial_state $state ( $($tail)* ) $($all)* parser $head)
+                do_choice!(
+                    $input
+                    $before_position
+                    $before
+                    $partial_state
+                    $state
+                    ( $($tail)* )
+                    $($all)*
+                    parser
+                    $head
+                )
             }
         }
     } }
@@ -760,7 +787,9 @@ macro_rules! tuple_choice_parser_inner {
                     $(
                         self::$partial_state::$id(_) => {
                             let result = match *state {
-                                self::$partial_state::$id(ref mut state) => $id.parse_partial(input, state),
+                                self::$partial_state::$id(ref mut state) => {
+                                    $id.parse_partial(input, state)
+                                }
                                 _ => unreachable!()
                             };
                             if result.is_ok() {
@@ -2722,55 +2751,59 @@ where
     type Output = N::Output;
     type PartialState = (P::PartialState, Option<(bool, P::Output)>, N::PartialState);
 
-    #[inline]
-    fn parse_partial(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        let (ref mut p_state, ref mut n_parser_cache, ref mut n_state) = *state;
+    parse_partial!(
+        #[inline]
+        self_,
+        Mode,
+        input,
+        state,
+        {
+            let (ref mut p_state, ref mut n_parser_cache, ref mut n_state) = *state;
 
-        if n_parser_cache.is_none() {
-            match self.0.parse_partial(input, p_state) {
-                EmptyOk(value) => {
-                    *n_parser_cache = Some((false, value));
+            if Mode::FIRST {
+                debug_assert!(n_parser_cache.is_none());
+
+                match Mode::parse(&mut self_.0, input, p_state) {
+                    EmptyOk(value) => {
+                        *n_parser_cache = Some((false, value));
+                    }
+                    ConsumedOk(value) => {
+                        *n_parser_cache = Some((true, value));
+                    }
+                    EmptyErr(err) => return EmptyErr(err),
+                    ConsumedErr(err) => return ConsumedErr(err),
                 }
-                ConsumedOk(value) => {
-                    *n_parser_cache = Some((true, value));
-                }
-                EmptyErr(err) => return EmptyErr(err),
-                ConsumedErr(err) => return ConsumedErr(err),
             }
-        }
 
-        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
-            .parse_stream_consumed_partial(input, n_state);
-        match result {
-            EmptyOk(x) => {
-                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
-                *n_parser_cache = None;
-                if consumed {
+            let result = (self_.1)(&mut n_parser_cache.as_mut().unwrap().1)
+                .parse_stream_consumed_partial(input, n_state);
+            match result {
+                EmptyOk(x) => {
+                    let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                    *n_parser_cache = None;
+                    if consumed {
+                        ConsumedOk(x)
+                    } else {
+                        EmptyOk(x)
+                    }
+                }
+                ConsumedOk(x) => {
+                    *n_parser_cache = None;
                     ConsumedOk(x)
-                } else {
-                    EmptyOk(x)
                 }
-            }
-            ConsumedOk(x) => {
-                *n_parser_cache = None;
-                ConsumedOk(x)
-            }
-            EmptyErr(x) => {
-                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
-                *n_parser_cache = None;
-                if consumed {
-                    ConsumedErr(x.error)
-                } else {
-                    EmptyErr(x)
+                EmptyErr(x) => {
+                    let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                    *n_parser_cache = None;
+                    if consumed {
+                        ConsumedErr(x.error)
+                    } else {
+                        EmptyErr(x)
+                    }
                 }
+                ConsumedErr(x) => ConsumedErr(x),
             }
-            ConsumedErr(x) => ConsumedErr(x),
         }
-    }
+    );
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors);
@@ -2805,14 +2838,14 @@ where
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    #[inline]
-    fn parse_partial(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        self.0.parse_partial(input, state)
-    }
+    parse_partial!(
+        #[inline(always)]
+        self_,
+        Mode,
+        input,
+        state,
+        { Mode::parse(&mut self_.0, input, state) }
+    );
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         ParseError::set_expected(errors, StreamError::expected(self.1.clone()), |errors| {
@@ -2849,21 +2882,16 @@ where
     type Output = O;
     type PartialState = P::PartialState;
 
-    #[inline]
-    fn parse_partial(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<O, Self::Input> {
+    parse_partial!(self_, Mode, input, state, {
         let position = input.position();
-        match self.0.parse_partial(input, state) {
-            EmptyOk(o) => match (self.1)(o) {
+        match Mode::parse(&mut self_.0, input, state) {
+            EmptyOk(o) => match (self_.1)(o) {
                 Ok(o) => EmptyOk(o),
                 Err(err) => EmptyErr(
                     <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
                 ),
             },
-            ConsumedOk(o) => match (self.1)(o) {
+            ConsumedOk(o) => match (self_.1)(o) {
                 Ok(o) => ConsumedOk(o),
                 Err(err) => ConsumedErr(
                     <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
@@ -2872,7 +2900,7 @@ where
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
         }
-    }
+    });
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors);
@@ -2996,24 +3024,30 @@ macro_rules! tuple_parser {
             type Input = Input;
             type Output = ($h::Output, $($id::Output),+);
             type PartialState = $partial_state<
-                SequenceState<$h::Output, $h::PartialState> $(, SequenceState<$id::Output, $id::PartialState>)*
+                SequenceState<$h::Output, $h::PartialState>
+                $(, SequenceState<$id::Output, $id::PartialState>)*
             >;
 
             #[inline]
             #[allow(unused_assignments)]
-            fn parse_lazy(
+            fn parse_first(
                 &mut self,
                 input: &mut Self::Input,
+                state: &mut Self::PartialState,
             ) -> ConsumedResult<Self::Output, Self::Input> {
                 let (ref mut $h, $(ref mut $id),+) = *self;
                 let mut first_empty_parser = 0;
                 let mut current_parser = 0;
 
                 macro_rules! add_errors {
-                    ($err: ident, $offset: expr) => { $partial_state::add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
+                    ($err: ident, $offset: expr) => {
+                        $partial_state::add_errors(
+                            input, $err, first_empty_parser, $offset, $h, $($id),*
+                        )
+                    }
                 }
 
-                let temp = match $h.parse_lazy(input) {
+                let temp = match $h.parse_first(input, &mut state.$h.state) {
                     ConsumedOk(x) => {
                         first_empty_parser = current_parser + 1;
                         x
@@ -3023,11 +3057,12 @@ macro_rules! tuple_parser {
                     EmptyOk(x) => x,
                 };
                 let mut offset = $h.parser_count().0.saturating_add(1);
-                let $h = temp;
+                state.$h.value = Some(temp);
+
                 $(
                     current_parser += 1;
                     let before = input.checkpoint();
-                    let temp = match $id.parse_lazy(input) {
+                    let temp = match $id.parse_first(input, &mut state.$id.state) {
                         ConsumedOk(x) => {
                             first_empty_parser = current_parser + 1;
                             x
@@ -3042,10 +3077,10 @@ macro_rules! tuple_parser {
                         }
                     };
                     offset = offset.saturating_add($id.parser_count().0);
-                    let $id = temp;
+                    state.$id.value = Some(temp);
                 )+
 
-                let value = ($h, $($id),+);
+                let value = unsafe { (state.$h.unwrap_value(), $(state.$id.unwrap_value()),+) };
                 if first_empty_parser != 0 {
                     ConsumedOk(value)
                 } else {
@@ -3065,7 +3100,19 @@ macro_rules! tuple_parser {
                 let mut current_parser = 0;
 
                 macro_rules! add_errors {
-                    ($err: ident, $offset: expr) => { $partial_state::add_errors(input, $err, first_empty_parser, $offset, $h, $($id),*) }
+                    ($err: ident, $offset: expr) => {
+                        $partial_state::add_errors(
+                            input, $err, first_empty_parser, $offset, $h, $($id),*
+                        )
+                    }
+                }
+
+                let mut run_in_first_mode = false;
+                macro_rules! run_parser {
+                    ($parser: expr, $state: expr) => {
+                        if run_in_first_mode { $parser.parse_partial(input, $state) }
+                        else {  $parser.parse_partial(input, $state) }
+                    }
                 }
 
                 if let None = state.$h.value {
@@ -3082,13 +3129,17 @@ macro_rules! tuple_parser {
                     };
                     state.offset = $h.parser_count().0.saturating_add(1);
                     state.$h.value = Some(temp);
+
+                    // Once we have successfully parsed the partial input we may resume parsing in
+                    // "first mode"
+                    run_in_first_mode = true;
                 }
 
                 $(
                     if let None = state.$id.value {
                         current_parser += 1;
                         let before = input.checkpoint();
-                        let temp = match $id.parse_partial(input, &mut state.$id.state) {
+                        let temp = match run_parser!($id, &mut state.$id.state) {
                             ConsumedOk(x) => {
                                 first_empty_parser = current_parser + 1;
                                 x
@@ -3104,6 +3155,10 @@ macro_rules! tuple_parser {
                         };
                         state.offset = state.offset.saturating_add($id.parser_count().0);
                         state.$id.value = Some(temp);
+
+                        // Once we have successfully parsed the partial input we may resume parsing in
+                        // "first mode"
+                        run_in_first_mode = true;
                     }
                 )+
 
@@ -3350,25 +3405,19 @@ where
 #[derive(Copy, Clone)]
 pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
 
-impl<P, F> Parser for Recognize<F, P>
+impl<F, P> Recognize<F, P>
 where
     P: Parser,
     F: Default + Extend<<P::Input as StreamOnce>::Item>,
 {
-    type Input = P::Input;
-    type Output = F;
-    type PartialState = (F, P::PartialState);
-
     #[inline]
-    fn parse_partial(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
+    fn recognize_result(
+        elements: &mut F,
+        before: <<Self as Parser>::Input as Resetable>::Checkpoint,
+        input: &mut <Self as Parser>::Input,
+        result: ConsumedResult<P::Output, P::Input>,
     ) -> ConsumedResult<F, P::Input> {
-        let (ref mut elements, ref mut child_state) = *state;
-
-        let before = input.checkpoint();
-        match self.0.parse_partial(input, child_state) {
+        match result {
             EmptyOk(_) => {
                 let last_position = input.position();
                 input.reset(before);
@@ -3423,6 +3472,24 @@ where
             EmptyErr(err) => EmptyErr(err),
         }
     }
+}
+
+impl<P, F> Parser for Recognize<F, P>
+where
+    P: Parser,
+    F: Default + Extend<<P::Input as StreamOnce>::Item>,
+{
+    type Input = P::Input;
+    type Output = F;
+    type PartialState = (F, P::PartialState);
+
+    parse_partial!(self_, Mode, input, state, {
+        let (ref mut elements, ref mut child_state) = *state;
+
+        let before = input.checkpoint();
+        let result = Mode::parse(&mut self_.0, input, child_state);
+        Self::recognize_result(elements, before, input, result)
+    });
 
     #[inline]
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -3468,33 +3535,35 @@ where
         }
     }
 
-    #[inline]
-    fn parse_partial(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        match *self {
-            Either::Left(ref mut x) => {
-                match *state {
-                    None | Some(Either::Right(_)) => {
-                        *state = Some(Either::Left(L::PartialState::default()))
+    parse_partial!(
+        #[inline]
+        self_,
+        Mode,
+        input,
+        state,
+        {
+            match *self_ {
+                Either::Left(ref mut x) => {
+                    match *state {
+                        None | Some(Either::Right(_)) => {
+                            *state = Some(Either::Left(L::PartialState::default()))
+                        }
+                        Some(Either::Left(_)) => (),
                     }
-                    Some(Either::Left(_)) => (),
+                    Mode::parse(x, input, state.as_mut().unwrap().as_mut().left().unwrap())
                 }
-                x.parse_partial(input, state.as_mut().unwrap().as_mut().left().unwrap())
-            }
-            Either::Right(ref mut x) => {
-                match *state {
-                    None | Some(Either::Left(_)) => {
-                        *state = Some(Either::Right(R::PartialState::default()))
+                Either::Right(ref mut x) => {
+                    match *state {
+                        None | Some(Either::Left(_)) => {
+                            *state = Some(Either::Right(R::PartialState::default()))
+                        }
+                        Some(Either::Right(_)) => (),
                     }
-                    Some(Either::Right(_)) => (),
+                    Mode::parse(x, input, state.as_mut().unwrap().as_mut().right().unwrap())
                 }
-                x.parse_partial(input, state.as_mut().unwrap().as_mut().right().unwrap())
             }
         }
-    }
+    );
 
     #[inline]
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {

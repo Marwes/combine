@@ -307,11 +307,13 @@ where
     type PartialState = usize;
 
     #[inline]
-    fn parse_partial(
+    fn parse_first(
         &mut self,
         input: &mut Self::Input,
         distance_state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
+        debug_assert!(*distance_state == 0);
+
         let before = input.checkpoint();
         let result = uncons_while(input, &mut self.0);
         if let ConsumedErr(_) = result {
@@ -327,7 +329,7 @@ where
     }
 
     #[inline]
-    fn parse_resume(
+    fn parse_partial(
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,

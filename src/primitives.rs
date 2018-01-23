@@ -1456,6 +1456,78 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
     }
 }
 
+pub trait ParseMode {
+    const FIRST: bool;
+    fn parse<P>(
+        parser: &mut P,
+        input: &mut P::Input,
+        state: &mut P::PartialState,
+    ) -> ConsumedResult<P::Output, P::Input>
+    where
+        P: ?Sized + Parser;
+}
+
+pub struct First;
+impl ParseMode for First {
+    const FIRST: bool = true;
+    fn parse<P>(
+        parser: &mut P,
+        input: &mut P::Input,
+        state: &mut P::PartialState,
+    ) -> ConsumedResult<P::Output, P::Input>
+    where
+        P: ?Sized + Parser,
+    {
+        parser.parse_first(input, state)
+    }
+}
+
+pub struct Partial;
+impl ParseMode for Partial {
+    const FIRST: bool = false;
+    fn parse<P>(
+        parser: &mut P,
+        input: &mut P::Input,
+        state: &mut P::PartialState,
+    ) -> ConsumedResult<P::Output, P::Input>
+    where
+        P: ?Sized + Parser,
+    {
+        parser.parse_partial(input, state)
+    }
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! parse_partial {
+    (
+        $(#[$attr:meta])*
+        $self_: ident, $mode: ident, $input: ident, $state: ident, $parser: block
+    ) => {
+        $(#[$attr])*
+        fn parse_partial(
+            &mut self,
+            $input: &mut Self::Input,
+            $state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            type $mode = $crate::primitives::Partial;
+            let $self_ = self;
+            $parser
+        }
+
+        $(#[$attr])*
+        fn parse_first(
+            &mut self,
+            $input: &mut Self::Input,
+            $state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            type $mode = $crate::primitives::First;
+            let $self_ = self;
+            $parser
+        }
+    }
+}
+
 /// By implementing the `Parser` trait a type says that it can be used to parse an input stream
 /// into the type `Output`.
 ///
@@ -1609,13 +1681,13 @@ pub trait Parser {
             // data as that parser's partial state was just temporary and it will not be able to
             // resume itself
             let before = input.checkpoint();
-            let result = self.parse_partial(input, &mut Default::default());
+            let result = self.parse_first(input, &mut Default::default());
             if let ConsumedErr(_) = result {
                 input.reset(before);
             }
             result
         } else {
-            self.parse_partial(input, &mut Default::default())
+            self.parse_first(input, &mut Default::default())
         }
     }
 
@@ -1631,7 +1703,7 @@ pub trait Parser {
     }
 
     #[inline(always)]
-    fn parse_resume(
+    fn parse_first(
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
@@ -2178,6 +2250,15 @@ where
     type PartialState = P::PartialState;
 
     #[inline(always)]
+    fn parse_first(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_first(input, state)
+    }
+
+    #[inline(always)]
     fn parse_partial(
         &mut self,
         input: &mut Self::Input,
@@ -2200,6 +2281,15 @@ where
     type Input = P::Input;
     type Output = P::Output;
     type PartialState = P::PartialState;
+
+    #[inline(always)]
+    fn parse_first(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        (**self).parse_first(input, state)
+    }
 
     #[inline(always)]
     fn parse_partial(
