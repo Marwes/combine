@@ -1,7 +1,7 @@
 use lib::marker::PhantomData;
 
 use primitives::{uncons_range, uncons_while, wrap_stream_error, ConsumedResult, Info, ParseError,
-                 Parser, RangeStream, RangeStreamOnce, Resetable, StreamOnce, Tracked,
+                 ParseMode, Parser, RangeStream, RangeStreamOnce, Resetable, StreamOnce, Tracked,
                  UnexpectedParse};
 use primitives::FastResult::*;
 
@@ -65,19 +65,22 @@ parser!{
     }
 }
 
-fn parse_partial_range<F, I>(
+#[inline]
+fn parse_partial_range<M, F, I>(
+    mode: M,
     input: &mut I,
     distance_state: &mut usize,
     f: F,
 ) -> ConsumedResult<I::Range, I>
 where
+    M: ParseMode,
     F: FnOnce(&mut I) -> ConsumedResult<I::Range, I>,
     I: RangeStream,
     I::Range: ::primitives::Range,
 {
     let before = input.checkpoint();
 
-    if *distance_state == 0 {
+    if mode.is_first() || *distance_state == 0 {
         let result = f(input);
         if let ConsumedErr(_) = result {
             *distance_state = input.distance(&before);
@@ -262,13 +265,18 @@ where
     type Output = I::Range;
     type PartialState = usize;
 
+    parse_mode!();
     #[inline]
-    fn parse_partial(
+    fn parse_mode_impl<M>(
         &mut self,
+        mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        parse_partial_range(input, state, |input| uncons_while(input, &mut self.0))
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        parse_partial_range(mode, input, state, |input| uncons_while(input, &mut self.0))
     }
 }
 
@@ -306,39 +314,27 @@ where
     type Output = I::Range;
     type PartialState = usize;
 
+    parse_mode!();
     #[inline]
-    fn parse_first(
+    fn parse_mode_impl<M>(
         &mut self,
-        input: &mut Self::Input,
-        distance_state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        debug_assert!(*distance_state == 0);
-
-        let before = input.checkpoint();
-        let result = uncons_while(input, &mut self.0);
-        if let ConsumedErr(_) = result {
-            *distance_state = input.distance(&before);
-            input.reset(before);
-        }
-        if let EmptyOk(_) = result {
-            let position = input.position();
-            EmptyErr(I::Error::empty(position).into())
-        } else {
-            result
-        }
-    }
-
-    #[inline]
-    fn parse_partial(
-        &mut self,
+        mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        parse_partial_range(input, state, |input| {
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let start = input.position();
+        parse_partial_range(mode, input, state, |input| {
             let result = uncons_while(input, &mut self.0);
-            if let EmptyOk(_) = result {
-                let position = input.position();
-                EmptyErr(I::Error::empty(position).into())
+            let position = input.position();
+            if start == position {
+                if let EmptyOk(_) = result {
+                    EmptyErr(I::Error::empty(position).into())
+                } else {
+                    result
+                }
             } else {
                 result
             }

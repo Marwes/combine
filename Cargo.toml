@@ -60,3 +60,5 @@ required-features = ["mp4"]
 
 [package.metadata.docs.rs]
 features = ["doc"]
+
+[profile.bench]

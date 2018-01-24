@@ -1456,74 +1456,82 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
     }
 }
 
-pub trait ParseMode {
-    const FIRST: bool;
-    fn parse<P>(
-        parser: &mut P,
-        input: &mut P::Input,
-        state: &mut P::PartialState,
-    ) -> ConsumedResult<P::Output, P::Input>
-    where
-        P: ?Sized + Parser;
-}
+pub trait ParseMode: Copy {
+    fn is_first(self) -> bool;
+    fn set_first(&mut self);
 
-pub struct First;
-impl ParseMode for First {
-    const FIRST: bool = true;
-    fn parse<P>(
+    #[inline]
+    fn parse_consumed<P>(
+        self,
         parser: &mut P,
         input: &mut P::Input,
         state: &mut P::PartialState,
     ) -> ConsumedResult<P::Output, P::Input>
     where
-        P: ?Sized + Parser,
+        P: Parser,
     {
-        parser.parse_first(input, state)
+        let before = input.checkpoint();
+        let mut result = parser.parse_mode_impl(self, input, state);
+        if let FastResult::EmptyErr(ref mut error) = result {
+            input.reset(before.clone());
+            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                input.reset(before);
+                error.error.add_unexpected(Info::Token(t));
+            }
+            parser.add_error(error);
+        }
+        result
     }
 }
 
-pub struct Partial;
+#[derive(Copy, Clone)]
+pub struct First;
+impl ParseMode for First {
+    #[inline(always)]
+    fn is_first(self) -> bool {
+        true
+    }
+
+    #[inline(always)]
+    fn set_first(&mut self) {}
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Partial {
+    pub first: bool,
+}
 impl ParseMode for Partial {
-    const FIRST: bool = false;
-    fn parse<P>(
-        parser: &mut P,
-        input: &mut P::Input,
-        state: &mut P::PartialState,
-    ) -> ConsumedResult<P::Output, P::Input>
-    where
-        P: ?Sized + Parser,
-    {
-        parser.parse_partial(input, state)
+    #[inline(always)]
+    fn is_first(self) -> bool {
+        self.first
+    }
+
+    #[inline(always)]
+    fn set_first(&mut self) {
+        self.first = true;
     }
 }
 
 #[macro_export]
 #[doc(hidden)]
-macro_rules! parse_partial {
-    (
-        $(#[$attr:meta])*
-        $self_: ident, $mode: ident, $input: ident, $state: ident, $parser: block
-    ) => {
-        $(#[$attr])*
+macro_rules! parse_mode {
+    () => {
+        #[inline(always)]
         fn parse_partial(
             &mut self,
-            $input: &mut Self::Input,
-            $state: &mut Self::PartialState,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            type $mode = $crate::primitives::Partial;
-            let $self_ = self;
-            $parser
+            self.parse_mode($crate::primitives::Partial::default(), input, state)
         }
 
-        $(#[$attr])*
+        #[inline(always)]
         fn parse_first(
             &mut self,
-            $input: &mut Self::Input,
-            $state: &mut Self::PartialState,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            type $mode = $crate::primitives::First;
-            let $self_ = self;
-            $parser
+            self.parse_mode($crate::primitives::First, input, state)
         }
     }
 }
@@ -1631,7 +1639,18 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        self.parse_stream_consumed_partial(input, &mut Default::default())
+        let before = input.checkpoint();
+        let mut state = Default::default();
+        let mut result = self.parse_first(input, &mut state);
+        if let FastResult::EmptyErr(ref mut error) = result {
+            input.reset(before.clone());
+            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                input.reset(before);
+                error.error.add_unexpected(Info::Token(t));
+            }
+            self.add_error(error);
+        }
+        result
     }
 
     #[inline]
@@ -1709,6 +1728,63 @@ pub trait Parser {
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
         self.parse_partial(input, state)
+    }
+
+    #[doc(hidden)]
+    #[inline(always)]
+    fn parse_mode<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+        Self: Sized,
+    {
+        if mode.is_first() {
+            self.parse_mode_impl(First, input, state)
+        } else {
+            self.parse_mode_impl(Partial::default(), input, state)
+        }
+    }
+
+    #[doc(hidden)]
+    #[inline(always)]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+        Self: Sized,
+    {
+        if mode.is_first() {
+            self.parse_first(input, state)
+        } else {
+            self.parse_partial(input, state)
+        }
+    }
+
+    #[doc(hidden)]
+    #[inline(always)]
+    fn parse_consumed_mode<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+        Self: Sized,
+    {
+        if mode.is_first() {
+            First.parse_consumed(self, input, state)
+        } else {
+            Partial::default().parse_consumed(self, input, state)
+        }
     }
 
     /// Adds the first error that would normally be returned by this parser if it failed with an
@@ -2098,11 +2174,14 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter<'a>(self, input: &'a mut <Self as Parser>::Input) -> Iter<'a, Self, Self::PartialState>
+    fn iter<'a>(
+        self,
+        input: &'a mut <Self as Parser>::Input,
+    ) -> Iter<'a, Self, Self::PartialState, First>
     where
         Self: Parser + Sized,
     {
-        Iter::new(self, input, Default::default())
+        Iter::new(self, First, input, Default::default())
     }
 
     /// Creates an iterator from a parser and a state. Can be used as an alternative to [`many`]
@@ -2128,15 +2207,17 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn partial_iter<'a, 's>(
+    fn partial_iter<'a, 's, M>(
         self,
+        mode: M,
         input: &'a mut <Self as Parser>::Input,
         partial_state: &'s mut Self::PartialState,
-    ) -> Iter<'a, Self, &'s mut Self::PartialState>
+    ) -> Iter<'a, Self, &'s mut Self::PartialState, M>
     where
         Self: Parser + Sized,
+        M: ParseMode,
     {
-        Iter::new(self, input, partial_state)
+        Iter::new(self, mode, input, partial_state)
     }
 
     /// Turns the parser into a trait object by putting it in a `Box`. Can be used to easily
