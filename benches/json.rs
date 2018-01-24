@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate bencher;
 
+#[macro_use]
 extern crate combine as pc;
 
 use std::collections::HashMap;
@@ -13,8 +14,8 @@ use bencher::{black_box, Bencher};
 use pc::buffered_stream::BufferedStream;
 use pc::primitives::{Consumed, IteratorStream, ParseError, ParseResult, Parser, Stream, StreamOnce};
 use pc::char::{char, digit, spaces, string, Spaces};
-use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
-                     FnParser, Skip, many1};
+use pc::combinator::{any, between, choice, many, optional, parser, satisfy, satisfy_map, sep_by,
+                     Expected, FnParser, Skip, many1};
 use pc::state::{SourcePosition, State};
 
 #[derive(PartialEq, Debug)]
@@ -165,6 +166,18 @@ where
             sep_by(Json::<I>::value(), lex(char(','))),
         ).map(Value::Array);
 
+        satisfy_map(|c| {
+            match_parser!(c, {
+                '"' => Json::<I>::string().map(Value::String),
+                '{' => Json::<I>::object(),
+                '[' => array,
+                'f' => lex(string("alse").map(|_| Value::Bool(false))),
+                't' => lex(string("rue").map(|_| Value::Bool(true))),
+                'n' => lex(string("ull").map(|_| Value::Null)),
+                _ => Json::<I>::number().map(Value::Number),
+                _ => return None,
+            })
+        });
         choice((
             Json::<I>::string().map(Value::String),
             Json::<I>::object(),

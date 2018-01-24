@@ -2849,6 +2849,49 @@ where
     }
 }
 
+#[macro_export]
+#[doc(hidden)]
+macro_rules! match_parser_inner {
+    ($token: expr, { $($accum: tt)* } { $($tt:tt)* } { }) => {
+        match $token {
+            $($accum)*
+        }
+    };
+    ( $token: expr, { $($accum: tt)* } { $wrap:path $(, $tt: path)* } { $pat:pat => $expr: expr $(, $pat2:pat => $expr2:expr )* }) => {
+        match_parser_inner!($token, { $($accum)* $pat => $wrap($expr), } { $($tt),* } { $($pat2 => $expr2),* } )
+    }
+}
+
+///
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::char::*;
+/// # fn main() {
+/// let mut parser = any().then(|token| {
+///     match_parser!(token, {
+///         '"' => many(satisfy(|c| c != '"')).skip('"'),
+///         _ => many(letter()),
+///     })
+/// });
+/// assert_eq!(result.parse("ab1"), Ok(("ab".to_string(), "1")));
+/// assert_eq!(result.parse("\"ab1\""), Ok(("ab1".to_string(), "")));
+/// # }
+/// ```
+#[macro_export]
+macro_rules! match_parser {
+    ($scrutinee:expr, { $( $pat:pat => $expr:expr ),+ $(,)* }) => {
+        match_parser_inner!{
+            $scrutinee,
+            {}
+            { Either::Left, Either::Right }
+            { $( $pat => $expr ),+ }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
