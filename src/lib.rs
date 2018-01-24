@@ -337,11 +337,13 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        parser!{
-            pub struct __Parser;
+        combine_parser_impl!{
+            (pub)
+            ()
+            struct __Parser;
             type PartialState = (());
             $(#[$attr])*
-            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             $parser
         }
@@ -463,7 +465,9 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        parser!{
+        combine_parser_impl!{
+            ()
+            ()
             struct __Parser;
             type PartialState = ($partial_state);
             $(#[$attr])*
