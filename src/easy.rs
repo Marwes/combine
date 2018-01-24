@@ -2,8 +2,8 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{EasyError, Info as PrimitiveInfo, ParseError, Positioned, RangeStream,
-                 RangeStreamOnce, StreamError, StreamOnce, Tracked};
+use primitives::{EasyError, FullRangeStream, Info as PrimitiveInfo, ParseError, Positioned,
+                 RangeStream, RangeStreamOnce, StreamError, StreamOnce, Tracked};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding easy descriptions.
@@ -273,7 +273,6 @@ where
 
 impl<Item, Range, Position> ParseError<Item, Range, Position> for Errors<Position, Item, Range>
 where
-    Position: Default,
     Item: PartialEq,
     Range: PartialEq,
     Position: Ord,
@@ -644,7 +643,6 @@ pub struct Stream<S>(pub S);
 impl<S> StreamOnce for Stream<S>
 where
     S: StreamOnce + Positioned,
-    S::Position: Default,
 {
     type Item = S::Item;
     type Range = S::Range;
@@ -666,8 +664,6 @@ where
 impl<S> RangeStreamOnce for Stream<S>
 where
     S: RangeStream,
-    S::Error: ParseError<S::Item, S::Range, S::Position>,
-    S::Position: Default,
 {
     #[inline]
     fn uncons_range<E>(&mut self, size: usize) -> Result<Self::Range, E>
@@ -695,9 +691,17 @@ where
 impl<S> Positioned for Stream<S>
 where
     S: StreamOnce + Positioned,
-    S::Position: Default,
 {
     fn position(&self) -> S::Position {
         self.0.position()
+    }
+}
+
+impl<S> FullRangeStream for Stream<S>
+where
+    S: FullRangeStream,
+{
+    fn range(&self) -> Self::Range {
+        self.0.range()
     }
 }
