@@ -1,3 +1,6 @@
+#![cfg(feature = "bytes")]
+#[macro_use]
+extern crate quick_error;
 #[macro_use]
 extern crate quickcheck;
 
@@ -12,7 +15,7 @@ extern crate tokio_io;
 use std::any::Any;
 use std::cell::Cell;
 use std::str;
-use std::io::Cursor;
+use std::io::{self, Cursor};
 use std::rc::Rc;
 
 use bytes::BytesMut;
@@ -28,6 +31,28 @@ use combine::combinator::{boxed_partial_state, no_partial, optional, recognize, 
 use combine::primitives::RangeStream;
 use combine::easy;
 use combine::char::{char, digit, letter};
+
+quick_error! {
+    #[derive(Debug)]
+    enum Error {
+        Io(err: io::Error) {
+            display("{}", err)
+            from()
+        }
+        Parse(err: easy::Errors<char, String, usize>) {
+            display("{}", err)
+            from()
+        }
+        Utf8(err: std::str::Utf8Error) {
+            display("{}", err)
+            from()
+        }
+        Message(err: String) {
+            display("{}", err)
+            from()
+        }
+    }
+}
 
 macro_rules! mk_parser {
     ($parser: expr, $self_: expr, ()) =>  { $parser };
@@ -47,7 +72,7 @@ macro_rules! impl_decoder {
     ($typ: ident, $item: ty, $parser: expr; ( $($custom_state: tt)* )) => {
         impl Decoder for $typ {
             type Item = $item;
-            type Error = Box<::std::error::Error + Send + Sync>;
+            type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
                 (&mut &mut *self).decode(src)
@@ -56,7 +81,7 @@ macro_rules! impl_decoder {
 
         impl<'a> Decoder for &'a mut $typ {
             type Item = $item;
-            type Error = Box<::std::error::Error + Send + Sync>;
+            type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
                 let (opt, removed_len) = {

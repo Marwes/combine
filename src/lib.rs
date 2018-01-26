@@ -685,7 +685,10 @@ macro_rules! combine_parser_impl {
 }
 
 pub extern crate byteorder;
+#[cfg(feature = "bytes")]
+extern crate bytes;
 pub extern crate either;
+
 extern crate unreachable;
 
 // Facade over the core types we need
