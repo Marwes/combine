@@ -1,7 +1,8 @@
 use Parser;
 use primitives::{ConsumedResult, ParseError, Tracked};
 use stream::{Stream, StreamOnce};
-use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
+use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
+use parser::sequence::With;
 use lib::marker::PhantomData;
 
 /// Parses a character and succeeds if the character is equal to `c`.

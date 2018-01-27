@@ -5,7 +5,8 @@ use lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use Parser;
-use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
+use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
+use parser::sequence::With;
 use primitives::{ConsumedResult, Info, ParseError, Tracked};
 use stream::{Stream, StreamOnce};
 

@@ -5,8 +5,11 @@ use stream::{Resetable, Stream, StreamOnce};
 use primitives::{ConsumedResult, FastResult, First, Info, ParseError, ParseMode, ParseResult,
                  Partial, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
-use combinator::{and_then, expected, flat_map, map, message, or, skip, then, then_partial, with,
-                 AndThen, Expected, FlatMap, Iter, Map, Message, Or, Skip, Then, ThenPartial, With};
+use combinator::{and_then, expected, flat_map, map, message, then, then_partial, AndThen,
+                 Expected, FlatMap, Iter, Map, Message, Then, ThenPartial};
+
+use self::sequence::{skip, with, Skip, With};
+use self::choice::{or, Or};
 
 /// Module containing zero-copy parsers.
 pub mod range;
@@ -14,6 +17,8 @@ pub mod range;
 pub mod byte;
 /// Module containing parsers specialized on character streams.
 pub mod char;
+pub mod sequence;
+pub mod choice;
 #[cfg(feature = "regex")]
 /// Module containing regex parsers.
 pub mod regex;
