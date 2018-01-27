@@ -4,8 +4,9 @@ use lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
+use Parser;
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Info, ParseError, Parser, Tracked};
+use primitives::{ConsumedResult, Info, ParseError, Tracked};
 use stream::{Stream, StreamOnce};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.

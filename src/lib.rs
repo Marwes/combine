@@ -164,7 +164,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser};
+pub use parser::Parser;
+#[doc(inline)]
+pub use primitives::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
 pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
 
@@ -641,6 +643,9 @@ pub mod lib {
     pub use core::*;
 }
 
+/// All the parsers in combine.
+#[macro_use]
+pub mod parser;
 /// Module containing the primitive types which is used to create and compose more advanced
 /// parsers.
 #[macro_use]

@@ -2,7 +2,7 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{EasyError, Info as PrimitiveInfo, ParseError, StreamError, Tracked};
+use primitives::{Info as PrimitiveInfo, ParseError, StreamError, Tracked};
 use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamOnce};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
@@ -115,16 +115,6 @@ pub enum Error<T, R> {
     Message(Info<T, R>),
     /// Variant for containing other types of errors
     Other(Box<StdError + Send + Sync>),
-}
-
-impl<T, R> From<EasyError<T, R>> for Error<T, R> {
-    fn from(err: EasyError<T, R>) -> Self {
-        match err {
-            EasyError::Message(info) => Error::Message(info.into()),
-            EasyError::Expected(info) => Error::Expected(info.into()),
-            EasyError::Unexpected(info) => Error::Unexpected(info.into()),
-        }
-    }
 }
 
 impl<Item, Range> StreamError<Item, Range> for Error<Item, Range>

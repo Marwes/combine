@@ -319,7 +319,7 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use Parser;
 
     #[test]
     fn test_positioner() {

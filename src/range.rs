@@ -1,8 +1,9 @@
 use lib::marker::PhantomData;
 
+use Parser;
 use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
              Resetable, StreamOnce};
-use primitives::{ConsumedResult, Info, ParseError, ParseMode, Parser, Tracked, UnexpectedParse};
+use primitives::{ConsumedResult, Info, ParseError, ParseMode, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -456,7 +457,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use Parser;
 
     #[test]
     fn take_while_test() {

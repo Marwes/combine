@@ -3,8 +3,9 @@ use lib::marker::PhantomData;
 use lib::mem;
 use lib::borrow::BorrowMut;
 
-use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult, Parser,
-                 StreamError, Tracked, UnexpectedParse};
+use Parser;
+use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult, StreamError,
+                 Tracked, UnexpectedParse};
 use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
 
 use either::Either;
@@ -3975,7 +3976,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use Parser;
     use char::{digit, letter};
     use range::range;
 
@@ -4014,7 +4015,7 @@ mod tests {
 #[cfg(all(feature = "std", test))]
 mod tests_std {
     use super::*;
-    use primitives::Parser;
+    use Parser;
     use easy::{Error, Errors, StreamErrors};
     use char::{char, digit, letter};
     use state::{SourcePosition, State};
