@@ -2,7 +2,7 @@ use lib::marker::PhantomData;
 
 use Parser;
 use stream::{uncons, Stream, StreamOnce};
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked, UnexpectedParse};
 
 use error::FastResult::*;
 
@@ -489,4 +489,95 @@ where
         tokens: tokens,
         _marker: PhantomData,
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct Value<I, T>(T, PhantomData<fn(I) -> I>);
+impl<I, T> Parser for Value<I, T>
+where
+    I: Stream,
+    T: Clone,
+{
+    type Input = I;
+    type Output = T;
+    type PartialState = ();
+    #[inline]
+    fn parse_lazy(&mut self, _: &mut Self::Input) -> ConsumedResult<T, I> {
+        EmptyOk(self.0.clone())
+    }
+}
+
+/// Always returns the value `v` without consuming any input.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # fn main() {
+/// let result = value(42)
+///     .parse("hello world")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(42));
+/// # }
+/// ```
+#[inline(always)]
+pub fn value<I, T>(v: T) -> Value<I, T>
+where
+    I: Stream,
+    T: Clone,
+{
+    Value(v, PhantomData)
+}
+
+#[derive(Copy, Clone)]
+pub struct Eof<I>(PhantomData<I>);
+impl<I> Parser for Eof<I>
+where
+    I: Stream,
+{
+    type Input = I;
+    type Output = ();
+    type PartialState = ();
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<(), I> {
+        let before = input.checkpoint();
+        match input.uncons::<UnexpectedParse>() {
+            Err(ref err) if *err == UnexpectedParse::Eoi => EmptyOk(()),
+            _ => {
+                input.reset(before);
+                EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())
+            }
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        errors.error.add_expected("end of input".into());
+    }
+}
+
+/// Succeeds only if the stream is at end of input, fails otherwise.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::stream::easy;
+/// # use combine::stream::state::{State, SourcePosition};
+/// # fn main() {
+/// let mut parser = eof();
+/// assert_eq!(parser.easy_parse(State::new("")), Ok(((), State::new(""))));
+/// assert_eq!(parser.easy_parse(State::new("x")), Err(easy::Errors {
+///     position: SourcePosition::default(),
+///     errors: vec![
+///         easy::Error::Unexpected('x'.into()),
+///         easy::Error::Expected("end of input".into())
+///     ]
+/// }));
+/// # }
+/// ```
+#[inline(always)]
+pub fn eof<I>() -> Eof<I>
+where
+    I: Stream,
+{
+    Eof(PhantomData)
 }
