@@ -17,6 +17,8 @@ pub mod range;
 pub mod byte;
 /// Module containing parsers specialized on character streams.
 pub mod char;
+/// Parsers working with single stream items.
+pub mod item;
 pub mod sequence;
 pub mod choice;
 #[cfg(feature = "regex")]
