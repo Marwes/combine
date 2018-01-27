@@ -624,7 +624,7 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::easy;
-    /// # use combine::state::SourcePosition;
+    /// # use combine::state::{State, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .message("Not a nine")
@@ -655,7 +655,7 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::easy;
-    /// # use combine::state::SourcePosition;
+    /// # use combine::state::{State, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
@@ -683,7 +683,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::state::SourcePosition;
+    /// # use combine::state::{State, SourcePosition};
     /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let mut parser = many1(digit())

@@ -19,7 +19,8 @@
 //!
 //! ```rust
 //! extern crate combine;
-//! use combine::{Parser, State};
+//! use combine::Parser;
+//! use combine::state::State;
 //! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
 //! Unexpected `|`
@@ -174,9 +175,6 @@ pub use parser::regex;
 pub use error::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
 pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
-
-#[doc(inline)]
-pub use state::State;
 
 #[doc(inline)]
 pub use combinator::{any, between, count, count_min_max, env_parser, eof, look_ahead, many,
@@ -717,7 +715,7 @@ mod std_tests {
 
     use parser::char::{alpha_num, char, digit, letter, spaces, string};
     use easy::{Errors, StreamErrors};
-    use state::SourcePosition;
+    use state::{SourcePosition, State};
 
     #[test]
     fn optional_error_consume() {

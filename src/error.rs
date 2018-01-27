@@ -10,6 +10,7 @@ use ErrorOffset;
 use stream::StreamOnce;
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! ctry {
     ($result: expr) => {
         match $result {
@@ -269,7 +270,7 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
         T: StreamError<Item, Range>;
 }
 
-/// Trait which defines a gluon parse error.
+/// Trait which defines a combine parse error.
 ///
 /// A parse error is composed of one or more `StreamError`s
 pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
@@ -730,7 +731,7 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
 
 #[cfg(all(feature = "std", test))]
 mod tests_std {
-    use super::*;
+    use Parser;
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {

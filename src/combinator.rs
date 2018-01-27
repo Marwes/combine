@@ -168,7 +168,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::easy;
-/// # use combine::state::SourcePosition;
+/// # use combine::state::{State, SourcePosition};
 /// # fn main() {
 /// let mut parser = eof();
 /// assert_eq!(parser.easy_parse(State::new("")), Ok(((), State::new(""))));

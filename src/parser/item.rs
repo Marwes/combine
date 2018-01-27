@@ -356,7 +356,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::state::SourcePosition;
+/// # use combine::state::{State, SourcePosition};
 /// # fn main() {
 /// let result = (position(), token('!'), position())
 ///     .parse(State::new("!"))

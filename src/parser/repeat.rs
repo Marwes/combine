@@ -730,7 +730,7 @@ where
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # use combine::easy;
-/// # use combine::state::SourcePosition;
+/// # use combine::state::{State, SourcePosition};
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
 /// let result_ok = parser.easy_parse(State::new("1,2,3"))
@@ -914,7 +914,7 @@ where
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # use combine::easy;
-/// # use combine::state::SourcePosition;
+/// # use combine::state::{State, SourcePosition};
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
 /// let result_ok = parser.easy_parse(State::new("1;2;3;"))

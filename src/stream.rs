@@ -51,6 +51,7 @@ pub trait Resetable {
     fn reset(&mut self, checkpoint: Self::Checkpoint);
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! clone_resetable {
     (( $($params: tt)* ) $ty: ty) => {

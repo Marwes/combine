@@ -396,6 +396,7 @@ impl<T, R> Error<T, R> {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char::*;
+    /// # use combine::state::{State, SourcePosition};
     ///
     /// # fn main() {
     /// let input = r"
