@@ -662,9 +662,24 @@ pub mod stream;
 /// All the parsers in combine.
 #[macro_use]
 pub mod parser;
-/// Module containing all specific parsers.
-#[macro_use]
-pub mod combinator;
+
+/// Re-exported parsers for compatibility with older versions
+pub mod combinator {
+    #[doc(inline)]
+    pub use parser::sequence::*;
+    #[doc(inline)]
+    pub use parser::choice::*;
+    #[doc(inline)]
+    pub use parser::item::*;
+    #[doc(inline)]
+    pub use parser::repeat::*;
+    #[doc(inline)]
+    pub use parser::error::*;
+    #[doc(inline)]
+    pub use parser::function::*;
+    #[doc(inline)]
+    pub use parser::combinator::*;
+}
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]

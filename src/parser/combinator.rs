@@ -5,23 +5,12 @@ use Parser;
 use error::{Consumed, ConsumedResult, Info, ParseError, Tracked};
 use stream::{Positioned, Resetable, Stream, StreamOnce};
 use parser::ParseMode;
+use parser::item::value;
+use parser::error::unexpected;
 
 use either::Either;
 
 use error::FastResult::*;
-
-#[doc(inline)]
-pub use parser::sequence::*;
-#[doc(inline)]
-pub use parser::choice::*;
-#[doc(inline)]
-pub use parser::item::*;
-#[doc(inline)]
-pub use parser::repeat::*;
-#[doc(inline)]
-pub use parser::error::*;
-#[doc(inline)]
-pub use parser::function::*;
 
 parser!{
 #[derive(Copy, Clone)]
