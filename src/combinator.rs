@@ -302,66 +302,6 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct Optional<P>(P);
-impl<P> Parser for Optional<P>
-where
-    P: Parser,
-{
-    type Input = P::Input;
-    type Output = Option<P::Output>;
-    type PartialState = P::PartialState;
-
-    parse_mode!();
-    #[inline]
-    fn parse_mode_impl<M>(
-        &mut self,
-        mode: M,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
-    where
-        M: ParseMode,
-    {
-        let before = input.checkpoint();
-        match self.0.parse_mode(mode, input, state) {
-            EmptyOk(x) => EmptyOk(Some(x)),
-            ConsumedOk(x) => ConsumedOk(Some(x)),
-            ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(_) => {
-                input.reset(before);
-                EmptyOk(None)
-            }
-        }
-    }
-
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
-}
-
-/// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without
-/// consuming any input. Fails if `parser` fails after having consumed some input.
-///
-/// ```
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::parser::char::string;
-/// # fn main() {
-/// let mut parser = optional(string("hello"));
-/// assert_eq!(parser.parse("hello"), Ok((Some("hello"), "")));
-/// assert_eq!(parser.parse("world"), Ok((None, "world")));
-/// assert!(parser.parse("heya").is_err());
-/// # }
-/// ```
-#[inline(always)]
-pub fn optional<P>(parser: P) -> Optional<P>
-where
-    P: Parser,
-{
-    Optional(parser)
-}
-
 impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// Parses `open` followed by `parser` followed by `close`.
 /// Returns the value of `parser`.
