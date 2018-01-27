@@ -6,10 +6,13 @@ use lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use Parser;
+use parser::ParseMode;
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
 use parser::sequence::With;
-use error::{ConsumedResult, Info, ParseError, Tracked};
-use stream::{Stream, StreamOnce};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked, UnexpectedParse};
+use stream::{uncons_range, FullRangeStream, RangeStream, Stream, StreamOnce};
+
+use error::FastResult::*;
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
@@ -389,6 +392,150 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     BytesCmp(s, cmp, PhantomData)
+}
+
+fn take_until_after<I>(
+    input: &mut I,
+    offset: &mut usize,
+    bytes: &[u8],
+    found: Option<usize>,
+) -> ConsumedResult<I::Range, I>
+where
+    I: RangeStream,
+    I::Range: ::stream::Range,
+{
+    match found {
+        Some(i) => {
+            let result = uncons_range(input, *offset + i);
+            if result.is_ok() {
+                *offset = 0;
+            }
+            result
+        }
+        None => {
+            *offset = bytes.len();
+            let _ = input.uncons_range::<UnexpectedParse>(bytes.len());
+            let err = I::Error::from_error(input.position(), StreamError::end_of_input());
+            if !input.is_partial() && bytes.is_empty() {
+                EmptyErr(err.into())
+            } else {
+                ConsumedErr(err)
+            }
+        }
+    }
+}
+
+macro_rules! take_until {
+    (
+        $(#[$attr:meta])*
+        $type_name: ident, $func_name: ident, $memchr: ident, $($param: ident),+
+    ) => {
+        pub struct $type_name<I> {
+            $( $param: u8, )+
+            _marker: PhantomData<fn(I)>
+        }
+
+        impl<I> Parser for $type_name<I>
+        where
+            I: RangeStream + FullRangeStream,
+            I::Range: AsRef<[u8]> + ::stream::Range,
+        {
+            type Input = I;
+            type Output = I::Range;
+            type PartialState = usize;
+
+            parse_mode!();
+            #[inline]
+            fn parse_mode<M>(
+                &mut self,
+                mode: M,
+                input: &mut Self::Input,
+                offset: &mut Self::PartialState,
+            ) -> ConsumedResult<Self::Output, Self::Input>
+            where
+                M: ParseMode,
+            {
+                if mode.is_first() {
+                    *offset = 0;
+                }
+                let range = input.range();
+                let bytes = range.as_ref();
+                let found = ::memchr::$memchr( $(self.$param),+ , &bytes[*offset..]);
+                take_until_after(input, offset, bytes, found)
+            }
+        }
+
+        $(#[$attr])*
+        #[inline(always)]
+        pub fn $func_name<I>( $($param: u8),+ ) -> $type_name<I>
+        where
+            I: RangeStream + FullRangeStream,
+            I::Range: AsRef<[u8]>,
+        {
+            $type_name {
+                $($param,)+
+                _marker: PhantomData
+            }
+        }
+    }
+}
+
+take_until!{
+    /// Zero-copy parser which reads a range of 0 or more tokens until `a` is found.
+    ///
+    /// If `a` is not found, the parser will return an error.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::parser::byte::take_until_byte;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = take_until_byte(b'\r');
+    /// let result = parser.parse("To: user@example.com\r\n");
+    /// assert_eq!(result, Ok(("To: user@example.com", "\r\n")));
+    /// let result = parser.parse("Hello, world\n");
+    /// assert!(result.is_err());
+    /// # }
+    /// ```
+    TakeUntilByte, take_until_byte, memchr, a
+}
+take_until!{
+    /// Zero-copy parser which reads a range of 0 or more tokens until `a` or `b` is found.
+    ///
+    /// If `a` or `b` is not found, the parser will return an error.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::parser::byte::take_until_byte2;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = take_until_byte2(b'\r', b'\n');
+    /// let result = parser.parse("To: user@example.com\r\n");
+    /// assert_eq!(result, Ok(("To: user@example.com", "\r\n")));
+    /// let result = parser.parse("Hello, world\n");
+    /// assert_eq!(result, Ok(("Hello, world", "\n")));
+    /// # }
+    /// ```
+    TakeUntilByte2, take_until_byte2, memchr2, a, b
+}
+take_until!{
+    /// Zero-copy parser which reads a range of 0 or more tokens until `a`, 'b' or `c` is found.
+    ///
+    /// If `a`, 'b' or `c` is not found, the parser will return an error.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::parser::byte::take_until_byte3;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = take_until_byte3(b'\r', b'\n', b' ');
+    /// let result = parser.parse("To: user@example.com\r\n");
+    /// assert_eq!(result, Ok(("To:", " user@example.com\r\n")));
+    /// let result = parser.parse("Helloworld");
+    /// assert!(result.is_err());
+    /// # }
+    /// ```
+    TakeUntilByte3, take_until_byte3, memchr3, a, b, c
 }
 
 /// Parsers for decoding numbers in big-endian or little-endian order.

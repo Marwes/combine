@@ -636,6 +636,7 @@ pub extern crate byteorder;
 extern crate bytes;
 pub extern crate either;
 
+extern crate memchr;
 extern crate unreachable;
 
 // Facade over the core types we need
