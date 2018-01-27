@@ -1,4 +1,3 @@
-#![cfg(feature = "bytes")]
 #[macro_use]
 extern crate quick_error;
 #[macro_use]
@@ -12,7 +11,6 @@ extern crate futures;
 extern crate partial_io;
 extern crate tokio_io;
 
-use std::any::Any;
 use std::cell::Cell;
 use std::str;
 use std::io::{self, Cursor};
@@ -27,7 +25,8 @@ use tokio_io::codec::Decoder;
 
 use combine::range::{range, recognize_with_value, take_while, take_while1};
 use combine::{any, count_min_max, skip_many, Parser, many1};
-use combine::combinator::{boxed_partial_state, no_partial, optional, recognize, skip_many1};
+use combine::combinator::{any_partial_state, no_partial, optional, recognize, AnyPartialState,
+                          skip_many1};
 use combine::primitives::RangeStream;
 use combine::easy;
 use combine::char::{char, digit, letter};
@@ -61,12 +60,12 @@ macro_rules! mk_parser {
 macro_rules! impl_decoder {
     ($typ: ident, $item: ty, $parser: expr, $custom_state: ty) => {
         #[derive(Default)]
-        struct $typ(Option<Box<Any>>, $custom_state);
+        struct $typ(AnyPartialState, $custom_state);
         impl_decoder!{$typ, $item, $parser; ($custom_state)}
     };
     ($typ: ident, $item: ty, $parser: expr) => {
         #[derive(Default)]
-        struct $typ(Option<Box<Any>>);
+        struct $typ(AnyPartialState);
         impl_decoder!{$typ, $item, $parser; ()}
     };
     ($typ: ident, $item: ty, $parser: expr; ( $($custom_state: tt)* )) => {
@@ -88,7 +87,7 @@ macro_rules! impl_decoder {
                     let str_src = str::from_utf8(&src[..])?;
                     println!("Decoding `{}`", str_src);
                     combine::async::decode(
-                        mk_parser!($parser, self, ($($custom_state)*)),
+                        any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
                         easy::Stream(combine::primitives::PartialStream(str_src)),
                         &mut self.0,
                     ).map_err(|err| {
@@ -133,11 +132,13 @@ where
 }
 
 parser!{
-    type PartialState = Option<Box<Any>>;
+    type PartialState = AnyPartialState;
     fn basic_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
     {
-        many1(digit()).skip(range(&"\r\n"[..]))
+        any_partial_state(
+            many1(digit()).skip(range(&"\r\n"[..])),
+        )
     }
 }
 
@@ -155,27 +156,30 @@ fn many1_skip_no_errors() {
 }
 
 parser!{
-    type PartialState = Option<Box<Any>>;
+    type PartialState = AnyPartialState;
     fn prefix_many_then_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
     {
-        (char('#'), skip_many(char(' ')), many1(digit()))
+        any_partial_state((char('#'), skip_many(char(' ')), many1(digit()))
             .then_partial(|t| {
                 let s: &String = &t.2;
                 let c = s.parse().unwrap();
                 count_min_max(c, c, any())
             })
+        )
     }
 }
 
 parser!{
-    type PartialState = Option<Box<Any>>;
+    type PartialState = AnyPartialState;
     fn choice_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
     {
-        many1(digit())
-            .or(many1(letter()))
-            .skip(range(&"\r\n"[..]))
+        any_partial_state(
+            many1(digit())
+                .or(many1(letter()))
+                .skip(range(&"\r\n"[..]))
+        )
     }
 }
 
@@ -235,12 +239,10 @@ quickcheck! {
 
     fn recognize_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
-            boxed_partial_state(
-                recognize(
-                    (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
-                )
-                .skip(range(&"\r\n"[..]))
+            recognize(
+                (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
             )
+                .skip(range(&"\r\n"[..]))
         }
 
         let input = "1.0\r\n\
@@ -261,13 +263,11 @@ quickcheck! {
 
     fn recognize_range_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
-            boxed_partial_state(
-                recognize_with_value(
-                    (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
-                )
+            recognize_with_value(
+                (skip_many1(digit()), optional((char('.'), skip_many(digit()))))
+            )
                 .map(|(r, _)| String::from(r))
                 .skip(range(&"\r\n"[..]))
-            )
         }
 
         let input = "1.0\r\n\
@@ -288,11 +288,10 @@ quickcheck! {
 
     fn take_while_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
-            |counter: Rc<Cell<i32>>| boxed_partial_state(
+            |counter: Rc<Cell<i32>>|
                 take_while(move |c| { counter.set(counter.get() + 1); c != '\r' })
                     .map(String::from)
-                    .skip(range("\r\n"))
-            ),
+                    .skip(range("\r\n")),
             Rc<Cell<i32>>
         }
 
@@ -317,11 +316,10 @@ quickcheck! {
 
     fn take_while1_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
-            |count: Rc<Cell<i32>>| boxed_partial_state(
+            |count: Rc<Cell<i32>>|
                 take_while1(move |c| { count.set(count.get() + 1); c != '\r' })
                     .map(String::from)
-                    .skip(range("\r\n"))
-            ),
+                    .skip(range("\r\n")),
             Rc<Cell<i32>>
         }
 
@@ -348,11 +346,9 @@ quickcheck! {
 fn inner_no_partial_test() {
     let seq = vec![PartialOp::Limited(10)];
     impl_decoder!{ TestParser, String,
-        boxed_partial_state(
-            no_partial(many1(digit()))
-                .or(many1(letter()))
-                .skip(range(&"\r\n"[..]))
-        )
+        no_partial(many1(digit()))
+            .or(many1(letter()))
+            .skip(range(&"\r\n"[..]))
     }
 
     let input = "1\r\n\

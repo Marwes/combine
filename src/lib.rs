@@ -541,32 +541,9 @@ macro_rules! combine_parse_partial {
         let ref mut state = Default::default();
         $parser.parse_partial($input, state)
     } };
-    (($ignored: ty) $input: ident $state: ident $parser: block) => { {
-        let input = $input;
-        let state = $state;
-
-        let mut new_child_state;
-        let result = {
-            let child_state = if let None = *state {
-                new_child_state = Some(Default::default());
-                new_child_state.as_mut().unwrap()
-            } else {
-                new_child_state = None;
-                state.as_mut().unwrap().downcast_mut().unwrap()
-            };
-
-            $parser.parse_partial(input, child_state)
-        };
-
-        if let $crate::primitives::FastResult::ConsumedErr(_) = result {
-            if let None = *state {
-                // FIXME Make None unreachable for LLVM
-                *state = Some(Box::new(new_child_state.unwrap()));
-            }
-        }
-
-        result
-    } }
+    (($ignored: ty) $input: ident $state: ident $parser: block) => {
+        $parser.parse_partial($input, $state)
+    }
 }
 
 #[doc(hidden)]

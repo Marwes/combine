@@ -8,7 +8,6 @@ extern crate futures;
 extern crate partial_io;
 extern crate tokio_io;
 
-use std::any::Any;
 use std::rc::Rc;
 use std::cell::Cell;
 use std::str;
@@ -19,13 +18,14 @@ use bytes::BytesMut;
 use tokio_io::codec::Decoder;
 
 use combine::primitives::{ParseError, PartialStream, RangeStream};
+use combine::combinator::{any_partial_state, AnyPartialState};
 use combine::range::{range, recognize, take};
 use combine::{skip_many, skip_many1};
 use combine::easy;
 use combine::byte::digit;
 
 pub struct LanguageServerDecoder {
-    state: Option<Box<Any>>,
+    state: AnyPartialState,
     content_length_parses: Rc<Cell<i32>>,
 }
 
@@ -39,7 +39,7 @@ impl LanguageServerDecoder {
 }
 
 parser! {
-    type PartialState = Option<Box<Any>>;
+    type PartialState = AnyPartialState;
     fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
     where [ I: RangeStream<Item = u8, Range = &'a [u8], Error = easy::StreamErrors<I>>,
             I::Error: ParseError<u8, &'a [u8], I::Position, StreamError = easy::Error<u8, &'a [u8]>>,
@@ -57,12 +57,12 @@ parser! {
                     content_length_parses.set(content_length_parses.get() + 1);
                     x
                 });
-        (
+        any_partial_state((
             skip_many(range(&b"\r\n"[..])),
             content_length,
             range(&b"\r\n\r\n"[..]).map(|_| ()),
         ).map(|t| t.1)
-            .then_partial(|&mut message_length| take(message_length).map(|bytes: &[u8]| bytes.to_owned()))
+            .then_partial(|&mut message_length| take(message_length).map(|bytes: &[u8]| bytes.to_owned())))
     }
 }
 

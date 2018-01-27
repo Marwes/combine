@@ -3880,18 +3880,21 @@ where
 }
 
 #[cfg(feature = "std")]
-#[doc(hidden)]
-pub struct BoxedPartialState<P>(P);
+#[derive(Default)]
+pub struct AnyPartialState(Option<Box<::std::any::Any>>);
 
 #[cfg(feature = "std")]
-impl<P> Parser for BoxedPartialState<P>
+pub struct AnyPartialStateParser<P>(P);
+
+#[cfg(feature = "std")]
+impl<P> Parser for AnyPartialStateParser<P>
 where
     P: Parser,
     P::PartialState: 'static,
 {
     type Input = P::Input;
     type Output = P::Output;
-    type PartialState = Option<Box<::std::any::Any>>;
+    type PartialState = AnyPartialState;
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -3906,21 +3909,21 @@ where
     ) -> ConsumedResult<Self::Output, Self::Input> {
         let mut new_child_state;
         let result = {
-            let child_state = if let None = *state {
+            let child_state = if let None = state.0 {
                 new_child_state = Some(Default::default());
                 new_child_state.as_mut().unwrap()
             } else {
                 new_child_state = None;
-                state.as_mut().unwrap().downcast_mut().unwrap()
+                state.0.as_mut().unwrap().downcast_mut().unwrap()
             };
 
             self.0.parse_partial(input, child_state)
         };
 
         if let ConsumedErr(_) = result {
-            if let None = *state {
+            if let None = state.0 {
                 // FIXME Make None unreachable for LLVM
-                *state = Some(Box::new(new_child_state.unwrap()));
+                state.0 = Some(Box::new(new_child_state.unwrap()));
             }
         }
 
@@ -3933,14 +3936,12 @@ where
 }
 
 #[cfg(feature = "std")]
-// TODO Make part of public API
-#[doc(hidden)]
-pub fn boxed_partial_state<P>(p: P) -> BoxedPartialState<P>
+pub fn any_partial_state<P>(p: P) -> AnyPartialStateParser<P>
 where
     P: Parser,
     P::PartialState: 'static,
 {
-    BoxedPartialState(p)
+    AnyPartialStateParser(p)
 }
 
 #[cfg(test)]
