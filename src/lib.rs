@@ -655,11 +655,8 @@ pub use stream::easy;
 /// Error types and traits which define what kind of errors combine parsers may emit
 #[macro_use]
 pub mod error;
-/// Module containing the `Stream` trait and its siblings.
 #[macro_use]
 pub mod stream;
-/// Module containing easy to use and descriptive errors.
-/// All the parsers in combine.
 #[macro_use]
 pub mod parser;
 

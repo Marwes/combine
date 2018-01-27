@@ -1,3 +1,5 @@
+//! Module containing parsers specialized on character streams.
+
 use Parser;
 use error::{ConsumedResult, ParseError, Tracked};
 use stream::{Stream, StreamOnce};

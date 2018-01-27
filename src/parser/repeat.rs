@@ -1,3 +1,5 @@
+//! Combinators which take one or more parsers and applies them repeatedly.
+
 use lib::marker::PhantomData;
 use lib::borrow::BorrowMut;
 use lib::iter::FromIterator;

@@ -1,3 +1,5 @@
+//! Parsers which cause errors or modifies the returned error on parse failure.
+
 use lib::marker::PhantomData;
 
 use {Parser, Stream, StreamOnce};

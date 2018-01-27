@@ -1,3 +1,4 @@
+//! Module containing parsers specialized on byte streams.
 extern crate ascii;
 
 use lib::marker::PhantomData;

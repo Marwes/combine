@@ -1,3 +1,4 @@
+//! Combinators which take multiple parsers and applies them one after another.
 use lib::marker::PhantomData;
 
 use {ErrorOffset, Parser, Stream, StreamOnce};

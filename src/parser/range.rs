@@ -1,3 +1,5 @@
+//! Module containing zero-copy parsers.
+
 use lib::marker::PhantomData;
 
 use Parser;

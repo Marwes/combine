@@ -1,3 +1,16 @@
+//! Traits and implementations of arbitrary data streams.
+//!
+//! Streams are similar to the `Iterator` trait in that they represent some sequential set of items
+//! which can be retrieved one by one. Where `Stream`s differ is that they are allowed to return
+//! errors instead of just `None` and if they implement the `RangeStreamOnce` trait they are also
+//! capable of returning multiple items at the same time, usually in the form of a slice.
+//!
+//! In addition to he functionality above, a proper `Stream` usable by a `Parser` must also have a
+//! position (marked by the `Positioned` trait) and must also be resetable (marked by the
+//! `Resetable` trait). The former is used to ensure that errors at different points in the stream
+//! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
+//! parses.
+
 use lib::fmt;
 
 #[cfg(feature = "std")]
@@ -37,6 +50,7 @@ pub mod state;
 #[cfg(feature = "std")]
 pub mod easy;
 
+/// A type which has a position.
 pub trait Positioned: StreamOnce {
     /// Returns the current position of the stream.
     fn position(&self) -> Self::Position;
@@ -64,6 +78,9 @@ pub trait StreamOnce {
     where
         E: StreamError<Self::Item, Self::Range>;
 
+    /// Returns `true` if this stream only contains partial input.
+    ///
+    /// See `PartialStream`.
     fn is_partial(&self) -> bool {
         false
     }

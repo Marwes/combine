@@ -1,3 +1,5 @@
+//! Combinators which take one or more parsers and attempts to parse successfully with at least one
+//! of them.
 use {ErrorOffset, Parser, Stream, StreamOnce};
 use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use error::FastResult::*;
@@ -42,7 +44,7 @@ macro_rules! parse_mode_choice {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode_choice($crate::parser::Partial::default(), input, state)
+            self.parse_mode_choice($crate::parser::PartialMode::default(), input, state)
         }
 
         fn parse_first(
@@ -50,7 +52,7 @@ macro_rules! parse_mode_choice {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode_choice($crate::parser::First, input, state)
+            self.parse_mode_choice($crate::parser::FirstMode, input, state)
         }
     }
 }
@@ -167,7 +169,7 @@ macro_rules! do_choice {
     ) => { {
         let parser = $head;
         let mut state = $head::PartialState::default();
-        match parser.parse_mode(::parser::First, $input, &mut state) {
+        match parser.parse_mode(::parser::FirstMode, $input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => {
@@ -467,7 +469,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::parser::Partial::default(), input, state)
+        slice_parse_mode(self, ::parser::PartialMode::default(), input, state)
     }
 
     #[inline(always)]
@@ -476,7 +478,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::parser::First, input, state)
+        slice_parse_mode(self, ::parser::FirstMode, input, state)
     }
 
     #[inline(always)]

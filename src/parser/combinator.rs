@@ -1,3 +1,5 @@
+//! Various combinators which do not fit anywhere else.
+
 use lib::marker::PhantomData;
 use lib::mem;
 

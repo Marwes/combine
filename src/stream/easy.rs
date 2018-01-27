@@ -1,3 +1,12 @@
+//! Stream wrapper which provides an informative and easy to use error type.
+//!
+//! Unless you have specific constraints preventing you from using this error type (such as being
+//! a `no_std` environment) you probably want to use this stream type. It can easily be used
+//! through the [`Parser::easy_parse`][] method.
+//!
+//! The provided error type is the same as in combine 1.x and 2.x.
+//!
+//! [`Parser::easy_parse`]: ../parser/trait.Parser.html#method.easy_parse
 use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;

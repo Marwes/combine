@@ -1,3 +1,5 @@
+//! Parsers working with single stream items.
+
 use lib::marker::PhantomData;
 
 use Parser;

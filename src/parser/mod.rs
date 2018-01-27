@@ -1,3 +1,7 @@
+//! A collection of both concrete parsers as well as parser combinators.
+//!
+//! Implements the `Parser` trait which is the core of `combine` and contains the submodules
+//! implementing all combine parsers.
 use either::Either;
 
 use ErrorOffset;
@@ -52,7 +56,7 @@ macro_rules! parse_mode {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode($crate::parser::Partial::default(), input, state)
+            self.parse_mode($crate::parser::PartialMode::default(), input, state)
         }
 
         #[inline(always)]
@@ -61,30 +65,22 @@ macro_rules! parse_mode {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode($crate::parser::First, input, state)
+            self.parse_mode($crate::parser::FirstMode, input, state)
         }
     }
 }
 
-/// Module containing zero-copy parsers.
 pub mod range;
-/// Module containing parsers specialized on byte streams.
 pub mod byte;
-/// Module containing parsers specialized on character streams.
 pub mod char;
-/// Parsers working with single stream items.
 pub mod item;
-/// Parsers which cause errors or modifies the returned error on parse failure.
 pub mod error;
 pub mod function;
-/// Various combinators which do not fit anywhere else.
 pub mod combinator;
-/// Combinators which take one or more parsers and apply them repeatedly.
 pub mod repeat;
 pub mod sequence;
 pub mod choice;
 #[cfg(feature = "regex")]
-/// Module containing regex parsers.
 pub mod regex;
 
 /// By implementing the `Parser` trait a type says that it can be used to parse an input stream
@@ -303,9 +299,9 @@ pub trait Parser {
         Self: Sized,
     {
         if mode.is_first() {
-            self.parse_mode_impl(First, input, state)
+            self.parse_mode_impl(FirstMode, input, state)
         } else {
-            self.parse_mode_impl(Partial::default(), input, state)
+            self.parse_mode_impl(PartialMode::default(), input, state)
         }
     }
 
@@ -341,9 +337,9 @@ pub trait Parser {
         Self: Sized,
     {
         if mode.is_first() {
-            First.parse_consumed(self, input, state)
+            FirstMode.parse_consumed(self, input, state)
         } else {
-            Partial::default().parse_consumed(self, input, state)
+            PartialMode::default().parse_consumed(self, input, state)
         }
     }
 
@@ -737,11 +733,11 @@ pub trait Parser {
     fn iter<'a>(
         self,
         input: &'a mut <Self as Parser>::Input,
-    ) -> Iter<'a, Self, Self::PartialState, First>
+    ) -> Iter<'a, Self, Self::PartialState, FirstMode>
     where
         Self: Parser + Sized,
     {
-        Iter::new(self, First, input, Default::default())
+        Iter::new(self, FirstMode, input, Default::default())
     }
 
     /// Creates an iterator from a parser and a state. Can be used as an alternative to [`many`]
@@ -947,7 +943,7 @@ where
     }
 }
 
-/// Specifies wheter the parser must check for partial state that must be resumed
+/// Specifies whether the parser must check for partial state that must be resumed
 pub trait ParseMode: Copy {
     /// If `true` then the parser has no previous state to resume otherwise the parser *might* have
     /// state to resume which it must check.
@@ -980,8 +976,8 @@ pub trait ParseMode: Copy {
 }
 
 #[derive(Copy, Clone)]
-pub struct First;
-impl ParseMode for First {
+pub struct FirstMode;
+impl ParseMode for FirstMode {
     #[inline(always)]
     fn is_first(self) -> bool {
         true
@@ -992,10 +988,10 @@ impl ParseMode for First {
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct Partial {
+pub struct PartialMode {
     pub first: bool,
 }
-impl ParseMode for Partial {
+impl ParseMode for PartialMode {
     #[inline(always)]
     fn is_first(self) -> bool {
         self.first
