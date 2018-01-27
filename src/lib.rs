@@ -235,6 +235,8 @@ macro_rules! impl_token_parser {
 /// use combine::primitives::ParseError;
 ///
 /// parser!{
+///     /// `[I]` represents a normal type parametera and lifetime declaration for the function
+///     /// It gets expanded to `<I>`
 ///     fn integer[I]()(I) -> i32
 ///     where [
 ///         I: Stream<Item = char>,
