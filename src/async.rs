@@ -1,5 +1,6 @@
 use {Parser, StreamOnce};
-use primitives::{ParseError, RangeStream, RangeStreamOnce, Resetable};
+use primitives::ParseError;
+use stream::{RangeStream, RangeStreamOnce, Resetable};
 
 pub fn decode<P>(
     mut parser: P,

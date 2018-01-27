@@ -27,7 +27,7 @@ use combine::range::{range, recognize_with_value, take_while, take_while1};
 use combine::{any, count_min_max, skip_many, Parser, many1};
 use combine::combinator::{any_partial_state, no_partial, optional, recognize, AnyPartialState,
                           skip_many1};
-use combine::primitives::RangeStream;
+use combine::stream::RangeStream;
 use combine::easy;
 use combine::char::{char, digit, letter};
 
@@ -88,7 +88,7 @@ macro_rules! impl_decoder {
                     println!("Decoding `{}`", str_src);
                     combine::async::decode(
                         any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
-                        easy::Stream(combine::primitives::PartialStream(str_src)),
+                        easy::Stream(combine::stream::PartialStream(str_src)),
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before

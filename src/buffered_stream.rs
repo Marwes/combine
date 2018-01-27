@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
-use primitives::{Positioned, Resetable, StreamError, StreamOnce};
+use primitives::StreamError;
+use stream::{Positioned, Resetable, StreamOnce};
 
 #[derive(Debug, PartialEq)]
 pub struct BufferedStream<I>

@@ -3,9 +3,9 @@ use lib::marker::PhantomData;
 use lib::mem;
 use lib::borrow::BorrowMut;
 
-use primitives::{uncons, Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult,
-                 Parser, Positioned, Resetable, Stream, StreamError, StreamOnce, Tracked,
-                 UnexpectedParse};
+use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult, Parser,
+                 StreamError, Tracked, UnexpectedParse};
+use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
 
 use either::Either;
 
@@ -281,7 +281,7 @@ where
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
-            match ::primitives::uncons(input) {
+            match ::stream::uncons(input) {
                 ConsumedOk(other) | EmptyOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {

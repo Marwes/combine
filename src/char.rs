@@ -1,4 +1,5 @@
-use primitives::{ConsumedResult, ParseError, Parser, Stream, StreamOnce, Tracked};
+use primitives::{ConsumedResult, ParseError, Parser, Tracked};
+use stream::{Stream, StreamOnce};
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
 use lib::marker::PhantomData;
 

@@ -1,10 +1,11 @@
 use lib::fmt;
 
-use primitives::{FullRangeStream, IteratorStream, ParseError, Positioned, RangeStreamOnce,
-                 Resetable, SliceStream, StreamError, StreamOnce};
+use primitives::{ParseError, StreamError};
+use stream::{FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
+             StreamOnce};
 
 #[cfg(feature = "std")]
-use primitives::ReadStream;
+use stream::ReadStream;
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -178,7 +179,7 @@ impl IndexPositioner {
 impl<Item, Range> RangePositioner<Item, Range> for IndexPositioner
 where
     Item: PartialEq + Clone,
-    Range: PartialEq + Clone + ::primitives::Range,
+    Range: PartialEq + Clone + ::stream::Range,
 {
     fn update_range(&mut self, range: &Range) {
         self.0 += range.len()

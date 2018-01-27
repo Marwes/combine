@@ -5,7 +5,8 @@ use lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Info, ParseError, Parser, Stream, StreamOnce, Tracked};
+use primitives::{ConsumedResult, Info, ParseError, Parser, Tracked};
+use stream::{Stream, StreamOnce};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
@@ -390,7 +391,7 @@ where
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
-    use primitives::RangeStream;
+    use stream::RangeStream;
     use range::take;
 
     use byteorder::{ByteOrder, BE, LE};

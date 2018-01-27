@@ -37,9 +37,9 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, FullRangeStream, ParseError, Parser, StreamError, StreamOnce,
-                 Tracked};
+use primitives::{ConsumedResult, ParseError, Parser, StreamError, Tracked};
 use primitives::FastResult::*;
+use stream::{FullRangeStream, StreamOnce};
 use range::take;
 
 struct First<T>(Option<T>);
@@ -262,7 +262,7 @@ impl<'a, R, I> Parser for Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -309,7 +309,7 @@ pub fn find<R, I>(regex: R) -> Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     Find(regex, PhantomData)
 }
@@ -322,7 +322,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = F;
@@ -365,7 +365,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     FindMany(regex, PhantomData)
 }
@@ -378,7 +378,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = F;
@@ -431,7 +431,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     Captures(regex, PhantomData)
 }
@@ -445,7 +445,7 @@ where
     G: FromIterator<F>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = G;
@@ -498,7 +498,7 @@ where
     G: FromIterator<F>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     CapturesMany(regex, PhantomData)
 }

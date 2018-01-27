@@ -1,6 +1,6 @@
 #![cfg(feature = "std")]
 extern crate combine;
-use combine::primitives::IteratorStream;
+use combine::stream::IteratorStream;
 use combine::buffered_stream::BufferedStream;
 use combine::easy::Error;
 use combine::char::{char, digit, spaces, string};

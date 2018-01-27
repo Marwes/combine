@@ -2,8 +2,8 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{EasyError, FullRangeStream, Info as PrimitiveInfo, ParseError, Positioned,
-                 RangeStream, RangeStreamOnce, Resetable, StreamError, StreamOnce, Tracked};
+use primitives::{EasyError, Info as PrimitiveInfo, ParseError, StreamError, Tracked};
+use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamOnce};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding easy descriptions.

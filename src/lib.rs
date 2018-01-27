@@ -92,7 +92,8 @@
 //! extern crate combine;
 //! use combine::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
-//! use combine::primitives::{Stream, Positioned, ParseResult};
+//! use combine::primitives::ParseResult;
+//! use combine::stream::{Stream, Positioned};
 //! use combine::state::State;
 //!
 //! #[derive(Debug, PartialEq)]
@@ -163,8 +164,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
-                     StreamOnce};
+pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser};
+#[doc(inline)]
+pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
 
 #[doc(inline)]
 pub use state::State;
@@ -547,11 +549,11 @@ macro_rules! combine_parser_impl {
         $(#[$derive])*
         #[allow(non_camel_case_types)]
         $($pub_)* struct $type_name<$($type_params)*>
-            where <$input_type as $crate::primitives::StreamOnce>::Error:
+            where <$input_type as $crate::stream::StreamOnce>::Error:
                 $crate::primitives::ParseError<
-                    <$input_type as $crate::primitives::StreamOnce>::Item,
-                    <$input_type as $crate::primitives::StreamOnce>::Range,
-                    <$input_type as $crate::primitives::StreamOnce>::Position
+                    <$input_type as $crate::stream::StreamOnce>::Item,
+                    <$input_type as $crate::stream::StreamOnce>::Range,
+                    <$input_type as $crate::stream::StreamOnce>::Position
                     >,
                 $($where_clause)*
         {
@@ -562,11 +564,11 @@ macro_rules! combine_parser_impl {
         // We want this to work on older compilers, at least for a while
         #[allow(non_shorthand_field_patterns)]
         impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
-            where <$input_type as $crate::primitives::StreamOnce>::Error:
+            where <$input_type as $crate::stream::StreamOnce>::Error:
                     $crate::primitives::ParseError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        <$input_type as $crate::stream::StreamOnce>::Item,
+                        <$input_type as $crate::stream::StreamOnce>::Range,
+                        <$input_type as $crate::stream::StreamOnce>::Position
                         >,
                 $($where_clause)*
         {
@@ -589,7 +591,7 @@ macro_rules! combine_parser_impl {
             fn add_error(
                 &mut self,
                 errors: &mut $crate::primitives::Tracked<
-                    <$input_type as $crate::primitives::StreamOnce>::Error
+                    <$input_type as $crate::stream::StreamOnce>::Error
                     >)
             {
                 let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
@@ -606,11 +608,11 @@ macro_rules! combine_parser_impl {
         $($pub_)* fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
             ) -> $type_name<$($type_params)*>
-            where <$input_type as $crate::primitives::StreamOnce>::Error:
+            where <$input_type as $crate::stream::StreamOnce>::Error:
                     $crate::primitives::ParseError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        <$input_type as $crate::stream::StreamOnce>::Item,
+                        <$input_type as $crate::stream::StreamOnce>::Range,
+                        <$input_type as $crate::stream::StreamOnce>::Position
                         >,
                 $($where_clause)*
         {
@@ -643,6 +645,9 @@ pub mod lib {
 /// parsers.
 #[macro_use]
 pub mod primitives;
+/// Module containing the `Stream` trait and its siblings.
+#[macro_use]
+pub mod stream;
 /// Module containing all specific parsers.
 pub mod combinator;
 /// Module containing zero-copy parsers.
@@ -704,7 +709,8 @@ mod tests {
 #[cfg(all(feature = "std", test))]
 mod std_tests {
     use super::*;
-    use super::primitives::{Consumed, IteratorStream};
+    use super::primitives::Consumed;
+    use super::stream::IteratorStream;
     use super::easy::Error;
 
     use char::{alpha_num, char, digit, letter, spaces, string};

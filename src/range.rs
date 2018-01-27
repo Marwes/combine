@@ -1,8 +1,8 @@
 use lib::marker::PhantomData;
 
-use primitives::{uncons_range, uncons_while, wrap_stream_error, ConsumedResult, Info, ParseError,
-                 ParseMode, Parser, RangeStream, RangeStreamOnce, Resetable, StreamOnce, Tracked,
-                 UnexpectedParse};
+use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
+             Resetable, StreamOnce};
+use primitives::{ConsumedResult, Info, ParseError, ParseMode, Parser, Tracked, UnexpectedParse};
 use primitives::FastResult::*;
 
 pub struct Range<I>(I::Range)
@@ -12,7 +12,7 @@ where
 impl<I> Parser for Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::primitives::Range,
+    I::Range: PartialEq + ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -20,7 +20,7 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        use primitives::Range;
+        use stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
             Ok(other) => if other == self.0 {
@@ -58,7 +58,7 @@ parser!{
     where [
         P: Parser,
         P::Input: RangeStream,
-        <P::Input as StreamOnce>::Range: ::primitives::Range,
+        <P::Input as StreamOnce>::Range: ::stream::Range,
     ]
     {
         ::range::recognize_with_value(parser).map(|(range, _)| range)
@@ -76,7 +76,7 @@ where
     M: ParseMode,
     F: FnOnce(&mut I) -> ConsumedResult<I::Range, I>,
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     let before = input.checkpoint();
 
@@ -118,7 +118,7 @@ impl<P> Parser for RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::primitives::Range,
+    <P::Input as StreamOnce>::Range: ::stream::Range,
 {
     type Input = P::Input;
     type Output = (<P::Input as StreamOnce>::Range, P::Output);
@@ -183,7 +183,7 @@ pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::primitives::Range,
+    <P::Input as StreamOnce>::Range: ::stream::Range,
 {
     RecognizeWithValue(parser)
 }
@@ -207,7 +207,7 @@ where
 pub fn range<I>(i: I::Range) -> Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::primitives::Range,
+    I::Range: PartialEq + ::stream::Range,
 {
     Range(i)
 }
@@ -216,7 +216,7 @@ pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
 impl<I> Parser for Take<I>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -249,7 +249,7 @@ where
 pub fn take<I>(n: usize) -> Take<I>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     Take(n, PhantomData)
 }
@@ -258,7 +258,7 @@ pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile<I, F>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
@@ -307,7 +307,7 @@ pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
@@ -360,7 +360,7 @@ where
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)
@@ -372,7 +372,7 @@ where
 impl<I> Parser for TakeUntilRange<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::primitives::Range,
+    I::Range: PartialEq + ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -384,7 +384,7 @@ where
         input: &mut Self::Input,
         to_consume: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        use primitives::Range;
+        use stream::Range;
 
         let len = self.0.len();
         let before = input.checkpoint();
