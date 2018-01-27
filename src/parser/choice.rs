@@ -1,6 +1,7 @@
 use {ErrorOffset, Parser, Stream, StreamOnce};
-use primitives::{ConsumedResult, ParseError, ParseMode, StreamError, Tracked};
-use primitives::FastResult::*;
+use stream::Resetable;
+use error::{ConsumedResult, ParseError, ParseMode, StreamError, Tracked};
+use error::FastResult::*;
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
@@ -40,7 +41,7 @@ macro_rules! parse_mode_choice {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode_choice($crate::primitives::Partial::default(), input, state)
+            self.parse_mode_choice($crate::error::Partial::default(), input, state)
         }
 
         fn parse_first(
@@ -48,7 +49,7 @@ macro_rules! parse_mode_choice {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode_choice($crate::primitives::First, input, state)
+            self.parse_mode_choice($crate::error::First, input, state)
         }
     }
 }
@@ -165,7 +166,7 @@ macro_rules! do_choice {
     ) => { {
         let parser = $head;
         let mut state = $head::PartialState::default();
-        match parser.parse_mode(::primitives::First, $input, &mut state) {
+        match parser.parse_mode(::error::First, $input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => {
@@ -465,7 +466,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::primitives::Partial::default(), input, state)
+        slice_parse_mode(self, ::error::Partial::default(), input, state)
     }
 
     #[inline(always)]
@@ -474,7 +475,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::primitives::First, input, state)
+        slice_parse_mode(self, ::error::First, input, state)
     }
 
     #[inline(always)]
@@ -580,7 +581,7 @@ where
 /// If you are looking to chain 3 or more parsers using `or` you may consider using the
 /// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
 ///
-/// [`p1.or(p2)`]: ../primitives/trait.Parser.html#method.or
+/// [`p1.or(p2)`]: ../error/trait.Parser.html#method.or
 #[inline(always)]
 pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where

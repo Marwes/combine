@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use primitives::StreamError;
+use error::StreamError;
 use stream::{Positioned, Resetable, StreamOnce};
 
 #[derive(Debug, PartialEq)]

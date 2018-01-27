@@ -2,9 +2,9 @@ use either::Either;
 
 use ErrorOffset;
 use stream::{Resetable, Stream, StreamOnce};
-use primitives::{ConsumedResult, FastResult, First, Info, ParseError, ParseMode, ParseResult,
-                 Partial, Tracked, UnexpectedParse};
-use primitives::FastResult::*;
+use error::{ConsumedResult, FastResult, First, Info, ParseError, ParseMode, ParseResult, Partial,
+            Tracked, UnexpectedParse};
+use error::FastResult::*;
 use combinator::{and_then, expected, flat_map, map, message, then, then_partial, AndThen,
                  Expected, FlatMap, Iter, Map, Message, Then, ThenPartial};
 
@@ -310,7 +310,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::primitives::Consumed;
+    /// # use combine::error::Consumed;
     /// # use combine::parser::char::{digit, letter};
     /// fn test(input: &mut &'static str) -> ParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
@@ -454,7 +454,7 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char::digit;
-    /// # use combine::primitives::Consumed;
+    /// # use combine::error::Consumed;
     /// # use combine::easy;
     /// # fn main() {
     /// let result = digit()
@@ -493,7 +493,7 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char::digit;
-    /// # use combine::primitives::Consumed;
+    /// # use combine::error::Consumed;
     /// # use combine::easy;
     /// # fn main() {
     /// let result = digit()

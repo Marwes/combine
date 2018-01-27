@@ -8,7 +8,7 @@ use bencher::{black_box, Bencher};
 use std::fmt;
 
 use combine::{many, token, ParseError, Parser, many1};
-use combine::primitives::{RangeStream, UnexpectedParse};
+use combine::error::{RangeStream, UnexpectedParse};
 use combine::range::{range, take_while1};
 use combine::easy;
 

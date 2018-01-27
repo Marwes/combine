@@ -14,14 +14,14 @@ use stream::{Resetable, StreamOnce};
 macro_rules! ctry {
     ($result: expr) => {
         match $result {
-            $crate::primitives::FastResult::ConsumedOk(x) =>
-                (x, $crate::primitives::Consumed::Consumed(())),
-            $crate::primitives::FastResult::EmptyOk(x) =>
-                (x, $crate::primitives::Consumed::Empty(())),
-            $crate::primitives::FastResult::ConsumedErr(err) =>
-                return $crate::primitives::FastResult::ConsumedErr(err.into()),
-            $crate::primitives::FastResult::EmptyErr(err) =>
-                return $crate::primitives::FastResult::EmptyErr(err.into()),
+            $crate::error::FastResult::ConsumedOk(x) =>
+                (x, $crate::error::Consumed::Consumed(())),
+            $crate::error::FastResult::EmptyOk(x) =>
+                (x, $crate::error::Consumed::Empty(())),
+            $crate::error::FastResult::ConsumedErr(err) =>
+                return $crate::error::FastResult::ConsumedErr(err.into()),
+            $crate::error::FastResult::EmptyErr(err) =>
+                return $crate::error::FastResult::EmptyErr(err.into()),
         }
     }
 }
@@ -799,7 +799,7 @@ macro_rules! parse_mode {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode($crate::primitives::Partial::default(), input, state)
+            self.parse_mode($crate::error::Partial::default(), input, state)
         }
 
         #[inline(always)]
@@ -808,7 +808,7 @@ macro_rules! parse_mode {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode($crate::primitives::First, input, state)
+            self.parse_mode($crate::error::First, input, state)
         }
     }
 }

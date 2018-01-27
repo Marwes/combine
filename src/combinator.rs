@@ -2,13 +2,13 @@ use lib::marker::PhantomData;
 use lib::mem;
 
 use Parser;
-use primitives::{Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult, StreamError,
-                 Tracked, UnexpectedParse};
+use error::{Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult, StreamError,
+            Tracked, UnexpectedParse};
 use stream::{Positioned, Resetable, Stream, StreamOnce};
 
 use either::Either;
 
-use primitives::FastResult::*;
+use error::FastResult::*;
 
 #[doc(inline)]
 pub use parser::sequence::*;
@@ -76,7 +76,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::StreamError;
+/// # use combine::error::StreamError;
 /// # fn main() {
 /// let result = unexpected("token")
 ///     .easy_parse("a");
@@ -241,7 +241,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::char::digit;
-/// # use combine::primitives::{Consumed, StreamError};
+/// # use combine::error::{Consumed, StreamError};
 /// # use combine::easy;
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
@@ -449,7 +449,7 @@ where
 
 /// Equivalent to [`p1.message(msg)`].
 ///
-/// [`p1.message(msg)`]: ../primitives/trait.Parser.html#method.message
+/// [`p1.message(msg)`]: ../error/trait.Parser.html#method.message
 #[inline(always)]
 pub fn message<P>(
     p: P,
@@ -501,7 +501,7 @@ where
 
 /// Equivalent to [`p.map(f)`].
 ///
-/// [`p.map(f)`]: ../primitives/trait.Parser.html#method.map
+/// [`p.map(f)`]: ../error/trait.Parser.html#method.map
 #[inline(always)]
 pub fn map<P, F, B>(p: P, f: F) -> Map<P, F>
 where
@@ -555,7 +555,7 @@ where
 
 /// Equivalent to [`p.flat_map(f)`].
 ///
-/// [`p.flat_map(f)`]: ../primitives/trait.Parser.html#method.flat_map
+/// [`p.flat_map(f)`]: ../error/trait.Parser.html#method.flat_map
 #[inline(always)]
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
@@ -603,7 +603,7 @@ where
 
 /// Equivalent to [`p.expected(info)`].
 ///
-/// [`p.expected(info)`]: ../primitives/trait.Parser.html#method.expected
+/// [`p.expected(info)`]: ../error/trait.Parser.html#method.expected
 #[inline(always)]
 pub fn expected<P>(
     p: P,
@@ -665,7 +665,7 @@ where
 
 /// Equivalent to [`p.and_then(f)`].
 ///
-/// [`p.and_then(f)`]: ../primitives/trait.Parser.html#method.and_then
+/// [`p.and_then(f)`]: ../error/trait.Parser.html#method.and_then
 #[inline(always)]
 pub fn and_then<P, F, O, E, I>(p: P, f: F) -> AndThen<P, F>
 where

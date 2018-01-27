@@ -7,7 +7,7 @@ use self::ascii::AsciiChar;
 use Parser;
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
 use parser::sequence::With;
-use primitives::{ConsumedResult, Info, ParseError, Tracked};
+use error::{ConsumedResult, Info, ParseError, Tracked};
 use stream::{Stream, StreamOnce};
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
@@ -322,7 +322,7 @@ where
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../primitives/trait.RangeStream.html
+/// [`RangeStream`]: ../error/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
@@ -378,7 +378,7 @@ where
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../primitives/trait.RangeStream.html
+/// [`RangeStream`]: ../error/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>

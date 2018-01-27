@@ -38,8 +38,8 @@ use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use Parser;
-use primitives::{ConsumedResult, ParseError, StreamError, Tracked};
-use primitives::FastResult::*;
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
+use error::FastResult::*;
 use stream::{FullRangeStream, StreamOnce};
 use parser::range::take;
 

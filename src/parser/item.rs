@@ -2,9 +2,9 @@ use lib::marker::PhantomData;
 
 use Parser;
 use stream::{uncons, Stream, StreamOnce};
-use primitives::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 
-use primitives::FastResult::*;
+use error::FastResult::*;
 
 #[doc(inline)]
 pub use self::token as item;
@@ -297,7 +297,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Info;
+/// # use combine::error::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())

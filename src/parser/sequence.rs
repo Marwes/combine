@@ -1,8 +1,8 @@
 use lib::marker::PhantomData;
 
 use {ErrorOffset, Parser, Stream, StreamOnce};
-use primitives::{ConsumedResult, ParseError, ParseMode, StreamError, Tracked, UnexpectedParse};
-use primitives::FastResult::*;
+use error::{ConsumedResult, ParseError, ParseMode, StreamError, Tracked, UnexpectedParse};
+use error::FastResult::*;
 use combinator::{ignore, Ignore};
 
 macro_rules! dispatch_on {
@@ -390,7 +390,7 @@ where
 
 /// Equivalent to [`p1.with(p2)`].
 ///
-/// [`p1.with(p2)`]: ../primitives/trait.Parser.html#method.with
+/// [`p1.with(p2)`]: ../error/trait.Parser.html#method.with
 #[inline(always)]
 pub fn with<P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
 where
@@ -549,7 +549,7 @@ where
 
 /// Equivalent to [`p.then(f)`].
 ///
-/// [`p.then(f)`]: ../primitives/trait.Parser.html#method.then
+/// [`p.then(f)`]: ../error/trait.Parser.html#method.then
 #[inline(always)]
 pub fn then<P, F, N>(p: P, f: F) -> Then<P, F>
 where
@@ -640,7 +640,7 @@ where
 
 /// Equivalent to [`p.then_partial(f)`].
 ///
-/// [`p.then_partial(f)`]: ../primitives/trait.Parser.html#method.then_partial
+/// [`p.then_partial(f)`]: ../error/trait.Parser.html#method.then_partial
 #[inline(always)]
 pub fn then_partial<P, F, N>(p: P, f: F) -> ThenPartial<P, F>
 where

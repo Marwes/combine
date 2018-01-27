@@ -8,9 +8,9 @@ use easy::Error;
 
 use Parser;
 
-use primitives::{ConsumedResult, ParseError, StreamError, StringStreamError, UnexpectedParse,
-                 CHAR_BOUNDARY_ERROR_MESSAGE};
-use primitives::FastResult::*;
+use error::{ConsumedResult, ParseError, StreamError, StringStreamError, UnexpectedParse,
+            CHAR_BOUNDARY_ERROR_MESSAGE};
+use error::FastResult::*;
 
 pub trait Positioned: StreamOnce {
     /// Returns the current position of the stream.

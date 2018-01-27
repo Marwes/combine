@@ -1,6 +1,6 @@
 use lib::fmt;
 
-use primitives::{ParseError, StreamError};
+use error::{ParseError, StreamError};
 use stream::{FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
              StreamOnce};
 

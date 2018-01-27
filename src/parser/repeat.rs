@@ -8,10 +8,9 @@ use stream::{Positioned, Resetable, Stream, StreamOnce};
 use parser::sequence::With;
 use parser::choice::Or;
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
-use primitives::{Consumed, ConsumedResult, ParseError, ParseMode, ParseResult, StreamError,
-                 Tracked};
+use error::{Consumed, ConsumedResult, ParseError, ParseMode, ParseResult, StreamError, Tracked};
 
-use primitives::FastResult::*;
+use error::FastResult::*;
 
 #[derive(Copy, Clone)]
 pub struct Count<F, P> {
@@ -62,7 +61,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::primitives::Info;
+/// # use combine::error::Info;
 /// # use combine::easy::Error;
 /// # fn main() {
 /// let mut parser = count(2, token(b'a'));

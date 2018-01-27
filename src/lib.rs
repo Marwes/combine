@@ -42,7 +42,7 @@
 //! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a
 //! few functions such as [`or`] which are more natural to use method calls.
 //!
-//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
+//! * [`error`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
 //! in combine as well as various structs dealing with input streams and errors. You usually only
 //! need to use this module if you want more control over parsing and input streams.
 //!
@@ -92,7 +92,7 @@
 //! extern crate combine;
 //! use combine::parser::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
-//! use combine::primitives::ParseResult;
+//! use combine::error::ParseResult;
 //! use combine::stream::{Stream, Positioned};
 //! use combine::state::State;
 //!
@@ -147,17 +147,17 @@
 //! ```
 //!
 //! [`combinator`]: combinator/index.html
-//! [`primitives`]: primitives/index.html
+//! [`error`]: error/index.html
 //! [`char`]: char/index.html
 //! [`byte`]: byte/index.html
 //! [`range`]: range/index.html
 //! [`many`]: combinator/fn.many.html
 //! [`try`]: combinator/fn.try.html
 //! [`satisfy`]: combinator/fn.satisfy.html
-//! [`or`]: primitives/trait.Parser.html#method.or
-//! [`Stream`]: primitives/trait.Stream.html
-//! [`RangeStream`]: primitives/trait.RangeStream.html
-//! [`Parser`]: primitives/trait.Parser.html
+//! [`or`]: error/trait.Parser.html#method.or
+//! [`Stream`]: error/trait.Stream.html
+//! [`RangeStream`]: error/trait.RangeStream.html
+//! [`Parser`]: error/trait.Parser.html
 //! [fn parser]: combinator/fn.parser.html
 // inline(always) is only used on trivial functions returning parsers
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
@@ -171,7 +171,7 @@ pub use parser::{byte, char, range};
 #[cfg(feature = "regex")]
 pub use parser::regex;
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult};
+pub use error::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
 pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
 
@@ -243,7 +243,7 @@ macro_rules! impl_token_parser {
 /// extern crate combine;
 /// use combine::parser::char::digit;
 /// use combine::{any, choice, many1, Parser, Stream};
-/// use combine::primitives::ParseError;
+/// use combine::error::ParseError;
 ///
 /// parser!{
 ///     /// `[I]` represents a normal type parametera and lifetime declaration for the function
@@ -559,7 +559,7 @@ macro_rules! combine_parser_impl {
         #[allow(non_camel_case_types)]
         $($pub_)* struct $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
-                $crate::primitives::ParseError<
+                $crate::error::ParseError<
                     <$input_type as $crate::stream::StreamOnce>::Item,
                     <$input_type as $crate::stream::StreamOnce>::Range,
                     <$input_type as $crate::stream::StreamOnce>::Position
@@ -574,7 +574,7 @@ macro_rules! combine_parser_impl {
         #[allow(non_shorthand_field_patterns)]
         impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
-                    $crate::primitives::ParseError<
+                    $crate::error::ParseError<
                         <$input_type as $crate::stream::StreamOnce>::Item,
                         <$input_type as $crate::stream::StreamOnce>::Range,
                         <$input_type as $crate::stream::StreamOnce>::Position
@@ -590,7 +590,7 @@ macro_rules! combine_parser_impl {
                 &mut self,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-                ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
+                ) -> $crate::error::ConsumedResult<$output_type, $input_type>
             {
                 let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
                 combine_parse_partial!(($($partial_state)*) input state $parser)
@@ -599,7 +599,7 @@ macro_rules! combine_parser_impl {
             #[inline]
             fn add_error(
                 &mut self,
-                errors: &mut $crate::primitives::Tracked<
+                errors: &mut $crate::error::Tracked<
                     <$input_type as $crate::stream::StreamOnce>::Error
                     >)
             {
@@ -618,7 +618,7 @@ macro_rules! combine_parser_impl {
                 $($arg : $arg_type),*
             ) -> $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
-                    $crate::primitives::ParseError<
+                    $crate::error::ParseError<
                         <$input_type as $crate::stream::StreamOnce>::Item,
                         <$input_type as $crate::stream::StreamOnce>::Range,
                         <$input_type as $crate::stream::StreamOnce>::Position
@@ -650,10 +650,9 @@ pub mod lib {
     pub use core::*;
 }
 
-/// Module containing the primitive types which is used to create and compose more advanced
-/// parsers.
+/// Error types and traits which define what kind of errors combine parsers may emit
 #[macro_use]
-pub mod primitives;
+pub mod error;
 /// Module containing the `Stream` trait and its siblings.
 #[macro_use]
 pub mod stream;
@@ -712,7 +711,7 @@ mod tests {
 #[cfg(all(feature = "std", test))]
 mod std_tests {
     use super::*;
-    use super::primitives::Consumed;
+    use super::error::Consumed;
     use super::stream::IteratorStream;
     use super::easy::Error;
 

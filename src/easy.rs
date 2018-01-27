@@ -2,7 +2,7 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use primitives::{Info as PrimitiveInfo, ParseError, StreamError, Tracked};
+use error::{Info as PrimitiveInfo, ParseError, StreamError, Tracked};
 use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamOnce};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as

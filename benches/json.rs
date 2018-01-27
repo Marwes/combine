@@ -11,7 +11,7 @@ use std::path::Path;
 use bencher::{black_box, Bencher};
 
 use pc::buffered_stream::BufferedStream;
-use pc::primitives::{Consumed, IteratorStream, ParseError, ParseResult, Parser, Stream, StreamOnce};
+use pc::error::{Consumed, IteratorStream, ParseError, ParseResult, Parser, Stream, StreamOnce};
 use pc::char::{char, digit, spaces, string, Spaces};
 use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
                      FnParser, Skip, many1};

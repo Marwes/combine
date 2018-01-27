@@ -225,7 +225,7 @@ where
 }
 
 #[cfg(not(feature = "std"))]
-fn main_<R>(mut read: R) -> Result<(), Error<::combine::primitives::StringStreamError>>
+fn main_<R>(mut read: R) -> Result<(), Error<::combine::error::StringStreamError>>
 where
     R: Read,
 {

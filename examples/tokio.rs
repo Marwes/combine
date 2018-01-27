@@ -17,7 +17,7 @@ use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::primitives::ParseError;
+use combine::error::ParseError;
 use combine::stream::{PartialStream, RangeStream};
 use combine::combinator::{any_partial_state, AnyPartialState};
 use combine::parser::range::{range, recognize, take};
