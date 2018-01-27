@@ -69,46 +69,40 @@ where
     I: RangeStream<Item = u8, Range = &'a [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    use combine::combinator::no_partial;
-
     // Making a closure, because parser instances cannot be reused
-    let end_of_line = || {
-        no_partial((token(b'\r'), token(b'\n')))
-            .map(|_| b'\r')
-            .or(token(b'\n'))
-    };
+    let end_of_line = || (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'));
 
-    let http_version = no_partial(range(&b"HTTP/"[..]).with(take_while1(is_http_version)));
+    let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
-    let request_line = no_partial(struct_parser!(Request {
+    let request_line = struct_parser!(Request {
             method: take_while1(is_token),
             _: take_while1(is_space),
             uri: take_while1(is_not_space),
             _: take_while1(is_space),
             version: http_version,
-        }));
+        });
 
-    let message_header_line = no_partial((
+    let message_header_line = (
         take_while1(is_horizontal_space),
         take_while1(|c| c != b'\r' && c != b'\n'),
         end_of_line(),
-    )).map(|(_, line, _)| line);
+    ).map(|(_, line, _)| line);
 
-    let message_header = no_partial((
+    let message_header = (
         take_while1(is_token),
         token(b':'),
         many1(message_header_line),
-    )).map(|(name, _, value)| Header {
+    ).map(|(name, _, value)| Header {
         name: name,
         value: value,
     });
 
-    let mut request = no_partial((
+    let mut request = (
         request_line,
         end_of_line(),
         many(message_header),
         end_of_line(),
-    )).map(|(request, _, headers, _)| (request, headers));
+    ).map(|(request, _, headers, _)| (request, headers));
 
     request.parse(input)
 }

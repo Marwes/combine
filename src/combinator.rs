@@ -1668,7 +1668,7 @@ where
         if mode.is_first() || !*parsed_one {
             debug_assert!(!*parsed_one);
 
-            let (first, consumed) = ctry!(self.0.parse_partial(input, child_state));
+            let (first, consumed) = ctry!(self.0.parse_mode(mode, input, child_state));
             elements.extend(Some(first));
             // TODO Should EmptyOk be an error?
             *consumed_state = !consumed.is_empty();
