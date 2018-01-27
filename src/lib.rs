@@ -658,6 +658,7 @@ pub mod primitives;
 #[macro_use]
 pub mod stream;
 /// Module containing all specific parsers.
+#[macro_use]
 pub mod combinator;
 /// Module containing stateful stream wrappers.
 pub mod state;

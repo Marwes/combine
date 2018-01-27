@@ -19,6 +19,8 @@ pub mod byte;
 pub mod char;
 /// Parsers working with single stream items.
 pub mod item;
+/// Combinators which take one or more parsers and apply them repeatedly.
+pub mod repeat;
 pub mod sequence;
 pub mod choice;
 #[cfg(feature = "regex")]
