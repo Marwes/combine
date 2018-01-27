@@ -3945,6 +3945,8 @@ where
 /// # use combine::char::letter;
 /// # use combine::*;
 ///
+/// # fn main() {
+///
 /// parser! {
 ///     type PartialState = AnyPartialState;
 ///     fn example[I]()(I) -> (char, char)
@@ -3953,8 +3955,6 @@ where
 ///         any_partial_state((letter(), letter()))
 ///     }
 /// }
-///
-/// # fn main() {
 ///
 /// assert_eq!(
 ///     example().easy_parse("ab"),

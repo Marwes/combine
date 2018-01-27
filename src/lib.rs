@@ -339,8 +339,7 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             (pub)
-            ()
-            struct __Parser;
+            struct $name;
             type PartialState = (());
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
@@ -357,8 +356,7 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             ()
-            ()
-            struct __Parser;
+            struct $name;
             type PartialState = (());
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
@@ -376,7 +374,6 @@ macro_rules! parser {
         $parser: block
     ) => {
         combine_parser_impl!{
-            (pub)
             (pub)
             $(#[$derive])*
             struct $type_name;
@@ -397,7 +394,6 @@ macro_rules! parser {
         $parser: block
     ) => {
         combine_parser_impl!{
-            ()
             ()
             $(#[$derive])*
             struct $type_name;
@@ -448,8 +444,7 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             (pub)
-            ()
-            struct __Parser;
+            struct $name;
             type PartialState = ($partial_state);
             $(#[$attr])*
             pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
@@ -467,8 +462,7 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             ()
-            ()
-            struct __Parser;
+            struct $name;
             type PartialState = ($partial_state);
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
@@ -487,7 +481,6 @@ macro_rules! parser {
         $parser: block
     ) => {
         combine_parser_impl!{
-            (pub)
             (pub)
             $(#[$derive])*
             struct $type_name;
@@ -510,7 +503,6 @@ macro_rules! parser {
     ) => {
         combine_parser_impl!{
             ()
-            ()
             $(#[$derive])*
             struct $type_name;
             type PartialState = ($partial_state);
@@ -520,17 +512,6 @@ macro_rules! parser {
             $parser
         }
     };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! export_parser_type {
-    (pub $type_name: ident $parser_name: ident) => {
-        pub use self::$parser_name::$type_name;
-    };
-    ($($t: tt)*) => {
-
-    }
 }
 
 #[doc(hidden)]
@@ -551,7 +532,6 @@ macro_rules! combine_parse_partial {
 macro_rules! combine_parser_impl {
     (
         ( $($pub_: tt)* )
-        ( $($pub_type: tt)* )
         $(#[$derive:meta])*
         struct $type_name: ident;
         type PartialState = ($($partial_state: tt)*);
@@ -561,91 +541,25 @@ macro_rules! combine_parser_impl {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        mod $name {
-            #[allow(unused_imports)]
-            use super::*;
 
-            $(#[$derive])*
-            pub struct $type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error:
-                    $crate::primitives::ParseError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
-                        >,
-                    $($where_clause)*
-            {
-                $(pub $arg : $arg_type,)*
-                __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
-            }
-
-            // We want this to work on older compilers, at least for a while
-            #[allow(non_shorthand_field_patterns)]
-            impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error:
-                        $crate::primitives::ParseError<
-                            <$input_type as $crate::primitives::StreamOnce>::Item,
-                            <$input_type as $crate::primitives::StreamOnce>::Range,
-                            <$input_type as $crate::primitives::StreamOnce>::Position
-                            >,
-                    $($where_clause)*
-            {
-                type Input = $input_type;
-                type Output = $output_type;
-                type PartialState = $($partial_state)*;
-
-                #[inline]
-                fn parse_partial(
-                    &mut self,
-                    input: &mut Self::Input,
-                    state: &mut Self::PartialState,
-                    ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
-                {
-                    let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                    combine_parse_partial!(($($partial_state)*) input state $parser)
-                }
-
-                #[inline]
-                fn add_error(
-                    &mut self,
-                    errors: &mut $crate::primitives::Tracked<
-                        <$input_type as $crate::primitives::StreamOnce>::Error
-                        >)
-                {
-                    let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
-                    let mut parser = $parser;
-                    {
-                        let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
-                    }
-                    parser.add_error(errors)
-                }
-            }
-            #[inline(always)]
-            pub fn parse< $($type_params)* >(
-                    $($arg : $arg_type),*
-                ) -> self::$type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error:
-                        $crate::primitives::ParseError<
-                            <$input_type as $crate::primitives::StreamOnce>::Item,
-                            <$input_type as $crate::primitives::StreamOnce>::Range,
-                            <$input_type as $crate::primitives::StreamOnce>::Position
-                            >,
-                    $($where_clause)*
-            {
-                $type_name {
-                    $($arg : $arg,)*
-                    __marker: $crate::lib::marker::PhantomData
-                }
-            }
+        $(#[$derive])*
+        #[allow(non_camel_case_types)]
+        $($pub_)* struct $type_name<$($type_params)*>
+            where <$input_type as $crate::primitives::StreamOnce>::Error:
+                $crate::primitives::ParseError<
+                    <$input_type as $crate::primitives::StreamOnce>::Item,
+                    <$input_type as $crate::primitives::StreamOnce>::Range,
+                    <$input_type as $crate::primitives::StreamOnce>::Position
+                    >,
+                $($where_clause)*
+        {
+            $(pub $arg : $arg_type,)*
+            __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
         }
 
-        export_parser_type!( $($pub_type)* $type_name $name);
-
-        $(#[$attr])*
-        #[inline(always)]
-        $($pub_)* fn $name< $($type_params)* >(
-                $($arg : $arg_type),*
-            ) -> self::$name::$type_name<$($type_params)*>
+        // We want this to work on older compilers, at least for a while
+        #[allow(non_shorthand_field_patterns)]
+        impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
             where <$input_type as $crate::primitives::StreamOnce>::Error:
                     $crate::primitives::ParseError<
                         <$input_type as $crate::primitives::StreamOnce>::Item,
@@ -654,9 +568,54 @@ macro_rules! combine_parser_impl {
                         >,
                 $($where_clause)*
         {
-            self::$name::parse(
-                $($arg,)*
-            )
+            type Input = $input_type;
+            type Output = $output_type;
+            type PartialState = $($partial_state)*;
+
+            #[inline]
+            fn parse_partial(
+                &mut self,
+                input: &mut Self::Input,
+                state: &mut Self::PartialState,
+                ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
+            {
+                let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                combine_parse_partial!(($($partial_state)*) input state $parser)
+            }
+
+            #[inline]
+            fn add_error(
+                &mut self,
+                errors: &mut $crate::primitives::Tracked<
+                    <$input_type as $crate::primitives::StreamOnce>::Error
+                    >)
+            {
+                let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                let mut parser = $parser;
+                {
+                    let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                }
+                parser.add_error(errors)
+            }
+        }
+
+        $(#[$attr])*
+        #[inline(always)]
+        $($pub_)* fn $name< $($type_params)* >(
+                $($arg : $arg_type),*
+            ) -> $type_name<$($type_params)*>
+            where <$input_type as $crate::primitives::StreamOnce>::Error:
+                    $crate::primitives::ParseError<
+                        <$input_type as $crate::primitives::StreamOnce>::Item,
+                        <$input_type as $crate::primitives::StreamOnce>::Range,
+                        <$input_type as $crate::primitives::StreamOnce>::Position
+                        >,
+                $($where_clause)*
+        {
+            $type_name {
+                $($arg : $arg,)*
+                __marker: $crate::lib::marker::PhantomData
+            }
         }
     };
 }
