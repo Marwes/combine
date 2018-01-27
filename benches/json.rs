@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate bencher;
 
-extern crate combine as pc;
+extern crate combine;
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -10,12 +10,14 @@ use std::path::Path;
 
 use bencher::{black_box, Bencher};
 
-use pc::buffered_stream::BufferedStream;
-use pc::error::{Consumed, IteratorStream, ParseError, ParseResult, Parser, Stream, StreamOnce};
-use pc::char::{char, digit, spaces, string, Spaces};
-use pc::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
-                     FnParser, Skip, many1};
-use pc::state::{SourcePosition, State};
+use combine::stream::buffered::BufferedStream;
+use combine::{Parser, Stream, StreamOnce};
+use combine::error::{Consumed, ParseError, ParseResult};
+use combine::char::{char, digit, spaces, string, Spaces};
+use combine::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
+                          FnParser, Skip, many1};
+use combine::stream::IteratorStream;
+use combine::stream::state::{SourcePosition, State};
 
 #[derive(PartialEq, Debug)]
 enum Value {
