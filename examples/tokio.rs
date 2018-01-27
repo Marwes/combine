@@ -74,7 +74,7 @@ impl Decoder for LanguageServerDecoder {
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         println!("Decoding `{:?}`", str::from_utf8(src).unwrap_or("NOT UTF8"));
 
-        let (opt, removed_len) = combine::async::decode(
+        let (opt, removed_len) = combine::stream::decode(
             decode_parser(self.content_length_parses.clone()),
             easy::Stream(PartialStream(&src[..])),
             &mut self.state,

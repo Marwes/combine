@@ -666,7 +666,6 @@ pub mod state;
 pub mod easy;
 #[cfg(feature = "std")]
 pub mod buffered_stream;
-pub mod async;
 /// All the parsers in combine.
 #[macro_use]
 pub mod parser;

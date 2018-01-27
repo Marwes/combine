@@ -86,7 +86,7 @@ macro_rules! impl_decoder {
                 let (opt, removed_len) = {
                     let str_src = str::from_utf8(&src[..])?;
                     println!("Decoding `{}`", str_src);
-                    combine::async::decode(
+                    combine::stream::decode(
                         any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
                         easy::Stream(combine::stream::PartialStream(str_src)),
                         &mut self.0,
