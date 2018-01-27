@@ -8,7 +8,8 @@ use stream::{Positioned, Resetable, Stream, StreamOnce};
 use parser::sequence::With;
 use parser::choice::Or;
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
-use error::{Consumed, ConsumedResult, ParseError, ParseMode, ParseResult, StreamError, Tracked};
+use parser::ParseMode;
+use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
 
 use error::FastResult::*;
 

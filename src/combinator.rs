@@ -2,9 +2,10 @@ use lib::marker::PhantomData;
 use lib::mem;
 
 use Parser;
-use error::{Consumed, ConsumedResult, Info, ParseError, ParseMode, ParseResult, StreamError,
-            Tracked, UnexpectedParse};
+use error::{Consumed, ConsumedResult, Info, ParseError, ParseResult, StreamError, Tracked,
+            UnexpectedParse};
 use stream::{Positioned, Resetable, Stream, StreamOnce};
+use parser::ParseMode;
 
 use either::Either;
 
@@ -18,38 +19,6 @@ pub use parser::choice::*;
 pub use parser::item::*;
 #[doc(inline)]
 pub use parser::repeat::*;
-
-#[macro_export]
-#[doc(hidden)]
-macro_rules! impl_parser {
-    ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<$first $(,$ty_var)*>($inner_type)
-        where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
-    impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
-        where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
-        type Input = <$first as Parser>::Input;
-        type Output = <$inner_type as Parser>::Output;
-        type PartialState = <$inner_type as Parser>::PartialState;
-        fn parse_lazy(
-            &mut self,
-            input: &mut Self::Input,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_lazy(input)
-        }
-        fn parse_partial(
-            &mut self,
-            input: &mut Self::Input,
-            state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_partial(input, state)
-        }
-        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-            self.0.add_error(error)
-        }
-    }
-}
-}
 
 #[derive(Clone)]
 pub struct Unexpected<I>(Info<I::Item, I::Range>, PhantomData<fn(I) -> I>)

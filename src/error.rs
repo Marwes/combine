@@ -7,8 +7,7 @@ use self::FastResult::*;
 
 use ErrorOffset;
 
-use Parser;
-use stream::{Resetable, StreamOnce};
+use stream::StreamOnce;
 
 #[macro_export]
 macro_rules! ctry {
@@ -725,90 +724,6 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
             Ok((t, Consumed::Empty(()))) => EmptyOk(t),
             Err(Consumed::Consumed(e)) => ConsumedErr(e.error),
             Err(Consumed::Empty(e)) => EmptyErr(e),
-        }
-    }
-}
-
-/// Specifies wheter the parser must check for partial state that must be resumed
-pub trait ParseMode: Copy {
-    /// If `true` then the parser has no previous state to resume otherwise the parser *might* have
-    /// state to resume which it must check.
-    fn is_first(self) -> bool;
-    /// Puts the mode into `first` parsing.
-    fn set_first(&mut self);
-
-    #[inline]
-    fn parse_consumed<P>(
-        self,
-        parser: &mut P,
-        input: &mut P::Input,
-        state: &mut P::PartialState,
-    ) -> ConsumedResult<P::Output, P::Input>
-    where
-        P: Parser,
-    {
-        let before = input.checkpoint();
-        let mut result = parser.parse_mode_impl(self, input, state);
-        if let FastResult::EmptyErr(ref mut error) = result {
-            input.reset(before.clone());
-            if let Ok(t) = input.uncons::<UnexpectedParse>() {
-                input.reset(before);
-                error.error.add_unexpected(Info::Token(t));
-            }
-            parser.add_error(error);
-        }
-        result
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct First;
-impl ParseMode for First {
-    #[inline(always)]
-    fn is_first(self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn set_first(&mut self) {}
-}
-
-#[derive(Copy, Clone, Default)]
-pub struct Partial {
-    pub first: bool,
-}
-impl ParseMode for Partial {
-    #[inline(always)]
-    fn is_first(self) -> bool {
-        self.first
-    }
-
-    #[inline(always)]
-    fn set_first(&mut self) {
-        self.first = true;
-    }
-}
-
-#[macro_export]
-#[doc(hidden)]
-macro_rules! parse_mode {
-    () => {
-        #[inline(always)]
-        fn parse_partial(
-            &mut self,
-            input: &mut Self::Input,
-            state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode($crate::error::Partial::default(), input, state)
-        }
-
-        #[inline(always)]
-        fn parse_first(
-            &mut self,
-            input: &mut Self::Input,
-            state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode($crate::error::First, input, state)
         }
     }
 }

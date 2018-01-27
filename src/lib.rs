@@ -656,9 +656,6 @@ pub mod error;
 /// Module containing the `Stream` trait and its siblings.
 #[macro_use]
 pub mod stream;
-/// Module containing all specific parsers.
-#[macro_use]
-pub mod combinator;
 /// Module containing stateful stream wrappers.
 pub mod state;
 /// Module containing easy to use and descriptive errors.
@@ -669,6 +666,9 @@ pub mod buffered_stream;
 /// All the parsers in combine.
 #[macro_use]
 pub mod parser;
+/// Module containing all specific parsers.
+#[macro_use]
+pub mod combinator;
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]

@@ -1,7 +1,8 @@
 use lib::marker::PhantomData;
 
 use {ErrorOffset, Parser, Stream, StreamOnce};
-use error::{ConsumedResult, ParseError, ParseMode, StreamError, Tracked, UnexpectedParse};
+use parser::ParseMode;
+use error::{ConsumedResult, ParseError, StreamError, Tracked, UnexpectedParse};
 use error::FastResult::*;
 use combinator::{ignore, Ignore};
 

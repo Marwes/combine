@@ -1,7 +1,8 @@
 use {ErrorOffset, Parser, Stream, StreamOnce};
-use stream::Resetable;
-use error::{ConsumedResult, ParseError, ParseMode, StreamError, Tracked};
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use error::FastResult::*;
+use parser::ParseMode;
+use stream::Resetable;
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
@@ -41,7 +42,7 @@ macro_rules! parse_mode_choice {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode_choice($crate::error::Partial::default(), input, state)
+            self.parse_mode_choice($crate::parser::Partial::default(), input, state)
         }
 
         fn parse_first(
@@ -49,7 +50,7 @@ macro_rules! parse_mode_choice {
             input: &mut Self::Input,
             state: &mut Self::PartialState,
         ) -> ConsumedResult<Self::Output, Self::Input> {
-            self.parse_mode_choice($crate::error::First, input, state)
+            self.parse_mode_choice($crate::parser::First, input, state)
         }
     }
 }
@@ -166,7 +167,7 @@ macro_rules! do_choice {
     ) => { {
         let parser = $head;
         let mut state = $head::PartialState::default();
-        match parser.parse_mode(::error::First, $input, &mut state) {
+        match parser.parse_mode(::parser::First, $input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => {
@@ -466,7 +467,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::error::Partial::default(), input, state)
+        slice_parse_mode(self, ::parser::Partial::default(), input, state)
     }
 
     #[inline(always)]
@@ -475,7 +476,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::error::First, input, state)
+        slice_parse_mode(self, ::parser::First, input, state)
     }
 
     #[inline(always)]

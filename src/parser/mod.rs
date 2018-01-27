@@ -2,14 +2,69 @@ use either::Either;
 
 use ErrorOffset;
 use stream::{Resetable, Stream, StreamOnce};
-use error::{ConsumedResult, FastResult, First, Info, ParseError, ParseMode, ParseResult, Partial,
-            Tracked, UnexpectedParse};
+use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked, UnexpectedParse};
 use error::FastResult::*;
 use combinator::{and_then, expected, flat_map, map, message, then, then_partial, AndThen,
                  Expected, FlatMap, Iter, Map, Message, Then, ThenPartial};
 
 use self::sequence::{skip, with, Skip, With};
 use self::choice::{or, Or};
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! impl_parser {
+    ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
+    #[derive(Clone)]
+    pub struct $name<$first $(,$ty_var)*>($inner_type)
+        where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
+    impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
+        where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
+        type Input = <$first as Parser>::Input;
+        type Output = <$inner_type as Parser>::Output;
+        type PartialState = <$inner_type as Parser>::PartialState;
+        fn parse_lazy(
+            &mut self,
+            input: &mut Self::Input,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_lazy(input)
+        }
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.0.parse_partial(input, state)
+        }
+        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            self.0.add_error(error)
+        }
+    }
+}
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! parse_mode {
+    () => {
+        #[inline(always)]
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.parse_mode($crate::parser::Partial::default(), input, state)
+        }
+
+        #[inline(always)]
+        fn parse_first(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.parse_mode($crate::parser::First, input, state)
+        }
+    }
+}
 
 /// Module containing zero-copy parsers.
 pub mod range;
@@ -884,5 +939,65 @@ where
     #[inline(always)]
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         (**self).add_error(error)
+    }
+}
+
+/// Specifies wheter the parser must check for partial state that must be resumed
+pub trait ParseMode: Copy {
+    /// If `true` then the parser has no previous state to resume otherwise the parser *might* have
+    /// state to resume which it must check.
+    fn is_first(self) -> bool;
+    /// Puts the mode into `first` parsing.
+    fn set_first(&mut self);
+
+    #[inline]
+    fn parse_consumed<P>(
+        self,
+        parser: &mut P,
+        input: &mut P::Input,
+        state: &mut P::PartialState,
+    ) -> ConsumedResult<P::Output, P::Input>
+    where
+        P: Parser,
+    {
+        let before = input.checkpoint();
+        let mut result = parser.parse_mode_impl(self, input, state);
+        if let FastResult::EmptyErr(ref mut error) = result {
+            input.reset(before.clone());
+            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                input.reset(before);
+                error.error.add_unexpected(Info::Token(t));
+            }
+            parser.add_error(error);
+        }
+        result
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct First;
+impl ParseMode for First {
+    #[inline(always)]
+    fn is_first(self) -> bool {
+        true
+    }
+
+    #[inline(always)]
+    fn set_first(&mut self) {}
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Partial {
+    pub first: bool,
+}
+impl ParseMode for Partial {
+    #[inline(always)]
+    fn is_first(self) -> bool {
+        self.first
+    }
+
+    #[inline(always)]
+    fn set_first(&mut self) {
+        self.first = true;
     }
 }

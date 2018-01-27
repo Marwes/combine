@@ -3,8 +3,9 @@ use lib::marker::PhantomData;
 use Parser;
 use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
              Resetable, StreamOnce};
-use error::{ConsumedResult, Info, ParseError, ParseMode, Tracked, UnexpectedParse};
+use error::{ConsumedResult, Info, ParseError, Tracked, UnexpectedParse};
 use error::FastResult::*;
+use parser::ParseMode;
 
 pub struct Range<I>(I::Range)
 where
