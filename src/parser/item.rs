@@ -356,7 +356,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::state::{State, SourcePosition};
+/// # use combine::stream::state::{State, SourcePosition};
 /// # fn main() {
 /// let result = (position(), token('!'), position())
 ///     .parse(State::new("!"))
@@ -461,8 +461,8 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::easy;
-/// # use combine::state::State;
+/// # use combine::stream::easy;
+/// # use combine::stream::state::State;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
 /// let result = parser.easy_parse(State::new(&b"xyb"[..]))

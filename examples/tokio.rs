@@ -22,7 +22,7 @@ use combine::stream::{PartialStream, RangeStream};
 use combine::combinator::{any_partial_state, AnyPartialState};
 use combine::parser::range::{range, recognize, take};
 use combine::{skip_many, skip_many1};
-use combine::easy;
+use combine::stream::easy;
 use combine::parser::byte::digit;
 
 pub struct LanguageServerDecoder {

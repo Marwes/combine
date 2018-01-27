@@ -56,8 +56,8 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # #![cfg(feature = "std")]
 /// # extern crate combine;
 /// # use combine::{token, Parser};
-/// # use combine::easy;
-/// # use combine::state::State;
+/// # use combine::stream::easy;
+/// # use combine::stream::state::State;
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")

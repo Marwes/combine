@@ -63,7 +63,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::error::Info;
-/// # use combine::easy::Error;
+/// # use combine::stream::easy::Error;
 /// # fn main() {
 /// let mut parser = count(2, token(b'a'));
 ///
@@ -92,7 +92,7 @@ parser!{
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::easy::{Error, Info};
+    /// # use combine::stream::easy::{Error, Info};
     /// # fn main() {
     /// let mut parser = skip_count(2, token(b'a'));
     ///
@@ -169,7 +169,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::easy::{Error, Info};
+/// # use combine::stream::easy::{Error, Info};
 /// # fn main() {
 /// let mut parser = count_min_max(2, 2, token(b'a'));
 ///
@@ -729,8 +729,8 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::char::digit;
-/// # use combine::easy;
-/// # use combine::state::{State, SourcePosition};
+/// # use combine::stream::easy;
+/// # use combine::stream::state::{State, SourcePosition};
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
 /// let result_ok = parser.easy_parse(State::new("1,2,3"))
@@ -913,8 +913,8 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::char::digit;
-/// # use combine::easy;
-/// # use combine::state::{State, SourcePosition};
+/// # use combine::stream::easy;
+/// # use combine::stream::state::{State, SourcePosition};
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
 /// let result_ok = parser.easy_parse(State::new("1;2;3;"))

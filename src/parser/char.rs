@@ -406,8 +406,8 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
-    use easy::{Error, Errors};
-    use state::{SourcePosition, State};
+    use stream::easy::{Error, Errors};
+    use stream::state::{SourcePosition, State};
 
     #[test]
     fn space_error() {

@@ -15,7 +15,7 @@ use byteorder::{BigEndian, ByteOrder};
 
 use combine::*;
 use combine::range::{range, take};
-use combine::easy::StreamErrors;
+use combine::stream::easy::StreamErrors;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct FileType<'a> {

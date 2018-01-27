@@ -8,9 +8,9 @@ use bencher::{black_box, Bencher};
 use std::fmt;
 
 use combine::{many, token, ParseError, Parser, many1};
-use combine::error::{RangeStream, UnexpectedParse};
+use combine::error::UnexpectedParse;
 use combine::range::{range, take_while1};
-use combine::easy;
+use combine::stream::{easy, RangeStream};
 
 #[derive(Debug)]
 struct Request<'a> {

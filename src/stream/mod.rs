@@ -4,13 +4,38 @@ use lib::fmt;
 use std::io::{Bytes, Read};
 
 #[cfg(feature = "std")]
-use easy::Error;
+use stream::easy::Error;
 
 use Parser;
 
 use error::{ConsumedResult, ParseError, StreamError, StringStreamError, UnexpectedParse,
             CHAR_BOUNDARY_ERROR_MESSAGE};
 use error::FastResult::*;
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! clone_resetable {
+    (( $($params: tt)* ) $ty: ty) => {
+        impl<$($params)*> Resetable for $ty
+        {
+            type Checkpoint = Self;
+
+            fn checkpoint(&self) -> Self {
+                self.clone()
+            }
+            fn reset(&mut self, checkpoint: Self) {
+                *self = checkpoint;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+pub mod buffered;
+/// Stateful stream wrappers.
+pub mod state;
+#[cfg(feature = "std")]
+pub mod easy;
 
 pub trait Positioned: StreamOnce {
     /// Returns the current position of the stream.
@@ -49,24 +74,6 @@ pub trait Resetable {
 
     fn checkpoint(&self) -> Self::Checkpoint;
     fn reset(&mut self, checkpoint: Self::Checkpoint);
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! clone_resetable {
-    (( $($params: tt)* ) $ty: ty) => {
-        impl<$($params)*> Resetable for $ty
-        {
-            type Checkpoint = Self;
-
-            fn checkpoint(&self) -> Self {
-                self.clone()
-            }
-            fn reset(&mut self, checkpoint: Self) {
-                *self = checkpoint;
-            }
-        }
-    }
 }
 
 clone_resetable!{('a) &'a str}
@@ -671,8 +678,8 @@ where
     /// use combine::*;
     /// use combine::parser::byte::*;
     /// use combine::stream::ReadStream;
-    /// use combine::buffered_stream::BufferedStream;
-    /// use combine::state::State;
+    /// use combine::stream::buffered::BufferedStream;
+    /// use combine::stream::state::State;
     /// use std::io::Read;
     ///
     /// # fn main() {

@@ -167,8 +167,8 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::easy;
-/// # use combine::state::{State, SourcePosition};
+/// # use combine::stream::easy;
+/// # use combine::stream::state::{State, SourcePosition};
 /// # fn main() {
 /// let mut parser = eof();
 /// assert_eq!(parser.easy_parse(State::new("")), Ok(((), State::new(""))));
@@ -211,7 +211,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # use combine::error::{Consumed, StreamError};
-/// # use combine::easy;
+/// # use combine::stream::easy;
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
 ///     // Help type inference out
@@ -1129,9 +1129,9 @@ mod tests {
 mod tests_std {
     use super::*;
     use Parser;
-    use easy::{Error, Errors, StreamErrors};
+    use stream::easy::{Error, Errors, StreamErrors};
     use parser::char::{char, digit, letter};
-    use state::{SourcePosition, State};
+    use stream::state::{SourcePosition, State};
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {

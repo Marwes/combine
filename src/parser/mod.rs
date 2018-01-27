@@ -510,7 +510,7 @@ pub trait Parser {
     /// # use combine::*;
     /// # use combine::parser::char::digit;
     /// # use combine::error::Consumed;
-    /// # use combine::easy;
+    /// # use combine::stream::easy;
     /// # fn main() {
     /// let result = digit()
     ///     .then(|d| {
@@ -549,7 +549,7 @@ pub trait Parser {
     /// # use combine::*;
     /// # use combine::parser::char::digit;
     /// # use combine::error::Consumed;
-    /// # use combine::easy;
+    /// # use combine::stream::easy;
     /// # fn main() {
     /// let result = digit()
     ///     .then_partial(|d| {
@@ -623,8 +623,8 @@ pub trait Parser {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::easy;
-    /// # use combine::state::{State, SourcePosition};
+    /// # use combine::stream::easy;
+    /// # use combine::stream::state::{State, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .message("Not a nine")
@@ -654,8 +654,8 @@ pub trait Parser {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::easy;
-    /// # use combine::state::{State, SourcePosition};
+    /// # use combine::stream::easy;
+    /// # use combine::stream::state::{State, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
@@ -683,7 +683,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::state::{State, SourcePosition};
+    /// # use combine::stream::state::{State, SourcePosition};
     /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let mut parser = many1(digit())

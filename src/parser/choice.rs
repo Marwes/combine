@@ -12,7 +12,7 @@ use stream::Resetable;
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::char::{digit, letter, string};
-/// # use combine::easy::Error;
+/// # use combine::stream::easy::Error;
 /// # fn main() {
 /// let mut parser = choice!(
 ///     many1(digit()),

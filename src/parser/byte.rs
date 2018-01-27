@@ -369,7 +369,7 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::byte::bytes_cmp;
-/// # use combine::easy::Info;
+/// # use combine::stream::easy::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))

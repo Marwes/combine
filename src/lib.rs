@@ -20,7 +20,7 @@
 //! ```rust
 //! extern crate combine;
 //! use combine::Parser;
-//! use combine::state::State;
+//! use combine::stream::state::State;
 //! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
 //! Unexpected `|`
@@ -59,7 +59,7 @@
 //! extern crate combine;
 //! use combine::parser::char::{spaces, digit, char};
 //! use combine::{many1, sep_by, Parser};
-//! use combine::easy;
+//! use combine::stream::easy;
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -95,7 +95,7 @@
 //! use combine::{between, many1, parser, sep_by, Parser};
 //! use combine::error::ParseResult;
 //! use combine::stream::{Stream, Positioned};
-//! use combine::state::State;
+//! use combine::stream::state::State;
 //!
 //! #[derive(Debug, PartialEq)]
 //! pub enum Expr {
@@ -648,19 +648,17 @@ pub mod lib {
     pub use core::*;
 }
 
+#[cfg(feature = "std")]
+#[doc(inline)]
+pub use stream::easy;
+
 /// Error types and traits which define what kind of errors combine parsers may emit
 #[macro_use]
 pub mod error;
 /// Module containing the `Stream` trait and its siblings.
 #[macro_use]
 pub mod stream;
-/// Module containing stateful stream wrappers.
-pub mod state;
 /// Module containing easy to use and descriptive errors.
-#[cfg(feature = "std")]
-pub mod easy;
-#[cfg(feature = "std")]
-pub mod buffered_stream;
 /// All the parsers in combine.
 #[macro_use]
 pub mod parser;
@@ -714,8 +712,8 @@ mod std_tests {
     use super::easy::Error;
 
     use parser::char::{alpha_num, char, digit, letter, spaces, string};
-    use easy::{Errors, StreamErrors};
-    use state::{SourcePosition, State};
+    use stream::easy::{Errors, StreamErrors};
+    use stream::state::{SourcePosition, State};
 
     #[test]
     fn optional_error_consume() {

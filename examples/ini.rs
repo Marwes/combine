@@ -10,12 +10,12 @@ use std::io::{self, Read};
 
 use combine::*;
 use combine::parser::char::space;
-use combine::state::State;
+use combine::stream::state::State;
 
 #[cfg(feature = "std")]
-use combine::state::SourcePosition;
+use combine::stream::state::SourcePosition;
 #[cfg(feature = "std")]
-use combine::easy;
+use combine::stream::easy;
 
 enum Error<E> {
     Io(io::Error),
