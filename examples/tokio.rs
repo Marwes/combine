@@ -20,10 +20,10 @@ use tokio_io::codec::Decoder;
 use combine::primitives::ParseError;
 use combine::stream::{PartialStream, RangeStream};
 use combine::combinator::{any_partial_state, AnyPartialState};
-use combine::range::{range, recognize, take};
+use combine::parser::range::{range, recognize, take};
 use combine::{skip_many, skip_many1};
 use combine::easy;
-use combine::byte::digit;
+use combine::parser::byte::digit;
 
 pub struct LanguageServerDecoder {
     state: AnyPartialState,

@@ -8,7 +8,7 @@ use lib::marker::PhantomData;
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::char;
+/// use combine::parser::char::char;
 /// assert_eq!(char('!').parse("!"), Ok(('!', "")));
 /// assert!(char('A').parse("!").is_err());
 /// ```
@@ -28,7 +28,7 @@ parser!{
     ///
     /// ```
     /// use combine::Parser;
-    /// use combine::char::digit;
+    /// use combine::parser::char::digit;
     /// assert_eq!(digit().parse("9"), Ok(('9', "")));
     /// assert!(digit().parse("A").is_err());
     /// ```
@@ -50,7 +50,7 @@ impl_token_parser! { Space(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::space;
+/// use combine::parser::char::space;
 /// assert_eq!(space().parse(" "), Ok((' ', "")));
 /// assert_eq!(space().parse("  "), Ok((' ', " ")));
 /// assert!(space().parse("!").is_err());
@@ -76,7 +76,7 @@ impl_token_parser! { Spaces(), char, Expected<SkipMany<Space<I>>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::spaces;
+/// use combine::parser::char::spaces;
 /// assert_eq!(spaces().parse(""), Ok(((), "")));
 /// assert_eq!(spaces().parse("   "), Ok(((), "")));
 /// ```
@@ -95,7 +95,7 @@ impl_token_parser! { Newline(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::newline;
+/// use combine::parser::char::newline;
 /// assert_eq!(newline().parse("\n"), Ok(('\n', "")));
 /// assert!(newline().parse("\r").is_err());
 /// ```
@@ -117,7 +117,7 @@ impl_token_parser! { CrLf(), char, Expected<With<Satisfy<I, fn (char) -> bool>, 
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::crlf;
+/// use combine::parser::char::crlf;
 /// assert_eq!(crlf().parse("\r\n"), Ok(('\n', "")));
 /// assert!(crlf().parse("\r").is_err());
 /// assert!(crlf().parse("\n").is_err());
@@ -142,7 +142,7 @@ impl_token_parser! { Tab(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::tab;
+/// use combine::parser::char::tab;
 /// assert_eq!(tab().parse("\t"), Ok(('\t', "")));
 /// assert!(tab().parse(" ").is_err());
 /// ```
@@ -166,7 +166,7 @@ impl_token_parser! { Upper(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::upper;
+/// use combine::parser::char::upper;
 /// assert_eq!(upper().parse("A"), Ok(('A', "")));
 /// assert!(upper().parse("a").is_err());
 /// ```
@@ -190,7 +190,7 @@ impl_token_parser! { Lower(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::lower;
+/// use combine::parser::char::lower;
 /// assert_eq!(lower().parse("a"), Ok(('a', "")));
 /// assert!(lower().parse("A").is_err());
 /// ```
@@ -214,7 +214,7 @@ impl_token_parser! { AlphaNum(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::alpha_num;
+/// use combine::parser::char::alpha_num;
 /// assert_eq!(alpha_num().parse("A"), Ok(('A', "")));
 /// assert_eq!(alpha_num().parse("1"), Ok(('1', "")));
 /// assert!(alpha_num().parse("!").is_err());
@@ -240,7 +240,7 @@ impl_token_parser! { Letter(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::letter;
+/// use combine::parser::char::letter;
 /// assert_eq!(letter().parse("a"), Ok(('a', "")));
 /// assert_eq!(letter().parse("A"), Ok(('A', "")));
 /// assert!(letter().parse("9").is_err());
@@ -263,7 +263,7 @@ impl_token_parser! { OctDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::oct_digit;
+/// use combine::parser::char::oct_digit;
 /// assert_eq!(oct_digit().parse("7"), Ok(('7', "")));
 /// assert!(oct_digit().parse("8").is_err());
 /// ```
@@ -285,7 +285,7 @@ impl_token_parser! { HexDigit(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::char::hex_digit;
+/// use combine::parser::char::hex_digit;
 /// assert_eq!(hex_digit().parse("F"), Ok(('F', "")));
 /// assert!(hex_digit().parse("H").is_err());
 /// ```
@@ -335,7 +335,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string;
+/// # use combine::parser::char::string;
 /// # fn main() {
 /// let result = string("rust")
 ///     .parse("rust")
@@ -383,7 +383,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string_cmp;
+/// # use combine::parser::char::string_cmp;
 /// use std::ascii::AsciiExt;
 /// # fn main() {
 /// let result = string_cmp("rust", |l, r| l.eq_ignore_ascii_case(&r))

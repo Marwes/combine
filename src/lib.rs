@@ -20,7 +20,7 @@
 //! ```rust
 //! extern crate combine;
 //! use combine::{Parser, State};
-//! use combine::char::{digit, letter};
+//! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
 //! Unexpected `|`
 //! Expected `digit` or `letter`
@@ -56,7 +56,7 @@
 //!
 //! ```
 //! extern crate combine;
-//! use combine::char::{spaces, digit, char};
+//! use combine::parser::char::{spaces, digit, char};
 //! use combine::{many1, sep_by, Parser};
 //! use combine::easy;
 //!
@@ -90,7 +90,7 @@
 //! ```
 //! #[macro_use]
 //! extern crate combine;
-//! use combine::char::{char, letter, spaces};
+//! use combine::parser::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
 //! use combine::primitives::ParseResult;
 //! use combine::stream::{Stream, Positioned};
@@ -166,6 +166,11 @@
 #[doc(inline)]
 pub use parser::Parser;
 #[doc(inline)]
+pub use parser::{byte, char, range};
+#[doc(inline)]
+#[cfg(feature = "regex")]
+pub use parser::regex;
+#[doc(inline)]
 pub use primitives::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
 pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
@@ -234,7 +239,7 @@ macro_rules! impl_token_parser {
 /// ```
 /// #[macro_use]
 /// extern crate combine;
-/// use combine::char::digit;
+/// use combine::parser::char::digit;
 /// use combine::{any, choice, many1, Parser, Stream};
 /// use combine::primitives::ParseError;
 ///
@@ -643,9 +648,6 @@ pub mod lib {
     pub use core::*;
 }
 
-/// All the parsers in combine.
-#[macro_use]
-pub mod parser;
 /// Module containing the primitive types which is used to create and compose more advanced
 /// parsers.
 #[macro_use]
@@ -655,23 +657,17 @@ pub mod primitives;
 pub mod stream;
 /// Module containing all specific parsers.
 pub mod combinator;
-/// Module containing zero-copy parsers.
-pub mod range;
-/// Module containing parsers specialized on byte streams.
-pub mod byte;
-/// Module containing parsers specialized on character streams.
-pub mod char;
 /// Module containing stateful stream wrappers.
 pub mod state;
 /// Module containing easy to use and descriptive errors.
 #[cfg(feature = "std")]
 pub mod easy;
-#[cfg(feature = "regex")]
-/// Module containing regex parsers.
-pub mod regex;
 #[cfg(feature = "std")]
 pub mod buffered_stream;
 pub mod async;
+/// All the parsers in combine.
+#[macro_use]
+pub mod parser;
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
@@ -680,7 +676,7 @@ pub struct ErrorOffset(u8);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use char::{char, string};
+    use parser::char::{char, string};
 
     #[test]
     fn chainl1_error_consume() {
@@ -718,7 +714,7 @@ mod std_tests {
     use super::stream::IteratorStream;
     use super::easy::Error;
 
-    use char::{alpha_num, char, digit, letter, spaces, string};
+    use parser::char::{alpha_num, char, digit, letter, spaces, string};
     use easy::{Errors, StreamErrors};
     use state::SourcePosition;
 

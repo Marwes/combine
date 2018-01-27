@@ -829,7 +829,8 @@ mod tests_std {
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
         ][..];
-        let result = ::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
+        let result =
+            ::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
         assert_eq!(
             result,
             Ok((

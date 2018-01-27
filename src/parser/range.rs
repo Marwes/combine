@@ -45,8 +45,8 @@ parser!{
     ///
     /// ```
     /// # extern crate combine;
-    /// # use combine::range::recognize;
-    /// # use combine::char::letter;
+    /// # use combine::parser::range::recognize;
+    /// # use combine::parser::char::letter;
     /// # use combine::*;
     /// # fn main() {
     /// let mut parser = recognize(skip_many1(letter()));
@@ -62,7 +62,7 @@ parser!{
         <P::Input as StreamOnce>::Range: ::stream::Range,
     ]
     {
-        ::range::recognize_with_value(parser).map(|(range, _)| range)
+        recognize_with_value(parser).map(|(range, _)| range)
     }
 }
 
@@ -164,8 +164,8 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::recognize_with_value;
-/// # use combine::char::{digit, char};
+/// # use combine::parser::range::recognize_with_value;
+/// # use combine::parser::char::{digit, char};
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = recognize_with_value((
@@ -194,7 +194,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::range;
+/// # use combine::parser::range::range;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = range("hello");
@@ -233,7 +233,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::take;
+/// # use combine::parser::range::take;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take(1);
@@ -285,7 +285,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::take_while;
+/// # use combine::parser::range::take_while;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take_while(|c: char| c.is_digit(10));
@@ -347,7 +347,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::take_while1;
+/// # use combine::parser::range::take_while1;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take_while1(|c: char| c.is_digit(10));
@@ -436,7 +436,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::{range, take_until_range};
+/// # use combine::parser::range::{range, take_until_range};
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take_until_range("\r\n");

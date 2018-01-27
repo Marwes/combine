@@ -8,7 +8,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
-use combine::char::{char, digit};
+use combine::parser::char::{char, digit};
 use combine::{choice, many, optional, Parser, Stream};
 use combine::state::State;
 

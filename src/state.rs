@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn test_range_positioner() {
         let input = ["a".to_string(), "b".to_string(), "c".to_string()];
-        let mut parser = ::range::take(2);
+        let mut parser = ::parser::range::take(2);
         let result = parser.parse(State::new(&input[..]));
         assert_eq!(
             result,

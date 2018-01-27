@@ -667,7 +667,7 @@ where
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// use combine::*;
-    /// use combine::byte::*;
+    /// use combine::parser::byte::*;
     /// use combine::stream::ReadStream;
     /// use combine::buffered_stream::BufferedStream;
     /// use combine::state::State;

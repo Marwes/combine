@@ -23,13 +23,13 @@ use tokio_io::codec::FramedRead;
 
 use tokio_io::codec::Decoder;
 
-use combine::range::{range, recognize_with_value, take_while, take_while1};
+use combine::parser::range::{range, recognize_with_value, take_while, take_while1};
 use combine::{any, count_min_max, skip_many, Parser, many1};
 use combine::combinator::{any_partial_state, no_partial, optional, recognize, AnyPartialState,
                           skip_many1};
 use combine::stream::RangeStream;
 use combine::easy;
-use combine::char::{char, digit, letter};
+use combine::parser::char::{char, digit, letter};
 
 quick_error! {
     #[derive(Debug)]

@@ -395,7 +395,7 @@ impl<T, R> Error<T, R> {
     /// ```rust
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::*;
+    /// # use combine::parser::char::*;
     ///
     /// # fn main() {
     /// let input = r"
@@ -578,7 +578,7 @@ impl<P, I, R> Errors<P, I, R> {
     ///
     /// ```
     /// use combine::Parser;
-    /// use combine::range::range;
+    /// use combine::parser::range::range;
     /// println!(
     ///     "{}",
     ///     range(&"HTTP"[..])

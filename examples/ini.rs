@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Read};
 
 use combine::*;
-use combine::char::space;
+use combine::parser::char::space;
 use combine::state::State;
 
 #[cfg(feature = "std")]
@@ -33,7 +33,6 @@ where
         }
     }
 }
-
 
 #[derive(PartialEq, Debug)]
 pub struct Ini {

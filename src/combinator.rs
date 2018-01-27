@@ -604,7 +604,7 @@ where
 /// # #[macro_use]
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{digit, letter, string};
+/// # use combine::parser::char::{digit, letter, string};
 /// # use combine::easy::Error;
 /// # fn main() {
 /// let mut parser = choice!(
@@ -1246,7 +1246,7 @@ parser!{
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{digit, string};
+/// # use combine::parser::char::{digit, string};
 /// # fn main() {
 /// // `choice` is overloaded on tuples so that different types of parsers can be used
 /// // (each parser must still have the same input and output types)
@@ -1373,7 +1373,7 @@ pub struct NotFollowedBy;
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{alpha_num, string};
+/// # use combine::parser::char::{alpha_num, string};
 /// # fn main() {
 /// let result = string("let")
 ///     .skip(not_followed_by(alpha_num()))
@@ -1624,7 +1624,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let result = many(digit())
 ///     .parse("123A")
@@ -1707,7 +1707,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let result = many1::<Vec<_>, _>(digit())
 ///     .parse("A123");
@@ -1760,7 +1760,7 @@ impl_parser!{ SkipMany(P,), Ignore<Many<Sink<()>, Ignore<P>>> }
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let result = skip_many(digit())
 ///     .parse("A");
@@ -1782,7 +1782,7 @@ impl_parser!{ SkipMany1(P,), Ignore<Many1<Sink<()>, Ignore<P>>> }
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let result = skip_many1(digit())
 ///     .parse("123A");
@@ -1849,7 +1849,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let mut parser = sep_by(digit(), token(','));
 /// let result_ok = parser.parse("1,2,3");
@@ -1946,7 +1946,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # use combine::easy;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
@@ -2031,7 +2031,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let mut parser = sep_end_by(digit(), token(';'));
 /// let result_ok = parser.parse("1;2;3;");
@@ -2130,7 +2130,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # use combine::easy;
 /// # use combine::state::SourcePosition;
 /// # fn main() {
@@ -2182,7 +2182,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// ```
 /// extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # use combine::primitives::{Consumed, StreamError};
 /// # use combine::easy;
 /// # fn main() {
@@ -2288,7 +2288,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string;
+/// # use combine::parser::char::string;
 /// # fn main() {
 /// let mut parser = optional(string("hello"));
 /// assert_eq!(parser.parse("hello"), Ok((Some("hello"), "")));
@@ -2311,7 +2311,7 @@ impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string;
+/// # use combine::parser::char::string;
 /// # fn main() {
 /// let result = between(token('['), token(']'), string("rust"))
 ///     .parse("[rust]")
@@ -2403,7 +2403,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let number = digit().map(|c: char| c.to_digit(10).unwrap());
 /// let sub = token('-').map(|_| |l: u32, r: u32| l - r);
@@ -2476,7 +2476,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::digit;
+/// # use combine::parser::char::digit;
 /// # fn main() {
 /// let number = digit().map(|c: char| c.to_digit(10).unwrap());
 /// let pow = token('^').map(|_| |l: u32, r: u32| l.pow(r));
@@ -2523,7 +2523,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string;
+/// # use combine::parser::char::string;
 /// # fn main() {
 /// let mut p = try(string("let"))
 ///     .or(string("lex"));
@@ -2572,7 +2572,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::string;
+/// # use combine::parser::char::string;
 /// # fn main() {
 /// let mut p = look_ahead(string("test"));
 ///
@@ -3507,7 +3507,7 @@ macro_rules! seq_parser_impl {
 /// #[macro_use]
 /// extern crate combine;
 /// use combine::{Parser, many, token};
-/// use combine::byte::{letter, spaces};
+/// use combine::parser::byte::{letter, spaces};
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct Field {
@@ -3573,7 +3573,7 @@ where
 /// # extern crate combine;
 /// # use std::collections::HashMap;
 /// # use combine::*;
-/// # use combine::char::letter;
+/// # use combine::parser::char::letter;
 /// # fn main() {
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
@@ -3723,7 +3723,7 @@ where
 /// ```
 /// use combine::Parser;
 /// use combine::combinator::{skip_many1, token, recognize};
-/// use combine::char::digit;
+/// use combine::parser::char::digit;
 ///
 /// let mut parser = recognize((skip_many1(digit()), token('.'), skip_many1(digit())));
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
@@ -3943,7 +3943,7 @@ where
 /// # #[macro_use]
 /// # extern crate combine;
 /// # use combine::combinator::{AnyPartialState, any_partial_state};
-/// # use combine::char::letter;
+/// # use combine::parser::char::letter;
 /// # use combine::*;
 ///
 /// # fn main() {
@@ -3977,8 +3977,8 @@ where
 mod tests {
     use super::*;
     use Parser;
-    use char::{digit, letter};
-    use range::range;
+    use parser::char::{digit, letter};
+    use parser::range::range;
 
     #[test]
     fn choice_empty() {
@@ -4017,7 +4017,7 @@ mod tests_std {
     use super::*;
     use Parser;
     use easy::{Error, Errors, StreamErrors};
-    use char::{char, digit, letter};
+    use parser::char::{char, digit, letter};
     use state::{SourcePosition, State};
 
     #[derive(Clone, PartialEq, Debug)]

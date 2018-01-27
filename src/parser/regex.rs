@@ -10,7 +10,7 @@
 //! extern crate combine;
 //! use regex::{bytes, Regex};
 //! use combine::Parser;
-//! use combine::regex::{find_many, match_};
+//! use combine::parser::regex::{find_many, match_};
 //!
 //! fn main() {
 //!     let regex = bytes::Regex::new("[0-9]+").unwrap();
@@ -37,10 +37,11 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, ParseError, Parser, StreamError, Tracked};
+use Parser;
+use primitives::{ConsumedResult, ParseError, StreamError, Tracked};
 use primitives::FastResult::*;
 use stream::{FullRangeStream, StreamOnce};
-use range::take;
+use parser::range::take;
 
 struct First<T>(Option<T>);
 
@@ -237,7 +238,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::match_;
+/// use combine::parser::regex::match_;
 ///
 /// fn main() {
 ///     let regex = Regex::new("[:alpha:]+").unwrap();
@@ -292,7 +293,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::find;
+/// use combine::parser::regex::find;
 ///
 /// fn main() {
 ///     let mut digits = find(Regex::new("^[0-9]+").unwrap());
@@ -351,7 +352,7 @@ where
 /// use regex::Regex;
 /// use regex::bytes;
 /// use combine::Parser;
-/// use combine::regex::find_many;
+/// use combine::parser::regex::find_many;
 ///
 /// fn main() {
 ///     let mut digits = find_many(Regex::new("[0-9]+").unwrap());
@@ -408,7 +409,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::captures;
+/// use combine::parser::regex::captures;
 ///
 /// fn main() {
 ///     let mut fields = captures(Regex::new("([a-z]+):([0-9]+)").unwrap());
@@ -473,7 +474,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::captures_many;
+/// use combine::parser::regex::captures_many;
 ///
 /// fn main() {
 ///     let mut fields = captures_many(Regex::new("([a-z]+):([0-9]+)").unwrap());

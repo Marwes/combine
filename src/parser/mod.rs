@@ -8,6 +8,16 @@ use primitives::FastResult::*;
 use combinator::{and_then, expected, flat_map, map, message, or, skip, then, then_partial, with,
                  AndThen, Expected, FlatMap, Iter, Map, Message, Or, Skip, Then, ThenPartial, With};
 
+/// Module containing zero-copy parsers.
+pub mod range;
+/// Module containing parsers specialized on byte streams.
+pub mod byte;
+/// Module containing parsers specialized on character streams.
+pub mod char;
+#[cfg(feature = "regex")]
+/// Module containing regex parsers.
+pub mod regex;
+
 /// By implementing the `Parser` trait a type says that it can be used to parse an input stream
 /// into the type `Output`.
 ///
@@ -292,7 +302,7 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::primitives::Consumed;
-    /// # use combine::char::{digit, letter};
+    /// # use combine::parser::char::{digit, letter};
     /// fn test(input: &mut &'static str) -> ParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
     ///     let ((d, _), consumed) = try!((p.by_ref(), letter()).parse_stream(input));
@@ -321,7 +331,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let result = digit()
     ///     .with(token('i'))
@@ -344,7 +354,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let result = digit()
     ///     .skip(token('i'))
@@ -368,7 +378,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let result = digit()
     ///     .and(token('i'))
@@ -394,7 +404,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::{digit, string};
+    /// # use combine::parser::char::{digit, string};
     /// # fn main() {
     /// let mut parser = string("let")
     ///     .or(digit().map(|_| "digit"))
@@ -434,7 +444,7 @@ pub trait Parser {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # use combine::primitives::Consumed;
     /// # use combine::easy;
     /// # fn main() {
@@ -473,7 +483,7 @@ pub trait Parser {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # use combine::primitives::Consumed;
     /// # use combine::easy;
     /// # fn main() {
@@ -504,7 +514,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let result = digit()
     ///     .map(|c| c == '9')
@@ -526,8 +536,8 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::digit;
-    /// # use combine::range::take;
+    /// # use combine::parser::char::digit;
+    /// # use combine::parser::range::take;
     /// # fn main() {
     /// let result = take(4)
     ///     .flat_map(|bs| many(digit()).parse(bs).map(|t| t.0))
@@ -610,7 +620,7 @@ pub trait Parser {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::state::SourcePosition;
-    /// # use combine::char::digit;
+    /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let mut parser = many1(digit())
     ///     .and_then(|s: String| s.parse::<i32>());
@@ -638,7 +648,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::{char, digit};
+    /// # use combine::parser::char::{char, digit};
     /// # fn main() {
     /// let mut buffer = String::new();
     /// let number = parser(|input| {
@@ -671,7 +681,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::{char, digit};
+    /// # use combine::parser::char::{char, digit};
     /// # fn main() {
     /// let mut buffer = String::new();
     /// let number = parser(|input| {
@@ -739,7 +749,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::{digit, letter};
+    /// # use combine::parser::char::{digit, letter};
     /// # fn main() {
     /// let mut parser = any().then(|c|
     ///     if c == '#' {
@@ -773,7 +783,7 @@ pub trait Parser {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::char::{digit, letter};
+    /// # use combine::parser::char::{digit, letter};
     /// # fn main() {
     /// let mut parser = any().then(|c|
     ///     if c == '#' {

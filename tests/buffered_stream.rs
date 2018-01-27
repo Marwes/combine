@@ -3,7 +3,7 @@ extern crate combine;
 use combine::stream::IteratorStream;
 use combine::buffered_stream::BufferedStream;
 use combine::easy::Error;
-use combine::char::{char, digit, spaces, string};
+use combine::parser::char::{char, digit, spaces, string};
 use combine::{choice, many, sep_by, try, Parser, Positioned, many1};
 use combine::state::State;
 
