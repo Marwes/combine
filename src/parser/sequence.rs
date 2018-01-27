@@ -442,3 +442,211 @@ where
 {
     Skip((p1, ignore(p2)))
 }
+
+impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
+/// Parses `open` followed by `parser` followed by `close`.
+/// Returns the value of `parser`.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::char::string;
+/// # fn main() {
+/// let result = between(token('['), token(']'), string("rust"))
+///     .parse("[rust]")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok("rust"));
+/// # }
+/// ```
+#[inline(always)]
+pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
+where
+    I: Stream,
+    L: Parser<Input = I>,
+    R: Parser<Input = I>,
+    P: Parser<Input = I>,
+{
+    Between(open.with(parser).skip(close))
+}
+
+#[derive(Copy, Clone)]
+pub struct Then<P, F>(P, F);
+impl<P, N, F> Parser for Then<P, F>
+where
+    F: FnMut(P::Output) -> N,
+    P: Parser,
+    N: Parser<Input = P::Input>,
+{
+    type Input = N::Input;
+    type Output = N::Output;
+    type PartialState = (P::PartialState, Option<(bool, N)>, N::PartialState);
+
+    parse_mode!();
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let (ref mut p_state, ref mut n_parser_cache, ref mut n_state) = *state;
+
+        if mode.is_first() || n_parser_cache.is_none() {
+            debug_assert!(n_parser_cache.is_none());
+
+            match self.0.parse_mode(mode, input, p_state) {
+                EmptyOk(value) => {
+                    *n_parser_cache = Some((false, (self.1)(value)));
+                }
+                ConsumedOk(value) => {
+                    *n_parser_cache = Some((true, (self.1)(value)));
+                }
+                EmptyErr(err) => return EmptyErr(err),
+                ConsumedErr(err) => return ConsumedErr(err),
+            }
+            mode.set_first();
+        }
+
+        let result = n_parser_cache
+            .as_mut()
+            .unwrap()
+            .1
+            .parse_consumed_mode(mode, input, n_state);
+        match result {
+            EmptyOk(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedOk(x)
+                } else {
+                    EmptyOk(x)
+                }
+            }
+            ConsumedOk(x) => {
+                *n_parser_cache = None;
+                ConsumedOk(x)
+            }
+            EmptyErr(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedErr(x.error)
+                } else {
+                    EmptyErr(x)
+                }
+            }
+            ConsumedErr(x) => ConsumedErr(x),
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(errors);
+    }
+}
+
+/// Equivalent to [`p.then(f)`].
+///
+/// [`p.then(f)`]: ../primitives/trait.Parser.html#method.then
+#[inline(always)]
+pub fn then<P, F, N>(p: P, f: F) -> Then<P, F>
+where
+    F: FnMut(P::Output) -> N,
+    P: Parser,
+    N: Parser<Input = P::Input>,
+{
+    Then(p, f)
+}
+
+#[derive(Copy, Clone)]
+pub struct ThenPartial<P, F>(P, F);
+impl<P, N, F> Parser for ThenPartial<P, F>
+where
+    F: FnMut(&mut P::Output) -> N,
+    P: Parser,
+    N: Parser<Input = P::Input>,
+{
+    type Input = N::Input;
+    type Output = N::Output;
+    type PartialState = (P::PartialState, Option<(bool, P::Output)>, N::PartialState);
+
+    parse_mode!();
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let (ref mut p_state, ref mut n_parser_cache, ref mut n_state) = *state;
+
+        if mode.is_first() || n_parser_cache.is_none() {
+            debug_assert!(n_parser_cache.is_none());
+
+            match self.0.parse_mode(mode, input, p_state) {
+                EmptyOk(value) => {
+                    *n_parser_cache = Some((false, value));
+                }
+                ConsumedOk(value) => {
+                    *n_parser_cache = Some((true, value));
+                }
+                EmptyErr(err) => return EmptyErr(err),
+                ConsumedErr(err) => return ConsumedErr(err),
+            }
+            mode.set_first();
+        }
+
+        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1).parse_consumed_mode(
+            mode,
+            input,
+            n_state,
+        );
+        match result {
+            EmptyOk(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedOk(x)
+                } else {
+                    EmptyOk(x)
+                }
+            }
+            ConsumedOk(x) => {
+                *n_parser_cache = None;
+                ConsumedOk(x)
+            }
+            EmptyErr(x) => {
+                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                *n_parser_cache = None;
+                if consumed {
+                    ConsumedErr(x.error)
+                } else {
+                    EmptyErr(x)
+                }
+            }
+            ConsumedErr(x) => ConsumedErr(x),
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(errors);
+    }
+}
+
+/// Equivalent to [`p.then_partial(f)`].
+///
+/// [`p.then_partial(f)`]: ../primitives/trait.Parser.html#method.then_partial
+#[inline(always)]
+pub fn then_partial<P, F, N>(p: P, f: F) -> ThenPartial<P, F>
+where
+    F: FnMut(&mut P::Output) -> N,
+    P: Parser,
+    N: Parser<Input = P::Input>,
+{
+    ThenPartial(p, f)
+}
