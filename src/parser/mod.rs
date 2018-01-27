@@ -76,6 +76,7 @@ pub mod char;
 pub mod item;
 /// Parsers which cause errors or modifies the returned error on parse failure.
 pub mod error;
+pub mod function;
 /// Combinators which take one or more parsers and apply them repeatedly.
 pub mod repeat;
 pub mod sequence;
