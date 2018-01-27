@@ -1456,8 +1456,12 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
     }
 }
 
+/// Specifies wheter the parser must check for partial state that must be resumed
 pub trait ParseMode: Copy {
+    /// If `true` then the parser has no previous state to resume otherwise the parser *might* have
+    /// state to resume which it must check.
     fn is_first(self) -> bool;
+    /// Puts the mode into `first` parsing.
     fn set_first(&mut self);
 
     #[inline]
@@ -1588,9 +1592,7 @@ pub trait Parser {
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
-    /// [`ParseError`] otherwise.
-    ///
-    /// [`ParseError`]: primitives/struct.ParseError.html
+    /// error otherwise.
     fn parse(
         &mut self,
         mut input: Self::Input,
@@ -1601,6 +1603,11 @@ pub trait Parser {
         }
     }
 
+    /// Entry point of the parser when using partial parsing.
+    /// Takes some input and tries to parse it.
+    ///
+    /// Returns the parsed result and the remaining input if the parser succeeds, or a
+    /// error otherwise.
     fn parse_with_state(
         &mut self,
         input: &mut Self::Input,
@@ -1678,19 +1685,19 @@ pub trait Parser {
     /// skipped in the common case.
     ///
     /// When this parser returns `EmptyErr`, this method is allowed to return an empty
-    /// [`ParseError`]. The error value that would have been returned can instead be obtained by
+    /// [`Error`]. The error value that would have been returned can instead be obtained by
     /// calling [`add_error`]. This allows a parent parser such as `choice` to skip the creation of
     /// an unnecessary error value, if an alternative parser succeeds.
     ///
     /// External callers should never have to call this function directly.
     ///
-    /// Parsers should seek to implement this function instead of the above two, if errors can be
+    /// Parsers should seek to implement this function instead of the above two if errors can be
     /// encountered before consuming input. The default implementation always returns all errors,
     /// with [`add_error`] being a no-op.
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
     /// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
-    /// [`ParseError`]: struct.ParseError.html
+    /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline(always)]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
@@ -1710,7 +1717,22 @@ pub trait Parser {
         }
     }
 
-    // TODO
+    /// Parses using the stream `input` and allows itself to be resumed at a later point using
+    /// `parse_partial` by storing the necessary intermediate state in `state`.
+    ///
+    /// Unlike `parse_partial` function this is allowed to assume that there is no partial state to
+    /// resume.
+    #[inline(always)]
+    fn parse_first(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        self.parse_partial(input, state)
+    }
+
+    /// Parses using the stream `input` and allows itself to be resumed at a later point using
+    /// `parse_partial` by storing the necessary intermediate state in `state`
     #[inline(always)]
     fn parse_partial(
         &mut self,
@@ -1719,15 +1741,6 @@ pub trait Parser {
     ) -> ConsumedResult<Self::Output, Self::Input> {
         let _ = state;
         self.parse_lazy(input)
-    }
-
-    #[inline(always)]
-    fn parse_first(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        self.parse_partial(input, state)
     }
 
     #[doc(hidden)]
