@@ -3935,6 +3935,34 @@ where
     }
 }
 
+/// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
+/// since it can get very large after combining a few parsers.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::combinator::{AnyPartialState, any_partial_state};
+/// # use combine::char::letter;
+/// # use combine::*;
+///
+/// parser! {
+///     type PartialState = AnyPartialState;
+///     fn example[I]()(I) -> (char, char)
+///     where [ I: Stream<Item = char> ]
+///     {
+///         any_partial_state((letter(), letter()))
+///     }
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(
+///     example().easy_parse("ab"),
+///     Ok((('a', 'b'), "")),
+/// );
+///
+/// # }
+/// ```
 #[cfg(feature = "std")]
 pub fn any_partial_state<P>(p: P) -> AnyPartialStateParser<P>
 where
