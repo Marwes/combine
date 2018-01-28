@@ -72,7 +72,7 @@
 //!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
-//!     let result: Result<(Vec<i32>, &str), easy::StreamErrors<&str>> =
+//!     let result: Result<(Vec<i32>, &str), easy::ParseError<&str>> =
 //!         integer_list.easy_parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
@@ -725,7 +725,7 @@ mod std_tests {
     use super::easy::Error;
 
     use parser::char::{alpha_num, char, digit, letter, spaces, string};
-    use stream::easy::{Errors, StreamErrors};
+    use stream::easy;
     use stream::state::{SourcePosition, State};
 
     #[test]
@@ -737,7 +737,7 @@ mod std_tests {
 
     fn follow<I>(input: &mut I) -> ParseResult<(), I>
     where
-        I: Stream<Item = char, Error = StreamErrors<I>>,
+        I: Stream<Item = char, Error = easy::ParseError<I>>,
         I::Position: Default,
     {
         let before = input.checkpoint();
@@ -745,7 +745,9 @@ mod std_tests {
             Ok(c) => if c.is_alphanumeric() {
                 input.reset(before);
                 let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(Errors::new(input.position(), e).into()))
+                Err(Consumed::Empty(
+                    easy::Errors::new(input.position(), e).into(),
+                ))
             } else {
                 Ok(((), Consumed::Empty(())))
             },
@@ -865,7 +867,7 @@ mod std_tests {
 ,123
 ";
         let result = expr().easy_parse(State::new(input));
-        let err = Errors {
+        let err = easy::Errors {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
                 Error::Unexpected(','.into()),
@@ -970,7 +972,7 @@ mod std_tests {
                 "error"
             }
         }
-        let result: Result<((), _), Errors<_, char, &str>> =
+        let result: Result<((), _), easy::Errors<char, &str, _>> =
             Parser::easy_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError

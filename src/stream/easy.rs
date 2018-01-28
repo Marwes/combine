@@ -4,14 +4,84 @@
 //! a `no_std` environment) you probably want to use this stream type. It can easily be used
 //! through the [`Parser::easy_parse`][] method.
 //!
-//! The provided error type is the same as in combine 1.x and 2.x.
+//! The provided `Errors` type is roughly the same as `ParseError` in combine 1.x and 2.x.
+//!
+//! ```
+//! #[macro_use]
+//! extern crate combine;
+//! use combine::{easy, Parser, Stream, many1};
+//! use combine::parser::char::letter;
+//! use combine::error::{ParseError, StreamError};
+//!
+//! fn main() {
+//!     parser!{
+//!        fn parser[I]()(I) -> String
+//!         where [
+//!             I: Stream<Item=char, Error = easy::ParseError<I>>,
+//!             // If we want to use the error type explicitly we need to help rustc infer
+//!             // `StreamError` to `easy::Error` (rust-lang/rust#24159)
+//!             I::Error: ParseError<
+//!                 I::Item,
+//!                 I::Range,
+//!                 I::Position,
+//!                 StreamError = easy::Error<I::Item, I::Range>
+//!             >
+//!         ]
+//!         {
+//!             many1(letter()).and_then(|word: String| {
+//!                 if word == "combine" {
+//!                     Ok(word)
+//!                 } else {
+//!                     Err(easy::Error::Expected(easy::Info::Borrowed("combine")))
+//!                 }
+//!             })
+//!         }
+//!     }
+//!
+//!     parser!{
+//!        fn parser2[I]()(I) -> String
+//!         where [
+//!             I: Stream<Item=char>,
+//!         ]
+//!         {
+//!             many1(letter()).and_then(|word: String| {
+//!                 if word == "combine" {
+//!                     Ok(word)
+//!                 } else {
+//!                     // Alternatively it is possible to use the methods on `StreamError`, in
+//!                     // which caset the extra bound is not necessary (and this method will work
+//!                     // for other errors than `easy::Errors`
+//!                     Err(<I::Error as ParseError<_, _, _>>::StreamError::expected_static_message("combine"))
+//!                 }
+//!             })
+//!         }
+//!     }
+//!
+//!     let input = "combin";
+//!     let expected_error = Err(easy::Errors {
+//!         errors: vec![
+//!             easy::Error::Expected("combine".into())
+//!         ],
+//!         position: 0,
+//!     });
+//!     assert_eq!(
+//!         parser().easy_parse(input).map_err(|err| err.map_position(|p| p.translate_position(input))),
+//!         expected_error,
+//!     );
+//!     assert_eq!(
+//!         parser2().easy_parse(input).map_err(|err| err.map_position(|p| p.translate_position(input))),
+//!         expected_error,
+//!     );
+//! }
+//!
+//! ```
 //!
 //! [`Parser::easy_parse`]: ../parser/trait.Parser.html#method.easy_parse
 use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use error::{Info as PrimitiveInfo, ParseError, StreamError, Tracked};
+use error::{Info as PrimitiveInfo, StreamError, Tracked};
 use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamOnce};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
@@ -228,7 +298,7 @@ where
     }
 }
 
-impl<Item, Range, Position> ParseError<Item, Range, Position> for Error<Item, Range>
+impl<Item, Range, Position> ::error::ParseError<Item, Range, Position> for Error<Item, Range>
 where
     Item: PartialEq,
     Range: PartialEq,
@@ -268,13 +338,14 @@ where
     #[inline]
     fn into_other<T>(self) -> T
     where
-        T: ParseError<Item, Range, Position>,
+        T: ::error::ParseError<Item, Range, Position>,
     {
         T::from_error(Position::default(), StreamError::into_other(self))
     }
 }
 
-impl<Item, Range, Position> ParseError<Item, Range, Position> for Errors<Position, Item, Range>
+impl<Item, Range, Position> ::error::ParseError<Item, Range, Position>
+    for Errors<Item, Range, Position>
 where
     Item: PartialEq,
     Range: PartialEq,
@@ -336,7 +407,7 @@ where
     #[inline]
     fn into_other<T>(mut self) -> T
     where
-        T: ParseError<Item, Range, Position>,
+        T: ::error::ParseError<Item, Range, Position>,
     {
         match self.errors.pop() {
             Some(err) => T::from_error(self.position, StreamError::into_other(err)),
@@ -470,14 +541,16 @@ impl<T, R> Error<T, R> {
     }
 }
 
-/// Alias over `ParseError` for `StreamOnce` types
-pub type StreamErrors<S> =
-    Errors<<S as StreamOnce>::Position, <S as StreamOnce>::Item, <S as StreamOnce>::Range>;
+/// Convenience alias over `Errors` for `StreamOnce` types which makes it possible to specify the
+/// `Errors` type from a `StreamOnce` by writing `ParseError<I>` instead of `Errors<I::Item,
+/// I::Range, I::Position>`
+pub type ParseError<S> =
+    Errors<<S as StreamOnce>::Item, <S as StreamOnce>::Range, <S as StreamOnce>::Position>;
 
 /// Struct which hold information about an error that occured at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occured in the same position.
 #[derive(Debug, PartialEq)]
-pub struct Errors<P, I, R> {
+pub struct Errors<I, R, P> {
     /// The position where the error occurred
     pub position: P,
     /// A vector containing specific information on what errors occurred at `position`. Usually
@@ -487,22 +560,22 @@ pub struct Errors<P, I, R> {
     pub errors: Vec<Error<I, R>>,
 }
 
-impl<P, I, R> Errors<P, I, R> {
+impl<I, R, P> Errors<I, R, P> {
     /// Constructs a new `ParseError` which occurred at `position`.
     #[inline]
-    pub fn new(position: P, error: Error<I, R>) -> Errors<P, I, R> {
+    pub fn new(position: P, error: Error<I, R>) -> Errors<I, R, P> {
         Self::from_errors(position, vec![error])
     }
 
     /// Constructs an error with no other information than the position it occurred at.
     #[inline]
-    pub fn empty(position: P) -> Errors<P, I, R> {
+    pub fn empty(position: P) -> Errors<I, R, P> {
         Self::from_errors(position, vec![])
     }
 
     /// Constructs a `ParseError` with multiple causes.
     #[inline]
-    pub fn from_errors(position: P, errors: Vec<Error<I, R>>) -> Errors<P, I, R> {
+    pub fn from_errors(position: P, errors: Vec<Error<I, R>>) -> Errors<I, R, P> {
         Errors {
             position: position,
             errors: errors,
@@ -512,7 +585,7 @@ impl<P, I, R> Errors<P, I, R> {
     /// Constructs an end of input error. Should be returned by parsers which encounter end of
     /// input unexpectedly.
     #[inline]
-    pub fn end_of_input(position: P) -> Errors<P, I, R> {
+    pub fn end_of_input(position: P) -> Errors<I, R, P> {
         Self::new(position, Error::end_of_input())
     }
 
@@ -542,7 +615,7 @@ impl<P, I, R> Errors<P, I, R> {
     /// Merges two `ParseError`s. If they exist at the same position the errors of `other` are
     /// added to `self` (using `add_error` to skip duplicates). If they are not at the same
     /// position the error furthest ahead are returned, ignoring the other `ParseError`.
-    pub fn merge(mut self, mut other: Errors<P, I, R>) -> Errors<P, I, R>
+    pub fn merge(mut self, mut other: Errors<I, R, P>) -> Errors<I, R, P>
     where
         P: Ord,
         I: PartialEq,
@@ -563,7 +636,7 @@ impl<P, I, R> Errors<P, I, R> {
     }
 
     /// Maps the position to a new value
-    pub fn map_position<F, Q>(self, f: F) -> Errors<Q, I, R>
+    pub fn map_position<F, Q>(self, f: F) -> Errors<I, R, Q>
     where
         F: FnOnce(P) -> Q,
     {
@@ -571,7 +644,7 @@ impl<P, I, R> Errors<P, I, R> {
     }
 
     /// Maps all token variants to a new value
-    pub fn map_token<F, U>(self, mut f: F) -> Errors<P, U, R>
+    pub fn map_token<F, U>(self, mut f: F) -> Errors<U, R, P>
     where
         F: FnMut(I) -> U,
     {
@@ -597,7 +670,7 @@ impl<P, I, R> Errors<P, I, R> {
     ///         .map_range(|bytes| format!("{:?}", bytes))
     /// );
     /// ```
-    pub fn map_range<F, S>(self, mut f: F) -> Errors<P, I, S>
+    pub fn map_range<F, S>(self, mut f: F) -> Errors<I, S, P>
     where
         F: FnMut(R) -> S,
     {
@@ -611,7 +684,7 @@ impl<P, I, R> Errors<P, I, R> {
     }
 }
 
-impl<P, I, R> StdError for Errors<P, I, R>
+impl<I, R, P> StdError for Errors<I, R, P>
 where
     P: fmt::Display + fmt::Debug + Any,
     I: fmt::Display + fmt::Debug + Any,
@@ -622,7 +695,7 @@ where
     }
 }
 
-impl<P, I, R> fmt::Display for Errors<P, I, R>
+impl<I, R, P> fmt::Display for Errors<I, R, P>
 where
     P: fmt::Display,
     I: fmt::Display,
@@ -669,7 +742,7 @@ where
     type Item = S::Item;
     type Range = S::Range;
     type Position = S::Position;
-    type Error = StreamErrors<S>;
+    type Error = ParseError<S>;
 
     #[inline]
     fn uncons<E>(&mut self) -> Result<Self::Item, E>

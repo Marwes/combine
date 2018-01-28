@@ -40,7 +40,7 @@ fn not_followed_by_does_not_consume_any_input() {
 mod tests_std {
     use super::*;
     use combine::Parser;
-    use combine::stream::easy::{Error, Errors, StreamErrors};
+    use combine::stream::easy::{Error, Errors, ParseError};
     use combine::parser::char::{char, digit, letter};
     use combine::stream::state::{SourcePosition, State};
 
@@ -70,7 +70,7 @@ mod tests_std {
     #[test]
     fn sep_by_consumed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(Vec<(char, char)>, &str), StreamErrors<&str>> =
+        let result_err: Result<(Vec<(char, char)>, &str), ParseError<&str>> =
             parser2.easy_parse("a,bc");
         assert!(result_err.is_err());
     }

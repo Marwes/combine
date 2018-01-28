@@ -212,7 +212,7 @@ fn main() {
 }
 
 #[cfg(feature = "std")]
-fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<SourcePosition, char, String>>>
+fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<char, String, SourcePosition>>>
 where
     R: Read,
 {

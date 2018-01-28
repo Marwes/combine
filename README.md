@@ -71,7 +71,7 @@ A detailed list can be found in
 ### 3.0.0-alpha.4
 
 * Error handling has been completely rewritten to support `#![no_std]`. 
-* `ParseError` is now `easy::Errors` and `StreamError` is now `easy::StreamErrors`.
+* `ParseError` is now `easy::Errors` and `StreamError` is now `easy::ParseError`.
 * To keep using `ParseError` as the error type the `easy_parse` function should be used instead of `parse`.
 
 See [CHANGELOG.md](https://github.com/Marwes/combine/blob/master/CHANGELOG.md) for a complete list of breaking changes.

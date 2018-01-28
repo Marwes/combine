@@ -113,13 +113,13 @@ pub trait Parser {
     ///
     /// [`ParseError`]: struct.ParseError.html
     #[cfg(feature = "std")]
-    fn easy_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), ::easy::StreamErrors<I>>
+    fn easy_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), ::easy::ParseError<I>>
     where
         I: Stream,
         ::easy::Stream<I>: StreamOnce<
             Item = I::Item,
             Range = I::Range,
-            Error = ::easy::StreamErrors<::easy::Stream<I>>,
+            Error = ::easy::ParseError<::easy::Stream<I>>,
             Position = I::Position,
         >,
         I::Position: Default,

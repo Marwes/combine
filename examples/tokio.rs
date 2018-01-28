@@ -42,7 +42,7 @@ impl LanguageServerDecoder {
 parser! {
     type PartialState = AnyPartialState;
     fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
-    where [ I: RangeStream<Item = u8, Range = &'a [u8], Error = easy::StreamErrors<I>>,
+    where [ I: RangeStream<Item = u8, Range = &'a [u8], Error = easy::ParseError<I>>,
             I::Error: ParseError<u8, &'a [u8], I::Position, StreamError = easy::Error<u8, &'a [u8]>>,
         ]
     {
