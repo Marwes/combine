@@ -39,6 +39,13 @@ impl LanguageServerDecoder {
     }
 }
 
+/// Parses blocks of data with length headers
+///
+/// ```
+/// Content-Length: 18
+///
+/// { "some": "data" }
+/// ```
 parser! {
     type PartialState = AnyPartialState;
     fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
@@ -79,8 +86,8 @@ impl Decoder for LanguageServerDecoder {
             easy::Stream(PartialStream(&src[..])),
             &mut self.state,
         ).map_err(|err| {
-            // Since err contains references into `src` we must remove these before
-            // returning the error and before we call `split_to` to remove the input we
+            // Since err contains references into `src` we must replace these before
+            // we can return an error or call `split_to` to remove the input we
             // just consumed
             let err = err.map_range(|r| {
                 str::from_utf8(r)
