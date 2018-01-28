@@ -9,13 +9,13 @@ use std::fs::File;
 use std::io::{self, Read};
 
 use combine::*;
-use combine::char::space;
-use combine::state::State;
+use combine::parser::char::space;
+use combine::stream::state::State;
 
 #[cfg(feature = "std")]
-use combine::state::SourcePosition;
+use combine::stream::state::SourcePosition;
 #[cfg(feature = "std")]
-use combine::easy;
+use combine::stream::easy;
 
 enum Error<E> {
     Io(io::Error),
@@ -33,7 +33,6 @@ where
         }
     }
 }
-
 
 #[derive(PartialEq, Debug)]
 pub struct Ini {
@@ -164,7 +163,7 @@ fn main() {
 }
 
 #[cfg(feature = "std")]
-fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<SourcePosition, char, String>>>
+fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<char, String, SourcePosition>>>
 where
     R: Read,
 {
@@ -177,7 +176,7 @@ where
 }
 
 #[cfg(not(feature = "std"))]
-fn main_<R>(mut read: R) -> Result<(), Error<::combine::primitives::StringStreamError>>
+fn main_<R>(mut read: R) -> Result<(), Error<::combine::error::StringStreamError>>
 where
     R: Read,
 {

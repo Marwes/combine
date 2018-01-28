@@ -1,15 +1,16 @@
 #[macro_use]
 extern crate bencher;
+#[macro_use]
 extern crate combine;
 
 use bencher::{black_box, Bencher};
 
 use std::fmt;
 
-use combine::*;
-use combine::primitives::{RangeStream, UnexpectedParse};
+use combine::{many, token, ParseError, Parser, RangeStream, many1};
+use combine::error::UnexpectedParse;
 use combine::range::{range, take_while1};
-use combine::easy;
+use combine::stream::easy;
 
 #[derive(Debug)]
 struct Request<'a> {
@@ -26,26 +27,26 @@ struct Header<'a> {
 
 fn is_token(c: u8) -> bool {
     match c {
-        128...255 |
-        0...31 |
-        b'(' |
-        b')' |
-        b'<' |
-        b'>' |
-        b'@' |
-        b',' |
-        b';' |
-        b':' |
-        b'\\' |
-        b'"' |
-        b'/' |
-        b'[' |
-        b']' |
-        b'?' |
-        b'=' |
-        b'{' |
-        b'}' |
-        b' ' => false,
+        128...255
+        | 0...31
+        | b'('
+        | b')'
+        | b'<'
+        | b'>'
+        | b'@'
+        | b','
+        | b';'
+        | b':'
+        | b'\\'
+        | b'"'
+        | b'/'
+        | b'['
+        | b']'
+        | b'?'
+        | b'='
+        | b'{'
+        | b'}'
+        | b' ' => false,
         _ => true,
     }
 }
@@ -73,16 +74,13 @@ where
 
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
-    let request_line = struct_parser!(
-        Request {
+    let request_line = struct_parser!(Request {
             method: take_while1(is_token),
             _: take_while1(is_space),
             uri: take_while1(is_not_space),
             _: take_while1(is_space),
             version: http_version,
-        }
-    );
-
+        });
 
     let message_header_line = (
         take_while1(is_horizontal_space),
@@ -94,11 +92,9 @@ where
         take_while1(is_token),
         token(b':'),
         many1(message_header_line),
-    ).map(|(name, _, value)| {
-        Header {
-            name: name,
-            value: value,
-        }
+    ).map(|(name, _, value)| Header {
+        name: name,
+        value: value,
     });
 
     let mut request = (
@@ -139,14 +135,13 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
 
 fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I: RangeStream<Item = u8, Range = &'a [u8]> + Clone,
     I::Error: ParseError<I::Item, I::Range, I::Position> + fmt::Debug,
 {
     b.iter(|| {
         let mut buf = black_box(buffer.clone());
 
         while buf.clone().uncons::<UnexpectedParse>().is_ok() {
-            // Needed for inferrence for many(message_header)
             match parse_http_request(buf) {
                 Ok(((_, _), b)) => {
                     buf = b;

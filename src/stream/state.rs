@@ -1,10 +1,11 @@
 use lib::fmt;
 
-use primitives::{FullRangeStream, IteratorStream, ParseError, Positioned, RangeStreamOnce,
-                 SliceStream, StreamError, StreamOnce};
+use error::{ParseError, StreamError};
+use stream::{FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
+             StreamOnce};
 
 #[cfg(feature = "std")]
-use primitives::ReadStream;
+use stream::ReadStream;
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -55,8 +56,8 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # #![cfg(feature = "std")]
 /// # extern crate combine;
 /// # use combine::{token, Parser};
-/// # use combine::easy;
-/// # use combine::state::State;
+/// # use combine::stream::easy;
+/// # use combine::stream::state::State;
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
@@ -86,10 +87,7 @@ where
 {
     /// Creates a new `State<I, X>` from an input stream and a positioner.
     pub fn with_positioner(input: I, positioner: X) -> State<I, X> {
-        State {
-            input: input,
-            positioner: positioner,
-        }
+        State { input, positioner }
     }
 }
 
@@ -149,6 +147,8 @@ where
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct IndexPositioner(usize);
 
+clone_resetable!{ () IndexPositioner }
+
 impl<Item> Positioner<Item> for IndexPositioner
 where
     Item: PartialEq + Clone,
@@ -179,7 +179,7 @@ impl IndexPositioner {
 impl<Item, Range> RangePositioner<Item, Range> for IndexPositioner
 where
     Item: PartialEq + Clone,
-    Range: PartialEq + Clone + ::primitives::Range,
+    Range: PartialEq + Clone + ::stream::Range,
 {
     fn update_range(&mut self, range: &Range) {
         self.0 += range.len()
@@ -194,6 +194,8 @@ pub struct SourcePosition {
     /// Current column of the input
     pub column: i32,
 }
+
+clone_resetable!{ () SourcePosition }
 
 impl Default for SourcePosition {
     fn default() -> Self {
@@ -242,7 +244,7 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 impl<I, X, S> RangeStreamOnce for State<I, X>
 where
     I: RangeStreamOnce,
-    X: Clone + RangePositioner<I::Item, I::Range>,
+    X: Resetable + RangePositioner<I::Item, I::Range>,
     S: StreamError<I::Item, I::Range>,
     I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
     I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
@@ -277,19 +279,37 @@ where
     }
 
     #[inline]
-    fn distance(&self, end: &Self) -> usize {
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.input.distance(&end.input)
+    }
+}
+
+impl<I, X> Resetable for State<I, X>
+where
+    I: Resetable,
+    X: Resetable,
+{
+    type Checkpoint = State<I::Checkpoint, X::Checkpoint>;
+    fn checkpoint(&self) -> Self::Checkpoint {
+        State {
+            input: self.input.checkpoint(),
+            positioner: self.positioner.checkpoint(),
+        }
+    }
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        self.input.reset(checkpoint.input);
+        self.positioner.reset(checkpoint.positioner);
     }
 }
 
 impl<I, X, E> FullRangeStream for State<I, X>
 where
-    I: FullRangeStream,
+    I: FullRangeStream + Resetable,
     I::Position: Clone + Ord,
     E: StreamError<I::Item, I::Range>,
     I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = E>,
     I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = E>,
-    X: Clone + RangePositioner<I::Item, I::Range>,
+    X: Resetable + RangePositioner<I::Item, I::Range>,
 {
     fn range(&self) -> Self::Range {
         self.input.range()
@@ -299,7 +319,7 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use Parser;
 
     #[test]
     fn test_positioner() {
@@ -321,7 +341,7 @@ mod tests {
     #[test]
     fn test_range_positioner() {
         let input = ["a".to_string(), "b".to_string(), "c".to_string()];
-        let mut parser = ::range::take(2);
+        let mut parser = ::parser::range::take(2);
         let result = parser.parse(State::new(&input[..]));
         assert_eq!(
             result,

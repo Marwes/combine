@@ -10,7 +10,7 @@
 //! extern crate combine;
 //! use regex::{bytes, Regex};
 //! use combine::Parser;
-//! use combine::regex::{find_many, match_};
+//! use combine::parser::regex::{find_many, match_};
 //!
 //! fn main() {
 //!     let regex = bytes::Regex::new("[0-9]+").unwrap();
@@ -37,10 +37,11 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use primitives::{ConsumedResult, FullRangeStream, ParseError, Parser, StreamError, StreamOnce,
-                 Tracked};
-use primitives::FastResult::*;
-use range::take;
+use Parser;
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
+use error::FastResult::*;
+use stream::{FullRangeStream, StreamOnce};
+use parser::range::take;
 
 struct First<T>(Option<T>);
 
@@ -211,11 +212,12 @@ where
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         if self.0.is_match(input.range()) {
-            EmptyOk((input.range(), input))
+            EmptyOk(input.range())
         } else {
             EmptyErr(I::Error::empty(input.position()).into())
         }
@@ -236,7 +238,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::match_;
+/// use combine::parser::regex::match_;
 ///
 /// fn main() {
 ///     let regex = Regex::new("[:alpha:]+").unwrap();
@@ -261,13 +263,14 @@ impl<'a, R, I> Parser for Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -290,7 +293,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::find;
+/// use combine::parser::regex::find;
 ///
 /// fn main() {
 ///     let mut digits = find(Regex::new("^[0-9]+").unwrap());
@@ -307,7 +310,7 @@ pub fn find<R, I>(regex: R) -> Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     Find(regex, PhantomData)
 }
@@ -320,13 +323,14 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
@@ -348,7 +352,7 @@ where
 /// use regex::Regex;
 /// use regex::bytes;
 /// use combine::Parser;
-/// use combine::regex::find_many;
+/// use combine::parser::regex::find_many;
 ///
 /// fn main() {
 ///     let mut digits = find_many(Regex::new("[0-9]+").unwrap());
@@ -362,7 +366,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     FindMany(regex, PhantomData)
 }
@@ -375,13 +379,14 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = F;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -404,7 +409,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::captures;
+/// use combine::parser::regex::captures;
 ///
 /// fn main() {
 ///     let mut fields = captures(Regex::new("([a-z]+):([0-9]+)").unwrap());
@@ -427,7 +432,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     Captures(regex, PhantomData)
 }
@@ -441,13 +446,14 @@ where
     G: FromIterator<F>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = G;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
@@ -468,7 +474,7 @@ where
 /// extern crate combine;
 /// use regex::Regex;
 /// use combine::Parser;
-/// use combine::regex::captures_many;
+/// use combine::parser::regex::captures_many;
 ///
 /// fn main() {
 ///     let mut fields = captures_many(Regex::new("([a-z]+):([0-9]+)").unwrap());
@@ -493,7 +499,7 @@ where
     G: FromIterator<F>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     CapturesMany(regex, PhantomData)
 }

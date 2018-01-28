@@ -8,14 +8,14 @@ use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
-use combine::char::{char, digit};
+use combine::parser::char::{char, digit};
 use combine::{choice, many, optional, Parser, Stream};
-use combine::state::State;
+use combine::stream::state::State;
 
 #[cfg(feature = "std")]
-use combine::state::SourcePosition;
+use combine::stream::state::SourcePosition;
 #[cfg(feature = "std")]
-use combine::easy;
+use combine::stream::easy;
 
 enum Error<E> {
     Io(io::Error),
@@ -212,7 +212,7 @@ fn main() {
 }
 
 #[cfg(feature = "std")]
-fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<SourcePosition, char, String>>>
+fn main_<R>(mut read: R) -> Result<(), Error<easy::Errors<char, String, SourcePosition>>>
 where
     R: Read,
 {
@@ -225,7 +225,7 @@ where
 }
 
 #[cfg(not(feature = "std"))]
-fn main_<R>(mut read: R) -> Result<(), Error<::combine::primitives::StringStreamError>>
+fn main_<R>(mut read: R) -> Result<(), Error<::combine::error::StringStreamError>>
 where
     R: Read,
 {

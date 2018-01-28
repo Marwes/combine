@@ -1,17 +1,24 @@
+//! Module containing parsers specialized on byte streams.
 extern crate ascii;
 
 use lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token, With};
-use primitives::{ConsumedResult, Info, ParseError, Parser, Stream, StreamOnce, Tracked};
+use Parser;
+use parser::ParseMode;
+use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
+use parser::sequence::With;
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked, UnexpectedParse};
+use stream::{uncons_range, FullRangeStream, RangeStream, Stream, StreamOnce};
+
+use error::FastResult::*;
 
 /// Parses a byteacter and succeeds if the byteacter is equal to `c`.
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::byte;
+/// use combine::parser::byte::byte;
 /// assert_eq!(byte(b'!').parse(&b"!"[..]), Ok((b'!', &b""[..])));
 /// assert!(byte(b'A').parse(&b""[..]).is_err());
 /// assert!(byte(b'A').parse(&b"!"[..]).is_err());
@@ -40,7 +47,7 @@ macro_rules! byte_parser {
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::digit;
+/// use combine::parser::byte::digit;
 /// assert_eq!(digit().parse(&b"9"[..]), Ok((b'9', &b""[..])));
 /// assert!(digit().parse(&b"A"[..]).is_err());
 /// ```
@@ -59,7 +66,7 @@ impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::space;
+/// use combine::parser::byte::space;
 /// assert_eq!(space().parse(&b" "[..]), Ok((b' ', &b""[..])));
 /// assert_eq!(space().parse(&b"  "[..]), Ok((b' ', &b" "[..])));
 /// assert!(space().parse(&b"!"[..]).is_err());
@@ -81,7 +88,7 @@ impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::spaces;
+/// use combine::parser::byte::spaces;
 /// assert_eq!(spaces().parse(&b""[..]), Ok(((), &b""[..])));
 /// assert_eq!(spaces().parse(&b"   "[..]), Ok(((), &b""[..])));
 /// ```
@@ -100,7 +107,7 @@ impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::newline;
+/// use combine::parser::byte::newline;
 /// assert_eq!(newline().parse(&b"\n"[..]), Ok((b'\n', &b""[..])));
 /// assert!(newline().parse(&b"\r"[..]).is_err());
 /// ```
@@ -122,7 +129,7 @@ impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newl
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::crlf;
+/// use combine::parser::byte::crlf;
 /// assert_eq!(crlf().parse(&b"\r\n"[..]), Ok((b'\n', &b""[..])));
 /// assert!(crlf().parse(&b"\r"[..]).is_err());
 /// assert!(crlf().parse(&b"\n"[..]).is_err());
@@ -146,7 +153,7 @@ impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::tab;
+/// use combine::parser::byte::tab;
 /// assert_eq!(tab().parse(&b"\t"[..]), Ok((b'\t', &b""[..])));
 /// assert!(tab().parse(&b" "[..]).is_err());
 /// ```
@@ -167,7 +174,7 @@ impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::upper;
+/// use combine::parser::byte::upper;
 /// assert_eq!(upper().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(upper().parse(&b"a"[..]).is_err());
 /// ```
@@ -185,7 +192,7 @@ impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::lower;
+/// use combine::parser::byte::lower;
 /// assert_eq!(lower().parse(&b"a"[..]), Ok((b'a', &b""[..])));
 /// assert!(lower().parse(&b"A"[..]).is_err());
 /// ```
@@ -203,7 +210,7 @@ impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::alpha_num;
+/// use combine::parser::byte::alpha_num;
 /// assert_eq!(alpha_num().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert_eq!(alpha_num().parse(&b"1"[..]), Ok((b'1', &b""[..])));
 /// assert!(alpha_num().parse(&b"!"[..]).is_err());
@@ -222,7 +229,7 @@ impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::letter;
+/// use combine::parser::byte::letter;
 /// assert_eq!(letter().parse(&b"a"[..]), Ok((b'a', &b""[..])));
 /// assert_eq!(letter().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(letter().parse(&b"9"[..]).is_err());
@@ -242,7 +249,7 @@ impl_token_parser! { OctDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::oct_digit;
+/// use combine::parser::byte::oct_digit;
 /// assert_eq!(oct_digit().parse(&b"7"[..]), Ok((b'7', &b""[..])));
 /// assert!(oct_digit().parse(&b"8"[..]).is_err());
 /// ```
@@ -263,7 +270,7 @@ impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::byte::hex_digit;
+/// use combine::parser::byte::hex_digit;
 /// assert_eq!(hex_digit().parse(&b"F"[..]), Ok((b'F', &b""[..])));
 /// assert!(hex_digit().parse(&b"H"[..]).is_err());
 /// ```
@@ -289,8 +296,10 @@ where
 {
     type Input = I;
     type Output = &'static [u8];
+    type PartialState = ();
+
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
@@ -308,7 +317,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::byte::bytes;
+/// # use combine::parser::byte::bytes;
 /// # fn main() {
 /// let result = bytes(&b"rust"[..])
 ///     .parse(&b"rust"[..])
@@ -317,7 +326,7 @@ where
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../primitives/trait.RangeStream.html
+/// [`RangeStream`]: ../error/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
@@ -342,8 +351,10 @@ where
 {
     type Input = I;
     type Output = &'static [u8];
+    type PartialState = ();
+
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
         let cmp = &mut self.1;
         tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
     }
@@ -361,8 +372,8 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::byte::bytes_cmp;
-/// # use combine::easy::Info;
+/// # use combine::parser::byte::bytes_cmp;
+/// # use combine::stream::easy::Info;
 /// # fn main() {
 /// use std::ascii::AsciiExt;
 /// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))
@@ -371,7 +382,7 @@ where
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../primitives/trait.RangeStream.html
+/// [`RangeStream`]: ../error/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
@@ -383,11 +394,155 @@ where
     BytesCmp(s, cmp, PhantomData)
 }
 
+fn take_until_after<I>(
+    input: &mut I,
+    offset: &mut usize,
+    bytes: &[u8],
+    found: Option<usize>,
+) -> ConsumedResult<I::Range, I>
+where
+    I: RangeStream,
+    I::Range: ::stream::Range,
+{
+    match found {
+        Some(i) => {
+            let result = uncons_range(input, *offset + i);
+            if result.is_ok() {
+                *offset = 0;
+            }
+            result
+        }
+        None => {
+            *offset = bytes.len();
+            let _ = input.uncons_range::<UnexpectedParse>(bytes.len());
+            let err = I::Error::from_error(input.position(), StreamError::end_of_input());
+            if !input.is_partial() && bytes.is_empty() {
+                EmptyErr(err.into())
+            } else {
+                ConsumedErr(err)
+            }
+        }
+    }
+}
+
+macro_rules! take_until {
+    (
+        $(#[$attr:meta])*
+        $type_name: ident, $func_name: ident, $memchr: ident, $($param: ident),+
+    ) => {
+        pub struct $type_name<I> {
+            $( $param: u8, )+
+            _marker: PhantomData<fn(I)>
+        }
+
+        impl<I> Parser for $type_name<I>
+        where
+            I: RangeStream + FullRangeStream,
+            I::Range: AsRef<[u8]> + ::stream::Range,
+        {
+            type Input = I;
+            type Output = I::Range;
+            type PartialState = usize;
+
+            parse_mode!();
+            #[inline]
+            fn parse_mode<M>(
+                &mut self,
+                mode: M,
+                input: &mut Self::Input,
+                offset: &mut Self::PartialState,
+            ) -> ConsumedResult<Self::Output, Self::Input>
+            where
+                M: ParseMode,
+            {
+                if mode.is_first() {
+                    *offset = 0;
+                }
+                let range = input.range();
+                let bytes = range.as_ref();
+                let found = ::memchr::$memchr( $(self.$param),+ , &bytes[*offset..]);
+                take_until_after(input, offset, bytes, found)
+            }
+        }
+
+        $(#[$attr])*
+        #[inline(always)]
+        pub fn $func_name<I>( $($param: u8),+ ) -> $type_name<I>
+        where
+            I: RangeStream + FullRangeStream,
+            I::Range: AsRef<[u8]>,
+        {
+            $type_name {
+                $($param,)+
+                _marker: PhantomData
+            }
+        }
+    }
+}
+
+take_until!{
+    /// Zero-copy parser which reads a range of 0 or more tokens until `a` is found.
+    ///
+    /// If `a` is not found, the parser will return an error.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::parser::byte::take_until_byte;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = take_until_byte(b'\r');
+    /// let result = parser.parse("To: user@example.com\r\n");
+    /// assert_eq!(result, Ok(("To: user@example.com", "\r\n")));
+    /// let result = parser.parse("Hello, world\n");
+    /// assert!(result.is_err());
+    /// # }
+    /// ```
+    TakeUntilByte, take_until_byte, memchr, a
+}
+take_until!{
+    /// Zero-copy parser which reads a range of 0 or more tokens until `a` or `b` is found.
+    ///
+    /// If `a` or `b` is not found, the parser will return an error.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::parser::byte::take_until_byte2;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = take_until_byte2(b'\r', b'\n');
+    /// let result = parser.parse("To: user@example.com\r\n");
+    /// assert_eq!(result, Ok(("To: user@example.com", "\r\n")));
+    /// let result = parser.parse("Hello, world\n");
+    /// assert_eq!(result, Ok(("Hello, world", "\n")));
+    /// # }
+    /// ```
+    TakeUntilByte2, take_until_byte2, memchr2, a, b
+}
+take_until!{
+    /// Zero-copy parser which reads a range of 0 or more tokens until `a`, 'b' or `c` is found.
+    ///
+    /// If `a`, 'b' or `c` is not found, the parser will return an error.
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::parser::byte::take_until_byte3;
+    /// # use combine::*;
+    /// # fn main() {
+    /// let mut parser = take_until_byte3(b'\r', b'\n', b' ');
+    /// let result = parser.parse("To: user@example.com\r\n");
+    /// assert_eq!(result, Ok(("To:", " user@example.com\r\n")));
+    /// let result = parser.parse("Helloworld");
+    /// assert!(result.is_err());
+    /// # }
+    /// ```
+    TakeUntilByte3, take_until_byte3, memchr3, a, b, c
+}
+
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
-    use primitives::RangeStream;
-    use range::take;
+    use stream::RangeStream;
+    use parser::range::take;
 
     use byteorder::{ByteOrder, BE, LE};
 
@@ -410,11 +565,12 @@ pub mod num {
             {
                 type Input = I;
                 type Output = $func_name;
+                type PartialState = ();
 
                 #[inline]
                 fn parse_lazy(
                     &mut self,
-                    input: Self::Input
+                    input: &mut Self::Input
                     ) -> ConsumedResult<Self::Output, Self::Input> {
                     take(size_of::<Self::Output>())
                         .map(B::$read_name)
@@ -464,7 +620,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::byte::num::u16;
+        /// use combine::parser::byte::num::u16;
         ///
         /// assert_eq!(u16::<LE, _>().parse(&b"\x01\0"[..]), Ok((1, &b""[..])));
         /// assert!(u16::<LE, _>().parse(&b"\0"[..]).is_err());
@@ -477,7 +633,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::byte::num::u32;
+        /// use combine::parser::byte::num::u32;
         ///
         /// assert_eq!(u32::<LE, _>().parse(&b"\x01\0\0\0"[..]), Ok((1, &b""[..])));
         /// assert!(u32::<LE, _>().parse(&b"\x01\0\0"[..]).is_err());
@@ -490,7 +646,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::byte::num::u64;
+        /// use combine::parser::byte::num::u64;
         ///
         /// assert_eq!(u64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0\0"[..]), Ok((1, &b""[..])));
         /// assert!(u64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
@@ -504,7 +660,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::byte::num::i16;
+        /// use combine::parser::byte::num::i16;
         ///
         /// assert_eq!(i16::<LE, _>().parse(&b"\x01\0"[..]), Ok((1, &b""[..])));
         /// assert!(i16::<LE, _>().parse(&b"\x01"[..]).is_err());
@@ -518,7 +674,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::byte::num::i32;
+        /// use combine::parser::byte::num::i32;
         ///
         /// assert_eq!(i32::<LE, _>().parse(&b"\x01\0\0\0"[..]), Ok((1, &b""[..])));
         /// assert!(i32::<LE, _>().parse(&b"\x01\0\0"[..]).is_err());
@@ -531,7 +687,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::byte::num::i64;
+        /// use combine::parser::byte::num::i64;
         ///
         /// assert_eq!(i64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0\0"[..]), Ok((1, &b""[..])));
         /// assert!(i64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
@@ -545,7 +701,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::{LE, ByteOrder};
         /// use combine::Parser;
-        /// use combine::byte::num::f32;
+        /// use combine::parser::byte::num::f32;
         ///
         /// let mut buf = [0; 4];
         /// LE::write_f32(&mut buf, 123.45);
@@ -560,7 +716,7 @@ pub mod num {
         /// ```
         /// use combine::byteorder::{LE, ByteOrder};
         /// use combine::Parser;
-        /// use combine::byte::num::f64;
+        /// use combine::parser::byte::num::f64;
         ///
         /// let mut buf = [0; 8];
         /// LE::write_f64(&mut buf, 123.45);

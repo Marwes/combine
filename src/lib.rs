@@ -19,8 +19,9 @@
 //!
 //! ```rust
 //! extern crate combine;
-//! use combine::{Parser, State};
-//! use combine::char::{digit, letter};
+//! use combine::Parser;
+//! use combine::stream::state::State;
+//! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
 //! Unexpected `|`
 //! Expected `digit` or `letter`
@@ -42,7 +43,7 @@
 //! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a
 //! few functions such as [`or`] which are more natural to use method calls.
 //!
-//! * [`primitives`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
+//! * [`error`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
 //! in combine as well as various structs dealing with input streams and errors. You usually only
 //! need to use this module if you want more control over parsing and input streams.
 //!
@@ -56,9 +57,9 @@
 //!
 //! ```
 //! extern crate combine;
-//! use combine::char::{spaces, digit, char};
+//! use combine::parser::char::{spaces, digit, char};
 //! use combine::{many1, sep_by, Parser};
-//! use combine::easy;
+//! use combine::stream::easy;
 //!
 //! fn main() {
 //!     //Parse spaces first and use the with method to only keep the result of the next parser
@@ -71,7 +72,7 @@
 //!
 //!     //Call parse with the input to execute the parser
 //!     let input = "1234, 45,78";
-//!     let result: Result<(Vec<i32>, &str), easy::StreamErrors<&str>> =
+//!     let result: Result<(Vec<i32>, &str), easy::ParseError<&str>> =
 //!         integer_list.easy_parse(input);
 //!     match result {
 //!         Ok((value, _remaining_input)) => println!("{:?}", value),
@@ -90,10 +91,11 @@
 //! ```
 //! #[macro_use]
 //! extern crate combine;
-//! use combine::char::{char, letter, spaces};
+//! use combine::parser::char::{char, letter, spaces};
 //! use combine::{between, many1, parser, sep_by, Parser};
-//! use combine::primitives::{Stream, Positioned, ParseResult};
-//! use combine::state::State;
+//! use combine::error::ParseResult;
+//! use combine::stream::{Stream, Positioned};
+//! use combine::stream::state::State;
 //!
 //! #[derive(Debug, PartialEq)]
 //! pub enum Expr {
@@ -146,35 +148,42 @@
 //! ```
 //!
 //! [`combinator`]: combinator/index.html
-//! [`primitives`]: primitives/index.html
+//! [`error`]: error/index.html
 //! [`char`]: char/index.html
 //! [`byte`]: byte/index.html
 //! [`range`]: range/index.html
 //! [`many`]: combinator/fn.many.html
 //! [`try`]: combinator/fn.try.html
 //! [`satisfy`]: combinator/fn.satisfy.html
-//! [`or`]: primitives/trait.Parser.html#method.or
-//! [`Stream`]: primitives/trait.Stream.html
-//! [`RangeStream`]: primitives/trait.RangeStream.html
-//! [`Parser`]: primitives/trait.Parser.html
+//! [`or`]: error/trait.Parser.html#method.or
+//! [`Stream`]: error/trait.Stream.html
+//! [`RangeStream`]: error/trait.RangeStream.html
+//! [`Parser`]: error/trait.Parser.html
 //! [fn parser]: combinator/fn.parser.html
 // inline(always) is only used on trivial functions returning parsers
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use primitives::{ConsumedResult, ParseError, ParseResult, Parser, Positioned, Stream,
-                     StreamOnce};
+pub use parser::Parser;
+#[doc(inline)]
+pub use parser::{byte, char, range};
+#[doc(inline)]
+#[cfg(feature = "regex")]
+pub use parser::regex;
+#[doc(inline)]
+pub use error::{ConsumedResult, ParseError, ParseResult};
+#[doc(inline)]
+pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
 
 #[doc(inline)]
-pub use state::State;
-
-#[doc(inline)]
-pub use combinator::{any, between, choice, count, count_min_max, env_parser, eof, look_ahead,
-                     many, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
+pub use combinator::{any, between, count, count_min_max, env_parser, eof, look_ahead, many,
+                     none_of, not_followed_by, one_of, optional, parser, position, satisfy,
                      satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max, skip_many,
                      token, tokens, try, unexpected, value, chainl1, chainr1, many1, sep_by1,
                      sep_end_by1, skip_many1};
+#[doc(inline)]
+pub use parser::choice::choice;
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
@@ -197,11 +206,24 @@ macro_rules! impl_token_parser {
     {
         type Input = I;
         type Output = <$inner_type as Parser>::Output;
+        type PartialState = <$inner_type as Parser>::PartialState;
+
         #[inline]
         fn parse_lazy(&mut self,
-                      input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+                      input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
             self.0.parse_lazy(input)
         }
+
+        #[inline]
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input>
+        {
+            self.0.parse_partial(input, state)
+        }
+
         fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
             self.0.add_error(errors)
         }
@@ -217,11 +239,13 @@ macro_rules! impl_token_parser {
 /// ```
 /// #[macro_use]
 /// extern crate combine;
-/// use combine::char::digit;
+/// use combine::parser::char::digit;
 /// use combine::{any, choice, many1, Parser, Stream};
-/// use combine::primitives::ParseError;
+/// use combine::error::ParseError;
 ///
 /// parser!{
+///     /// `[I]` represents a normal type parametera and lifetime declaration for the function
+///     /// It gets expanded to `<I>`
 ///     fn integer[I]()(I) -> i32
 ///     where [
 ///         I: Stream<Item = char>,
@@ -324,10 +348,12 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        parser!{
-            pub struct __Parser;
+        combine_parser_impl!{
+            (pub)
+            struct $name;
+            type PartialState = (());
             $(#[$attr])*
-            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             $parser
         }
@@ -339,8 +365,10 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        parser!{
-            struct __Parser;
+        combine_parser_impl!{
+            ()
+            struct $name;
+            type PartialState = (());
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -360,6 +388,7 @@ macro_rules! parser {
             (pub)
             $(#[$derive])*
             struct $type_name;
+            type PartialState = (());
             $(#[$attr])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -379,6 +408,115 @@ macro_rules! parser {
             ()
             $(#[$derive])*
             struct $type_name;
+            type PartialState = (());
+            $(#[$attr:meta])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            $parser: block
+    ) => {
+        parser!{
+            type PartialState = $partial_state;
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            $parser: block
+    ) => {
+        parser!{
+            type PartialState = $partial_state;
+            $(#[$attr])*
+            fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
+                where []
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            (pub)
+            struct $name;
+            type PartialState = ($partial_state);
+            $(#[$attr])*
+            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            ()
+            struct $name;
+            type PartialState = ($partial_state);
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        pub struct $type_name: ident;
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            (pub)
+            $(#[$derive])*
+            struct $type_name;
+            type PartialState = ($partial_state);
+            $(#[$attr])*
+            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        $(#[$derive:meta])*
+        struct $type_name: ident;
+        type PartialState = $partial_state: ty;
+        $(#[$attr:meta])*
+        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        combine_parser_impl!{
+            ()
+            $(#[$derive])*
+            struct $type_name;
+            type PartialState = ($partial_state);
             $(#[$attr:meta])*
             fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
@@ -389,12 +527,14 @@ macro_rules! parser {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! export_parser_type {
-    (pub $type_name: ident $parser_name: ident) => {
-        pub use self::$parser_name::$type_name;
-    };
-    ($($t: tt)*) => {
-
+macro_rules! combine_parse_partial {
+    ((()) $input: ident $state: ident $parser: block) => { {
+        let _ = $state;
+        let ref mut state = Default::default();
+        $parser.parse_partial($input, state)
+    } };
+    (($ignored: ty) $input: ident $state: ident $parser: block) => {
+        $parser.parse_partial($input, $state)
     }
 }
 
@@ -405,112 +545,99 @@ macro_rules! combine_parser_impl {
         ( $($pub_: tt)* )
         $(#[$derive:meta])*
         struct $type_name: ident;
+        type PartialState = ($($partial_state: tt)*);
         $(#[$attr:meta])*
         fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        mod $name {
-            #[allow(unused_imports)]
-            use super::*;
 
-            $(#[$derive])*
-            pub struct $type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error:
-                    $crate::primitives::ParseError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
-                        >,
-                    $($where_clause)*
-            {
-                $(pub $arg : $arg_type,)*
-                __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
-            }
-
-            // We want this to work on older compilers, at least for a while
-            #[allow(non_shorthand_field_patterns)]
-            impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error:
-                        $crate::primitives::ParseError<
-                            <$input_type as $crate::primitives::StreamOnce>::Item,
-                            <$input_type as $crate::primitives::StreamOnce>::Range,
-                            <$input_type as $crate::primitives::StreamOnce>::Position
-                            >,
-                    $($where_clause)*
-            {
-                type Input = $input_type;
-                type Output = $output_type;
-
-                #[inline]
-                fn parse_lazy(
-                    &mut self,
-                    input: $input_type
-                    ) -> $crate::primitives::ConsumedResult<$output_type, $input_type>
-                {
-                    let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                    $parser.parse_lazy(input)
-                }
-
-                #[inline]
-                fn add_error(
-                    &mut self,
-                    errors: &mut $crate::primitives::Tracked<
-                        <$input_type as $crate::primitives::StreamOnce>::Error
-                        >)
-                {
-                    let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
-                    let mut parser = $parser;
-                    {
-                        let _: &mut $crate::Parser<Input = $input_type, Output = $output_type> = &mut parser;
-                    }
-                    parser.add_error(errors)
-                }
-            }
-            #[inline(always)]
-            pub fn parse< $($type_params)* >(
-                    $($arg : $arg_type),*
-                ) -> self::$type_name<$($type_params)*>
-                where <$input_type as $crate::primitives::StreamOnce>::Error:
-                        $crate::primitives::ParseError<
-                            <$input_type as $crate::primitives::StreamOnce>::Item,
-                            <$input_type as $crate::primitives::StreamOnce>::Range,
-                            <$input_type as $crate::primitives::StreamOnce>::Position
-                            >,
-                    $($where_clause)*
-            {
-                $type_name {
-                    $($arg : $arg,)*
-                    __marker: $crate::lib::marker::PhantomData
-                }
-            }
+        $(#[$derive])*
+        #[allow(non_camel_case_types)]
+        $($pub_)* struct $type_name<$($type_params)*>
+            where <$input_type as $crate::stream::StreamOnce>::Error:
+                $crate::error::ParseError<
+                    <$input_type as $crate::stream::StreamOnce>::Item,
+                    <$input_type as $crate::stream::StreamOnce>::Range,
+                    <$input_type as $crate::stream::StreamOnce>::Position
+                    >,
+                $($where_clause)*
+        {
+            $(pub $arg : $arg_type,)*
+            __marker: $crate::lib::marker::PhantomData<fn ($input_type) -> $output_type>
         }
 
-        export_parser_type!( $($pub_)* $type_name $name);
+        // We want this to work on older compilers, at least for a while
+        #[allow(non_shorthand_field_patterns)]
+        impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
+            where <$input_type as $crate::stream::StreamOnce>::Error:
+                    $crate::error::ParseError<
+                        <$input_type as $crate::stream::StreamOnce>::Item,
+                        <$input_type as $crate::stream::StreamOnce>::Range,
+                        <$input_type as $crate::stream::StreamOnce>::Position
+                        >,
+                $($where_clause)*
+        {
+            type Input = $input_type;
+            type Output = $output_type;
+            type PartialState = $($partial_state)*;
+
+            #[inline]
+            fn parse_partial(
+                &mut self,
+                input: &mut Self::Input,
+                state: &mut Self::PartialState,
+                ) -> $crate::error::ConsumedResult<$output_type, $input_type>
+            {
+                let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                combine_parse_partial!(($($partial_state)*) input state $parser)
+            }
+
+            #[inline]
+            fn add_error(
+                &mut self,
+                errors: &mut $crate::error::Tracked<
+                    <$input_type as $crate::stream::StreamOnce>::Error
+                    >)
+            {
+                let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                let mut parser = $parser;
+                {
+                    let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                }
+                parser.add_error(errors)
+            }
+        }
 
         $(#[$attr])*
         #[inline(always)]
         $($pub_)* fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
-            ) -> self::$name::$type_name<$($type_params)*>
-            where <$input_type as $crate::primitives::StreamOnce>::Error:
-                    $crate::primitives::ParseError<
-                        <$input_type as $crate::primitives::StreamOnce>::Item,
-                        <$input_type as $crate::primitives::StreamOnce>::Range,
-                        <$input_type as $crate::primitives::StreamOnce>::Position
+            ) -> $type_name<$($type_params)*>
+            where <$input_type as $crate::stream::StreamOnce>::Error:
+                    $crate::error::ParseError<
+                        <$input_type as $crate::stream::StreamOnce>::Item,
+                        <$input_type as $crate::stream::StreamOnce>::Range,
+                        <$input_type as $crate::stream::StreamOnce>::Position
                         >,
                 $($where_clause)*
         {
-            self::$name::parse(
-                $($arg,)*
-            )
+            $type_name {
+                $($arg : $arg,)*
+                __marker: $crate::lib::marker::PhantomData
+            }
         }
     };
 }
 
 pub extern crate byteorder;
+#[cfg(feature = "bytes")]
+extern crate bytes;
 pub extern crate either;
+
+extern crate memchr;
+extern crate unreachable;
 
 // Facade over the core types we need
 // Public but hidden to be accessible in macros
@@ -522,28 +649,35 @@ pub mod lib {
     pub use core::*;
 }
 
-/// Module containing the primitive types which is used to create and compose more advanced
-/// parsers.
+#[cfg(feature = "std")]
+#[doc(inline)]
+pub use stream::easy;
+
+/// Error types and traits which define what kind of errors combine parsers may emit
 #[macro_use]
-pub mod primitives;
-/// Module containing all specific parsers.
-pub mod combinator;
-/// Module containing zero-copy parsers.
-pub mod range;
-/// Module containing parsers specialized on byte streams.
-pub mod byte;
-/// Module containing parsers specialized on character streams.
-pub mod char;
-/// Module containing stateful stream wrappers.
-pub mod state;
-/// Module containing easy to use and descriptive errors.
-#[cfg(feature = "std")]
-pub mod easy;
-#[cfg(feature = "regex")]
-/// Module containing regex parsers.
-pub mod regex;
-#[cfg(feature = "std")]
-pub mod buffered_stream;
+pub mod error;
+#[macro_use]
+pub mod stream;
+#[macro_use]
+pub mod parser;
+
+/// Re-exported parsers for compatibility with older versions
+pub mod combinator {
+    #[doc(inline)]
+    pub use parser::sequence::*;
+    #[doc(inline)]
+    pub use parser::choice::*;
+    #[doc(inline)]
+    pub use parser::item::*;
+    #[doc(inline)]
+    pub use parser::repeat::*;
+    #[doc(inline)]
+    pub use parser::error::*;
+    #[doc(inline)]
+    pub use parser::function::*;
+    #[doc(inline)]
+    pub use parser::combinator::*;
+}
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
@@ -552,7 +686,7 @@ pub struct ErrorOffset(u8);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use char::{char, string};
+    use parser::char::{char, string};
 
     #[test]
     fn chainl1_error_consume() {
@@ -586,12 +720,13 @@ mod tests {
 #[cfg(all(feature = "std", test))]
 mod std_tests {
     use super::*;
-    use super::primitives::{Consumed, IteratorStream};
+    use super::error::Consumed;
+    use super::stream::IteratorStream;
     use super::easy::Error;
 
-    use char::{alpha_num, char, digit, letter, spaces, string};
-    use easy::{Errors, StreamErrors};
-    use state::SourcePosition;
+    use parser::char::{alpha_num, char, digit, letter, spaces, string};
+    use stream::easy;
+    use stream::state::{SourcePosition, State};
 
     #[test]
     fn optional_error_consume() {
@@ -600,23 +735,27 @@ mod std_tests {
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
-    fn follow<I>(input: I) -> ParseResult<(), I>
+    fn follow<I>(input: &mut I) -> ParseResult<(), I>
     where
-        I: Stream<Item = char, Error = StreamErrors<I>>,
+        I: Stream<Item = char, Error = easy::ParseError<I>>,
         I::Position: Default,
     {
-        match input.clone().uncons::<Error<_, _>>() {
+        let before = input.checkpoint();
+        match input.uncons::<Error<_, _>>() {
             Ok(c) => if c.is_alphanumeric() {
+                input.reset(before);
                 let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(Errors::new(input.position(), e).into()))
+                Err(Consumed::Empty(
+                    easy::Errors::new(input.position(), e).into(),
+                ))
             } else {
-                Ok(((), Consumed::Empty(input)))
+                Ok(((), Consumed::Empty(())))
             },
-            Err(_) => Ok(((), Consumed::Empty(input))),
+            Err(_) => Ok(((), Consumed::Empty(()))),
         }
     }
 
-    fn integer<'a, I>(input: I) -> ParseResult<i64, I>
+    fn integer<'a, I>(input: &mut I) -> ParseResult<i64, I>
     where
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -668,14 +807,18 @@ mod std_tests {
         let source = r"
 123
 ";
+        let mut parsed_state = State::with_positioner(source, SourcePosition::new());
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
-            .parse_stream(State::with_positioner(source, SourcePosition::new()));
+            .parse_stream(&mut parsed_state);
         let state = Consumed::Consumed(State {
             positioner: SourcePosition { line: 3, column: 1 },
             input: "",
         });
-        assert_eq!(result, Ok((123i64, state)));
+        assert_eq!(
+            result.map(|(x, c)| (x, c.map(|_| parsed_state))),
+            Ok((123i64, state))
+        );
     }
 
     #[derive(Debug, PartialEq)]
@@ -696,21 +839,19 @@ mod std_tests {
             let integer = parser(integer);
             let array = between(char('['), char(']'), sep_by(expr(), char(','))).expected("[");
             let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
-            let spaces = spaces();
-            spaces
-                .clone()
+            spaces()
                 .with(
                     word.map(Expr::Id)
                         .or(integer.map(Expr::Int))
                         .or(array.map(Expr::Array))
                         .or(paren_expr),
                 )
-                .skip(spaces)
+                .skip(spaces())
         }
     }
 
     #[test]
-    fn expression() {
+    fn expression_basic() {
         let result = sep_by(expr(), char(',')).parse("int, 100, [[], 123]");
         let exprs = vec![
             Expr::Id("int".to_string()),
@@ -726,7 +867,7 @@ mod std_tests {
 ,123
 ";
         let result = expr().easy_parse(State::new(input));
-        let err = Errors {
+        let err = easy::Errors {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
                 Error::Unexpected(','.into()),
@@ -739,7 +880,7 @@ mod std_tests {
         assert_eq!(result, Err(err));
     }
 
-    fn term<I>(input: I) -> ParseResult<Expr, I>
+    fn term<I>(input: &mut I) -> ParseResult<Expr, I>
     where
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -810,7 +951,7 @@ mod std_tests {
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<Input = _, Output = char>> = Box::new(digit());
+        let mut parser: Box<Parser<Input = _, Output = char, PartialState = _>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
@@ -831,7 +972,7 @@ mod std_tests {
                 "error"
             }
         }
-        let result: Result<((), _), Errors<_, char, &str>> =
+        let result: Result<((), _), easy::Errors<char, &str, _>> =
             Parser::easy_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError

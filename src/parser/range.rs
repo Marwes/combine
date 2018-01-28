@@ -1,8 +1,13 @@
+//! Module containing zero-copy parsers.
+
 use lib::marker::PhantomData;
 
-use primitives::{ConsumedResult, Info, ParseError, Parser, RangeStream, RangeStreamOnce,
-                 StreamOnce, Tracked, UnexpectedParse};
-use primitives::FastResult::*;
+use Parser;
+use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
+             Resetable, StreamOnce};
+use error::{ConsumedResult, Info, ParseError, Tracked, UnexpectedParse};
+use error::FastResult::*;
+use parser::ParseMode;
 
 pub struct Range<I>(I::Range)
 where
@@ -11,22 +16,23 @@ where
 impl<I> Parser for Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::primitives::Range,
+    I::Range: PartialEq + ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        use primitives::Range;
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        use stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
             Ok(other) => if other == self.0 {
-                ConsumedOk((other, input))
+                ConsumedOk(other)
             } else {
                 EmptyErr(I::Error::empty(position).into())
             },
-            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
+            Err(err) => wrap_stream_error(input, err),
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -42,8 +48,8 @@ parser!{
     ///
     /// ```
     /// # extern crate combine;
-    /// # use combine::range::recognize;
-    /// # use combine::char::letter;
+    /// # use combine::parser::range::recognize;
+    /// # use combine::parser::char::letter;
     /// # use combine::*;
     /// # fn main() {
     /// let mut parser = recognize(skip_many1(letter()));
@@ -56,10 +62,56 @@ parser!{
     where [
         P: Parser,
         P::Input: RangeStream,
-        <P::Input as StreamOnce>::Range: ::primitives::Range,
+        <P::Input as StreamOnce>::Range: ::stream::Range,
     ]
     {
-        ::range::recognize_with_value(parser).map(|(range, _)| range)
+        recognize_with_value(parser).map(|(range, _)| range)
+    }
+}
+
+#[inline]
+fn parse_partial_range<M, F, I>(
+    mode: M,
+    input: &mut I,
+    distance_state: &mut usize,
+    f: F,
+) -> ConsumedResult<I::Range, I>
+where
+    M: ParseMode,
+    F: FnOnce(&mut I) -> ConsumedResult<I::Range, I>,
+    I: RangeStream,
+    I::Range: ::stream::Range,
+{
+    let before = input.checkpoint();
+
+    if mode.is_first() || *distance_state == 0 {
+        let result = f(input);
+        if let ConsumedErr(_) = result {
+            *distance_state = input.distance(&before);
+            input.reset(before);
+        }
+        result
+    } else {
+        if let Err(_) = input.uncons_range::<UnexpectedParse>(*distance_state) {
+            panic!("recognize errored when restoring the input stream to its expected state");
+        }
+
+        match f(input) {
+            ConsumedOk(_) | EmptyOk(_) => (),
+            EmptyErr(err) => return EmptyErr(err),
+            ConsumedErr(err) => {
+                *distance_state = input.distance(&before);
+                input.reset(before);
+                return ConsumedErr(err);
+            }
+        }
+
+        let distance = input.distance(&before);
+        input.reset(before);
+        take(distance).parse_lazy(input).map(|range| {
+            *distance_state = 0;
+            range
+        })
     }
 }
 
@@ -70,16 +122,41 @@ impl<P> Parser for RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::primitives::Range,
+    <P::Input as StreamOnce>::Range: ::stream::Range,
 {
     type Input = P::Input;
     type Output = (<P::Input as StreamOnce>::Range, P::Output);
+    type PartialState = (usize, P::PartialState);
 
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let (value, new_input) = ctry!(self.0.parse_lazy(input.clone()));
-        let distance = input.distance(&new_input.into_inner());
-        take(distance).parse_lazy(input).map(|range| (range, value))
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let (ref mut distance_state, ref mut child_state) = *state;
+
+        let before = input.checkpoint();
+        if let Err(_) = input.uncons_range::<UnexpectedParse>(*distance_state) {
+            panic!("recognize errored when restoring the input stream to its expected state");
+        }
+
+        let value = match self.0.parse_partial(input, child_state) {
+            ConsumedOk(x) | EmptyOk(x) => x,
+            EmptyErr(err) => return EmptyErr(err),
+            ConsumedErr(err) => {
+                *distance_state = input.distance(&before);
+                input.reset(before);
+                return ConsumedErr(err);
+            }
+        };
+
+        let distance = input.distance(&before);
+        input.reset(before);
+        take(distance).parse_lazy(input).map(|range| {
+            *distance_state = 0;
+            (range, value)
+        })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
@@ -90,8 +167,8 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::recognize_with_value;
-/// # use combine::char::{digit, char};
+/// # use combine::parser::range::recognize_with_value;
+/// # use combine::parser::char::{digit, char};
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = recognize_with_value((
@@ -110,7 +187,7 @@ pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::primitives::Range,
+    <P::Input as StreamOnce>::Range: ::stream::Range,
 {
     RecognizeWithValue(parser)
 }
@@ -120,7 +197,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::range;
+/// # use combine::parser::range::range;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = range("hello");
@@ -134,7 +211,7 @@ where
 pub fn range<I>(i: I::Range) -> Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::primitives::Range,
+    I::Range: PartialEq + ::stream::Range,
 {
     Range(i)
 }
@@ -143,18 +220,15 @@ pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
 impl<I> Parser for Take<I>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let position = input.position();
-        match input.uncons_range(self.0) {
-            Ok(x) => ConsumedOk((x, input)),
-            Err(err) => EmptyErr(I::Error::from_error(position, err).into()),
-        }
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        uncons_range(input, self.0)
     }
 }
 
@@ -162,7 +236,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::take;
+/// # use combine::parser::range::take;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take(1);
@@ -179,7 +253,7 @@ where
 pub fn take<I>(n: usize) -> Take<I>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
 {
     Take(n, PhantomData)
 }
@@ -188,15 +262,25 @@ pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile<I, F>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = usize;
 
+    parse_mode!();
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        ::primitives::uncons_while(input, &mut self.0)
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        parse_partial_range(mode, input, state, |input| uncons_while(input, &mut self.0))
     }
 }
 
@@ -204,7 +288,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::take_while;
+/// # use combine::parser::range::take_while;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take_while(|c: char| c.is_digit(10));
@@ -227,23 +311,38 @@ pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = usize;
 
+    parse_mode!();
     #[inline]
-    fn parse_lazy(&mut self, input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        match ::primitives::uncons_while(input, &mut self.0) {
-            ConsumedOk((v, input)) => ConsumedOk((v, input)),
-            EmptyOk((_, input)) => {
-                let position = input.position();
-                EmptyErr(I::Error::empty(position).into())
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let start = input.position();
+        parse_partial_range(mode, input, state, |input| {
+            let result = uncons_while(input, &mut self.0);
+            let position = input.position();
+            if start == position {
+                if let EmptyOk(_) = result {
+                    EmptyErr(I::Error::empty(position).into())
+                } else {
+                    result
+                }
+            } else {
+                result
             }
-            EmptyErr(err) => EmptyErr(err),
-            ConsumedErr(err) => ConsumedErr(err),
-        }
+        })
     }
 }
 
@@ -251,7 +350,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::take_while1;
+/// # use combine::parser::range::take_while1;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take_while1(|c: char| c.is_digit(10));
@@ -265,7 +364,7 @@ where
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::primitives::Range,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)
@@ -277,28 +376,39 @@ where
 impl<I> Parser for TakeUntilRange<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::primitives::Range,
+    I::Range: PartialEq + ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
+    type PartialState = usize;
 
     #[inline]
-    fn parse_lazy(&mut self, mut input: Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        use primitives::Range;
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        to_consume: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        use stream::Range;
 
         let len = self.0.len();
-        let mut to_consume = 0;
-        let mut look_ahead_input = input.clone();
+        let before = input.checkpoint();
+
+        // Skip until the end of the last parse attempt
+        ctry!(uncons_range(input, *to_consume));
 
         loop {
-            match look_ahead_input.clone().uncons_range(len) {
+            let look_ahead_input = input.checkpoint();
+
+            match input.uncons_range(len) {
                 Ok(xs) => {
                     if xs == self.0 {
-                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(to_consume) {
-                            if to_consume == 0 {
-                                return EmptyOk((consumed, input));
+                        input.reset(before);
+                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(*to_consume) {
+                            if *to_consume == 0 {
+                                return EmptyOk(consumed);
                             } else {
-                                return ConsumedOk((consumed, input));
+                                *to_consume = 0;
+                                return ConsumedOk(consumed);
                             }
                         }
 
@@ -306,14 +416,16 @@ where
                         // because we've already done it on look_ahead_input.
                         unreachable!();
                     } else {
-                        to_consume += 1;
-                        if look_ahead_input.uncons::<UnexpectedParse>().is_err() {
+                        input.reset(look_ahead_input);
+                        *to_consume += 1;
+                        if input.uncons::<UnexpectedParse>().is_err() {
                             unreachable!();
                         }
                     }
                 }
                 Err(e) => {
-                    return EmptyErr(I::Error::from_error(look_ahead_input.position(), e).into())
+                    input.reset(before);
+                    return wrap_stream_error(input, e);
                 }
             };
         }
@@ -327,7 +439,7 @@ where
 ///
 /// ```
 /// # extern crate combine;
-/// # use combine::range::{range, take_until_range};
+/// # use combine::parser::range::{range, take_until_range};
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = take_until_range("\r\n");
@@ -348,7 +460,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::Parser;
+    use Parser;
 
     #[test]
     fn take_while_test() {
