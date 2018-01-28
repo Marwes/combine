@@ -412,7 +412,7 @@ where
 }
 
 /// Constructs a parser which returns the tokens parsed by `parser` accumulated in
-/// `F: FromIterator<P::Input::Item>` instead of `P::Output`.
+/// `F: Extend<P::Input::Item>` instead of `P::Output`.
 ///
 /// ```
 /// use combine::Parser;

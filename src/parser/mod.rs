@@ -708,7 +708,7 @@ pub trait Parser {
     }
 
     /// Creates an iterator from a parser and a state. Can be used as an alternative to [`many`]
-    /// when collecting directly into a `FromIterator` type is not desirable.
+    /// when collecting directly into a `Extend` type is not desirable.
     ///
     /// ```
     /// # extern crate combine;
@@ -741,7 +741,7 @@ pub trait Parser {
     }
 
     /// Creates an iterator from a parser and a state. Can be used as an alternative to [`many`]
-    /// when collecting directly into a `FromIterator` type is not desirable.
+    /// when collecting directly into a `Extend` type is not desirable.
     ///
     /// ```
     /// # extern crate combine;

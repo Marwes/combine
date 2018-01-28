@@ -2,7 +2,6 @@
 
 use lib::marker::PhantomData;
 use lib::borrow::BorrowMut;
-use lib::iter::FromIterator;
 use lib::mem;
 
 use Parser;
@@ -25,7 +24,7 @@ pub struct Count<F, P> {
 impl<P, F> Parser for Count<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
 {
     type Input = P::Input;
     type Output = F;
@@ -77,7 +76,7 @@ where
 pub fn count<F, P>(count: usize, parser: P) -> Count<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
 {
     Count {
         parser: parser,
@@ -122,7 +121,7 @@ pub struct CountMinMax<F, P> {
 impl<P, F> Parser for CountMinMax<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
 {
     type Input = P::Input;
     type Output = F;
@@ -189,7 +188,7 @@ where
 pub fn count_min_max<F, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
 {
     assert!(min <= max);
 
@@ -369,7 +368,7 @@ pub struct Many<F, P>(P, PhantomData<F>);
 impl<F, P> Parser for Many<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
 {
     type Input = P::Input;
     type Output = F;
@@ -420,7 +419,7 @@ where
 pub fn many<F, P>(p: P) -> Many<F, P>
 where
     P: Parser,
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
 {
     Many(p, PhantomData)
 }
@@ -429,7 +428,7 @@ where
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<F, P> Parser for Many1<F, P>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
 {
     type Input = P::Input;
@@ -501,7 +500,7 @@ where
 #[inline(always)]
 pub fn many1<F, P>(p: P) -> Many1<F, P>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
 {
     Many1(p, PhantomData)
@@ -524,16 +523,6 @@ impl<A> Extend<A> for Sink<A> {
         T: IntoIterator<Item = A>,
     {
         for _ in iter {}
-    }
-}
-
-impl<A> FromIterator<A> for Sink<A> {
-    fn from_iter<T>(iter: T) -> Self
-    where
-        T: IntoIterator<Item = A>,
-    {
-        for _ in iter {}
-        Sink(PhantomData)
     }
 }
 
@@ -589,7 +578,7 @@ pub struct SepBy<F, P, S> {
 }
 impl<F, P, S> Parser for SepBy<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -612,9 +601,7 @@ where
         M: ParseMode,
     {
         sep_by1(&mut self.parser, &mut self.separator)
-            .or(parser(|_| {
-                Ok((None.into_iter().collect(), Consumed::Empty(())))
-            }))
+            .or(parser(|_| Ok((F::default(), Consumed::Empty(())))))
             .parse_mode(mode, input, state)
     }
 
@@ -645,7 +632,7 @@ where
 #[inline(always)]
 pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -664,7 +651,7 @@ pub struct SepBy1<F, P, S> {
 }
 impl<F, P, S> Parser for SepBy1<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -751,7 +738,7 @@ where
 #[inline(always)]
 pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -771,7 +758,7 @@ pub struct SepEndBy<F, P, S> {
 
 impl<F, P, S> Parser for SepEndBy<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -794,9 +781,7 @@ where
         M: ParseMode,
     {
         sep_end_by1(&mut self.parser, &mut self.separator)
-            .or(parser(|_| {
-                Ok((None.into_iter().collect(), Consumed::Empty(())))
-            }))
+            .or(parser(|_| Ok((F::default(), Consumed::Empty(())))))
             .parse_mode(mode, input, state)
     }
 
@@ -827,7 +812,7 @@ where
 #[inline(always)]
 pub fn sep_end_by<F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -847,7 +832,7 @@ pub struct SepEndBy1<F, P, S> {
 
 impl<F, P, S> Parser for SepEndBy1<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
@@ -935,7 +920,7 @@ where
 #[inline(always)]
 pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 where
-    F: FromIterator<P::Output> + Extend<P::Output> + Default,
+    F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
