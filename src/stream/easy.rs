@@ -11,6 +11,7 @@
 //! extern crate combine;
 //! use combine::{easy, Parser, Stream, many1};
 //! use combine::parser::char::letter;
+//! use combine::stream::StreamErrorFor;
 //! use combine::error::{ParseError, StreamError};
 //!
 //! fn main() {
@@ -48,10 +49,11 @@
 //!                 if word == "combine" {
 //!                     Ok(word)
 //!                 } else {
-//!                     // Alternatively it is possible to use the methods on `StreamError`, in
-//!                     // which caset the extra bound is not necessary (and this method will work
-//!                     // for other errors than `easy::Errors`
-//!                     Err(<I::Error as ParseError<_, _, _>>::StreamError::expected_static_message("combine"))
+//!                     // Alternatively it is possible to only use the methods provided by the
+//!                     // `StreamError` trait.
+//!                     // In that case the extra bound is not necessary (and this method will work
+//!                     // for other errors than `easy::Errors`)
+//!                     Err(StreamErrorFor::<I>::expected_static_message("combine"))
 //!                 }
 //!             })
 //!         }
