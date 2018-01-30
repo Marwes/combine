@@ -56,6 +56,40 @@ pub trait Positioned: StreamOnce {
     fn position(&self) -> Self::Position;
 }
 
+/// Convenience alias over the `StreamError` for the input stream `I`
+///
+/// ```
+/// #[macro_use]
+/// extern crate combine;
+/// use combine::{easy, Parser, Stream, many1};
+/// use combine::parser::char::letter;
+/// use combine::stream::StreamErrorFor;
+/// use combine::error::{ParseError, StreamError};
+///
+/// parser!{
+///    fn parser[I]()(I) -> String
+///     where [ I: Stream<Item = char>, ]
+///     {
+///         many1(letter()).and_then(|word: String| {
+///             if word == "combine" {
+///                 Ok(word)
+///             } else {
+///                 // The alias makes it easy to refer to the `StreamError` type of `I`
+///                 Err(StreamErrorFor::<I>::expected_static_message("combine"))
+///             }
+///         })
+///     }
+/// }
+///
+/// fn main() {
+/// }
+/// ```
+pub type StreamErrorFor<I> = <<I as StreamOnce>::Error as ParseError<
+    <I as StreamOnce>::Item,
+    <I as StreamOnce>::Range,
+    <I as StreamOnce>::Position,
+>>::StreamError;
+
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {
     /// The type of items which is yielded from this stream.
