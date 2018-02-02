@@ -64,3 +64,5 @@ required-features = ["mp4"]
 features = ["doc"]
 
 [profile.bench]
+lto = true
+codegen-units = 1
