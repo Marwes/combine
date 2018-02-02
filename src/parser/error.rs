@@ -9,18 +9,18 @@ use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use error::FastResult::*;
 
 #[derive(Clone)]
-pub struct Unexpected<I>(Info<I::Item, I::Range>, PhantomData<fn(I) -> I>)
+pub struct Unexpected<I, T>(Info<I::Item, I::Range>, PhantomData<fn(I) -> (I, T)>)
 where
     I: Stream;
-impl<I> Parser for Unexpected<I>
+impl<I, T> Parser for Unexpected<I, T>
 where
     I: Stream,
 {
     type Input = I;
-    type Output = ();
+    type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<(), I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<T, I> {
         EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -29,6 +29,8 @@ where
 }
 /// Always fails with `message` as an unexpected error.
 /// Never consumes any input.
+///
+/// Has `()` the output type
 ///
 /// ```
 /// # extern crate combine;
@@ -48,7 +50,40 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn unexpected<I, S>(message: S) -> Unexpected<I>
+pub fn unexpected<I, S>(message: S) -> Unexpected<I, ()>
+where
+    I: Stream,
+    S: Into<Info<I::Item, I::Range>>,
+{
+    unexpected_any(message)
+}
+
+/// Always fails with `message` as an unexpected error.
+/// Never consumes any input.
+///
+/// May have anything as the output type but must be used such that the output type can inferred.
+/// The `unexpected` parser can be used if the output type does not matter
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::error::unexpected_any;
+/// # use combine::error::StreamError;
+/// # fn main() {
+/// let result = token('b').or(unexpected_any("token"))
+///     .easy_parse("a");
+/// assert!(result.is_err());
+/// assert!(
+///     result.err()
+///         .unwrap()
+///         .errors
+///         .iter()
+///         .any(|m| *m == StreamError::unexpected("token".into()))
+/// );
+/// # }
+/// ```
+#[inline(always)]
+pub fn unexpected_any<I, S, T>(message: S) -> Unexpected<I, T>
 where
     I: Stream,
     S: Into<Info<I::Item, I::Range>>,
