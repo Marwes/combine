@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use error::StreamError;
-use stream::{Positioned, Resetable, StreamOnce};
+use stream::{Positioned, Resetable, StreamErrorFor, StreamOnce};
 
 #[derive(Debug, PartialEq)]
 pub struct BufferedStream<I>
@@ -78,10 +78,7 @@ where
     type Error = I::Error;
 
     #[inline]
-    fn uncons<E>(&mut self) -> Result<I::Item, E>
-    where
-        E: StreamError<Self::Item, Self::Range>,
-    {
+    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
             let item = try!(self.iter.uncons());

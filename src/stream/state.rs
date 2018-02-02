@@ -2,7 +2,7 @@ use lib::fmt;
 
 use error::{ParseError, StreamError};
 use stream::{FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
-             StreamOnce};
+             StreamErrorFor, StreamOnce};
 
 #[cfg(feature = "std")]
 use stream::ReadStream;
@@ -130,10 +130,7 @@ where
     type Error = I::Error;
 
     #[inline]
-    fn uncons<E>(&mut self) -> Result<I::Item, E>
-    where
-        E: StreamError<I::Item, I::Range>,
-    {
+    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -251,10 +248,7 @@ where
     I::Position: Clone + Ord,
 {
     #[inline]
-    fn uncons_range<E>(&mut self, size: usize) -> Result<I::Range, E>
-    where
-        E: StreamError<I::Item, I::Range>,
-    {
+    fn uncons_range(&mut self, size: usize) -> Result<I::Range, StreamErrorFor<Self>> {
         self.input.uncons_range(size).map(|range| {
             self.positioner.update_range(&range);
             range
@@ -262,10 +256,9 @@ where
     }
 
     #[inline]
-    fn uncons_while<E, F>(&mut self, mut predicate: F) -> Result<I::Range, E>
+    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, StreamErrorFor<Self>>
     where
         F: FnMut(I::Item) -> bool,
-        E: StreamError<I::Item, I::Range>,
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while(|t| {

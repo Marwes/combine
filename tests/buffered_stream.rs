@@ -2,7 +2,7 @@
 extern crate combine;
 use combine::stream::IteratorStream;
 use combine::stream::buffered::BufferedStream;
-use combine::stream::easy::Error;
+use combine::stream::easy::{self, Error};
 use combine::parser::char::{char, digit, spaces, string};
 use combine::{choice, many, sep_by, try, Parser, Positioned, many1};
 use combine::stream::state::State;
@@ -46,7 +46,7 @@ fn shared_stream_insufficent_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
     // Iterator that can't be cloned
-    let stream = BufferedStream::new(State::new(IteratorStream::new(&mut iter)), 1);
+    let stream = BufferedStream::new(easy::Stream(State::new(IteratorStream::new(&mut iter))), 1);
 
     let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
         try(string("apple")),
@@ -54,14 +54,17 @@ fn shared_stream_insufficent_backtrack() {
         try(string("ananas")),
     ]);
     let mut parser = sep_by(value, char(','));
-    let result: Result<Vec<&str>, _> = parser.easy_parse(stream).map(|t| t.0);
+    let result: Result<Vec<&str>, _> = parser.parse(stream).map(|t| t.0);
     assert!(result.is_err());
     assert!(
         result
+            .as_ref()
             .unwrap_err()
             .errors
             .iter()
-            .any(|err| *err == Error::Message("Backtracked to far".into()))
+            .any(|err| *err == Error::Message("Backtracked to far".into())),
+        "{}",
+        result.unwrap_err()
     );
 }
 

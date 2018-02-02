@@ -741,7 +741,7 @@ mod std_tests {
         I::Position: Default,
     {
         let before = input.checkpoint();
-        match input.uncons::<Error<_, _>>() {
+        match input.uncons() {
             Ok(c) => if c.is_alphanumeric() {
                 input.reset(before);
                 let e = Error::Unexpected(c.into());
@@ -788,7 +788,7 @@ mod std_tests {
     fn iterator() {
         let result = parser(integer)
             .parse(State::new(IteratorStream::new("123".chars())))
-            .map(|(i, mut input)| (i, input.uncons::<Error<_, _>>().is_err()));
+            .map(|(i, mut input)| (i, input.uncons().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
 

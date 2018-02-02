@@ -6,7 +6,7 @@ use either::Either;
 
 use ErrorOffset;
 use stream::{Resetable, Stream, StreamOnce};
-use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked, UnexpectedParse};
+use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
 use error::FastResult::*;
 use combinator::{and_then, expected, flat_map, map, message, then, then_partial, AndThen,
                  Expected, FlatMap, Iter, Map, Message, Then, ThenPartial};
@@ -194,7 +194,7 @@ pub trait Parser {
         let mut result = self.parse_first(input, &mut state);
         if let FastResult::EmptyErr(ref mut error) = result {
             input.reset(before.clone());
-            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+            if let Ok(t) = input.uncons() {
                 input.reset(before);
                 error.error.add_unexpected(Info::Token(t));
             }
@@ -213,7 +213,7 @@ pub trait Parser {
         let mut result = self.parse_partial(input, state);
         if let FastResult::EmptyErr(ref mut error) = result {
             input.reset(before.clone());
-            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+            if let Ok(t) = input.uncons() {
                 input.reset(before);
                 error.error.add_unexpected(Info::Token(t));
             }
@@ -965,7 +965,7 @@ pub trait ParseMode: Copy {
         let mut result = parser.parse_mode_impl(self, input, state);
         if let FastResult::EmptyErr(ref mut error) = result {
             input.reset(before.clone());
-            if let Ok(t) = input.uncons::<UnexpectedParse>() {
+            if let Ok(t) = input.uncons() {
                 input.reset(before);
                 error.error.add_unexpected(Info::Token(t));
             }

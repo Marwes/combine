@@ -4,7 +4,7 @@ use lib::marker::PhantomData;
 
 use Parser;
 use stream::{uncons, Stream, StreamOnce};
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked, UnexpectedParse};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 
 use error::FastResult::*;
 
@@ -543,8 +543,8 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<(), I> {
         let before = input.checkpoint();
-        match input.uncons::<UnexpectedParse>() {
-            Err(ref err) if *err == UnexpectedParse::Eoi => EmptyOk(()),
+        match input.uncons() {
+            Err(ref err) if *err == StreamError::end_of_input() => EmptyOk(()),
             _ => {
                 input.reset(before);
                 EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())

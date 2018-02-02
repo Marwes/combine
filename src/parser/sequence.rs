@@ -3,7 +3,7 @@ use lib::marker::PhantomData;
 
 use {ErrorOffset, Parser, Stream, StreamOnce};
 use parser::ParseMode;
-use error::{ConsumedResult, ParseError, StreamError, Tracked, UnexpectedParse};
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use error::FastResult::*;
 use combinator::{ignore, Ignore};
 
@@ -78,7 +78,7 @@ macro_rules! tuple_parser {
             {
                 err.offset = ErrorOffset(offset);
                 if first_empty_parser != 0 {
-                    if let Ok(t) = input.uncons::<UnexpectedParse>() {
+                    if let Ok(t) = input.uncons() {
                         err.error.add(StreamError::unexpected_token(t));
                     }
                     dispatch_on!(0, |i, mut p| {
