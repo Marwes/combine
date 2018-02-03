@@ -68,11 +68,11 @@
 //!     });
 //!     assert_eq!(
 //!         parser().easy_parse(input).map_err(|err| err.map_position(|p| p.translate_position(input))),
-//!         expected_error,
+//!         expected_error
 //!     );
 //!     assert_eq!(
 //!         parser2().easy_parse(input).map_err(|err| err.map_position(|p| p.translate_position(input))),
-//!         expected_error,
+//!         expected_error
 //!     );
 //! }
 //!
@@ -84,7 +84,8 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use error::{Info as PrimitiveInfo, StreamError, Tracked};
-use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamOnce};
+use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamErrorFor,
+             StreamOnce};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding easy descriptions.
@@ -457,7 +458,7 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     }
 }
 
-impl<E, T, R> From<E> for Error<T, R>
+impl<T, R, E> From<E> for Error<T, R>
 where
     E: StdError + 'static + Send + Sync,
 {
@@ -747,11 +748,8 @@ where
     type Error = ParseError<S>;
 
     #[inline]
-    fn uncons<E>(&mut self) -> Result<Self::Item, E>
-    where
-        E: StreamError<Self::Item, Self::Range>,
-    {
-        self.0.uncons()
+    fn uncons(&mut self) -> Result<Self::Item, StreamErrorFor<Self>> {
+        self.0.uncons().map_err(StreamError::into_other)
     }
 
     fn is_partial(&self) -> bool {
@@ -764,20 +762,16 @@ where
     S: RangeStream,
 {
     #[inline]
-    fn uncons_range<E>(&mut self, size: usize) -> Result<Self::Range, E>
-    where
-        E: StreamError<Self::Item, Self::Range>,
-    {
-        self.0.uncons_range(size)
+    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
+        self.0.uncons_range(size).map_err(StreamError::into_other)
     }
 
     #[inline]
-    fn uncons_while<E, F>(&mut self, f: F) -> Result<Self::Range, E>
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
-        E: StreamError<Self::Item, Self::Range>,
     {
-        self.0.uncons_while(f)
+        self.0.uncons_while(f).map_err(StreamError::into_other)
     }
 
     #[inline]

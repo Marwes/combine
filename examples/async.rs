@@ -17,8 +17,8 @@ use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::error::ParseError;
-use combine::stream::{PartialStream, RangeStream};
+use combine::error::StreamError;
+use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
 use combine::combinator::{any_partial_state, AnyPartialState};
 use combine::parser::range::{range, recognize, take};
 use combine::{skip_many, skip_many1};
@@ -49,17 +49,17 @@ impl LanguageServerDecoder {
 parser! {
     type PartialState = AnyPartialState;
     fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
-    where [ I: RangeStream<Item = u8, Range = &'a [u8], Error = easy::ParseError<I>>,
-            I::Error: ParseError<u8, &'a [u8], I::Position, StreamError = easy::Error<u8, &'a [u8]>>,
-        ]
+    where [ I: RangeStream<Item = u8, Range = &'a [u8]>, ]
     {
         let content_length =
             range(&b"Content-Length: "[..])
                 .with(
                     recognize(skip_many1(digit()))
-                        .and_then(|digits: &[u8]| unsafe {
-                            str::from_utf8_unchecked(digits).parse::<usize>()
-                        })
+                        .and_then(|digits: &[u8]|
+                            str::from_utf8(digits).unwrap().parse::<usize>()
+                                // Convert the error from `.parse` into an error combine understands
+                                .map_err(StreamErrorFor::<I>::other)
+                        )
                 )
                 .map(|x| {
                     content_length_parses.set(content_length_parses.get() + 1);
@@ -69,8 +69,8 @@ parser! {
             skip_many(range(&b"\r\n"[..])),
             content_length,
             range(&b"\r\n\r\n"[..]).map(|_| ()),
-        ).map(|t| t.1)
-            .then_partial(|&mut message_length| take(message_length).map(|bytes: &[u8]| bytes.to_owned())))
+        )
+            .then_partial(|&mut (_, message_length, _)| take(message_length).map(|bytes: &[u8]| bytes.to_owned())))
     }
 }
 
@@ -136,6 +136,8 @@ fn main() {
         PartialOp::Limited(3),
     ];
     let ref mut reader = Cursor::new(input.as_bytes());
+    // Using the `partial_io` crate we emulate the partial reads that would happen when reading
+    // asynchronously from an io device.
     let partial_reader = PartialAsyncRead::new(reader, seq);
 
     let decoder = LanguageServerDecoder::new();

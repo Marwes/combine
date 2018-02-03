@@ -1,3 +1,34 @@
+<a name="3.0.0-beta.1"></a>
+## v3.0.0-beta.1 (2018-02-02)
+
+
+#### Features
+
+*   Encode parsers as resumable state machines [342fc47](https://github.com/Marwes/combine/commit/342fc4770ee9dc62df51683ccca2e612d6e1ea33)
+*   Add the unexpected_any parser ([979e0d7e](https://github.com/Marwes/combine/commit/979e0d7e4ac63c41712352bc87b51001aa067879), closes [#126](https://github.com/Marwes/combine/issues/126))
+*   Don't have the error type be generic for uncons* ([df3e84f0](https://github.com/Marwes/combine/commit/df3e84f0275352fba44672b2701d452f6bb55596))
+*   Add a alias which helps to refer to the StreamError type ([95eb70cb](https://github.com/Marwes/combine/commit/95eb70cb025aec89925e3f1992a6d1b266328eb2))
+*   Add memchr optimized take_until_byte parsers ([30cc7d1d](https://github.com/Marwes/combine/commit/30cc7d1d39e754d2c2e8491eb2123dacec5d30f3))
+*   Add the `then_partial` parser ([5d402f6b](https://github.com/Marwes/combine/commit/5d402f6be0c1be4d69159d4df1d1d4589f5cd66e))
+*   Don't require `Clone` for `Stream` ([3fc0b540](https://github.com/Marwes/combine/commit/3fc0b540521aff959ce62628df1ac7554a9df861), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Breaking Changes
+
+*   Don't require `Clone` for `Stream` ([3fc0b540](https://github.com/Marwes/combine/commit/3fc0b540521aff959ce62628df1ac7554a9df861), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Bug Fixes
+
+*   Allow `parser!` to be used within functions ([916bb824](https://github.com/Marwes/combine/commit/916bb824741f054ed2f0686dcce316d0a770d9db))
+*   Allow multiple unnamed public parsers to be in the same scope ([c04e2247](https://github.com/Marwes/combine/commit/c04e2247ab04f098ef0eae887c7a7739d99212fc))
+*   Return the correct distance for slices with larger than 1 byte items ([6b3c661a](https://github.com/Marwes/combine/commit/6b3c661af23fd221d2b28c37ed207d37409c2491))
+*   Don't add extra expected errors when erroring in the middle of a sequence ([44eac24d](https://github.com/Marwes/combine/commit/44eac24d46f265a1b3a94d5587d4f200ebebc18f))
+
+#### Performance
+
+*   Avoid cloning input in satisfy ([9aeaefa9](https://github.com/Marwes/combine/commit/9aeaefa95f97bd8b9d186923e16cd8def98d8e81))
+
+
+
 <a name="3.0.0-alpha.4"></a>
 ## v3.0.0-alpha.4 (2017-10-11)
 

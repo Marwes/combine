@@ -203,7 +203,9 @@ pub type ParseResult<O, I> = Result<(O, Consumed<()>), Consumed<Tracked<<I as St
 pub type ParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
-/// Usually this is composed into a `ParseError`
+///
+/// Usually multiple instances of `StreamError` is composed into a `ParseError` to build the final
+/// error value.
 pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn unexpected_token(token: Item) -> Self;
     fn unexpected_range(token: Range) -> Self;
@@ -265,6 +267,11 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
         Self::unexpected_static_message("end of input")
     }
 
+    /// Converts `self` into a different `StreamError` type.
+    ///
+    /// This should aim to preserve as much information as possible into the returned `T` value but
+    /// if `Self` ignores some information passed to it using one of the constructors that
+    /// information is naturally lost.
     fn into_other<T>(self) -> T
     where
         T: StreamError<Item, Range>;
@@ -272,7 +279,8 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
 
 /// Trait which defines a combine parse error.
 ///
-/// A parse error is composed of one or more `StreamError`s
+/// A parse error is composed of zero or more `StreamError` instances which gets added to it as
+/// errors are encountered during parsing.
 pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     type StreamError: StreamError<Item, Range>;
 

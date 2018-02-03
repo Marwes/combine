@@ -9,7 +9,7 @@ use Parser;
 use parser::ParseMode;
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
 use parser::sequence::With;
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked, UnexpectedParse};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use stream::{uncons_range, FullRangeStream, RangeStream, Stream, StreamOnce};
 
 use error::FastResult::*;
@@ -414,7 +414,7 @@ where
         }
         None => {
             *offset = bytes.len();
-            let _ = input.uncons_range::<UnexpectedParse>(bytes.len());
+            let _ = input.uncons_range(bytes.len());
             let err = I::Error::from_error(input.position(), StreamError::end_of_input());
             if !input.is_partial() && bytes.is_empty() {
                 EmptyErr(err.into())

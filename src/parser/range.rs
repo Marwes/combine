@@ -5,7 +5,7 @@ use lib::marker::PhantomData;
 use Parser;
 use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
              Resetable, StreamOnce};
-use error::{ConsumedResult, Info, ParseError, Tracked, UnexpectedParse};
+use error::{ConsumedResult, Info, ParseError, Tracked};
 use error::FastResult::*;
 use parser::ParseMode;
 
@@ -92,7 +92,7 @@ where
         }
         result
     } else {
-        if let Err(_) = input.uncons_range::<UnexpectedParse>(*distance_state) {
+        if let Err(_) = input.uncons_range(*distance_state) {
             panic!("recognize errored when restoring the input stream to its expected state");
         }
 
@@ -137,7 +137,7 @@ where
         let (ref mut distance_state, ref mut child_state) = *state;
 
         let before = input.checkpoint();
-        if let Err(_) = input.uncons_range::<UnexpectedParse>(*distance_state) {
+        if let Err(_) = input.uncons_range(*distance_state) {
             panic!("recognize errored when restoring the input stream to its expected state");
         }
 
@@ -403,7 +403,7 @@ where
                 Ok(xs) => {
                     if xs == self.0 {
                         input.reset(before);
-                        if let Ok(consumed) = input.uncons_range::<UnexpectedParse>(*to_consume) {
+                        if let Ok(consumed) = input.uncons_range(*to_consume) {
                             if *to_consume == 0 {
                                 return EmptyOk(consumed);
                             } else {
@@ -418,7 +418,7 @@ where
                     } else {
                         input.reset(look_ahead_input);
                         *to_consume += 1;
-                        if input.uncons::<UnexpectedParse>().is_err() {
+                        if input.uncons().is_err() {
                             unreachable!();
                         }
                     }

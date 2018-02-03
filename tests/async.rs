@@ -215,7 +215,7 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(
             result.unwrap(),
-            ["a", "abcd", "", ":?a", "abcdefghij"],
+            ["a", "abcd", "", ":?a", "abcdefghij"]
         );
     }
 
@@ -233,7 +233,7 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(
             result.unwrap(),
-            ["1", "abcd", "123", "abc", "1232751"],
+            ["1", "abcd", "123", "abc", "1232751"]
         );
     }
 
@@ -257,7 +257,7 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(
             result.unwrap(),
-            ["1.0", "123.123", "17824", "3.14", "1.", "2"],
+            ["1.0", "123.123", "17824", "3.14", "1.", "2"]
         );
     }
 
@@ -282,7 +282,7 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(
             result.unwrap(),
-            ["1.0", "123.123", "17824", "3.14", "1.", "2"],
+            ["1.0", "123.123", "17824", "3.14", "1.", "2"]
         );
     }
 
@@ -308,7 +308,7 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(
             result.unwrap(),
-            ["1.0", "123.123", "17824", "3.14", "", "2"],
+            ["1.0", "123.123", "17824", "3.14", "", "2"]
         );
 
         assert_eq!(counter.get(), 26);
@@ -336,7 +336,7 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(
             result.unwrap(),
-            ["1.0", "123.123", "17824", "3.14", "1.", "2"],
+            ["1.0", "123.123", "17824", "3.14", "1.", "2"]
         );
 
         assert_eq!(counter.get(), 28);
@@ -360,5 +360,5 @@ fn inner_no_partial_test() {
     let result = run_decoder(input, seq, TestParser::default());
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
-    assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"],);
+    assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"]);
 }

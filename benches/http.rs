@@ -8,7 +8,6 @@ use bencher::{black_box, Bencher};
 use std::fmt;
 
 use combine::{many, token, ParseError, Parser, RangeStream, many1};
-use combine::error::UnexpectedParse;
 use combine::range::{range, take_while1};
 use combine::stream::easy;
 
@@ -141,7 +140,7 @@ where
     b.iter(|| {
         let mut buf = black_box(buffer.clone());
 
-        while buf.clone().uncons::<UnexpectedParse>().is_ok() {
+        while buf.clone().uncons().is_ok() {
             match parse_http_request(buf) {
                 Ok(((_, _), b)) => {
                     buf = b;
