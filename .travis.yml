@@ -18,7 +18,7 @@ before_script:
   pip install 'travis-cargo<0.2' --user &&
   export PATH=$HOME/.local/bin:$PATH
 script:
-- travis_wait 30 ./travis.sh
+- ./travis.sh
 - travis-cargo --only stable doc
 after_success: |
     if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
