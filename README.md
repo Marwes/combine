@@ -18,8 +18,9 @@ let result = parser.parse("Pick up that word!");
 assert_eq!(result, Ok((Some("word".to_string()), "!")));
 ```
 
-Larger examples can be found in the [tests][tests] and [benches][benches] folders.
+Larger examples can be found in the [examples][], [tests][] and [benches][] folders.
 
+[examples]:https://github.com/Marwes/combine/tree/master/examples
 [tests]:https://github.com/Marwes/combine/tree/master/tests
 [benches]:https://github.com/Marwes/combine/tree/master/benches
 
