@@ -661,7 +661,7 @@ where
 ///
 /// assert_eq!(
 ///     example().easy_parse("ab"),
-///     Ok((('a', 'b'), "")),
+///     Ok((('a', 'b'), ""))
 /// );
 ///
 /// # }

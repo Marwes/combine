@@ -60,6 +60,22 @@ name = "mp4"
 harness = false
 required-features = ["mp4"]
 
+[[example]]
+name = "tokio"
+required-features = ["std"]
+
+[[example]]
+name = "date"
+
+[[example]]
+name = "number"
+
+[[example]]
+name = "readme"
+
+[[example]]
+name = "ini"
+
 [package.metadata.docs.rs]
 features = ["doc"]
 

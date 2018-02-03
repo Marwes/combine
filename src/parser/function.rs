@@ -88,13 +88,26 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy)]
 pub struct EnvParser<E, I, T>
 where
     I: Stream,
 {
     env: E,
     parser: fn(E, &mut I) -> ParseResult<T, I>,
+}
+
+impl<E, I, T> Clone for EnvParser<E, I, T>
+where
+    I: Stream,
+    E: Clone,
+{
+    fn clone(&self) -> Self {
+        EnvParser {
+            env: self.env.clone(),
+            parser: self.parser,
+        }
+    }
 }
 
 impl<E, I, O> Parser for EnvParser<E, I, O>

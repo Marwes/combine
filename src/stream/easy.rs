@@ -68,11 +68,11 @@
 //!     });
 //!     assert_eq!(
 //!         parser().easy_parse(input).map_err(|err| err.map_position(|p| p.translate_position(input))),
-//!         expected_error,
+//!         expected_error
 //!     );
 //!     assert_eq!(
 //!         parser2().easy_parse(input).map_err(|err| err.map_position(|p| p.translate_position(input))),
-//!         expected_error,
+//!         expected_error
 //!     );
 //! }
 //!
