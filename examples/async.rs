@@ -136,6 +136,8 @@ fn main() {
         PartialOp::Limited(3),
     ];
     let ref mut reader = Cursor::new(input.as_bytes());
+    // Using the `partial_io` crate we emulate the partial reads that would happen when reading
+    // asynchronously from an io device.
     let partial_reader = PartialAsyncRead::new(reader, seq);
 
     let decoder = LanguageServerDecoder::new();

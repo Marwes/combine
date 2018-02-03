@@ -61,7 +61,7 @@ harness = false
 required-features = ["mp4"]
 
 [[example]]
-name = "tokio"
+name = "async"
 required-features = ["std"]
 
 [[example]]

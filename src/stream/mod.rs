@@ -740,17 +740,24 @@ impl PointerOffset {
     }
 }
 
+/// Decodes `input` using `parser`.
+///
+/// Return `Ok(Some(item), consumed_data)` if there was enough data to finish parsing using
+/// `parser`.
+/// Returns `Ok(None, consumed_data)` if `input` did not contain enough data to finish parsing
+/// using `parser`.
+///
+/// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
 pub fn decode<P>(
     mut parser: P,
-    src: P::Input,
+    mut input: P::Input,
     partial_state: &mut P::PartialState,
 ) -> Result<(Option<P::Output>, usize), <P::Input as StreamOnce>::Error>
 where
     P: Parser,
     P::Input: RangeStream,
 {
-    let start = src.checkpoint();
-    let mut input = src;
+    let start = input.checkpoint();
     match parser.parse_with_state(&mut input, partial_state) {
         Ok(message) => Ok((Some(message), input.distance(&start))),
         Err(err) => {
