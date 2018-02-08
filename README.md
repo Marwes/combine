@@ -43,6 +43,20 @@ If you end up trying it I welcome any feedback from your experience with it. I a
 
 Since `combine` aims to crate parsers with little to no overhead streams over `&str` and `&[T]` do not carry any extra position information but instead only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `PointerOffset` which represents the position or wrap your stream with `State`.
 
+## Parsers written in combine
+
+### Formats and protocols
+
+* GraphQL https://github.com/tailhook/graphql-parser
+* DiffX https://github.com/brennie/diffx-rs
+* Redis https://github.com/mitsuhiko/redis-rs/pull/141
+* Toml https://github.com/ordian/toml_edit
+
+### Miscellaneous
+
+* https://github.com/dgel/adventOfCode2017
+* https://github.com/MaikKlein/spire-lang
+
 ## Extra
 
 There is an additional crate which has parsers to lex and parse programming languages in [combine-language](https://github.com/Marwes/combine-language).
