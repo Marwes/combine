@@ -51,6 +51,7 @@ Since `combine` aims to crate parsers with little to no overhead streams over `&
 * DiffX https://github.com/brennie/diffx-rs
 * Redis https://github.com/mitsuhiko/redis-rs/pull/141 (Uses partial parsing)
 * Toml https://github.com/ordian/toml_edit
+* Maker Interchange Format https://github.com/aidanhs/frametool (Uses combine as a lexer)
 
 ### Miscellaneous
 
