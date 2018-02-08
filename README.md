@@ -47,9 +47,9 @@ Since `combine` aims to crate parsers with little to no overhead streams over `&
 
 ### Formats and protocols
 
-* GraphQL https://github.com/tailhook/graphql-parser
+* GraphQL https://github.com/tailhook/graphql-parser (Uses a custom tokenizer as input)
 * DiffX https://github.com/brennie/diffx-rs
-* Redis https://github.com/mitsuhiko/redis-rs/pull/141
+* Redis https://github.com/mitsuhiko/redis-rs/pull/141 (Uses partial parsing)
 * Toml https://github.com/ordian/toml_edit
 
 ### Miscellaneous
