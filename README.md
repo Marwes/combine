@@ -54,8 +54,11 @@ Since `combine` aims to crate parsers with little to no overhead streams over `&
 
 ### Miscellaneous
 
-* https://github.com/dgel/adventOfCode2017
-* https://github.com/MaikKlein/spire-lang
+* Template language https://github.com/tailhook/trimmer
+* Code excercises https://github.com/dgel/adventOfCode2017
+* Programming language https://github.com/MaikKlein/spire-lang
+* Query parser (+ more) https://github.com/mozilla/mentat
+* Query parser https://github.com/tantivy-search/tantivy
 
 ## Extra
 
