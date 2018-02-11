@@ -48,7 +48,7 @@ where
 }
 
 macro_rules! tuple_parser {
-    ($partial_state: ident; $h: ident, $($id: ident),+) => {
+    ($partial_state: ident; $h: ident $(, $id: ident)*) => {
         #[allow(non_snake_case)]
         #[derive(Default)]
         pub struct $partial_state < $h $(, $id )* > {
@@ -66,15 +66,16 @@ macro_rules! tuple_parser {
         where Input: Stream,
               Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
               $h: Parser<Input=Input>,
-              $($id: Parser<Input=Input>),+
+              $($id: Parser<Input=Input>),*
         {
+            #[allow(dead_code)]
             fn add_errors(
                 input: &mut Input,
                 mut err: Tracked<Input::Error>,
                 first_empty_parser: usize,
                 offset: u8,
                 $h: &mut $h $(, $id : &mut $id )*
-            ) -> ConsumedResult<($h::Output, $($id::Output),+), Input>
+            ) -> ConsumedResult<($h::Output, $($id::Output),*), Input>
             {
                 err.offset = ErrorOffset(offset);
                 if first_empty_parser != 0 {
@@ -92,7 +93,7 @@ macro_rules! tuple_parser {
                                 err.offset.0.saturating_sub(Parser::parser_count(&p).0)
                             );
                         true
-                    }; $h, $($id),*);
+                    }; $h $(, $id)*);
                     ConsumedErr(err.error)
                 } else {
                     EmptyErr(err)
@@ -101,14 +102,14 @@ macro_rules! tuple_parser {
         }
 
         #[allow(non_snake_case)]
-        impl <Input: Stream, $h:, $($id:),+> Parser for ($h, $($id),+)
+        impl <Input: Stream, $h:, $($id:),*> Parser for ($h, $($id),*)
             where Input: Stream,
                   Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
                   $h: Parser<Input=Input>,
-                  $($id: Parser<Input=Input>),+
+                  $($id: Parser<Input=Input>),*
         {
             type Input = Input;
-            type Output = ($h::Output, $($id::Output),+);
+            type Output = ($h::Output, $($id::Output),*);
             type PartialState = $partial_state<
                 SequenceState<$h::Output, $h::PartialState>
                 $(, SequenceState<$id::Output, $id::PartialState>)*
@@ -124,10 +125,12 @@ macro_rules! tuple_parser {
             where
                 M: ParseMode,
             {
-                let (ref mut $h, $(ref mut $id),+) = *self;
+                let (ref mut $h, $(ref mut $id),*) = *self;
                 let mut first_empty_parser = 0;
+                #[allow(unused_mut)]
                 let mut current_parser = 0;
 
+                #[allow(unused_macros)]
                 macro_rules! add_errors {
                     ($err: ident, $offset: expr) => {
                         $partial_state::add_errors(
@@ -181,9 +184,9 @@ macro_rules! tuple_parser {
                         // "first mode"
                         mode.set_first();
                     }
-                )+
+                )*
 
-                let value = unsafe { (state.$h.unwrap_value(), $(state.$id.unwrap_value()),+) };
+                let value = unsafe { (state.$h.unwrap_value(), $(state.$id.unwrap_value()),*) };
                 if first_empty_parser != 0 {
                     ConsumedOk(value)
                 } else {
@@ -193,13 +196,13 @@ macro_rules! tuple_parser {
 
             #[inline(always)]
             fn parser_count(&self) -> ErrorOffset {
-                let (ref $h, $(ref $id),+) = *self;
-                ErrorOffset($h.parser_count().0 $( + $id.parser_count().0)+)
+                let (ref $h, $(ref $id),*) = *self;
+                ErrorOffset($h.parser_count().0 $( + $id.parser_count().0)*)
             }
 
             #[inline(always)]
             fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-                let (ref mut $h, $(ref mut $id),+) = *self;
+                let (ref mut $h, $(ref mut $id),*) = *self;
                 $h.add_error(errors);
                 if errors.offset <= ErrorOffset(1) {
                     return;
@@ -219,6 +222,7 @@ macro_rules! tuple_parser {
     }
 }
 
+tuple_parser!(PartialState1; A);
 tuple_parser!(PartialState2; A, B);
 tuple_parser!(PartialState3; A, B, C);
 tuple_parser!(PartialState4; A, B, C, D);
@@ -651,4 +655,15 @@ where
     N: Parser<Input = P::Input>,
 {
     ThenPartial(p, f)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parser::item::any;
+
+    #[test]
+    fn sequence_single_parser() {
+        assert!((any(),).easy_parse("a").is_ok());
+    }
 }
