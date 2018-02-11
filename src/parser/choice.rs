@@ -201,6 +201,7 @@ macro_rules! do_choice {
 
 macro_rules! tuple_choice_parser {
     ($head: ident) => {
+        tuple_choice_parser_inner!($head; $head);
     };
     ($head: ident $($id: ident)+) => {
         tuple_choice_parser_inner!($head; $head $($id)+);
@@ -225,7 +226,7 @@ macro_rules! tuple_choice_parser_inner {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Output $(,$id)+> ChoiceParser for ($($id),+)
+        impl<Input, Output $(,$id)+> ChoiceParser for ($($id,)+)
         where
             Input: Stream,
             $($id: Parser<Input = Input, Output = Output>),+
@@ -245,7 +246,7 @@ macro_rules! tuple_choice_parser_inner {
             where
                 Mode: ParseMode,
             {
-                let ($(ref mut $id),+) = *self;
+                let ($(ref mut $id,)+) = *self;
                 let empty = match *state {
                     self::$partial_state::Empty => true,
                     _ => false,
@@ -280,7 +281,7 @@ macro_rules! tuple_choice_parser_inner {
                 error: &mut Tracked<<Self::Input as StreamOnce>::Error>
             ) {
                 if error.offset != ErrorOffset(0) {
-                    let ($(ref mut $id),+) = *self;
+                    let ($(ref mut $id,)+) = *self;
                     $(
                         $id.add_error(error);
                     )+
@@ -652,4 +653,15 @@ where
     P: Parser,
 {
     Optional(parser)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parser::item::any;
+
+    #[test]
+    fn choice_single_parser() {
+        assert!(choice((any(),)).easy_parse("a").is_ok());
+    }
 }
