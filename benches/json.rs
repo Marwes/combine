@@ -13,9 +13,16 @@ use bencher::{black_box, Bencher};
 use combine::stream::buffered::BufferedStream;
 use combine::{Parser, Stream, StreamOnce};
 use combine::error::{Consumed, ParseError, ParseResult};
-use combine::char::{char, digit, spaces, string, Spaces};
-use combine::combinator::{any, between, choice, many, optional, parser, satisfy, sep_by, Expected,
-                          FnParser, Skip, many1};
+
+use combine::parser::char::{char, digit, spaces, string, Spaces};
+use combine::parser::error::Expected;
+use combine::parser::item::any;
+use combine::parser::sequence::{between, Skip};
+use combine::parser::repeat::{many, sep_by, many1};
+use combine::parser::choice::{choice, optional};
+use combine::parser::function::{parser, FnParser};
+use combine::parser::item::satisfy;
+
 use combine::stream::IteratorStream;
 use combine::stream::state::{SourcePosition, State};
 

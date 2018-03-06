@@ -3,7 +3,11 @@ extern crate combine;
 use combine::Parser;
 use combine::parser::char::{digit, letter};
 use combine::parser::range::range;
-use combine::combinator::*;
+use combine::parser::item::{any, eof, token, value, Token};
+use combine::parser::repeat::{count_min_max, sep_by, sep_end_by1};
+use combine::parser::choice::{choice, optional};
+use combine::parser::combinator::{no_partial, not_followed_by, try};
+use combine::parser::error::unexpected;
 
 #[test]
 fn choice_empty() {
