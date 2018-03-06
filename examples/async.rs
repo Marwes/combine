@@ -47,7 +47,19 @@ impl LanguageServerDecoder {
 /// { "some": "data" }
 /// ```
 parser! {
+    // To avoid writing out the state type we Box it using `AnyPartialState`
+    // and the `any_partial_state` parser combinator
     type PartialState = AnyPartialState;
+
+    // The syntax of the parser macro follows normal function declarations as
+    // closely as possible but requires brackets (`[]`) around the type
+    // parameters and around the where clause.
+    // It also requires extra bit of information between the arguments and
+    // the return type which marks what input the parser takes.
+    // In this case the input is `I: RangeStream`.
+
+    // The `content_length_parses` parameter only exists to demonstrate that `content_length` only
+    // gets parsed once per message
     fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
     where [ I: RangeStream<Item = u8, Range = &'a [u8]>, ]
     {
@@ -83,6 +95,10 @@ impl Decoder for LanguageServerDecoder {
 
         let (opt, removed_len) = combine::stream::decode(
             decode_parser(self.content_length_parses.clone()),
+            // easy::Stream gives us nice error messages
+            // (the same error messages that combine has had since its inception)
+            // PartialStream lets the parser know that more input should be
+            // expected if end of input is unexpectedly reached
             easy::Stream(PartialStream(&src[..])),
             &mut self.state,
         ).map_err(|err| {
@@ -102,12 +118,23 @@ impl Decoder for LanguageServerDecoder {
             removed_len,
             str::from_utf8(&src[..removed_len]).unwrap_or("NOT UTF8")
         );
+
+        // Remove the input we just consumed.
+        // Ideally this would be done automatically by the call to
+        // `stream::decode` but it does unfortunately not work due
+        // to lifetime issues (Non lexical lifetimes might fix it!)
         src.split_to(removed_len);
+
         match opt {
+            // `None` means we did not have enough input and we require that the
+            // caller of `decode` supply more before calling us again
             None => {
                 println!("Requesting more input!");
                 Ok(None)
             }
+
+            // `Some` means that a message was successfully decoded
+            // (and that we are ready to start decoding the next message)
             Some(output) => {
                 let value = String::from_utf8(output)?;
                 println!("Decoded `{}`", value);
