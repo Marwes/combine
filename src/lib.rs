@@ -36,22 +36,21 @@
 //! }
 //! ```
 //!
-//! This library currently contains five modules:
+//! This library is currently split into a few core modules:
 //!
-//! * [`combinator`] contains the before mentioned parser combinators and thus contains the main
-//! building exprs for creating any sort of complex parsers. It consists of free functions such
-//! as [`many`] and [`satisfy`] as well as a few methods on the [`Parser`] trait which provides a
-//! few functions such as [`or`] which are more natural to use method calls.
+//! * [`parser`] is where you will find all the parsers that combine provides. It contains the core
+//! [`Parser`] trait as well as several submodules such as `sequence` or `choice` which each
+//! contain several parsers aimed at a specific niche.
 //!
-//! * [`error`] contains the [`Parser`] and [`Stream`] traits which are the core abstractions
-//! in combine as well as various structs dealing with input streams and errors. You usually only
-//! need to use this module if you want more control over parsing and input streams.
+//! * [`stream`] contains the second most important trait next to [`Parser`]. Streams represent the
+//! data source which is being parsed such as `&[u8]`, `&str` or iterators.
 //!
-//! * [`char`] and [`byte`] provides parsers specifically working with streams of characters
-//! (`char`) and bytes (`u8`) respectively. As a few examples it has parsers for accepting digits,
-//! letters or whitespace.
+//! * [`easy`] contains combine's default "easy" error and stream handling. If you use the
+//! `easy_parse` method to start your parsing these are the types that are used.
 //!
-//! * [`range`] provides some zero-copy parsers for [`RangeStream`]s.
+//! * [`error`] contains the types and traits that make up combine's error handling. Unless you
+//! need to customize the errors your parsers return you should not need to use this module much.
+//!
 //!
 //! # Examples
 //!
@@ -166,11 +165,6 @@
 
 #[doc(inline)]
 pub use parser::Parser;
-#[doc(inline)]
-pub use parser::{byte, char, range};
-#[doc(inline)]
-#[cfg(feature = "regex")]
-pub use parser::regex;
 #[doc(inline)]
 pub use error::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
@@ -662,6 +656,9 @@ pub mod stream;
 pub mod parser;
 
 /// Re-exported parsers for compatibility with older versions
+#[doc(hidden)]
+#[deprecated(since = "3.0.0",
+             note = "Please import parsers from the `parser` module and its submodules instead")]
 pub mod combinator {
     #[doc(inline)]
     pub use parser::sequence::*;
@@ -678,6 +675,23 @@ pub mod combinator {
     #[doc(inline)]
     pub use parser::combinator::*;
 }
+
+#[doc(hidden)]
+#[deprecated(since = "3.0.0", note = "Please use the `parser::char` module instead")]
+pub use parser::char;
+
+#[doc(hidden)]
+#[deprecated(since = "3.0.0", note = "Please use the `parser::byte` module instead")]
+pub use parser::byte;
+
+#[doc(hidden)]
+#[deprecated(since = "3.0.0", note = "Please use the `parser::range` module instead")]
+pub use parser::range;
+
+#[doc(hidden)]
+#[deprecated(since = "3.0.0", note = "Please use the `parser::regex` module instead")]
+#[cfg(feature = "regex")]
+pub use parser::regex;
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
