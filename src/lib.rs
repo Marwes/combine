@@ -147,18 +147,19 @@
 //! ```
 //!
 //! [`combinator`]: combinator/index.html
+//! [`parser`]: parser/index.html
 //! [`error`]: error/index.html
-//! [`char`]: char/index.html
-//! [`byte`]: byte/index.html
-//! [`range`]: range/index.html
-//! [`many`]: combinator/fn.many.html
-//! [`try`]: combinator/fn.try.html
-//! [`satisfy`]: combinator/fn.satisfy.html
-//! [`or`]: error/trait.Parser.html#method.or
-//! [`Stream`]: error/trait.Stream.html
-//! [`RangeStream`]: error/trait.RangeStream.html
-//! [`Parser`]: error/trait.Parser.html
-//! [fn parser]: combinator/fn.parser.html
+//! [`char`]: parser/char/index.html
+//! [`byte`]: parser/byte/index.html
+//! [`range`]: parser/range/index.html
+//! [`many`]: parser/repeat/fn.many.html
+//! [`try`]: parser/combinator/fn.try.html
+//! [`satisfy`]: parser/item/fn.satisfy.html
+//! [`or`]: parser/trait.Parser.html#method.or
+//! [`Stream`]: stream/trait.Stream.html
+//! [`RangeStream`]: stream/trait.RangeStream.html
+//! [`Parser`]: parser/trait.Parser.html
+//! [fn parser]: parser/function/fn.parser.html
 // inline(always) is only used on trivial functions returning parsers
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 #![cfg_attr(not(feature = "std"), no_std)]
