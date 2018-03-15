@@ -1,6 +1,8 @@
+#![feature(conservative_impl_trait)]
 #[macro_use]
 extern crate bencher;
 
+#[macro_use]
 extern crate combine;
 
 use std::collections::HashMap;
@@ -12,15 +14,14 @@ use bencher::{black_box, Bencher};
 
 use combine::stream::buffered::BufferedStream;
 use combine::{Parser, Stream, StreamOnce};
-use combine::error::{Consumed, ParseError, ParseResult};
+use combine::error::{Consumed, ParseError};
 
 use combine::parser::char::{char, digit, spaces, string, Spaces};
-use combine::parser::error::Expected;
 use combine::parser::item::{any, satisfy, satisfy_map};
 use combine::parser::sequence::{between, Skip};
 use combine::parser::repeat::{many, sep_by, many1};
 use combine::parser::choice::{choice, optional};
-use combine::parser::function::{parser, FnParser};
+use combine::parser::function::parser;
 
 use combine::stream::IteratorStream;
 use combine::stream::state::{SourcePosition, State};
@@ -49,38 +50,24 @@ where
 }
 struct Json<I>(::std::marker::PhantomData<fn(I) -> I>);
 
-type FnPtrParser<O, I> = FnParser<I, fn(&mut I) -> ParseResult<O, I>>;
-type JsonParser<O, I> = Expected<FnPtrParser<O, I>>;
-
-fn fn_parser<O, I>(f: fn(&mut I) -> ParseResult<O, I>, err: &'static str) -> JsonParser<O, I>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    parser(f).expected(err)
-}
-
 impl<I> Json<I>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    fn integer() -> JsonParser<i64, I> {
-        fn_parser(Json::<I>::integer_, "integer")
-    }
-    fn integer_(input: &mut I) -> ParseResult<i64, I> {
-        let (s, input) = try!(lex(many1::<String, _>(digit())).parse_lazy(input).into());
-        let mut n = 0;
-        for c in s.chars() {
-            n = n * 10 + (c as i64 - '0' as i64);
-        }
-        Ok((n, input))
+    fn integer() -> impl Parser<Input = I, Output = i64> {
+        lex(many1(digit()))
+            .map(|s: String| {
+                let mut n = 0;
+                for c in s.chars() {
+                    n = n * 10 + (c as i64 - '0' as i64);
+                }
+                n
+            })
+            .expected("integer")
     }
 
-    fn number() -> JsonParser<f64, I> {
-        fn_parser(Json::<I>::number_, "number")
-    }
-    fn number_(input: &mut I) -> ParseResult<f64, I> {
+    fn number() -> impl Parser<Input = I, Output = f64> {
         let i = char('0')
             .map(|_| 0.0)
             .or(Json::<I>::integer().map(|x| x as f64));
@@ -109,60 +96,56 @@ where
                     n * 10.0f64.powi(e as i32)
                 }
                 None => n,
-            })).parse_lazy(input)
-            .into()
+            })).expected("number")
     }
 
-    fn char() -> JsonParser<char, I> {
-        fn_parser(Json::<I>::char_, "char")
-    }
-    fn char_(input: &mut I) -> ParseResult<char, I> {
-        let (c, consumed) = try!(any().parse_lazy(input).into());
-        let mut back_slash_char = satisfy_map(|c| {
-            Some(match c {
-                '"' => '"',
-                '\\' => '\\',
-                '/' => '/',
-                'b' => '\u{0008}',
-                'f' => '\u{000c}',
-                'n' => '\n',
-                'r' => '\r',
-                't' => '\t',
-                _ => return None,
-            })
-        });
-        match c {
-            '\\' => consumed.combine(|_| back_slash_char.parse_stream(input)),
-            '"' => Err(Consumed::Empty(I::Error::empty(input.position()).into())),
-            _ => Ok((c, consumed)),
-        }
-    }
-    fn string() -> JsonParser<String, I> {
-        fn_parser(Json::<I>::string_, "string")
-    }
-    fn string_(input: &mut I) -> ParseResult<String, I> {
-        between(char('"'), lex(char('"')), many(Json::<I>::char()))
-            .parse_lazy(input)
-            .into()
+    fn char() -> impl Parser<Input = I, Output = char> {
+        parser(|input: &mut I| {
+            let (c, consumed) = try!(any().parse_lazy(input).into());
+            let mut back_slash_char = satisfy_map(|c| {
+                Some(match c {
+                    '"' => '"',
+                    '\\' => '\\',
+                    '/' => '/',
+                    'b' => '\u{0008}',
+                    'f' => '\u{000c}',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    _ => return None,
+                })
+            });
+            match c {
+                '\\' => consumed.combine(|_| back_slash_char.parse_stream(input)),
+                '"' => Err(Consumed::Empty(I::Error::empty(input.position()).into())),
+                _ => Ok((c, consumed)),
+            }
+        })
     }
 
-    fn object() -> JsonParser<Value, I> {
-        fn_parser(Json::<I>::object_, "object")
+    fn string() -> impl Parser<Input = I, Output = String> {
+        between(char('"'), lex(char('"')), many(Json::<I>::char())).expected("string")
     }
-    fn object_(input: &mut I) -> ParseResult<Value, I> {
+
+    fn object() -> impl Parser<Input = I, Output = Value> {
         let field = (Json::<I>::string(), lex(char(':')), Json::<I>::value()).map(|t| (t.0, t.2));
         let fields = sep_by(field, lex(char(',')));
         between(lex(char('{')), lex(char('}')), fields)
             .map(Value::Object)
-            .parse_lazy(input)
-            .into()
+            .expected("object")
     }
 
-    fn value() -> FnPtrParser<Value, I> {
-        parser(Json::<I>::value_)
+    #[inline(always)]
+    fn value() -> impl Parser<Input = I, Output = Value> {
+        value_()
     }
-    #[allow(unconditional_recursion)]
-    fn value_(input: &mut I) -> ParseResult<Value, I> {
+}
+
+parser!{
+    #[inline(always)]
+    fn value_[I]()(I) -> Value
+        where [ I: Stream<Item = char> ]
+    {
         let array = between(
             lex(char('[')),
             lex(char(']')),
@@ -177,8 +160,7 @@ where
             lex(string("false").map(|_| Value::Bool(false))),
             lex(string("true").map(|_| Value::Bool(true))),
             lex(string("null").map(|_| Value::Null)),
-        )).parse_lazy(input)
-            .into()
+        ))
     }
 }
 
