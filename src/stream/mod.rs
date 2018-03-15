@@ -83,11 +83,12 @@ pub trait Positioned: StreamOnce {
 /// fn main() {
 /// }
 /// ```
-pub type StreamErrorFor<I> = <<I as StreamOnce>::Error as ParseError<
-    <I as StreamOnce>::Item,
-    <I as StreamOnce>::Range,
-    <I as StreamOnce>::Position,
->>::StreamError;
+pub type StreamErrorFor<I> =
+    <<I as StreamOnce>::Error as ParseError<
+        <I as StreamOnce>::Item,
+        <I as StreamOnce>::Range,
+        <I as StreamOnce>::Position,
+    >>::StreamError;
 
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {

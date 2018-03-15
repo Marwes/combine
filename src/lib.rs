@@ -38,7 +38,7 @@
 //!
 //! This library is currently split into a few core modules:
 //!
-//! * [`parser`] is where you will find all the parsers that combine provides. It contains the core
+//! * [`parser`][mod parser] is where you will find all the parsers that combine provides. It contains the core
 //! [`Parser`] trait as well as several submodules such as `sequence` or `choice` which each
 //! contain several parsers aimed at a specific niche.
 //!
@@ -147,7 +147,7 @@
 //! ```
 //!
 //! [`combinator`]: combinator/index.html
-//! [`parser`]: parser/index.html
+//! [mod parser]: parser/index.html
 //! [`error`]: error/index.html
 //! [`char`]: parser/char/index.html
 //! [`byte`]: parser/byte/index.html
@@ -626,9 +626,9 @@ macro_rules! combine_parser_impl {
     };
 }
 
-pub extern crate byteorder;
 #[cfg(feature = "bytes")]
 extern crate bytes;
+pub extern crate byteorder;
 pub extern crate either;
 
 extern crate memchr;
