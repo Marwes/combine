@@ -16,12 +16,11 @@ use combine::error::{Consumed, ParseError, ParseResult};
 
 use combine::parser::char::{char, digit, spaces, string, Spaces};
 use combine::parser::error::Expected;
-use combine::parser::item::any;
+use combine::parser::item::{any, satisfy, satisfy_map};
 use combine::parser::sequence::{between, Skip};
 use combine::parser::repeat::{many, sep_by, many1};
 use combine::parser::choice::{choice, optional};
 use combine::parser::function::{parser, FnParser};
-use combine::parser::item::satisfy;
 
 use combine::stream::IteratorStream;
 use combine::stream::state::{SourcePosition, State};
@@ -119,8 +118,8 @@ where
     }
     fn char_(input: &mut I) -> ParseResult<char, I> {
         let (c, consumed) = try!(any().parse_lazy(input).into());
-        let mut back_slash_char = satisfy(|c| "\"\\/bfnrt".chars().any(|x| x == c)).map(|c| {
-            match c {
+        let mut back_slash_char = satisfy_map(|c| {
+            Some(match c {
                 '"' => '"',
                 '\\' => '\\',
                 '/' => '/',
@@ -129,8 +128,8 @@ where
                 'n' => '\n',
                 'r' => '\r',
                 't' => '\t',
-                c => c, //Should never happen
-            }
+                _ => return None,
+            })
         });
         match c {
             '\\' => consumed.combine(|_| back_slash_char.parse_stream(input)),
