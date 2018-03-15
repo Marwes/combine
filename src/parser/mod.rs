@@ -14,6 +14,7 @@ use combinator::{and_then, expected, flat_map, map, message, then, then_partial,
 use self::sequence::{skip, with, Skip, With};
 use self::choice::{or, Or};
 
+/// Internal API. May break without a semver bump
 #[macro_export]
 #[doc(hidden)]
 macro_rules! impl_parser {
@@ -46,6 +47,7 @@ macro_rules! impl_parser {
 }
 }
 
+/// Internal API. May break without a semver bump
 #[macro_export]
 #[doc(hidden)]
 macro_rules! parse_mode {
@@ -101,15 +103,51 @@ pub trait Parser {
     type Input: Stream;
     /// The type which is returned if the parser is successful.
     type Output;
+
+    /// Determines the state necessary to resume parsing after more input is supplied.
+    ///
+    /// If partial parsing is not supported this can be set to `()`.
     type PartialState: Default;
 
-    /// Entry point of the parser. Takes some input and tries to parse it.
+    /// Entry point of the parser. Takes some input and tries to parse it, returning an easy to use
+    /// and format error if parsing did not succeed.
     ///
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
     /// This function wraps requires `Self::Input == easy::Stream<I>` which makes it return
-    /// return `easy::Errors` if an error occurs.
+    /// return `easy::Errors` if an error occurs. Due to this wrapping it is recommended that the
+    /// parser `Self` is written with a generic input type.
     ///
-    /// [`ParseError`] otherwise.
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate combine;
+    ///
+    /// use combine::{Parser, Stream};
+    /// use combine::parser::repeat::many1;
+    /// use combine::parser::char::letter;
+    ///
+    /// // Good!
+    /// parser!{
+    /// fn my_parser[I]()(I) -> String
+    ///     where [I: Stream<Item=char>]
+    /// {
+    ///     many1(letter())
+    /// }
+    /// }
+    ///
+    /// // Won't compile with `easy_parse` since it is specialized on `&str`
+    /// parser!{
+    /// fn my_parser2['a]()(&'a str) -> String
+    /// {
+    ///     many1(letter())
+    /// }
+    /// }
+    ///
+    /// fn main() {
+    ///     assert_eq!(my_parser().parse("abc"), Ok(("abc".to_string(), "")));
+    ///     // Would fail to compile if uncommented
+    ///     // my_parser2().parse("abc")
+    /// }
+    /// ```
     ///
     /// [`ParseError`]: struct.ParseError.html
     #[cfg(feature = "std")]
@@ -125,17 +163,22 @@ pub trait Parser {
         I::Position: Default,
         Self: Sized + Parser<Input = ::easy::Stream<I>>,
     {
-        let mut input = ::easy::Stream(input);
-        match self.parse_stream(&mut input) {
-            Ok((v, _)) => Ok((v, input.0)),
-            Err(error) => Err(error.into_inner().error),
-        }
+        let input = ::easy::Stream(input);
+        self.parse(input).map(|(v, input)| (v, input.0))
     }
 
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
     /// error otherwise.
+    ///
+    /// This is the most straightforward entry point to a parser. Since it does not decorate the
+    /// input in any way you may find the error messages a hard to read. If that is the case you
+    /// may want to try wrapping your input with an [`easy::Stream`][] or call [`easy_parse`][]
+    /// instead.
+    ///
+    /// [`easy::Stream`]: ../easy/struct.Stream.html
+    /// [`easy_parse`]: trait.Parser.html#method.easy_parse
     fn parse(
         &mut self,
         mut input: Self::Input,
@@ -286,6 +329,7 @@ pub trait Parser {
         self.parse_lazy(input)
     }
 
+    /// Internal API. May break without a semver bump
     #[doc(hidden)]
     #[inline(always)]
     fn parse_mode<M>(
@@ -305,6 +349,7 @@ pub trait Parser {
         }
     }
 
+    /// Internal API. May break without a semver bump
     #[doc(hidden)]
     #[inline(always)]
     fn parse_mode_impl<M>(
@@ -324,6 +369,7 @@ pub trait Parser {
         }
     }
 
+    /// Internal API. May break without a semver bump
     #[doc(hidden)]
     #[inline(always)]
     fn parse_consumed_mode<M>(
@@ -613,7 +659,8 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output) -> Result<B, <Self::Input as StreamOnce>::Error>,
+        F: FnMut(Self::Output)
+            -> Result<B, <Self::Input as StreamOnce>::Error>,
     {
         flat_map(self, f)
     }
@@ -943,6 +990,8 @@ where
     }
 }
 
+/// Internal API. May break without a semver bump
+#[doc(hidden)]
 /// Specifies whether the parser must check for partial state that must be resumed
 pub trait ParseMode: Copy {
     /// If `true` then the parser has no previous state to resume otherwise the parser *might* have
@@ -975,6 +1024,8 @@ pub trait ParseMode: Copy {
     }
 }
 
+/// Internal API. May break without a semver bump
+#[doc(hidden)]
 #[derive(Copy, Clone)]
 pub struct FirstMode;
 impl ParseMode for FirstMode {
@@ -982,11 +1033,12 @@ impl ParseMode for FirstMode {
     fn is_first(self) -> bool {
         true
     }
-
     #[inline(always)]
     fn set_first(&mut self) {}
 }
 
+/// Internal API. May break without a semver bump
+#[doc(hidden)]
 #[derive(Copy, Clone, Default)]
 pub struct PartialMode {
     pub first: bool,

@@ -240,7 +240,8 @@ where
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     P: Parser,
-    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
+    F: FnMut(P::Output)
+        -> Result<B, <P::Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }

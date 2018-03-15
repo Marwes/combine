@@ -83,12 +83,10 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        satisfy_impl(input, |c| {
-            if (self.predicate)(c.clone()) {
-                Some(c)
-            } else {
-                None
-            }
+        satisfy_impl(input, |c| if (self.predicate)(c.clone()) {
+            Some(c)
+        } else {
+            None
         })
     }
 }

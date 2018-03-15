@@ -147,10 +147,9 @@ where
                 .inspect(|_| *count += 1),
         );
         if *count < self.min {
-            let err = StreamError::message_message(format_args!(
-                "expected {} more elements",
-                self.min - *count
-            ));
+            let err = StreamError::message_message(
+                format_args!("expected {} more elements", self.min - *count),
+            );
             iter.fail(err)
         } else {
             iter.into_result_fast(elements).map(|x| {
@@ -271,13 +270,11 @@ where
 
     fn into_result_<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => {
-                if self.consumed {
-                    ConsumedOk(value)
-                } else {
-                    EmptyOk(value)
-                }
-            }
+            State::Ok | State::EmptyErr => if self.consumed {
+                ConsumedOk(value)
+            } else {
+                EmptyOk(value)
+            },
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
@@ -306,7 +303,7 @@ where
             <P::Input as StreamOnce>::Range,
             <P::Input as StreamOnce>::Position,
         >>::StreamError,
-    ) -> ConsumedResult<T, P::Input> {
+) -> ConsumedResult<T, P::Input>{
         match self.state {
             State::Ok | State::EmptyErr => {
                 let err = <P::Input as StreamOnce>::Error::from_error(self.input.position(), err);

@@ -662,6 +662,6 @@ mod tests {
 
     #[test]
     fn choice_single_parser() {
-        assert!(choice((any(),)).easy_parse("a").is_ok());
+        assert!(choice((any(),),).easy_parse("a").is_ok());
     }
 }
