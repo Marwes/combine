@@ -659,8 +659,7 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output)
-            -> Result<B, <Self::Input as StreamOnce>::Error>,
+        F: FnMut(Self::Output) -> Result<B, <Self::Input as StreamOnce>::Error>,
     {
         flat_map(self, f)
     }

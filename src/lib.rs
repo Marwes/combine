@@ -1,5 +1,6 @@
-//! This crate contains parser combinators, roughly based on the Haskell library
-//! [parsec](http://hackage.haskell.org/package/parsec).
+//! This crate contains parser combinators, roughly based on the Haskell libraries
+//! [parsec](http://hackage.haskell.org/package/parsec) and
+//! [attparsec](https://hackage.haskell.org/package/attoparsec).
 //!
 //! A parser in this library can be described as a function which takes some input and if it
 //! is succesful, returns a value together with the remaining input.
@@ -80,12 +81,13 @@
 //! }
 //! ```
 //!
-//! If we need a parser that is mutually recursive we can define a free function which internally
-//! can in turn be used as a parser by using the [`parser`][fn parser] function which turns a
-//! function with the correct signature into a parser. In this case we define `expr` to work on any
-//! type of [`Stream`] which is combine's way of abstracting over different data sources such as
-//! array slices, string slices, iterators etc. If instead you would only need to parse string
-//! already in memory you could define `expr` as `fn expr(input: &str) -> ParseResult<Expr, &str>`
+//! If we need a parser that is mutually recursive or if we want to export a reusable parser the
+//! [`parser!`] macro can be used. In effect it makes it possible to return a parser without naming
+//! the type of the parser (which can be very large due to combine's trait based approach). While
+//! it is possible to do avoid naming the type without the macro those solutions require either allocation
+//! (`Box<Parser<Input = I, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
+//! macro thus threads the needle and makes it possible to have non-allocating, anonymous parsers
+//! on stable rust.
 //!
 //! ```
 //! #[macro_use]
@@ -104,7 +106,8 @@
 //! }
 //!
 //! // The `parser!` macro can be used to define parser producing functions in most cases
-//! // (for more advanced uses standalone functions can be defined to handle parsing)
+//! // (for more advanced uses standalone functions or explicit implementation of `Parser`
+//! // can be done to handle parsing)
 //! parser!{
 //!    fn expr[I]()(I) -> Expr
 //!     where [I: Stream<Item=char>]
@@ -148,6 +151,7 @@
 //!
 //! [`combinator`]: combinator/index.html
 //! [mod parser]: parser/index.html
+//! [`easy`]: easy/index.html
 //! [`error`]: error/index.html
 //! [`char`]: parser/char/index.html
 //! [`byte`]: parser/byte/index.html
@@ -160,6 +164,7 @@
 //! [`RangeStream`]: stream/trait.RangeStream.html
 //! [`Parser`]: parser/trait.Parser.html
 //! [fn parser]: parser/function/fn.parser.html
+//! [`parser!`]: macro.parser.html
 // inline(always) is only used on trivial functions returning parsers
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -169,7 +174,7 @@ pub use parser::Parser;
 #[doc(inline)]
 pub use error::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
-pub use stream::{Positioned, RangeStream, Stream, StreamOnce};
+pub use stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
 #[doc(inline)]
 pub use combinator::{any, between, count, count_min_max, env_parser, eof, look_ahead, many,
@@ -626,9 +631,9 @@ macro_rules! combine_parser_impl {
     };
 }
 
+pub extern crate byteorder;
 #[cfg(feature = "bytes")]
 extern crate bytes;
-pub extern crate byteorder;
 pub extern crate either;
 
 extern crate memchr;
