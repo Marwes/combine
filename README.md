@@ -10,11 +10,16 @@ extern crate combine;
 use combine::{many1, Parser, sep_by};
 use combine::char::{letter, space};
 
+// Construct a parser that parses *many* (and at least *1) *letter*s
 let word = many1(letter());
 
+// Construct a parser that parses many *word*s where each word is *separated by* a (white)*space*
 let mut parser = sep_by(word, space())
+    // Combine can collect into any type implementing `Default + Extend` so we need to assist rustc
+    // by telling it that `sep_by` should collect into a `Vec` and `many1` should collect to a `String`
     .map(|mut words: Vec<String>| words.pop());
 let result = parser.parse("Pick up that word!");
+// `parse` returns `Result` where `Ok` contains a tuple of the parsers output and any remaining input.
 assert_eq!(result, Ok((Some("word".to_string()), "!")));
 ```
 
@@ -43,6 +48,10 @@ If you end up trying it I welcome any feedback from your experience with it. I a
 ### Why does my errors contain inscrutable positions?
 
 Since `combine` aims to crate parsers with little to no overhead streams over `&str` and `&[T]` do not carry any extra position information but instead only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `PointerOffset` which represents the position or wrap your stream with `State`.
+
+### How does it compare to nom?
+
+https://github.com/Marwes/combine/issues/73 contains discussion and links to comparisons to [nom](https://github.com/Geal/nom).
 
 ## Parsers written in combine
 
@@ -75,9 +84,7 @@ do so to the 2.x branch or submit the PR to master and request that it be backpo
 
 The easiest way to contribute is to just open an issue about any problems you encounter using combine but if you are interested in adding something to the library here is a list of some of the easier things to work on to get started.
 
-* __Add additional parsers__ There is a list of parsers which aren't implemented [here][add parsers] but if you have a suggestion for another parser just leave a suggestion on the issue itself.
+* __Add additional parsers__ If you have a suggestion for another parser just open an issue or a PR with an implementation.
 * __Add additional examples__ More examples for using combine will always be useful!
 * __Add and improve the docs__ Not the fanciest of work but one cannot overstate the importance of good documentation.
-
-[add parsers]: https://github.com/Marwes/combine/issues/2
 

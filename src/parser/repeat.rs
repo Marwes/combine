@@ -271,13 +271,11 @@ where
 
     fn into_result_<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => {
-                if self.consumed {
-                    ConsumedOk(value)
-                } else {
-                    EmptyOk(value)
-                }
-            }
+            State::Ok | State::EmptyErr => if self.consumed {
+                ConsumedOk(value)
+            } else {
+                EmptyOk(value)
+            },
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
