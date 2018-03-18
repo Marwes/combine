@@ -236,6 +236,11 @@ macro_rules! impl_token_parser {
 /// The expression which creates the parser should have no side effects as it may be called
 /// multiple times even during a single parse attempt.
 ///
+/// NOTE: If you are using rust nightly you can use `impl Trait` instead. See the [json parser][] for
+/// an example.
+///
+/// [json parser]:https://github.com/Marwes/combine/blob/master/benches/json.rs
+///
 /// ```
 /// #[macro_use]
 /// extern crate combine;
