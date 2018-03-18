@@ -1,3 +1,15 @@
+<a name="v3.0.0"></a>
+## v3.0.0 (2018-03-18)
+
+3.0.0 is the final stabilization of all the changes made in the 3.x-alpha/beta releases. You can read more about these changes
+at https://marwes.github.io/2018/02/08/combine-3.html and https://www.reddit.com/r/rust/comments/6s792a/combine_250_and_300alpha1/
+
+#### Features
+
+*   Let single element tuples work as sequence and choice parsers ([81e34d2d](https://github.com/Marwes/combine/commit/81e34d2d8d823b9962f4036e7576353252f211b9))
+
+
+
 <a name="3.0.0-beta.1"></a>
 ## v3.0.0-beta.1 (2018-02-02)
 
