@@ -292,7 +292,7 @@ where
 
 /// Parses multiple tokens.
 ///
-/// Consumes items from the input and comparse them to the values from `tokens` using the
+/// Consumes items from the input and compares them to the values from `tokens` using the
 /// comparison function `cmp`. Succeeds if all the items from `tokens` are matched in the input
 /// stream and fails otherwise with `expected` used as part of the error.
 ///

@@ -739,7 +739,7 @@ pub trait Parser {
     /// assert_eq!(result, Ok((1234, "")));
     /// let result = parser.easy_parse(State::new("999999999999999999999999"));
     /// assert!(result.is_err());
-    /// // Errors are report as if they occured at the start of the parse
+    /// // Errors are report as if they occurred at the start of the parse
     /// assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
     /// # }
     /// ```

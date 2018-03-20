@@ -192,7 +192,7 @@ where
     RecognizeWithValue(parser)
 }
 
-/// Zero-copy parser which reads a range of length `i.len()` and succeds if `i` is equal to that
+/// Zero-copy parser which reads a range of length `i.len()` and succeeds if `i` is equal to that
 /// range.
 ///
 /// ```

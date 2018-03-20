@@ -1,9 +1,9 @@
 //! This crate contains parser combinators, roughly based on the Haskell libraries
 //! [parsec](http://hackage.haskell.org/package/parsec) and
-//! [attparsec](https://hackage.haskell.org/package/attoparsec).
+//! [attoparsec](https://hackage.haskell.org/package/attoparsec).
 //!
 //! A parser in this library can be described as a function which takes some input and if it
-//! is succesful, returns a value together with the remaining input.
+//! is successful, returns a value together with the remaining input.
 //! A parser combinator is a function which takes one or more parsers and returns a new parser.
 //! For instance the [`many`] parser can be used to convert a parser for single digits into one that
 //! parses multiple digits. By modeling parsers in this way it becomes easy to compose complex
@@ -249,7 +249,7 @@ macro_rules! impl_token_parser {
 /// use combine::error::ParseError;
 ///
 /// parser!{
-///     /// `[I]` represents a normal type parametera and lifetime declaration for the function
+///     /// `[I]` represents a normal type parameters and lifetime declaration for the function
 ///     /// It gets expanded to `<I>`
 ///     fn integer[I]()(I) -> i32
 ///     where [

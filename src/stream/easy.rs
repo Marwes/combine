@@ -550,8 +550,8 @@ impl<T, R> Error<T, R> {
 pub type ParseError<S> =
     Errors<<S as StreamOnce>::Item, <S as StreamOnce>::Range, <S as StreamOnce>::Position>;
 
-/// Struct which hold information about an error that occured at a specific position.
-/// Can hold multiple instances of `Error` if more that one error occured in the same position.
+/// Struct which hold information about an error that occurred at a specific position.
+/// Can hold multiple instances of `Error` if more that one error occurred in the same position.
 #[derive(Debug, PartialEq)]
 pub struct Errors<I, R, P> {
     /// The position where the error occurred
@@ -605,7 +605,7 @@ impl<I, R, P> Errors<I, R, P> {
         }
     }
 
-    /// Remvoes all `Expected` errors in `self` and adds `info` instead.
+    /// Removes all `Expected` errors in `self` and adds `info` instead.
     pub fn set_expected(&mut self, info: Info<I, R>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {

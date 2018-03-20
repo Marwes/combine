@@ -4,7 +4,7 @@ use error::StreamError;
 use stream::{Positioned, Resetable, StreamErrorFor, StreamOnce};
 
 /// `Stream` which buffers items from an instance of `StreamOnce` into a ring buffer.
-/// Instancs of `StreamOnce` which is not able to implement `Resetable` (such as `ReadStream`) may
+/// Instances of `StreamOnce` which is not able to implement `Resetable` (such as `ReadStream`) may
 /// use this as a way to implement `Resetable` and become a full `Stream` instance.
 ///
 /// The drawback is that the buffer only stores a limited number of items which limits how many
@@ -18,7 +18,7 @@ use stream::{Positioned, Resetable, StreamErrorFor, StreamOnce};
 /// ```ignore
 /// // DO
 /// BufferedStream::new(easy::Stream(..), ..)
-/// // DONT
+/// // DON'T
 /// easy::Stream(BufferedStream::new(.., ..))
 /// parser.easy_parse(BufferedStream::new(..));
 /// ```
@@ -75,7 +75,7 @@ where
         } else if self.offset < self.buffer_offset - self.buffer.len() {
             self.buffer
                 .front()
-                .expect("Atleast 1 element in the buffer")
+                .expect("At least 1 element in the buffer")
                 .1
                 .clone()
         } else {

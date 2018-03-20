@@ -195,7 +195,7 @@ impl<T> Consumed<T> {
     }
 }
 
-/// A type alias over the specific `Result` type used by parsers to indicate wether they were
+/// A type alias over the specific `Result` type used by parsers to indicate whether they were
 /// successful or not.
 /// `O` is the type that is output on success.
 /// `I` is the specific stream type used in the parser.
