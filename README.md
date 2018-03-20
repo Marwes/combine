@@ -35,6 +35,14 @@ Larger examples can be found in the [examples][], [tests][] and [benches][] fold
 
 [crates.io](https://crates.io/crates/combine)
 
+## Features
+
+* __Parse arbitrary streams__ - Combine can parse anything from `&[u8]` and `&str` to iterators and `Read` instances. If none of the builtin streams fit your use case you can even implement a couple traits your self to create your own custom [stream](https://docs.rs/combine/3.*/combine/stream/index.html)!
+
+* __zero-copy parsing__ - When parsing in memory data, combine can parse without copying. See the [range module](https://docs.rs/combine/3.*/combine/parser/range/index.html) for parsers specialized for zero-copy parsing.
+
+* __partial parsing__ - Combine parsers can be stopped at any point during parsing and later be resumed without losing any progress. This makes it possible to start parsing partial data coming from and io device such as a socket without worrying about if enough data is present to complete the parse. If more data is needed the parser will stop and may be resumed at the same point once more data is available. See the [async example](https://github.com/Marwes/combine/blob/master/examples/async.rs) for an example and [this post](https://marwes.github.io/2018/02/08/combine-3.html) for an introduction.
+
 ## About
 
 A parser combinator is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](https://marwes.github.io/combine/combine/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times. Thanks to the modularity that parser combinators gives it is possible to define parsers for a wide range of tasks without needing to implement the low level plumbing while still having the full power of Rust when you need it. 
