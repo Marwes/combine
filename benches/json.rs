@@ -146,7 +146,7 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    let field = (json_string(), lex(char(':')), json_value()).map(|t| (t.0, t.2));
+    let field = (json_string(), lex(char(':')), json_value_()).map(|t| (t.0, t.2));
     let fields = sep_by(field, lex(char(',')));
     between(lex(char('{')), lex(char('}')), fields)
         .map(Value::Object)
@@ -159,7 +159,7 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    json_value_()
+    spaces().with(json_value_())
 }
 
 // We need to use `parser!` to break the recursive use of `value` to prevent the returned parser
@@ -172,7 +172,7 @@ parser! {
         let array = between(
             lex(char('[')),
             lex(char(']')),
-            sep_by(json_value(), lex(char(','))),
+            sep_by(json_value_(), lex(char(','))),
         ).map(Value::Array);
 
         choice((
@@ -191,7 +191,7 @@ parser! {
 fn json_test() {
     use self::Value::*;
 
-    let input = r#"{
+    let input = r#" {
     "array": [1, ""],
     "object": {},
     "number": 3.14,
