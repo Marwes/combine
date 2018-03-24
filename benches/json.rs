@@ -33,13 +33,16 @@ use {
 };
 
 #[derive(PartialEq, Debug)]
-enum Value {
+enum Value<S>
+where
+    S: Eq + Hash,
+{
     Number(f64),
-    String(String),
+    String(S),
     Bool(bool),
     Null,
-    Object(HashMap<String, Value>),
-    Array(Vec<Value>),
+    Object(HashMap<S, Value<S>>),
+    Array(Vec<Value<S>>),
 }
 
 fn lex<Input, P>(p: P) -> impl Parser<Input, Output = P::Output>
@@ -133,18 +136,23 @@ where
     })
 }
 
-fn json_string<Input>() -> impl Parser<Input, Output = String>
+fn json_string<'a, I>() -> impl Parser<Input = I, Output = &'a str>
 where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    I: RangeStream<Item = char, Range = &'a str>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    between(char('"'), lex(char('"')), many(json_char())).expected("string")
+    between(
+        char('"'),
+        lex(char('"')),
+        range::recognize(skip_many(json_char())),
+    )
+    .expected("string")
 }
 
-fn object<Input>() -> impl Parser<Input, Output = Value>
+fn object<'a, I>() -> impl Parser<Input = I, Output = Value<&'a str>>
 where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    I: RangeStream<Item = char, Range = &'a str>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     let field = (json_string(), lex(char(':')), json_value_()).map(|t| (t.0, t.2));
     let fields = sep_by(field, lex(char(',')));
@@ -153,11 +161,11 @@ where
         .expected("object")
 }
 
-#[inline]
-fn json_value<Input>() -> impl Parser<Input, Output = Value>
+#[inline(always)]
+fn json_value<'a, I>() -> impl Parser<Input = I, Output = Value<&'a str>>
 where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    I: RangeStream<Item = char, Range = &'a str>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     spaces().with(json_value_())
 }
@@ -165,9 +173,9 @@ where
 // We need to use `parser!` to break the recursive use of `value` to prevent the returned parser
 // from containing itself
 parser! {
-    #[inline]
-    fn json_value_[Input]()(Input) -> Value
-        where [ Input: Stream<Token = char> ]
+    #[inline(always)]
+    fn json_value_['a, I]()(I) -> Value<I::Range>
+        where [ I: RangeStream<Item = char, Range = &'a str> ]
     {
         let array = between(
             lex(char('[')),
@@ -238,7 +246,8 @@ fn test_data() -> String {
     data
 }
 
-fn bench_json(bencher: &mut Bencher<'_>) {
+/*
+fn bench_json(bencher: &mut Bencher) {
     let data = test_data();
     let mut parser = json_value();
     match parser.easy_parse(position::Stream::new(&data[..])) {
@@ -254,6 +263,7 @@ fn bench_json(bencher: &mut Bencher<'_>) {
         black_box(result)
     });
 }
+*/
 
 fn bench_json_core_error(bencher: &mut Bencher<'_>) {
     let data = test_data();
@@ -289,7 +299,9 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher<'_>) {
     });
 }
 
-fn bench_buffered_json(bencher: &mut Bencher<'_>) {
+/*
+fn bench_buffered_json(bencher: &mut Bencher) {
+>>>>>>> a7e27a0 (Store json strings as &str to be compatible with other benchmarks)
     let data = test_data();
     bencher.iter(|| {
         let buffer =
@@ -311,15 +323,12 @@ fn bench_buffered_json(bencher: &mut Bencher<'_>) {
     });
 }
 
-fn bench(c: &mut Criterion) {
-    c.bench_function("json", bench_json);
-    c.bench_function("json_core_error", bench_json_core_error);
-    c.bench_function(
-        "json_core_error_no_position",
-        bench_json_core_error_no_position,
-    );
-    c.bench_function("buffered_json", bench_buffered_json);
-}
+*/
 
-criterion_group!(json, bench);
-criterion_main!(json);
+benchmark_group!(
+    json,
+    // bench_json,
+    // bench_json_core_error,
+    bench_json_core_error_no_position // bench_buffered_json
+);
+benchmark_main!(json);
