@@ -9,25 +9,23 @@ extern crate criterion;
 #[macro_use]
 extern crate combine;
 
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{collections::HashMap, fs::File, hash::Hash, io::Read, path::Path};
 
 use {
     combine::{
         error::{Commit, ParseError},
+        one_of,
         parser::{
             char::{char, digit, spaces, string},
             choice::{choice, optional},
             function::parser,
-            repeat::{many, many1, sep_by},
+            range,
+            repeat::{sep_by, skip_many, skip_many1},
             sequence::between,
-            token::{any, satisfy, satisfy_map},
+            token::{any, satisfy_map},
         },
-        stream::{
-            buffered,
-            position::{self, SourcePosition},
-            IteratorStream,
-        },
-        EasyParser, Parser, Stream, StreamOnce,
+        stream::position,
+        EasyParser, Parser, RangeStream, Stream, StreamOnce,
     },
     criterion::{black_box, Bencher, Criterion},
 };
@@ -45,6 +43,9 @@ where
     Array(Vec<Value<S>>),
 }
 
+trait Captures<'a> {}
+impl<T> Captures<'_> for T {}
+
 fn lex<Input, P>(p: P) -> impl Parser<Input, Output = P::Output>
 where
     P: Parser<Input>,
@@ -58,53 +59,24 @@ where
     p.skip(spaces())
 }
 
-fn integer<Input>() -> impl Parser<Input, Output = i64>
+fn number<'a, I>() -> impl Parser<I, Output = f64> + Captures<'a>
 where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    I: RangeStream<Token = char, Range = &'a str>,
+    I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
-    lex(many1(digit()))
-        .map(|s: String| {
-            let mut n = 0;
-            for c in s.chars() {
-                n = n * 10 + (c as i64 - '0' as i64);
-            }
-            n
-        })
-        .expected("integer")
-}
-
-fn number<Input>() -> impl Parser<Input, Output = f64>
-where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-{
-    let i = char('0').map(|_| 0.0).or(integer().map(|x| x as f64));
-    let fractional = many(digit()).map(|digits: String| {
-        let mut magnitude = 1.0;
-        digits.chars().fold(0.0, |acc, d| {
-            magnitude /= 10.0;
-            match d.to_digit(10) {
-                Some(d) => acc + (d as f64) * magnitude,
-                None => panic!("Not a digit"),
-            }
-        })
-    });
-
-    let exp = satisfy(|c| c == 'e' || c == 'E').with(optional(char('-')).and(integer()));
-    lex(optional(char('-'))
-        .and(i)
-        .map(|(sign, n)| if sign.is_some() { -n } else { n })
-        .and(optional(char('.')).with(fractional))
-        .map(|(x, y)| if x >= 0.0 { x + y } else { x - y })
-        .and(optional(exp))
-        .map(|(n, exp_option)| match exp_option {
-            Some((sign, e)) => {
-                let e = if sign.is_some() { -e } else { e };
-                n * 10.0f64.powi(e as i32)
-            }
-            None => n,
-        }))
+    lex(range::recognize((
+        optional(char('-')),
+        char('0').or((
+            skip_many1(digit()),
+            optional((char('.'), skip_many(digit()))),
+        )
+            .map(|_| '0')),
+        optional((
+            (one_of("eE".chars()), optional(one_of("+-".chars()))),
+            skip_many1(digit()),
+        )),
+    )))
+    .map(|s: &'a str| s.parse().unwrap())
     .expected("number")
 }
 
@@ -136,10 +108,10 @@ where
     })
 }
 
-fn json_string<'a, I>() -> impl Parser<Input = I, Output = &'a str>
+fn json_string<'a, I>() -> impl Parser<I, Output = &'a str>
 where
-    I: RangeStream<Item = char, Range = &'a str>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    I: RangeStream<Token = char, Range = &'a str>,
+    I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
     between(
         char('"'),
@@ -149,10 +121,10 @@ where
     .expected("string")
 }
 
-fn object<'a, I>() -> impl Parser<Input = I, Output = Value<&'a str>>
+fn object<'a, I>() -> impl Parser<I, Output = Value<&'a str>>
 where
-    I: RangeStream<Item = char, Range = &'a str>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    I: RangeStream<Token = char, Range = &'a str>,
+    I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
     let field = (json_string(), lex(char(':')), json_value_()).map(|t| (t.0, t.2));
     let fields = sep_by(field, lex(char(',')));
@@ -162,10 +134,10 @@ where
 }
 
 #[inline(always)]
-fn json_value<'a, I>() -> impl Parser<Input = I, Output = Value<&'a str>>
+fn json_value<'a, I>() -> impl Parser<I, Output = Value<&'a str>>
 where
-    I: RangeStream<Item = char, Range = &'a str>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    I: RangeStream<Token = char, Range = &'a str>,
+    I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
     spaces().with(json_value_())
 }
@@ -175,7 +147,7 @@ where
 parser! {
     #[inline(always)]
     fn json_value_['a, I]()(I) -> Value<I::Range>
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+        where [ I: RangeStream<Token = char, Range = &'a str> ]
     {
         let array = between(
             lex(char('[')),
@@ -246,7 +218,6 @@ fn test_data() -> String {
     data
 }
 
-/*
 fn bench_json(bencher: &mut Bencher) {
     let data = test_data();
     let mut parser = json_value();
@@ -263,7 +234,6 @@ fn bench_json(bencher: &mut Bencher) {
         black_box(result)
     });
 }
-*/
 
 fn bench_json_core_error(bencher: &mut Bencher<'_>) {
     let data = test_data();
@@ -301,7 +271,6 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher<'_>) {
 
 /*
 fn bench_buffered_json(bencher: &mut Bencher) {
->>>>>>> a7e27a0 (Store json strings as &str to be compatible with other benchmarks)
     let data = test_data();
     bencher.iter(|| {
         let buffer =
@@ -325,10 +294,15 @@ fn bench_buffered_json(bencher: &mut Bencher) {
 
 */
 
-benchmark_group!(
-    json,
-    // bench_json,
-    // bench_json_core_error,
-    bench_json_core_error_no_position // bench_buffered_json
-);
-benchmark_main!(json);
+fn bench(c: &mut Criterion) {
+    c.bench_function("json", bench_json);
+    c.bench_function("json_core_error", bench_json_core_error);
+    c.bench_function(
+        "json_core_error_no_position",
+        bench_json_core_error_no_position,
+    );
+    // c.bench_function("buffered_json", bench_buffered_json);
+}
+
+criterion_group!(json, bench);
+criterion_main!(json);
