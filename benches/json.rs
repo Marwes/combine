@@ -121,16 +121,27 @@ where
     .expected("string")
 }
 
-fn object<'a, I>() -> impl Parser<I, Output = Value<&'a str>>
+fn object<'a, I>() -> impl Parser<I, Output = HashMap<&'a str, Value<&'a str>>>
 where
     I: RangeStream<Token = char, Range = &'a str>,
     I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
     let field = (json_string(), lex(char(':')), json_value_()).map(|t| (t.0, t.2));
     let fields = sep_by(field, lex(char(',')));
-    between(lex(char('{')), lex(char('}')), fields)
-        .map(Value::Object)
-        .expected("object")
+    between(lex(char('{')), lex(char('}')), fields).expected("object")
+}
+
+fn array<'a, I>() -> impl Parser<Input = I, Output = Vec<Value<&'a str>>>
+where
+    I: RangeStream<Item = char, Range = &'a str>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    between(
+        lex(char('[')),
+        lex(char(']')),
+        sep_by(json_value_(), lex(char(','))),
+    )
+    .expected("array")
 }
 
 #[inline(always)]
@@ -149,16 +160,10 @@ parser! {
     fn json_value_['a, I]()(I) -> Value<I::Range>
         where [ I: RangeStream<Token = char, Range = &'a str> ]
     {
-        let array = between(
-            lex(char('[')),
-            lex(char(']')),
-            sep_by(json_value_(), lex(char(','))),
-        ).map(Value::Array);
-
         choice((
             json_string().map(Value::String),
-            object(),
-            array,
+            object().map(Value::Object),
+            array().map(Value::Array),
             number().map(Value::Number),
             lex(string("false").map(|_| Value::Bool(false))),
             lex(string("true").map(|_| Value::Bool(true))),
