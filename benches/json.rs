@@ -13,19 +13,17 @@ use std::{collections::HashMap, fs::File, hash::Hash, io::Read, path::Path};
 
 use {
     combine::{
-        error::{Commit, ParseError},
+        error::ParseError,
         one_of,
         parser::{
             char::{char, digit, spaces, string},
             choice::{choice, optional},
-            function::parser,
             range,
             repeat::{sep_by, skip_many, skip_many1},
             sequence::between,
-            token::{any, satisfy_map},
         },
         stream::position,
-        EasyParser, Parser, RangeStream, Stream, StreamOnce,
+        unexpected_any, value, EasyParser, Parser, RangeStream, Stream, StreamOnce,
     },
     criterion::{black_box, Bencher, Criterion},
 };
@@ -80,43 +78,42 @@ where
     .expected("number")
 }
 
-fn json_char<Input>() -> impl Parser<Input, Output = char>
-where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-{
-    parser(|input: &mut Input| {
-        let (c, committed) = any().parse_lazy(input).into_result()?;
-        let mut back_slash_char = satisfy_map(|c| {
-            Some(match c {
-                '"' => '"',
-                '\\' => '\\',
-                '/' => '/',
-                'b' => '\u{0008}',
-                'f' => '\u{000c}',
-                'n' => '\n',
-                'r' => '\r',
-                't' => '\t',
-                _ => return None,
-            })
-        });
-        match c {
-            '\\' => committed.combine(|_| back_slash_char.parse_stream(input).into_result()),
-            '"' => Err(Commit::Peek(Input::Error::empty(input.position()).into())),
-            _ => Ok((c, committed)),
-        }
-    })
-}
-
 fn json_string<'a, I>() -> impl Parser<I, Output = &'a str>
 where
     I: RangeStream<Token = char, Range = &'a str>,
     I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
+    let mut in_escape = false;
     between(
         char('"'),
         lex(char('"')),
-        range::recognize(skip_many(json_char())),
+        range::take_while(move |c| {
+            if in_escape {
+                match c {
+                    '"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't' => {
+                        in_escape = false;
+                        true
+                    }
+                    _ => false,
+                }
+            } else {
+                match c {
+                    '\\' => {
+                        in_escape = true;
+                        true
+                    }
+                    '"' => false,
+                    _ => true,
+                }
+            }
+        })
+        .then(|s: &'a str| {
+            if s.ends_with('\\') {
+                unexpected_any("escape character").left()
+            } else {
+                value(s).right()
+            }
+        }),
     )
     .expected("string")
 }
@@ -131,10 +128,10 @@ where
     between(lex(char('{')), lex(char('}')), fields).expected("object")
 }
 
-fn array<'a, I>() -> impl Parser<Input = I, Output = Vec<Value<&'a str>>>
+fn array<'a, I>() -> impl Parser<I, Output = Vec<Value<&'a str>>>
 where
-    I: RangeStream<Item = char, Range = &'a str>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    I: RangeStream<Token = char, Range = &'a str>,
+    I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
     between(
         lex(char('[')),
