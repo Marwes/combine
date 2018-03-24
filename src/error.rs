@@ -333,6 +333,24 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
         T: ParseError<Item, Range, Position>;
 }
 
+pub trait FromStreamError<Item, Range, Position> {
+    fn into_parse_error<T, Item2, Range2, Position2>(self) -> T
+    where
+        T: ParseError<Item2, Range2, Position2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+        Position2: From<Position>;
+}
+
+pub trait FromParseError<Item, Range, Position> {
+    fn into_parse_error<T, Item2, Range2, Position2>(self) -> T
+    where
+        T: ParseError<Item2, Range2, Position2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+        Position2: From<Position>;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UnexpectedParse {
     Eoi,

@@ -46,6 +46,7 @@ macro_rules! clone_resetable {
 pub mod buffered;
 /// Stateful stream wrappers.
 pub mod state;
+pub mod collect;
 #[cfg(feature = "std")]
 pub mod easy;
 
@@ -325,19 +326,23 @@ impl<'a> FullRangeStream for &'a str {
     }
 }
 
-impl<'a> Range for &'a str {
-    #[inline]
-    fn len(&self) -> usize {
-        str::len(self)
+macro_rules! impl_range {
+    (($($args: tt)*) $ty: ty, $len_ty: ty) => {
+        impl<$($args)*> Range for $ty {
+            #[inline]
+            fn len(&self) -> usize {
+                <$len_ty>::len(self)
+            }
+        }
     }
 }
 
-impl<'a, T> Range for &'a [T] {
-    #[inline]
-    fn len(&self) -> usize {
-        <[T]>::len(self)
-    }
-}
+impl_range!{('a) &'a str, str}
+impl_range!{('a, T) &'a [T], [T]}
+#[cfg(feature = "std")]
+impl_range!{() String, str}
+#[cfg(feature = "std")]
+impl_range!{(T) Vec<T>, [T]}
 
 impl<'a, T> RangeStreamOnce for &'a [T]
 where

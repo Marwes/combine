@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use error::StreamError;
 use stream::{Positioned, Resetable, StreamErrorFor, StreamOnce};
+use stream::collect::StreamDistance;
 
 /// `Stream` which buffers items from an instance of `StreamOnce` into a ring buffer.
 /// Instances of `StreamOnce` which is not able to implement `Resetable` (such as `ReadStream`) may
@@ -43,6 +44,15 @@ where
     }
     fn reset(&mut self, checkpoint: Self::Checkpoint) {
         self.offset = checkpoint;
+    }
+}
+
+impl<I> StreamDistance for BufferedStream<I>
+where
+    I: Positioned,
+{
+    fn distance(&self, checkpoint: &Self::Checkpoint) -> usize {
+        *checkpoint - self.offset
     }
 }
 
