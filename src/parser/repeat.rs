@@ -5,7 +5,7 @@ use lib::borrow::BorrowMut;
 use lib::mem;
 
 use Parser;
-use stream::{Positioned, Resetable, Stream, StreamOnce};
+use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
 use parser::sequence::With;
 use parser::choice::Or;
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
@@ -1091,4 +1091,126 @@ where
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
     Chainr1(parser, op)
+}
+
+#[derive(Copy, Clone)]
+pub struct TakeUntil<F, P> {
+    end: P,
+    _marker: PhantomData<fn() -> F>,
+}
+impl<F, P> Parser for TakeUntil<F, P>
+where
+    F: Extend<<P::Input as StreamOnce>::Item> + Default,
+    P: Parser,
+{
+    type Input = P::Input;
+    type Output = F;
+    type PartialState = (F, P::PartialState);
+
+    parse_mode!();
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let (ref mut output, ref mut end_state) = *state;
+
+        let mut consumed = Consumed::Empty(());
+        loop {
+            let before = input.checkpoint();
+            match self.end.parse_mode(mode, input, end_state).into() {
+                Ok((_, rest)) => {
+                    input.reset(before);
+                    return match consumed.merge(rest) {
+                        Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
+                        Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
+                    };
+                }
+                Err(Consumed::Empty(_)) => {
+                    input.reset(before);
+                    output.extend(Some(ctry!(uncons(input)).0));
+                    consumed = Consumed::Consumed(());
+                }
+                Err(Consumed::Consumed(e)) => {
+                    input.reset(before);
+                    return ConsumedErr(e.error);
+                }
+            };
+        }
+    }
+}
+
+/// Takes input until `end` is encountered or `end` indicates that it has consumed input before
+/// failing (`try` can be used to make it look like it has not consumed any input)
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::char;
+/// # use combine::parser::byte;
+/// # use combine::parser::combinator::try;
+/// # use combine::parser::repeat::take_until;
+/// # fn main() {
+///     let mut char_parser = take_until(char::digit());
+///     assert_eq!(char_parser.parse("abc123"), Ok(("abc".to_string(), "123")));
+///
+///     let mut byte_parser = take_until(byte::bytes(&b"TAG"[..]));
+///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok((b"123".to_vec(), &b"TAG"[..])));
+///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
+///
+///     // `try` must be used if the `end` should be consume input before failing
+///     let mut byte_parser = take_until(try(byte::bytes(&b"TAG"[..])));
+///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok((b"123TA".to_vec(), &b"TAG"[..])));
+/// }
+/// ```
+#[inline(always)]
+pub fn take_until<F, P>(end: P) -> TakeUntil<F, P>
+where
+    F: Extend<<P::Input as StreamOnce>::Item> + Default,
+    P: Parser,
+{
+    TakeUntil {
+        end,
+        _marker: PhantomData,
+    }
+}
+
+parser!{
+    #[derive(Copy, Clone)]
+    pub struct SkipUntil;
+    /// Skips input until `end` is encountered or `end` indicates that it has consumed input before
+    /// failing (`try` can be used to make it look like it has not consumed any input)
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::parser::char;
+    /// # use combine::parser::byte;
+    /// # use combine::parser::combinator::try;
+    /// # use combine::parser::repeat::skip_until;
+    /// # fn main() {
+    ///     let mut char_parser = skip_until(char::digit());
+    ///     assert_eq!(char_parser.parse("abc123"), Ok(((), "123")));
+    ///
+    ///     let mut byte_parser = skip_until(byte::bytes(&b"TAG"[..]));
+    ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
+    ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
+    ///
+    ///     // `try` must be used if the `end` should be consume input before failing
+    ///     let mut byte_parser = skip_until(try(byte::bytes(&b"TAG"[..])));
+    ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
+    /// }
+    /// ```
+    pub fn skip_until[P](end: P)(P::Input) -> ()
+    where [
+        P: Parser
+    ]
+    {
+        take_until::<Sink<_>, _>(end).with(value(()))
+    }
 }

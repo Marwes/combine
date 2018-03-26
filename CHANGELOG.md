@@ -1,3 +1,15 @@
+<a name="v3.1.0"></a>
+## v3.1.0 (2018-03-26)
+
+
+#### Features
+
+*   Allow the the `num` parsers to be used without RangeStream ([b1cb0668](https://github.com/Marwes/combine/commit/b1cb0668cc13df3a2f1b6cc35f221089d0279579))
+*   Add the take_until parser ([7b03b596](https://github.com/Marwes/combine/commit/7b03b596a58e4cdbe84d6008e277f0cc57394fae))
+*   Allow try parsers to be used with partial parsing ([cb2da7ad](https://github.com/Marwes/combine/commit/cb2da7ad74758bc89b17bedd90f2f53ea9f83e7d))
+
+
+
 <a name="v3.0.0"></a>
 ## v3.0.0 (2018-03-18)
 
