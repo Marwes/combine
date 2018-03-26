@@ -634,8 +634,11 @@ where
     ///
     /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
     ///     such as `BufferedStreamRef` and `State` to become a `Stream` which can be parsed
-    pub fn new(iter: I) -> IteratorStream<I> {
-        IteratorStream(iter)
+    pub fn new<T>(iter: T) -> IteratorStream<I>
+    where
+        T: IntoIterator<IntoIter = I, Item = I::Item>,
+    {
+        IteratorStream(iter.into_iter())
     }
 }
 

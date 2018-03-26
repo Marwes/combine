@@ -541,8 +541,7 @@ take_until!{
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
-    use stream::RangeStream;
-    use parser::range::take;
+    use stream::uncons;
 
     use byteorder::{ByteOrder, BE, LE};
 
@@ -559,7 +558,7 @@ pub mod num {
 
             impl<'a, B, I> Parser for $type_name<B, I>
             where
-                I: RangeStream<Range = &'a [u8]>,
+                I: Stream<Item = u8>,
                 I::Error: ParseError<I::Item, I::Range, I::Position>,
                 B: ByteOrder,
             {
@@ -572,12 +571,11 @@ pub mod num {
                     &mut self,
                     input: &mut Self::Input
                     ) -> ConsumedResult<Self::Output, Self::Input> {
-                    take(size_of::<Self::Output>())
-                        .map(B::$read_name)
-                        .parse_lazy(input)
-                }
-                fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-                    take::<I>(size_of::<Self::Output>()).add_error(errors)
+                    let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
+                    for elem in &mut *buffer {
+                        *elem = ctry!(uncons(input)).0;
+                    }
+                    ConsumedOk(B::$read_name(buffer))
                 }
             }
 
@@ -585,7 +583,7 @@ pub mod num {
             #[inline(always)]
             pub fn $func_name<'a, B, I>() -> $type_name<B, I>
             where
-                I: RangeStream<Range = &'a[u8]>,
+                I: Stream<Item = u8>,
                 I::Error: ParseError<I::Item, I::Range, I::Position>,
                 B: ByteOrder,
             {
@@ -596,7 +594,7 @@ pub mod num {
             #[inline(always)]
             pub fn $be_name<'a, I>() -> $type_name<BE, I>
             where
-                I: RangeStream<Range = &'a[u8]>,
+                I: Stream<Item = u8>,
                 I::Error: ParseError<I::Item, I::Range, I::Position>,
             {
                 $func_name()
@@ -606,7 +604,7 @@ pub mod num {
             #[inline(always)]
             pub fn $le_name<'a, I>() -> $type_name<LE, I>
             where
-                I: RangeStream<Range = &'a[u8]>,
+                I: Stream<Item = u8>,
                 I::Error: ParseError<I::Item, I::Range, I::Position>,
             {
                 $func_name()
@@ -725,4 +723,47 @@ pub mod num {
         /// ```
         pub F64, f64, be_f64, le_f64, read_f64
     );
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use stream::state::State;
+        use stream::IteratorStream;
+        use stream::buffered::BufferedStream;
+
+        #[test]
+        fn no_rangestream() {
+            let mut buf = [0; 8];
+            LE::write_f64(&mut buf, 123.45);
+            assert_eq!(
+                f64::<LE, _>()
+                    .parse(BufferedStream::new(
+                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        1
+                    ))
+                    .map(|(t, _)| t),
+                Ok(123.45)
+            );
+            assert_eq!(
+                le_f64()
+                    .parse(BufferedStream::new(
+                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        1
+                    ))
+                    .map(|(t, _)| t),
+                Ok(123.45)
+            );
+            let mut buf = [0; 8];
+            BE::write_f64(&mut buf, 123.45);
+            assert_eq!(
+                be_f64()
+                    .parse(BufferedStream::new(
+                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        1
+                    ))
+                    .map(|(t, _)| t),
+                Ok(123.45)
+            );
+        }
+    }
 }
