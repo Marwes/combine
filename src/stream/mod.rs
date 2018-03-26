@@ -270,19 +270,36 @@ pub trait Range {
 }
 
 impl<'a> RangeStreamOnce for &'a str {
-    #[inline]
     fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
         let mut chars = self.chars();
-        while let Some(c) = chars.next() {
-            if !f(c) {
-                let len = self.len() - chars.as_str().len() - c.len_utf8();
-                let (result, rest) = self.split_at(len);
-                *self = rest;
-                return Ok(result);
+
+        macro_rules! test_next {
+            () => {
+                match chars.next() {
+                    Some(c) => {
+                        if !f(c) {
+                            let len = self.len() - chars.as_str().len() - c.len_utf8();
+                            let (result, rest) = self.split_at(len);
+                            *self = rest;
+                            return Ok(result);
+                        }
+                    }
+                    None => break,
+                }
             }
+        }
+        loop {
+            test_next!();
+            test_next!();
+            test_next!();
+            test_next!();
+            test_next!();
+            test_next!();
+            test_next!();
+            test_next!();
         }
         let result = *self;
         *self = &self[self.len()..];
