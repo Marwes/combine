@@ -25,8 +25,10 @@ use tokio_io::codec::Decoder;
 
 use combine::parser::range::{range, recognize_with_value, take_while, take_while1};
 use combine::{any, count_min_max, skip_many, Parser, many1};
-use combine::combinator::{any_partial_state, no_partial, optional, recognize, AnyPartialState,
-                          skip_many1};
+use combine::combinator::{any_partial_state, no_partial, optional, recognize, try,
+                          AnyPartialState, skip_many1};
+use combine::parser::repeat;
+use combine::parser::item::item;
 use combine::stream::RangeStream;
 use combine::stream::easy;
 use combine::parser::char::{char, digit, letter};
@@ -340,6 +342,50 @@ quickcheck! {
         );
 
         assert_eq!(counter.get(), 28);
+    }
+
+    fn take_until(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String,
+            |count: Rc<Cell<i32>>|
+                repeat::take_until(item(',').map(move |_| count.set(count.get() + 1))).skip(item(',')),
+            Rc<Cell<i32>>
+        }
+
+        let input = "123,456,789,";
+
+        let counter = Rc::new(Cell::new(0));
+        let result = run_decoder(input, seq, TestParser(Default::default(), counter.clone()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["123", "456", "789"]
+        );
+
+        assert_eq!(counter.get(), 3);
+    }
+
+    fn take_until_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String,
+            |count: Rc<Cell<i32>>| {
+                let end = try((item(':').map(move |_| count.set(count.get() + 1)), item(':')));
+                repeat::take_until(end).skip((item(':'), item(':')))
+            },
+            Rc<Cell<i32>>
+        }
+
+        let input = "123::456::789::";
+
+        let counter = Rc::new(Cell::new(0));
+        let result = run_decoder(input, seq, TestParser(Default::default(), counter.clone()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(
+            result.unwrap(),
+            ["123", "456", "789"]
+        );
+
+        assert_eq!(counter.get(), 3);
     }
 }
 #[test]

@@ -4,7 +4,7 @@ use lib::marker::PhantomData;
 use lib::mem;
 
 use Parser;
-use error::{Consumed, ConsumedResult, Info, ParseError, Tracked};
+use error::{ConsumedResult, Info, ParseError, Tracked};
 use stream::{Positioned, Resetable, Stream, StreamOnce};
 use parser::ParseMode;
 use parser::item::value;
@@ -53,17 +53,48 @@ where
 {
     type Input = I;
     type Output = O;
-    type PartialState = ();
+    type PartialState = P::PartialState;
+
     #[inline]
     fn parse_stream_consumed(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         self.parse_lazy(input)
     }
+
+    parse_mode!();
+
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
-        self.0
-            .parse_stream(input)
-            .map_err(Consumed::into_empty)
-            .into()
+    fn parse_consumed_mode<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        self.parse_mode(mode, input, state)
+    }
+
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        match self.0.parse_consumed_mode(mode, input, state) {
+            v @ ConsumedOk(_) | v @ EmptyOk(_) | v @ EmptyErr(_) => v,
+            ConsumedErr(err) => {
+                if input.is_partial() && err.is_unexpected_end_of_input() {
+                    ConsumedErr(err)
+                } else {
+                    EmptyErr(err.into())
+                }
+            }
+        }
     }
 }
 
