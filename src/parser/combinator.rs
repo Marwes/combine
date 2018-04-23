@@ -705,3 +705,96 @@ where
 {
     AnyPartialStateParser(p)
 }
+
+#[cfg(feature = "std")]
+#[derive(Default)]
+pub struct AnySendPartialState(Option<Box<::std::any::Any + Send>>);
+
+#[cfg(feature = "std")]
+pub struct AnySendPartialStateParser<P>(P);
+
+#[cfg(feature = "std")]
+impl<P> Parser for AnySendPartialStateParser<P>
+where
+    P: Parser,
+    P::PartialState: Send + 'static,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+    type PartialState = AnySendPartialState;
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        self.0.parse_lazy(input)
+    }
+
+    #[inline]
+    fn parse_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let mut new_child_state;
+        let result = {
+            let child_state = if let None = state.0 {
+                new_child_state = Some(Default::default());
+                new_child_state.as_mut().unwrap()
+            } else {
+                new_child_state = None;
+                state.0.as_mut().unwrap().downcast_mut().unwrap()
+            };
+
+            self.0.parse_partial(input, child_state)
+        };
+
+        if let ConsumedErr(_) = result {
+            if let None = state.0 {
+                // FIXME Make None unreachable for LLVM
+                state.0 = Some(Box::new(new_child_state.unwrap()));
+            }
+        }
+
+        result
+    }
+
+    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(error)
+    }
+}
+
+/// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
+/// since it can get very large after combining a few parsers.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::combinator::{AnySendPartialState, any_send_partial_state};
+/// # use combine::parser::char::letter;
+/// # use combine::*;
+///
+/// # fn main() {
+///
+/// parser! {
+///     type PartialState = AnySendPartialState;
+///     fn example[I]()(I) -> (char, char)
+///     where [ I: Stream<Item = char> ]
+///     {
+///         any_send_partial_state((letter(), letter()))
+///     }
+/// }
+///
+/// assert_eq!(
+///     example().easy_parse("ab"),
+///     Ok((('a', 'b'), ""))
+/// );
+///
+/// # }
+/// ```
+#[cfg(feature = "std")]
+pub fn any_send_partial_state<P>(p: P) -> AnySendPartialStateParser<P>
+where
+    P: Parser,
+    P::PartialState: Send + 'static,
+{
+    AnySendPartialStateParser(p)
+}
