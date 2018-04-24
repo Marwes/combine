@@ -1,3 +1,13 @@
+<a name="v3.2.0"></a>
+## v3.2.0 (2018-04-24)
+
+
+#### Features
+
+*   Add any_send_partial_state ([d4153d31](https://github.com/Marwes/combine/commit/d4153d31b074e950f4752f29c8ed188102534e91))
+
+
+
 <a name="v3.1.0"></a>
 ## v3.1.0 (2018-03-26)
 
