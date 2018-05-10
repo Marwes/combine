@@ -40,70 +40,62 @@ pub struct Ini {
     pub sections: HashMap<String, HashMap<String, String>>,
 }
 
-parser!{
-    fn property[I]()(I) -> (String, String)
-        where [I: Stream<Item = char>]
-    {
-        (
-            many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
-            token('='),
-            many1(satisfy(|c| c != '\n' && c != ';')),
-        ).map(|(key, _, value)| (key, value))
-            .message("while parsing property")
-    }
-}
-parser!{
-    fn whitespace[I]()(I) -> ()
-    where
-        [I: Stream<Item = char>,]
-    {
-        let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
-        // Wrap the `spaces().or(comment)` in `skip_many` so that it skips alternating whitespace and
-        // comments
-        skip_many(skip_many1(space()).or(comment))
-    }
+fn property<I>() -> impl Parser<Input = I, Output = (String, String)>
+where
+    I: Stream<Item = char>,
+    // Necessary due to rust-lang/rust#24159
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
+        token('='),
+        many1(satisfy(|c| c != '\n' && c != ';')),
+    ).map(|(key, _, value)| (key, value))
+        .message("while parsing property")
 }
 
-parser!{
-    fn properties[I]()(I) -> HashMap<String, String>
-    where
-        [I: Stream<Item = char>,]
-    {
-        // After each property we skip any whitespace that followed it
-        many(property().skip(whitespace()))
-    }
+fn whitespace<I>() -> impl Parser<Input = I>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
+    // Wrap the `spaces().or(comment)` in `skip_many` so that it skips alternating whitespace and
+    // comments
+    skip_many(skip_many1(space()).or(comment))
 }
 
-parser!{
-    fn section[I]()(I) -> (String, HashMap<String, String>)
-    where
-        [I: Stream<Item = char>,]
-    {
-        (
-            between(token('['), token(']'), many(satisfy(|c| c != ']'))),
-            whitespace(),
-            properties(),
-        ).map(|(name, _, properties)| (name, properties))
-            .message("while parsing section")
-    }
+fn properties<I>() -> impl Parser<Input = I, Output = HashMap<String, String>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    // After each property we skip any whitespace that followed it
+    many(property().skip(whitespace()))
 }
 
-parser!{
-    fn ini[I]()(I) -> Ini
-    where
-        [I: Stream<Item = char>,]
-    {
-        (
-            whitespace(),
-            properties(),
-            many(section()),
-        ).map(|(_, global, sections)| {
-                Ini {
-                    global: global,
-                    sections: sections,
-                }
-            })
-    }
+fn section<I>() -> impl Parser<Input = I, Output = (String, HashMap<String, String>)>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        between(token('['), token(']'), many(satisfy(|c| c != ']'))),
+        whitespace(),
+        properties(),
+    ).map(|(name, _, properties)| (name, properties))
+        .message("while parsing section")
+}
+
+fn ini<I>() -> impl Parser<Input = I, Output = Ini>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (whitespace(), properties(), many(section())).map(|(_, global, sections)| Ini {
+        global: global,
+        sections: sections,
+    })
 }
 
 #[test]

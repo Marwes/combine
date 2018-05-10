@@ -1,7 +1,6 @@
 #![cfg(feature = "std")]
 
 extern crate bytes;
-#[macro_use]
 extern crate combine;
 
 extern crate futures;
@@ -17,11 +16,11 @@ use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::error::StreamError;
+use combine::error::{ParseError, StreamError};
 use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
 use combine::combinator::{any_partial_state, AnyPartialState};
 use combine::parser::range::{range, recognize, take};
-use combine::{skip_many, skip_many1};
+use combine::{skip_many, Parser, skip_many1};
 use combine::stream::easy;
 use combine::parser::byte::digit;
 
@@ -46,44 +45,38 @@ impl LanguageServerDecoder {
 ///
 /// { "some": "data" }
 /// ```
-parser! {
-    // To avoid writing out the state type we Box it using `AnyPartialState`
-    // and the `any_partial_state` parser combinator
-    type PartialState = AnyPartialState;
-
-    // The syntax of the parser macro follows normal function declarations as
-    // closely as possible but requires brackets (`[]`) around the type
-    // parameters and around the where clause.
-    // It also requires extra bit of information between the arguments and
-    // the return type which marks what input the parser takes.
-    // In this case the input is `I: RangeStream`.
-
-    // The `content_length_parses` parameter only exists to demonstrate that `content_length` only
-    // gets parsed once per message
-    fn decode_parser['a, I](content_length_parses: Rc<Cell<i32>>)(I) -> Vec<u8>
-    where [ I: RangeStream<Item = u8, Range = &'a [u8]>, ]
-    {
-        let content_length =
-            range(&b"Content-Length: "[..])
-                .with(
-                    recognize(skip_many1(digit()))
-                        .and_then(|digits: &[u8]|
-                            str::from_utf8(digits).unwrap().parse::<usize>()
+// The `content_length_parses` parameter only exists to demonstrate that `content_length` only
+// gets parsed once per message
+fn decode_parser<'a, I>(
+    content_length_parses: Rc<Cell<i32>>,
+) -> impl Parser<Input = I, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
+where
+    I: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
+    // Necessary due to rust-lang/rust#24159
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let content_length = range(&b"Content-Length: "[..])
+        .with(recognize(skip_many1(digit())).and_then(|digits: &[u8]| {
+            str::from_utf8(digits).unwrap().parse::<usize>()
                                 // Convert the error from `.parse` into an error combine understands
                                 .map_err(StreamErrorFor::<I>::other)
-                        )
-                )
-                .map(|x| {
-                    content_length_parses.set(content_length_parses.get() + 1);
-                    x
-                });
-        any_partial_state((
+        }))
+        .map(move |x| {
+            content_length_parses.set(content_length_parses.get() + 1);
+            x
+        });
+
+    // `any_partial_state` boxes the state which hides the type and lets us store it in
+    // `self`
+    any_partial_state(
+        (
             skip_many(range(&b"\r\n"[..])),
             content_length,
             range(&b"\r\n\r\n"[..]).map(|_| ()),
-        )
-            .then_partial(|&mut (_, message_length, _)| take(message_length).map(|bytes: &[u8]| bytes.to_owned())))
-    }
+        ).then_partial(|&mut (_, message_length, _)| {
+            take(message_length).map(|bytes: &[u8]| bytes.to_owned())
+        }),
+    )
 }
 
 impl Decoder for LanguageServerDecoder {
