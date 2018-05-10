@@ -1,6 +1,5 @@
 // `impl Trait` is not required for this parser but we use to to show that it can be used to
 // significantly simplify things
-#![feature(conservative_impl_trait)]
 
 #[macro_use]
 extern crate bencher;

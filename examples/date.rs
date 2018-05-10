@@ -1,6 +1,5 @@
 //! Parser example for ISO8601 dates. This does not handle the entire specification but it should
 //! show the gist of it and be easy to extend to parse additional forms.
-#[macro_use]
 extern crate combine;
 
 use std::env;
@@ -11,6 +10,7 @@ use std::io::{self, Read};
 use combine::parser::char::{char, digit};
 use combine::{choice, many, optional, Parser, Stream};
 use combine::stream::state::State;
+use combine::error::ParseError;
 
 #[cfg(feature = "std")]
 use combine::stream::state::SourcePosition;
@@ -55,18 +55,17 @@ pub struct DateTime {
     pub time: Time,
 }
 
-parser!{
-    fn two_digits[I]()(I) -> i32
-    where
-        [I: Stream<Item = char>,]
-    {
-        (digit(), digit())
-            .map(|(x, y): (char, char)| {
-                let x = x.to_digit(10).expect("digit");
-                let y = y.to_digit(10).expect("digit");
-                (x * 10 + y) as i32
-            })
-    }
+fn two_digits<I>() -> impl Parser<Input = I, Output = i32>
+where
+    I: Stream<Item = char>,
+    // Necessary due to rust-lang/rust#24159
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (digit(), digit()).map(|(x, y): (char, char)| {
+        let x = x.to_digit(10).expect("digit");
+        let y = y.to_digit(10).expect("digit");
+        (x * 10 + y) as i32
+    })
 }
 
 /// Parses a time zone
@@ -74,94 +73,87 @@ parser!{
 /// -06:30
 /// -01
 /// Z
-parser!{
-    fn time_zone[I]()(I) -> i32
-    where
-        [I: Stream<Item = char>,]
-    {
-        let utc = char('Z').map(|_| 0);
-        let offset = (
-            choice([char('-'), char('+')]),
-            two_digits(),
-            optional(optional(char(':')).with(two_digits())),
-        ).map(|(sign, hour, minute)| {
-                let offset = hour * 60 + minute.unwrap_or(0);
-                if sign == '-' {
-                    -offset
-                } else {
-                    offset
-                }
-            });
+fn time_zone<I>() -> impl Parser<Input = I, Output = i32>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let utc = char('Z').map(|_| 0);
+    let offset = (
+        choice([char('-'), char('+')]),
+        two_digits(),
+        optional(optional(char(':')).with(two_digits())),
+    ).map(|(sign, hour, minute)| {
+        let offset = hour * 60 + minute.unwrap_or(0);
+        if sign == '-' {
+            -offset
+        } else {
+            offset
+        }
+    });
 
-        utc.or(offset)
-    }
+    utc.or(offset)
 }
 
 /// Parses a date
 /// 2010-01-30
-parser!{
-    fn date[I]()(I) -> Date
-    where
-        [I: Stream<Item = char>,]
-    {
-        (
-            many::<String, _>(digit()),
-            char('-'),
-            two_digits(),
-            char('-'),
-            two_digits(),
-        ).map(|(year, _, month, _, day)| {
-                // Its ok to just unwrap since we only parsed digits
-                Date {
-                    year: year.parse().unwrap(),
-                    month: month,
-                    day: day,
-                }
-            })
-    }
+fn date<I>() -> impl Parser<Input = I, Output = Date>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        many::<String, _>(digit()),
+        char('-'),
+        two_digits(),
+        char('-'),
+        two_digits(),
+    ).map(|(year, _, month, _, day)| {
+        // Its ok to just unwrap since we only parsed digits
+        Date {
+            year: year.parse().unwrap(),
+            month: month,
+            day: day,
+        }
+    })
 }
 
 /// Parses a time
 /// 12:30:02
-parser!{
-    fn time[I]()(I) -> Time
-    where
-        [I: Stream<Item = char>,]
-    {
-        (
-            two_digits(),
-            char(':'),
-            two_digits(),
-            char(':'),
-            two_digits(),
-            time_zone(),
-        ).map(|(hour, _, minute, _, second, time_zone)| {
-                // Its ok to just unwrap since we only parsed digits
-                Time {
-                    hour: hour,
-                    minute: minute,
-                    second: second,
-                    time_zone: time_zone,
-                }
-            })
-    }
+fn time<I>() -> impl Parser<Input = I, Output = Time>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        two_digits(),
+        char(':'),
+        two_digits(),
+        char(':'),
+        two_digits(),
+        time_zone(),
+    ).map(|(hour, _, minute, _, second, time_zone)| {
+        // Its ok to just unwrap since we only parsed digits
+        Time {
+            hour: hour,
+            minute: minute,
+            second: second,
+            time_zone: time_zone,
+        }
+    })
 }
 
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
-parser!{
-    fn date_time[I]()(I) -> DateTime
-    where
-        [I: Stream<Item = char>,]
-    {
-        (date(), char('T'), time())
-            .map(|(date, _, time)| {
-                DateTime {
-                    date: date,
-                    time: time,
-                }
-            })
-    }
+fn date_time<I>() -> impl Parser<Input = I, Output = DateTime>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (date(), char('T'), time()).map(|(date, _, time)| DateTime {
+        date: date,
+        time: time,
+    })
 }
 
 #[test]
