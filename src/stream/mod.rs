@@ -21,7 +21,8 @@ use stream::easy::Errors;
 
 use Parser;
 
-use error::{ConsumedResult, ParseError, StreamError, StringStreamError, UnexpectedParse};
+use error::{ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
+            UnexpectedParse};
 use error::FastResult::*;
 
 #[doc(hidden)]
@@ -161,6 +162,28 @@ pub trait RangeStreamOnce: StreamOnce + Resetable {
     where
         F: FnMut(Self::Item) -> bool;
 
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let mut consumed = false;
+        let result = self.uncons_while(|c| {
+            consumed |= f(c);
+            consumed
+        });
+        if consumed {
+            match result {
+                Ok(x) => ConsumedOk(x),
+                Err(x) => ConsumedErr(x),
+            }
+        } else {
+            EmptyErr(Tracked::from(
+                StreamErrorFor::<Self>::unexpected_static_message(""),
+            ))
+        }
+    }
+
     /// Returns the distance between `self` and `end`. The returned `usize` must be so that
     ///
     /// ```ignore
@@ -255,6 +278,43 @@ where
                 }
             }
         }
+    }
+}
+
+#[inline]
+pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
+where
+    F: FnMut(I::Item) -> bool,
+    I: ?Sized + RangeStream,
+    I::Range: Range,
+{
+    match input.uncons_while1(predicate) {
+        ConsumedOk(x) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                ConsumedOk(x)
+            }
+        }
+        EmptyErr(_) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                EmptyErr(I::Error::empty(input.position()).into())
+            }
+        }
+        ConsumedErr(err) => wrap_stream_error(input, err),
+        EmptyOk(_) => unreachable!(),
     }
 }
 
@@ -376,10 +436,29 @@ where
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.iter().take_while(|c| f((**c).clone())).count();
+        let len = self.iter()
+            .position(|c| !f(c.clone()))
+            .unwrap_or(self.len());
         let (result, remaining) = self.split_at(len);
         *self = remaining;
         Ok(result)
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let len = self.iter()
+            .position(|c| !f(c.clone()))
+            .unwrap_or(self.len());
+        if len == 0 {
+            EmptyErr(Tracked::from(UnexpectedParse::Unexpected))
+        } else {
+            let (result, remaining) = self.split_at(len);
+            *self = remaining;
+            ConsumedOk(result)
+        }
     }
 
     #[inline]

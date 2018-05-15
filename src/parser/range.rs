@@ -333,17 +333,7 @@ where
     {
         let start = input.position();
         parse_partial_range(mode, input, state, |input| {
-            let result = uncons_while(input, &mut self.0);
-            let position = input.position();
-            if start == position {
-                if let EmptyOk(_) = result {
-                    EmptyErr(I::Error::empty(position).into())
-                } else {
-                    result
-                }
-            } else {
-                result
-            }
+            ::stream::uncons_while1(input, &mut self.0)
         })
     }
 }
