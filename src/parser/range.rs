@@ -84,7 +84,9 @@ where
 {
     let before = input.checkpoint();
 
-    if mode.is_first() || *distance_state == 0 {
+    if !input.is_partial() {
+        f(input)
+    } else if mode.is_first() || *distance_state == 0 {
         let result = f(input);
         if let ConsumedErr(_) = result {
             *distance_state = input.distance(&before);
