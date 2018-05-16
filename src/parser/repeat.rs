@@ -1,16 +1,16 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
-use lib::marker::PhantomData;
 use lib::borrow::BorrowMut;
+use lib::marker::PhantomData;
 use lib::mem;
 
 use Parser;
-use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
-use parser::sequence::With;
-use parser::choice::Or;
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
-use parser::ParseMode;
 use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
+use parser::ParseMode;
+use parser::choice::Or;
+use parser::sequence::With;
+use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
 
 use error::FastResult::*;
 
@@ -328,34 +328,30 @@ where
     M: ParseMode,
 {
     type Item = P::Output;
+
     fn next(&mut self) -> Option<P::Output> {
-        match self.state {
-            State::Ok => {
-                let before = self.input.checkpoint();
-                match self.parser
-                    .parse_mode(self.mode, self.input, self.partial_state.borrow_mut())
-                {
-                    EmptyOk(v) => {
-                        self.mode.set_first();
-                        Some(v)
-                    }
-                    ConsumedOk(v) => {
-                        self.mode.set_first();
-                        self.consumed = true;
-                        Some(v)
-                    }
-                    EmptyErr(_) => {
-                        self.input.reset(before);
-                        self.state = State::EmptyErr;
-                        None
-                    }
-                    ConsumedErr(e) => {
-                        self.state = State::ConsumedErr(e);
-                        None
-                    }
-                }
+        let before = self.input.checkpoint();
+        match self.parser
+            .parse_mode(self.mode, self.input, self.partial_state.borrow_mut())
+        {
+            EmptyOk(v) => {
+                self.mode.set_first();
+                Some(v)
             }
-            State::ConsumedErr(_) | State::EmptyErr => None,
+            ConsumedOk(v) => {
+                self.mode.set_first();
+                self.consumed = true;
+                Some(v)
+            }
+            EmptyErr(_) => {
+                self.input.reset(before);
+                self.state = State::EmptyErr;
+                None
+            }
+            ConsumedErr(e) => {
+                self.state = State::ConsumedErr(e);
+                None
+            }
         }
     }
 }
