@@ -331,7 +331,6 @@ where
     where
         M: ParseMode,
     {
-        let start = input.position();
         parse_partial_range(mode, input, state, |input| {
             ::stream::uncons_while1(input, &mut self.0)
         })

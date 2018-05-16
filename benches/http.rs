@@ -7,9 +7,9 @@ use bencher::{black_box, Bencher};
 
 use std::fmt;
 
-use combine::{many, token, ParseError, Parser, RangeStream, many1};
 use combine::range::{range, take_while1};
 use combine::stream::easy;
+use combine::{many, token, ParseError, Parser, RangeStream, many1};
 
 #[derive(Debug)]
 struct Request<'a> {
@@ -87,13 +87,10 @@ where
         end_of_line(),
     ).map(|(_, line, _)| line);
 
-    let message_header = (
-        take_while1(is_token),
-        token(b':'),
-        many1(message_header_line),
-    ).map(|(name, _, value)| Header {
-        name: name,
-        value: value,
+    let message_header = struct_parser!(Header {
+        name: take_while1(is_token),
+        _: token(b':'),
+        value: many1(message_header_line),
     });
 
     let mut request = (
