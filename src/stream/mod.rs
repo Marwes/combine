@@ -417,6 +417,49 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
+fn slice_take_while<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+where
+    F: FnMut(T) -> bool,
+    T: Clone + PartialEq,
+{
+    let len = slice.len();
+    let mut found = false;
+
+    macro_rules! check {
+        () => {
+            if !f(unsafe { (*slice.get_unchecked(i)).clone() }) {
+                found = true;
+                break;
+            }
+            i += 1;
+        };
+    }
+
+    while len - i >= 8 {
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+    }
+
+    if !found {
+        while i < len {
+            if !f(unsafe { (*slice.get_unchecked(i)).clone() }) {
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    let (result, remaining) = slice.split_at(i);
+    *slice = remaining;
+    result
+}
+
 impl<'a, T> RangeStreamOnce for &'a [T]
 where
     T: Clone + PartialEq,
@@ -433,16 +476,11 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<&'a [T], StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.iter()
-            .position(|c| !f(c.clone()))
-            .unwrap_or(self.len());
-        let (result, remaining) = self.split_at(len);
-        *self = remaining;
-        Ok(result)
+        Ok(slice_take_while(self, 0, f))
     }
 
     #[inline]
@@ -450,45 +488,11 @@ where
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.len();
-
-        if len == 0 || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
+        if self.is_empty() || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
             return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
         }
 
-        let mut i = 1;
-        let mut found = false;
-
-        macro_rules! check {
-            () => {
-                if !f(unsafe { (*self.get_unchecked(i)).clone() }) {
-                    found = true;
-                    break;
-                }
-                i += 1;
-            };
-        }
-
-        while len - i >= 8 {
-            check!();
-            check!();
-            check!();
-            check!();
-            check!();
-            check!();
-            check!();
-            check!();
-        }
-
-        if !found {
-            while i < len {
-                check!();
-            }
-        }
-
-        let (result, remaining) = self.split_at(i);
-        *self = remaining;
-        ConsumedOk(result)
+        ConsumedOk(slice_take_while(self, 1, f))
     }
 
     #[inline]
