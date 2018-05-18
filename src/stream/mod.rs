@@ -171,8 +171,9 @@ pub trait RangeStreamOnce: StreamOnce + Resetable {
     {
         let mut consumed = false;
         let result = self.uncons_while(|c| {
-            consumed |= f(c);
-            consumed
+            let ok = f(c);
+            consumed |= ok;
+            ok
         });
         if consumed {
             match result {
@@ -313,7 +314,18 @@ where
                 EmptyErr(I::Error::empty(input.position()).into())
             }
         }
-        ConsumedErr(err) => wrap_stream_error(input, err),
+        ConsumedErr(err) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                wrap_stream_error(input, err)
+            }
+        }
         EmptyOk(_) => unreachable!(),
     }
 }
