@@ -10,6 +10,8 @@ impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> ParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
     type PartialState = ();
+
+    #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         self(input).into()
     }
@@ -71,6 +73,8 @@ where
     type Input = I;
     type Output = O;
     type PartialState = ();
+
+    #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         (self.0)(input).into()
     }
@@ -83,6 +87,8 @@ where
     type Input = I;
     type Output = O;
     type PartialState = ();
+
+    #[inline]
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         self(input).into()
     }

@@ -564,6 +564,7 @@ where
     }
 }
 
+#[inline(always)]
 pub fn no_partial<P>(p: P) -> NoPartial<P>
 where
     P: Parser,

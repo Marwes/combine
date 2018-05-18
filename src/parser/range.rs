@@ -80,7 +80,6 @@ where
     M: ParseMode,
     F: FnOnce(&mut I) -> ConsumedResult<I::Range, I>,
     I: RangeStream,
-    I::Range: ::stream::Range,
 {
     let before = input.checkpoint();
 
@@ -213,7 +212,7 @@ where
 pub fn range<I>(i: I::Range) -> Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::stream::Range,
+    I::Range: PartialEq,
 {
     Range(i)
 }
@@ -222,7 +221,6 @@ pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
 impl<I> Parser for Take<I>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -255,7 +253,6 @@ where
 pub fn take<I>(n: usize) -> Take<I>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
 {
     Take(n, PhantomData)
 }
@@ -313,7 +310,6 @@ pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
@@ -355,7 +351,6 @@ where
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)

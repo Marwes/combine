@@ -163,12 +163,14 @@ macro_rules! tuple_parser {
                 $(
                     if let None = state.$id.value {
                         current_parser += 1;
+                        let before = input.checkpoint();
                         let temp = match $id.parse_mode(mode, input, &mut state.$id.state) {
                             ConsumedOk(x) => {
                                 first_empty_parser = current_parser + 1;
                                 x
                             }
                             EmptyErr(err) => {
+                                input.reset(before);
                                 return add_errors!(err, state.offset)
                             }
                             ConsumedErr(err) => return ConsumedErr(err),

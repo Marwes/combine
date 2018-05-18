@@ -21,9 +21,11 @@ use stream::easy::Errors;
 
 use Parser;
 
-use error::{ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
-            UnexpectedParse};
 use error::FastResult::*;
+use error::{
+    ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
+    UnexpectedParse,
+};
 
 #[doc(hidden)]
 #[macro_export]
@@ -45,10 +47,10 @@ macro_rules! clone_resetable {
 
 #[cfg(feature = "std")]
 pub mod buffered;
-/// Stateful stream wrappers.
-pub mod state;
 #[cfg(feature = "std")]
 pub mod easy;
+/// Stateful stream wrappers.
+pub mod state;
 
 /// A type which has a position.
 pub trait Positioned: StreamOnce {
@@ -230,11 +232,10 @@ where
 pub fn uncons_range<I>(input: &mut I, size: usize) -> ConsumedResult<I::Range, I>
 where
     I: ?Sized + RangeStream,
-    I::Range: Range,
 {
     match input.uncons_range(size) {
         Err(err) => wrap_stream_error(input, err),
-        Ok(x) => if x.len() == 0 {
+        Ok(x) => if size == 0 {
             EmptyOk(x)
         } else {
             ConsumedOk(x)
@@ -286,7 +287,6 @@ pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Ran
 where
     F: FnMut(I::Item) -> bool,
     I: ?Sized + RangeStream,
-    I::Range: Range,
 {
     match input.uncons_while1(predicate) {
         ConsumedOk(x) => {
@@ -338,6 +338,7 @@ impl<'a> RangeStreamOnce for &'a str {
 
         macro_rules! test_next {
             () => {
+
                 match chars.next() {
                     Some(c) => {
                         if !f(c) {
@@ -349,7 +350,7 @@ impl<'a> RangeStreamOnce for &'a str {
                     }
                     None => break,
                 }
-            }
+            };
         }
         loop {
             test_next!();
@@ -465,7 +466,7 @@ where
                     break;
                 }
                 i += 1;
-            }
+            };
         }
 
         while len - i >= 8 {
