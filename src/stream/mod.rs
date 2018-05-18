@@ -449,16 +449,45 @@ where
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.iter()
-            .position(|c| !f(c.clone()))
-            .unwrap_or(self.len());
-        if len == 0 {
-            EmptyErr(Tracked::from(UnexpectedParse::Unexpected))
-        } else {
-            let (result, remaining) = self.split_at(len);
-            *self = remaining;
-            ConsumedOk(result)
+        let len = self.len();
+
+        if len == 0 || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
+            return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
         }
+
+        let mut i = 1;
+        let mut found = false;
+
+        macro_rules! check {
+            () => {
+                if !f(unsafe { (*self.get_unchecked(i)).clone() }) {
+                    found = true;
+                    break;
+                }
+                i += 1;
+            }
+        }
+
+        while len - i >= 8 {
+            check!();
+            check!();
+            check!();
+            check!();
+            check!();
+            check!();
+            check!();
+            check!();
+        }
+
+        if !found {
+            while i < len {
+                check!();
+            }
+        }
+
+        let (result, remaining) = self.split_at(i);
+        *self = remaining;
+        ConsumedOk(result)
     }
 
     #[inline]
