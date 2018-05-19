@@ -360,16 +360,16 @@ fn str_uncons_while<'a, F>(slice: &mut &'a str, mut chars: Chars<'a>, mut f: F) 
 where
     F: FnMut(char) -> bool,
 {
+    let mut last_char_size = 0;
+
     macro_rules! test_next {
         () => {
 
             match chars.next() {
                 Some(c) => {
                     if !f(c) {
-                        let len = slice.len() - chars.as_str().len() - c.len_utf8();
-                        let (result, rest) = slice.split_at(len);
-                        *slice = rest;
-                        return result;
+                        last_char_size = c.len_utf8();
+                        break;
                     }
                 }
                 None => break,
@@ -386,8 +386,10 @@ where
         test_next!();
         test_next!();
     }
-    let result = *slice;
-    *slice = &slice[slice.len()..];
+
+    let len = slice.len() - chars.as_str().len() - last_char_size;
+    let (result, rest) = slice.split_at(len);
+    *slice = rest;
     result
 }
 
