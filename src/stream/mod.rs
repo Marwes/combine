@@ -343,6 +343,7 @@ where
     }
 }
 
+/// Trait representing a range of elements.
 pub trait Range {
     /// Returns the remaining length of `self`.
     /// The returned length need not be the same as the number of items left in the stream.
