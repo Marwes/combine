@@ -166,6 +166,12 @@ pub trait RangeStreamOnce: StreamOnce + Resetable {
         F: FnMut(Self::Item) -> bool;
 
     #[inline]
+    /// Takes items from stream, testing each one with `predicate`
+    /// returns a range of at least one items which passed `predicate`.
+    ///
+    /// # Note
+    ///
+    /// This may not return `EmptyOk` as it should uncons at least one item.
     fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
@@ -285,6 +291,12 @@ where
 }
 
 #[inline]
+/// Takes items from stream, testing each one with `predicate`
+/// returns a range of at least one items which passed `predicate`.
+///
+/// # Note
+///
+/// This may not return `EmptyOk` as it should uncons at least one item.
 pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
 where
     F: FnMut(I::Item) -> bool,
