@@ -1,6 +1,6 @@
 use lib::fmt;
 
-use error::{ParseError, StreamError};
+use error::{ParseError, StreamError, FastResult};
 use stream::{FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
              StreamErrorFor, StreamOnce};
 
@@ -262,6 +262,22 @@ where
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while(|t| {
+            if predicate(t.clone()) {
+                positioner.update(&t);
+                true
+            } else {
+                false
+            }
+        })
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut predicate: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let positioner = &mut self.positioner;
+        self.input.uncons_while1(|t| {
             if predicate(t.clone()) {
                 positioner.update(&t);
                 true

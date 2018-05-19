@@ -12,6 +12,7 @@
 //! parses.
 
 use lib::fmt;
+use lib::str::Chars;
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
@@ -341,43 +342,64 @@ pub trait Range {
     }
 }
 
+
+fn str_uncons_while<'a, F>(slice: &mut &'a str, mut chars: Chars<'a>, mut f: F) -> &'a str
+where
+    F: FnMut(char) -> bool,
+{
+    macro_rules! test_next {
+        () => {
+
+            match chars.next() {
+                Some(c) => {
+                    if !f(c) {
+                        let len = slice.len() - chars.as_str().len() - c.len_utf8();
+                        let (result, rest) = slice.split_at(len);
+                        *slice = rest;
+                        return result;
+                    }
+                }
+                None => break,
+            }
+        };
+    }
+    loop {
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+    }
+    let result = *slice;
+    *slice = &slice[slice.len()..];
+    result
+}
+
 impl<'a> RangeStreamOnce for &'a str {
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<&'a str, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        Ok(str_uncons_while(self, self.chars(), f))
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
         let mut chars = self.chars();
-
-        macro_rules! test_next {
-            () => {
-
-                match chars.next() {
-                    Some(c) => {
-                        if !f(c) {
-                            let len = self.len() - chars.as_str().len() - c.len_utf8();
-                            let (result, rest) = self.split_at(len);
-                            *self = rest;
-                            return Ok(result);
-                        }
-                    }
-                    None => break,
-                }
-            };
+        match chars.next() {
+            Some(c) => if !f(c) { return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)) },
+            None => return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)),
         }
-        loop {
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-        }
-        let result = *self;
-        *self = &self[self.len()..];
-        Ok(result)
+
+        ConsumedOk(str_uncons_while(self, chars, f))
     }
+
 
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a str, StreamErrorFor<Self>> {
@@ -429,17 +451,17 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-fn slice_take_while<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+fn slice_uncons_while<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
 where
     F: FnMut(T) -> bool,
-    T: Clone + PartialEq,
+    T: Clone,
 {
     let len = slice.len();
     let mut found = false;
 
     macro_rules! check {
         () => {
-            if !f(unsafe { (*slice.get_unchecked(i)).clone() }) {
+            if !f(unsafe { slice.get_unchecked(i).clone() }) {
                 found = true;
                 break;
             }
@@ -460,7 +482,7 @@ where
 
     if !found {
         while i < len {
-            if !f(unsafe { (*slice.get_unchecked(i)).clone() }) {
+            if !f(unsafe { slice.get_unchecked(i).clone() }) {
                 break;
             }
             i += 1;
@@ -492,7 +514,7 @@ where
     where
         F: FnMut(Self::Item) -> bool,
     {
-        Ok(slice_take_while(self, 0, f))
+        Ok(slice_uncons_while(self, 0, f))
     }
 
     #[inline]
@@ -504,7 +526,7 @@ where
             return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
         }
 
-        ConsumedOk(slice_take_while(self, 1, f))
+        ConsumedOk(slice_uncons_while(self, 1, f))
     }
 
     #[inline]
@@ -646,6 +668,13 @@ where
         self.0.uncons_while(f)
     }
 
+    fn uncons_while1<F>(&mut self, f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while1(f)
+    }
+
     #[inline(always)]
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
@@ -703,6 +732,49 @@ where
     }
 }
 
+
+fn slice_uncons_while_ref<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+where
+    F: FnMut(&'a T) -> bool,
+{
+    let len = slice.len();
+    let mut found = false;
+
+    macro_rules! check {
+        () => {
+            if !f(unsafe { slice.get_unchecked(i) }) {
+                found = true;
+                break;
+            }
+            i += 1;
+        };
+    }
+
+    while len - i >= 8 {
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+    }
+
+    if !found {
+        while i < len {
+            if !f(unsafe { slice.get_unchecked(i) }) {
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    let (result, remaining) = slice.split_at(i);
+    *slice = remaining;
+    result
+}
+
 impl<'a, T> RangeStreamOnce for SliceStream<'a, T>
 where
     T: PartialEq + 'a,
@@ -719,15 +791,25 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<&'a [T], StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.0.iter().take_while(|c| f(*c)).count();
-        let (range, rest) = self.0.split_at(len);
-        self.0 = rest;
-        Ok(range)
+        Ok(slice_uncons_while_ref(&mut self.0, 0, f))
     }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        if self.0.is_empty() || !f(unsafe { self.0.get_unchecked(0) }) {
+            return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
+        }
+
+        ConsumedOk(slice_uncons_while_ref(&mut self.0, 1, f))
+    }
+
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {
