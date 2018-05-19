@@ -4,13 +4,13 @@ use lib::borrow::BorrowMut;
 use lib::marker::PhantomData;
 use lib::mem;
 
-use Parser;
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
 use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
-use parser::ParseMode;
 use parser::choice::Or;
 use parser::sequence::With;
+use parser::ParseMode;
 use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
+use Parser;
 
 use error::FastResult::*;
 
@@ -331,7 +331,8 @@ where
 
     fn next(&mut self) -> Option<P::Output> {
         let before = self.input.checkpoint();
-        match self.parser
+        match self
+            .parser
             .parse_mode(self.mode, self.input, self.partial_state.borrow_mut())
         {
             EmptyOk(v) => {
@@ -1208,5 +1209,117 @@ parser!{
     ]
     {
         take_until::<Sink<_>, _>(end).with(value(()))
+    }
+}
+
+#[derive(Default)]
+pub struct EscapedState<T, U>(PhantomData<(T, U)>);
+
+pub struct Escaped<P, Q>
+where
+    P: Parser,
+{
+    parser: P,
+    escape: <P::Input as StreamOnce>::Item,
+    escape_parser: Q,
+}
+impl<P, Q> Parser for Escaped<P, Q>
+where
+    P: Parser,
+    <P::Input as StreamOnce>::Item: PartialEq,
+    Q: Parser<Input = P::Input>,
+{
+    type Input = P::Input;
+    type Output = ();
+    type PartialState = EscapedState<P::PartialState, Q::PartialState>;
+
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+        let mut consumed = Consumed::Empty(());
+        loop {
+            match self.parser.parse_lazy(input) {
+                EmptyOk(_) => {}
+                ConsumedOk(_) => {
+                    consumed = Consumed::Consumed(());
+                }
+                EmptyErr(_) => {
+                    let checkpoint = input.checkpoint();
+                    match uncons(input) {
+                        ConsumedOk(ref c) | EmptyOk(ref c) if *c == self.escape => {
+                            match self.escape_parser.parse_stream_consumed(input) {
+                                EmptyOk(_) => {}
+                                ConsumedOk(_) => {
+                                    consumed = Consumed::Consumed(());
+                                }
+                                ConsumedErr(err) => return ConsumedErr(err),
+                                EmptyErr(err) => {
+                                    return ConsumedErr(err.error);
+                                }
+                            }
+                        }
+                        ConsumedErr(err) => {
+                            return ConsumedErr(err);
+                        }
+                        _ => {
+                            input.reset(checkpoint);
+                            return if consumed.is_empty() {
+                                EmptyOk(())
+                            } else {
+                                ConsumedOk(())
+                            };
+                        }
+                    }
+                }
+                ConsumedErr(err) => return ConsumedErr(err),
+            }
+        }
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        use error::Info;
+        self.parser.add_error(errors);
+
+        errors.error.add_expected(Info::Token(self.escape.clone()));
+    }
+}
+
+/// Parses an escaped string by first applying `parser` which accept the normal characters which do
+/// not need escaping. Once `parser` can not consume any more input it checks if the next item
+/// is `escape`. If it is then `escape_parser` is used to parse the escaped character and then
+/// resumes parsing using `parser`. If `escape` was not found then the parser finishes
+/// successfully.
+///
+/// This returns `()` since there isn't a good way to collect the output of the parsers so it is
+/// best paired with one of the `recognize` parsers.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::repeat::escaped;
+/// # use combine::parser::char;
+/// # use combine::parser::range::{recognize, take_while1};
+/// # fn main() {
+///     let mut parser = recognize(
+///         escaped(take_while1(|c| c != '"' && c != '\\'), '\\', one_of(r#"nr"\"#.chars()))
+///     );
+///     assert_eq!(parser.parse(r#"ab\"12\n\rc""#), Ok((r#"ab\"12\n\rc"#, r#"""#)));
+///     assert!(parser.parse(r#"\"#).is_err());
+///     assert!(parser.parse(r#"\a"#).is_err());
+/// }
+/// ```
+#[inline(always)]
+pub fn escaped<P, Q>(
+    parser: P,
+    escape: <P::Input as StreamOnce>::Item,
+    escape_parser: Q,
+) -> Escaped<P, Q>
+where
+    P: Parser,
+    <P::Input as StreamOnce>::Item: PartialEq,
+    Q: Parser<Input = P::Input>,
+{
+    Escaped {
+        parser,
+        escape,
+        escape_parser,
     }
 }

@@ -12,9 +12,9 @@ extern crate partial_io;
 extern crate tokio_io;
 
 use std::cell::Cell;
-use std::str;
 use std::io::{self, Cursor};
 use std::rc::Rc;
+use std::str;
 
 use bytes::BytesMut;
 
@@ -23,15 +23,15 @@ use tokio_io::codec::FramedRead;
 
 use tokio_io::codec::Decoder;
 
-use combine::parser::range::{range, recognize_with_value, take_while, take_while1};
-use combine::{any, count_min_max, skip_many, Parser, many1};
-use combine::combinator::{any_partial_state, no_partial, optional, recognize, try,
-                          AnyPartialState, skip_many1};
-use combine::parser::repeat;
-use combine::parser::item::item;
-use combine::stream::RangeStream;
-use combine::stream::easy;
+use combine::combinator::{
+    any_partial_state, no_partial, optional, recognize, skip_many1, try, AnyPartialState,
+};
 use combine::parser::char::{char, digit, letter};
+use combine::parser::item::item;
+use combine::parser::range::{range, recognize_with_value, take_while, take_while1};
+use combine::parser::repeat;
+use combine::stream::{easy, RangeStream};
+use combine::{any, count_min_max, many1, skip_many, Parser};
 
 quick_error! {
     #[derive(Debug)]
@@ -56,8 +56,14 @@ quick_error! {
 }
 
 macro_rules! mk_parser {
-    ($parser: expr, $self_: expr, ()) =>  { $parser };
-    ($parser: expr, $self_: expr, ($custom_state: ty)) =>  { $parser($self_.1.clone()) };
+    ($parser:expr, $self_:expr,()) => {
+
+        $parser
+    };
+    ($parser:expr, $self_:expr,($custom_state:ty)) => {
+
+        $parser($self_.1.clone())
+    };
 }
 macro_rules! impl_decoder {
     ($typ: ident, $item: ty, $parser: expr, $custom_state: ty) => {
