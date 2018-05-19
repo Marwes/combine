@@ -116,6 +116,7 @@ macro_rules! tuple_parser {
             >;
 
             parse_mode!();
+            #[inline]
             fn parse_mode_impl<M>(
                 &mut self,
                 mut mode: M,

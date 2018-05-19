@@ -83,7 +83,7 @@ use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
-use error::{Info as PrimitiveInfo, StreamError, Tracked};
+use error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
 use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamErrorFor,
              StreamOnce};
 
@@ -772,6 +772,14 @@ where
         F: FnMut(Self::Item) -> bool,
     {
         self.0.uncons_while(f).map_err(StreamError::into_other)
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while1(f).map_err(StreamError::into_other)
     }
 
     #[inline]

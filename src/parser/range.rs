@@ -3,7 +3,7 @@
 use lib::marker::PhantomData;
 
 use Parser;
-use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
+use stream::{uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
              Resetable, StreamOnce};
 use error::{ConsumedResult, Info, ParseError, Tracked};
 use error::FastResult::*;
@@ -70,22 +70,26 @@ parser!{
 }
 
 #[inline]
-fn parse_partial_range<M, F, I>(
+fn parse_partial_range<M, F, G, S, I>(
     mode: M,
     input: &mut I,
     distance_state: &mut usize,
-    f: F,
+    state: S,
+    first: F,
+    resume: G,
 ) -> ConsumedResult<I::Range, I>
 where
     M: ParseMode,
-    F: FnOnce(&mut I) -> ConsumedResult<I::Range, I>,
+    F: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
+    G: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
     I: RangeStream,
-    I::Range: ::stream::Range,
 {
     let before = input.checkpoint();
 
-    if mode.is_first() || *distance_state == 0 {
-        let result = f(input);
+    if !input.is_partial() {
+        first(input, state)
+    } else if mode.is_first() || *distance_state == 0 {
+        let result = first(input, state);
         if let ConsumedErr(_) = result {
             *distance_state = input.distance(&before);
             input.reset(before);
@@ -96,7 +100,7 @@ where
             panic!("recognize errored when restoring the input stream to its expected state");
         }
 
-        match f(input) {
+        match resume(input, state) {
             ConsumedOk(_) | EmptyOk(_) => (),
             EmptyErr(err) => return EmptyErr(err),
             ConsumedErr(err) => {
@@ -211,7 +215,7 @@ where
 pub fn range<I>(i: I::Range) -> Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::stream::Range,
+    I::Range: PartialEq,
 {
     Range(i)
 }
@@ -220,7 +224,6 @@ pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
 impl<I> Parser for Take<I>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -253,7 +256,6 @@ where
 pub fn take<I>(n: usize) -> Take<I>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
 {
     Take(n, PhantomData)
 }
@@ -280,7 +282,14 @@ where
     where
         M: ParseMode,
     {
-        parse_partial_range(mode, input, state, |input| uncons_while(input, &mut self.0))
+        parse_partial_range(
+            mode,
+            input,
+            state,
+            &mut self.0, 
+            |input, predicate| uncons_while(input, predicate),
+            |input, predicate| uncons_while(input, predicate),
+        )
     }
 }
 
@@ -302,6 +311,7 @@ where
 pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
 where
     I: RangeStream,
+    I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     TakeWhile(f, PhantomData)
@@ -329,20 +339,14 @@ where
     where
         M: ParseMode,
     {
-        let start = input.position();
-        parse_partial_range(mode, input, state, |input| {
-            let result = uncons_while(input, &mut self.0);
-            let position = input.position();
-            if start == position {
-                if let EmptyOk(_) = result {
-                    EmptyErr(I::Error::empty(position).into())
-                } else {
-                    result
-                }
-            } else {
-                result
-            }
-        })
+        parse_partial_range(
+            mode,
+            input,
+            state,
+            &mut self.0, 
+            |input, predicate| uncons_while1(input, predicate),
+            |input, predicate| uncons_while(input, predicate),
+        )
     }
 }
 

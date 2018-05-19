@@ -7,9 +7,9 @@ use bencher::{black_box, Bencher};
 
 use std::fmt;
 
-use combine::{many, token, ParseError, Parser, RangeStream, many1};
 use combine::range::{range, take_while1};
 use combine::stream::easy;
+use combine::{many, token, ParseError, Parser, RangeStream, many1};
 
 #[derive(Debug)]
 struct Request<'a> {
@@ -63,14 +63,37 @@ fn is_http_version(c: u8) -> bool {
     c >= b'0' && c <= b'9' || c == b'.'
 }
 
+fn end_of_line<'a, I>() -> impl Parser<Output = u8, Input = I>
+where
+    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'))
+}
+
+fn message_header<'a, I>() -> impl Parser<Output = Header<'a>, Input = I>
+where
+    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let message_header_line = (
+        take_while1(is_horizontal_space),
+        take_while1(|c| c != b'\r' && c != b'\n'),
+        end_of_line(),
+    ).map(|(_, line, _)| line);
+
+    struct_parser!(Header {
+        name: take_while1(is_token),
+        _: token(b':'),
+        value: many1(message_header_line),
+    })
+}
+
 fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
 where
     I: RangeStream<Item = u8, Range = &'a [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    // Making a closure, because parser instances cannot be reused
-    let end_of_line = || (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'));
-
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
     let request_line = struct_parser!(Request {
@@ -81,25 +104,10 @@ where
             version: http_version,
         });
 
-    let message_header_line = (
-        take_while1(is_horizontal_space),
-        take_while1(|c| c != b'\r' && c != b'\n'),
-        end_of_line(),
-    ).map(|(_, line, _)| line);
-
-    let message_header = (
-        take_while1(is_token),
-        token(b':'),
-        many1(message_header_line),
-    ).map(|(name, _, value)| Header {
-        name: name,
-        value: value,
-    });
-
     let mut request = (
         request_line,
         end_of_line(),
-        many(message_header),
+        many(message_header()),
         end_of_line(),
     ).map(|(request, _, headers, _)| (request, headers));
 

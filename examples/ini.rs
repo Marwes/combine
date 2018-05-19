@@ -1,5 +1,4 @@
 //! Parser example for INI files.
-#[macro_use]
 extern crate combine;
 
 use std::collections::HashMap;

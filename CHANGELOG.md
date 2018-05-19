@@ -1,3 +1,27 @@
+<a name="v3.3.0"></a>
+## v3.3.0 (2018-05-19)
+
+
+#### Features
+
+*   Add the escaped parser ([0db58a20](https://github.com/Marwes/combine/commit/0db58a20f227d923ffcd3451fbb07ace87dba07c))
+*   Add the lazy parser combinator ([496ac836](https://github.com/Marwes/combine/commit/496ac83628ba33ee9a886f989f8749388f918652))
+
+#### Breaking Changes
+
+*   Remove redundant state comparison in Iter ([9d434c3f](https://github.com/Marwes/combine/commit/9d434c3ff89480aeb9c5552e439b465adc28e31d), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Performance
+
+*   Specialize uncons_while1 on all streams ([c995ad61](https://github.com/Marwes/combine/commit/c995ad6125996b594b8bf45da078fdebeb41b86a))
+*   Unroll the loop for <[T]>::uncons_while ([f593e85d](https://github.com/Marwes/combine/commit/f593e85d4d0ecb9c7c91b769685864fda3291646))
+*   Inline from/into for results ([fff248e4](https://github.com/Marwes/combine/commit/fff248e494361e04cedbf849df959193560416ff))
+*   Unroll take_while1 ([279a4526](https://github.com/Marwes/combine/commit/279a4526494e1cd7e90252c3bc1cfc8f8c35ebcb))
+*   Remove redundant state comparison in Iter ([9d434c3f](https://github.com/Marwes/combine/commit/9d434c3ff89480aeb9c5552e439b465adc28e31d), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add uncons_while1 as a default method on RangeStream ([5d154f15](https://github.com/Marwes/combine/commit/5d154f15a13091c26246627486b309cbdef06d14))
+
+
+
 <a name="v3.2.0"></a>
 ## v3.2.0 (2018-04-24)
 

@@ -564,6 +564,7 @@ where
     }
 }
 
+#[inline(always)]
 pub fn no_partial<P>(p: P) -> NoPartial<P>
 where
     P: Parser,
@@ -797,4 +798,62 @@ where
     P::PartialState: Send + 'static,
 {
     AnySendPartialStateParser(p)
+}
+
+#[derive(Copy, Clone)]
+pub struct Lazy<P>(P);
+impl<I, O, P, R> Parser for Lazy<P>
+where
+    I: Stream,
+    P: FnMut() -> R,
+    R: Parser<Input = I, Output = O>,
+{
+    type Input = I;
+    type Output = O;
+    type PartialState = R::PartialState;
+
+    fn parse_stream_consumed(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+        (self.0)().parse_stream_consumed(input)
+    }
+
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+        (self.0)().parse_lazy(input)
+    }
+
+    parse_mode!();
+
+    fn parse_consumed_mode<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        (self.0)().parse_mode(mode, input, state)
+    }
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        (self.0)().parse_mode_impl(mode, input, state)
+    }
+}
+
+/// Constructs the parser lazily and on each `parse_*` call. Can be used to effectively reduce the
+/// size of deeply nested parsers as only the function producing the parser is stored in `Lazy`
+#[inline(always)]
+pub fn lazy<P, R>(p: P) -> Lazy<P>
+where
+    P: FnMut() -> R,
+    R: Parser,
+{
+    Lazy(p)
 }

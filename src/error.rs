@@ -12,18 +12,21 @@ use stream::StreamOnce;
 #[macro_export]
 #[doc(hidden)]
 macro_rules! ctry {
-    ($result: expr) => {
+    ($result:expr) => {
+
         match $result {
-            $crate::error::FastResult::ConsumedOk(x) =>
-                (x, $crate::error::Consumed::Consumed(())),
-            $crate::error::FastResult::EmptyOk(x) =>
-                (x, $crate::error::Consumed::Empty(())),
-            $crate::error::FastResult::ConsumedErr(err) =>
-                return $crate::error::FastResult::ConsumedErr(err.into()),
-            $crate::error::FastResult::EmptyErr(err) =>
-                return $crate::error::FastResult::EmptyErr(err.into()),
+            $crate::error::FastResult::ConsumedOk(x) => {
+                (x, $crate::error::Consumed::Consumed(()))
+            }
+            $crate::error::FastResult::EmptyOk(x) => (x, $crate::error::Consumed::Empty(())),
+            $crate::error::FastResult::ConsumedErr(err) => {
+                return $crate::error::FastResult::ConsumedErr(err.into())
+            }
+            $crate::error::FastResult::EmptyErr(err) => {
+                return $crate::error::FastResult::EmptyErr(err.into())
+            }
         }
-    }
+    };
 }
 
 #[derive(Clone, Debug)]
@@ -703,6 +706,7 @@ impl<T, E> FastResult<T, E> {
 pub type ConsumedResult<O, I> = FastResult<O, <I as StreamOnce>::Error>;
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> {
+    #[inline(always)]
     fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
         match self {
             ConsumedOk(t) => Ok(Consumed::Consumed(t)),
@@ -714,6 +718,7 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> 
 }
 
 impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
+    #[inline(always)]
     fn into(self) -> ParseResult2<O, E> {
         use self::FastResult::*;
         match self {
@@ -726,6 +731,7 @@ impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
 }
 
 impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
+    #[inline(always)]
     fn from(result: ParseResult2<O, E>) -> FastResult<O, E> {
         use self::FastResult::*;
         match result {

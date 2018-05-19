@@ -12,6 +12,7 @@
 //! parses.
 
 use lib::fmt;
+use lib::str::Chars;
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
@@ -21,8 +22,11 @@ use stream::easy::Errors;
 
 use Parser;
 
-use error::{ConsumedResult, ParseError, StreamError, StringStreamError, UnexpectedParse};
 use error::FastResult::*;
+use error::{
+    ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
+    UnexpectedParse,
+};
 
 #[doc(hidden)]
 #[macro_export]
@@ -44,10 +48,10 @@ macro_rules! clone_resetable {
 
 #[cfg(feature = "std")]
 pub mod buffered;
-/// Stateful stream wrappers.
-pub mod state;
 #[cfg(feature = "std")]
 pub mod easy;
+/// Stateful stream wrappers.
+pub mod state;
 
 /// A type which has a position.
 pub trait Positioned: StreamOnce {
@@ -161,6 +165,35 @@ pub trait RangeStreamOnce: StreamOnce + Resetable {
     where
         F: FnMut(Self::Item) -> bool;
 
+    #[inline]
+    /// Takes items from stream, testing each one with `predicate`
+    /// returns a range of at least one items which passed `predicate`.
+    ///
+    /// # Note
+    ///
+    /// This may not return `EmptyOk` as it should uncons at least one item.
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let mut consumed = false;
+        let result = self.uncons_while(|c| {
+            let ok = f(c);
+            consumed |= ok;
+            ok
+        });
+        if consumed {
+            match result {
+                Ok(x) => ConsumedOk(x),
+                Err(x) => ConsumedErr(x),
+            }
+        } else {
+            EmptyErr(Tracked::from(
+                StreamErrorFor::<Self>::unexpected_static_message(""),
+            ))
+        }
+    }
+
     /// Returns the distance between `self` and `end`. The returned `usize` must be so that
     ///
     /// ```ignore
@@ -207,11 +240,10 @@ where
 pub fn uncons_range<I>(input: &mut I, size: usize) -> ConsumedResult<I::Range, I>
 where
     I: ?Sized + RangeStream,
-    I::Range: Range,
 {
     match input.uncons_range(size) {
         Err(err) => wrap_stream_error(input, err),
-        Ok(x) => if x.len() == 0 {
+        Ok(x) => if size == 0 {
             EmptyOk(x)
         } else {
             ConsumedOk(x)
@@ -258,6 +290,60 @@ where
     }
 }
 
+#[inline]
+/// Takes items from stream, testing each one with `predicate`
+/// returns a range of at least one items which passed `predicate`.
+///
+/// # Note
+///
+/// This may not return `EmptyOk` as it should uncons at least one item.
+pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
+where
+    F: FnMut(I::Item) -> bool,
+    I: ?Sized + RangeStream,
+{
+    match input.uncons_while1(predicate) {
+        ConsumedOk(x) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                ConsumedOk(x)
+            }
+        }
+        EmptyErr(_) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                EmptyErr(I::Error::empty(input.position()).into())
+            }
+        }
+        ConsumedErr(err) => {
+            if input.is_partial() && input_at_eof(input) {
+                // Partial inputs which encounter end of file must fail to let more input be
+                // retrieved
+                ConsumedErr(I::Error::from_error(
+                    input.position(),
+                    StreamError::end_of_input(),
+                ))
+            } else {
+                wrap_stream_error(input, err)
+            }
+        }
+        EmptyOk(_) => unreachable!(),
+    }
+}
+
+/// Trait representing a range of elements.
 pub trait Range {
     /// Returns the remaining length of `self`.
     /// The returned length need not be the same as the number of items left in the stream.
@@ -269,42 +355,66 @@ pub trait Range {
     }
 }
 
+
+fn str_uncons_while<'a, F>(slice: &mut &'a str, mut chars: Chars<'a>, mut f: F) -> &'a str
+where
+    F: FnMut(char) -> bool,
+{
+    let mut last_char_size = 0;
+
+    macro_rules! test_next {
+        () => {
+
+            match chars.next() {
+                Some(c) => {
+                    if !f(c) {
+                        last_char_size = c.len_utf8();
+                        break;
+                    }
+                }
+                None => break,
+            }
+        };
+    }
+    loop {
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+        test_next!();
+    }
+
+    let len = slice.len() - chars.as_str().len() - last_char_size;
+    let (result, rest) = slice.split_at(len);
+    *slice = rest;
+    result
+}
+
 impl<'a> RangeStreamOnce for &'a str {
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a str, StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<&'a str, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        Ok(str_uncons_while(self, self.chars(), f))
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
         let mut chars = self.chars();
+        match chars.next() {
+            Some(c) => if !f(c) { return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)) },
+            None => return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)),
+        }
 
-        macro_rules! test_next {
-            () => {
-                match chars.next() {
-                    Some(c) => {
-                        if !f(c) {
-                            let len = self.len() - chars.as_str().len() - c.len_utf8();
-                            let (result, rest) = self.split_at(len);
-                            *self = rest;
-                            return Ok(result);
-                        }
-                    }
-                    None => break,
-                }
-            }
-        }
-        loop {
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-            test_next!();
-        }
-        let result = *self;
-        *self = &self[self.len()..];
-        Ok(result)
+        ConsumedOk(str_uncons_while(self, chars, f))
     }
+
 
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a str, StreamErrorFor<Self>> {
@@ -356,6 +466,49 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
+fn slice_uncons_while<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+where
+    F: FnMut(T) -> bool,
+    T: Clone,
+{
+    let len = slice.len();
+    let mut found = false;
+
+    macro_rules! check {
+        () => {
+            if !f(unsafe { slice.get_unchecked(i).clone() }) {
+                found = true;
+                break;
+            }
+            i += 1;
+        };
+    }
+
+    while len - i >= 8 {
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+    }
+
+    if !found {
+        while i < len {
+            if !f(unsafe { slice.get_unchecked(i).clone() }) {
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    let (result, remaining) = slice.split_at(i);
+    *slice = remaining;
+    result
+}
+
 impl<'a, T> RangeStreamOnce for &'a [T]
 where
     T: Clone + PartialEq,
@@ -372,14 +525,23 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<&'a [T], StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.iter().take_while(|c| f((**c).clone())).count();
-        let (result, remaining) = self.split_at(len);
-        *self = remaining;
-        Ok(result)
+        Ok(slice_uncons_while(self, 0, f))
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        if self.is_empty() || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
+            return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
+        }
+
+        ConsumedOk(slice_uncons_while(self, 1, f))
     }
 
     #[inline]
@@ -521,6 +683,13 @@ where
         self.0.uncons_while(f)
     }
 
+    fn uncons_while1<F>(&mut self, f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while1(f)
+    }
+
     #[inline(always)]
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
@@ -578,6 +747,49 @@ where
     }
 }
 
+
+fn slice_uncons_while_ref<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+where
+    F: FnMut(&'a T) -> bool,
+{
+    let len = slice.len();
+    let mut found = false;
+
+    macro_rules! check {
+        () => {
+            if !f(unsafe { slice.get_unchecked(i) }) {
+                found = true;
+                break;
+            }
+            i += 1;
+        };
+    }
+
+    while len - i >= 8 {
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+        check!();
+    }
+
+    if !found {
+        while i < len {
+            if !f(unsafe { slice.get_unchecked(i) }) {
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    let (result, remaining) = slice.split_at(i);
+    *slice = remaining;
+    result
+}
+
 impl<'a, T> RangeStreamOnce for SliceStream<'a, T>
 where
     T: PartialEq + 'a,
@@ -594,15 +806,25 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut f: F) -> Result<&'a [T], StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, f: F) -> Result<&'a [T], StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
-        let len = self.0.iter().take_while(|c| f(*c)).count();
-        let (range, rest) = self.0.split_at(len);
-        self.0 = rest;
-        Ok(range)
+        Ok(slice_uncons_while_ref(&mut self.0, 0, f))
     }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        if self.0.is_empty() || !f(unsafe { self.0.get_unchecked(0) }) {
+            return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
+        }
+
+        ConsumedOk(slice_uncons_while_ref(&mut self.0, 1, f))
+    }
+
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {
