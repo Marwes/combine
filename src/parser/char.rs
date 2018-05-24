@@ -94,7 +94,7 @@ where
 
 impl_token_parser! { Newline(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
-/// Parses a newline character.
+/// Parses a newline character (`'\n'`).
 ///
 /// ```
 /// use combine::Parser;
@@ -116,7 +116,7 @@ where
 
 impl_token_parser! { CrLf(), char, Expected<With<Satisfy<I, fn (char) -> bool>, Newline<I>>> }
 
-/// Parses carriage return and newline, returning the newline character.
+/// Parses carriage return and newline (`"\r\n"`), returning the newline character.
 ///
 /// ```
 /// use combine::Parser;
@@ -141,7 +141,7 @@ where
 
 impl_token_parser! { Tab(), char, Expected<Satisfy<I, fn (char) -> bool>> }
 
-/// Parses a tab character.
+/// Parses a tab character (`'\t'`).
 ///
 /// ```
 /// use combine::Parser;
