@@ -488,4 +488,10 @@ mod tests {
         let result = parser.parse("hell\u{00EE} world");
         assert!(result.is_err());
     }
+
+    #[test]
+    fn take_until_range_unicode() {
+        let result = take_until_range("🦀").parse("Ferris the friendly rustacean 🦀 and his snake friend 🐍");
+        assert_eq!(result, Ok(("Ferris the friendly rustacean 🦀", " and his snake friend 🐍")));
+    }
 }
