@@ -420,16 +420,32 @@ where
                         // because we've already done it on look_ahead_input.
                         unreachable!();
                     } else {
-                        input.reset(look_ahead_input);
-                        *to_consume += 1;
+                        // Clone because we need look_ahead_input below to calculate how many bytes were consumed
+                        input.reset(look_ahead_input.clone());
+
+                        // Advance the stream
                         if input.uncons().is_err() {
                             unreachable!();
                         }
+
+                        // Calculate how many bytes input.uncons() advanced the stream
+                        *to_consume += input.distance(&look_ahead_input);
                     }
                 }
-                Err(e) => {
-                    input.reset(before);
-                    return wrap_stream_error(input, e);
+                Err(first_error) => {
+                    // Clone because we need look_ahead_input below to calculate how many bytes were consumed
+                    input.reset(look_ahead_input.clone());
+                    
+                    // See if we can advance anyway
+                    if let Err(_) = input.uncons() {
+                        // Return the original error if uncons failed
+                        return wrap_stream_error(input, first_error);
+                    } else {
+                        // If we can advance, then ignore first_error
+
+                        // Calculate how many bytes input.uncons() advanced the stream
+                        *to_consume += input.distance(&look_ahead_input);
+                    }
                 }
             };
         }
@@ -490,8 +506,26 @@ mod tests {
     }
 
     #[test]
-    fn take_until_range_unicode() {
-        let result = take_until_range("🦀").parse("Ferris the friendly rustacean 🦀 and his snake friend 🐍");
-        assert_eq!(result, Ok(("Ferris the friendly rustacean 🦀", " and his snake friend 🐍")));
+    fn take_until_range_1() {
+        let result = take_until_range("\"").parse("Foo baz bar quux\"");
+        assert_eq!(result, Ok(("Foo baz bar quux", "\"")));
+    }
+
+    #[test]
+    fn take_until_range_2() {
+        let result = take_until_range("===").parse("if ((pointless_comparison == 3) === true) {");
+        assert_eq!(result, Ok(("if ((pointless_comparison == 3) ", "=== true) {")));
+    }
+
+    #[test]
+    fn take_until_range_unicode_1() {
+        let result = take_until_range("🦀").parse("😃 Ferris the friendly rustacean 🦀 and his snake friend 🐍");
+        assert_eq!(result, Ok(("😃 Ferris the friendly rustacean ", "🦀 and his snake friend 🐍")));
+    }
+
+    #[test]
+    fn take_until_range_unicode_2() {
+        let result = take_until_range("⁘⁙/⁘").parse("⚙️🛠️🦀=🏎️⁘⁙⁘⁘⁙/⁘⁘⁙/⁘");
+        assert_eq!(result, Ok(("⚙️🛠️🦀=🏎️⁘⁙⁘", "⁘⁙/⁘⁘⁙/⁘")));
     }
 }
