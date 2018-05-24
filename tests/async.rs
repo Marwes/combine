@@ -28,7 +28,7 @@ use combine::combinator::{
 };
 use combine::parser::char::{char, digit, letter};
 use combine::parser::item::item;
-use combine::parser::range::{range, recognize_with_value, take_while, take_while1};
+use combine::parser::range::{range, recognize_with_value, take_while, take_while1, take_until_range};
 use combine::parser::repeat;
 use combine::stream::{easy, RangeStream};
 use combine::{any, count_min_max, many1, skip_many, Parser};
@@ -392,6 +392,19 @@ quickcheck! {
         );
 
         assert_eq!(counter.get(), 3);
+    }
+
+    fn take_until_range_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, String,
+            take_until_range("::").map(String::from).skip((item(':'), item(':')))
+        }
+
+        let input = "123::456::789::";
+
+        let result = run_decoder(input, seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), ["123", "456", "789"]);
     }
 }
 #[test]
