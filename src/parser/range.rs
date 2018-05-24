@@ -437,7 +437,10 @@ where
                     input.reset(look_ahead_input.clone());
                     
                     // See if we can advance anyway
-                    if let Err(_) = input.uncons() {
+                    if input.uncons().is_err() {
+                        // Reset the stream
+                        input.reset(before);
+
                         // Return the original error if uncons failed
                         return wrap_stream_error(input, first_error);
                     } else {
