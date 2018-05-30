@@ -5,12 +5,12 @@ use lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use Parser;
-use parser::ParseMode;
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
-use parser::sequence::With;
 use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use parser::sequence::With;
+use parser::ParseMode;
 use stream::{uncons_range, FullRangeStream, RangeStream, Stream, StreamOnce};
+use Parser;
 
 use error::FastResult::*;
 
@@ -35,12 +35,12 @@ where
 impl_token_parser! { Digit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
 macro_rules! byte_parser {
-    ($name: ident, $ty : ident, $f : ident) => ({
+    ($name:ident, $ty:ident, $f:ident) => {{
         let f = static_fn!((c, u8) -> bool {
-            AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false)
-        });
+                AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false)
+            });
         $ty(satisfy(f).expected(stringify!($name)), PhantomData)
-    })
+    }};
 }
 
 /// Parses a base-10 digit (0–9).
@@ -727,9 +727,9 @@ pub mod num {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use stream::buffered::BufferedStream;
         use stream::state::State;
         use stream::IteratorStream;
-        use stream::buffered::BufferedStream;
 
         #[test]
         fn no_rangestream() {

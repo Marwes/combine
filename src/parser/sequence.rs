@@ -1,11 +1,11 @@
 //! Combinators which take multiple parsers and applies them one after another.
 use lib::marker::PhantomData;
 
-use {ErrorOffset, Parser, Stream, StreamOnce};
-use parser::ParseMode;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
-use error::FastResult::*;
 use combinator::{ignore, Ignore};
+use error::FastResult::*;
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
+use parser::ParseMode;
+use {ErrorOffset, Parser, Stream, StreamOnce};
 
 macro_rules! dispatch_on {
     ($i: expr, $f: expr;) => {
@@ -608,11 +608,8 @@ where
             mode.set_first();
         }
 
-        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1).parse_consumed_mode(
-            mode,
-            input,
-            n_state,
-        );
+        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
+            .parse_consumed_mode(mode, input, n_state);
         match result {
             EmptyOk(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();

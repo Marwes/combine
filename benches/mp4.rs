@@ -7,15 +7,15 @@ extern crate combine;
 
 use bencher::{black_box, Bencher};
 
-use std::str::from_utf8;
 use std::fs::File;
 use std::io::Read;
+use std::str::from_utf8;
 
 use byteorder::{BigEndian, ByteOrder};
 
-use combine::*;
 use combine::range::{range, take};
 use combine::stream::easy::ParseError;
+use combine::*;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct FileType<'a> {

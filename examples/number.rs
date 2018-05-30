@@ -1,11 +1,11 @@
 extern crate combine;
 
-use combine::parser::range::recognize;
-use combine::parser::repeat::{skip_many, skip_many1};
+use combine::error::UnexpectedParse;
+use combine::parser::byte::digit;
 use combine::parser::choice::optional;
 use combine::parser::item::item;
-use combine::parser::byte::digit;
-use combine::error::UnexpectedParse;
+use combine::parser::range::recognize;
+use combine::parser::repeat::{skip_many, skip_many1};
 use combine::Parser;
 
 fn main() {

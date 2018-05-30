@@ -7,15 +7,15 @@ use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
-use combine::parser::char::{char, digit};
-use combine::{choice, many, optional, Parser, Stream};
-use combine::stream::state::State;
 use combine::error::ParseError;
+use combine::parser::char::{char, digit};
+use combine::stream::state::State;
+use combine::{choice, many, optional, Parser, Stream};
 
 #[cfg(feature = "std")]
-use combine::stream::state::SourcePosition;
-#[cfg(feature = "std")]
 use combine::stream::easy;
+#[cfg(feature = "std")]
+use combine::stream::state::SourcePosition;
 
 enum Error<E> {
     Io(io::Error),

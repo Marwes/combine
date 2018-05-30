@@ -2,9 +2,9 @@
 
 use lib::marker::PhantomData;
 
-use Parser;
-use stream::{uncons, Stream, StreamOnce};
 use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use stream::{uncons, Stream, StreamOnce};
+use Parser;
 
 use error::FastResult::*;
 

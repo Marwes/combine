@@ -4,15 +4,17 @@
 //! implementing all combine parsers.
 use either::Either;
 
-use ErrorOffset;
-use stream::{Resetable, Stream, StreamOnce};
-use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
+use combinator::{
+    and_then, expected, flat_map, map, message, then, then_partial, AndThen, Expected, FlatMap,
+    Iter, Map, Message, Then, ThenPartial,
+};
 use error::FastResult::*;
-use combinator::{and_then, expected, flat_map, map, message, then, then_partial, AndThen,
-                 Expected, FlatMap, Iter, Map, Message, Then, ThenPartial};
+use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
+use stream::{Resetable, Stream, StreamOnce};
+use ErrorOffset;
 
-use self::sequence::{skip, with, Skip, With};
 use self::choice::{or, Or};
+use self::sequence::{skip, with, Skip, With};
 
 /// Internal API. May break without a semver bump
 #[macro_export]
@@ -72,18 +74,18 @@ macro_rules! parse_mode {
     }
 }
 
-pub mod range;
 pub mod byte;
 pub mod char;
-pub mod item;
+pub mod choice;
+pub mod combinator;
 pub mod error;
 pub mod function;
-pub mod combinator;
-pub mod repeat;
-pub mod sequence;
-pub mod choice;
+pub mod item;
+pub mod range;
 #[cfg(feature = "regex")]
 pub mod regex;
+pub mod repeat;
+pub mod sequence;
 
 /// By implementing the `Parser` trait a type says that it can be used to parse an input stream
 /// into the type `Output`.

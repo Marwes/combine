@@ -8,25 +8,25 @@ extern crate bencher;
 extern crate combine;
 
 use std::collections::HashMap;
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 
 use bencher::{black_box, Bencher};
 
+use combine::error::{Consumed, ParseError};
 use combine::stream::buffered::BufferedStream;
 use combine::{Parser, Stream, StreamOnce};
-use combine::error::{Consumed, ParseError};
 
 use combine::parser::char::{char, digit, spaces, string};
-use combine::parser::item::{any, satisfy, satisfy_map};
-use combine::parser::sequence::between;
-use combine::parser::repeat::{many, sep_by, many1};
 use combine::parser::choice::{choice, optional};
 use combine::parser::function::parser;
+use combine::parser::item::{any, satisfy, satisfy_map};
+use combine::parser::repeat::{many, many1, sep_by};
+use combine::parser::sequence::between;
 
-use combine::stream::IteratorStream;
 use combine::stream::state::{SourcePosition, State};
+use combine::stream::IteratorStream;
 
 #[derive(PartialEq, Debug)]
 enum Value {
