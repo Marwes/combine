@@ -93,7 +93,7 @@
 //! #[macro_use]
 //! extern crate combine;
 //! use combine::parser::char::{char, letter, spaces};
-//! use combine::{between, many1, parser, sep_by, Parser};
+//! use combine::{between, choice, many1, parser, sep_by, Parser};
 //! use combine::error::{ParseError, ParseResult};
 //! use combine::stream::{Stream, Positioned};
 //! use combine::stream::state::State;
@@ -128,9 +128,11 @@
 //!                 lex_char(')'))
 //!                    .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
 //!
-//!     word.map(Expr::Id)
-//!         .or(array.map(Expr::Array))
-//!         .or(pair)
+//!     choice((
+//!         word.map(Expr::Id),
+//!         array.map(Expr::Array),
+//!         pair,
+//!     ))
 //!         .skip(spaces())
 //! }
 //!
