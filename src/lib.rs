@@ -105,6 +105,7 @@
 //!     Pair(Box<Expr>, Box<Expr>)
 //! }
 //!
+//! // `impl Parser` can be used to create reusable parsers with zero overhead
 //! fn expr_<I>() -> impl Parser<Input = I, Output = Expr>
 //!     where I: Stream<Item = char>,
 //!           // Necessary due to rust-lang/rust#24159

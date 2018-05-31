@@ -37,8 +37,8 @@ impl_token_parser! { Digit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f:ident) => {{
         let f = static_fn!((c, u8) -> bool {
-                    AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false)
-                });
+                        AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false)
+                    });
         $ty(satisfy(f).expected(stringify!($name)), PhantomData)
     }};
 }
