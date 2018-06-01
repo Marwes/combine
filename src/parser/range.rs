@@ -396,6 +396,7 @@ where
 
         let len = self.0.len();
         let before = input.checkpoint();
+        let mut first_stream_error = None;
 
         // Skip until the end of the last parse attempt
         ctry!(uncons_range(input, *to_consume));
@@ -406,9 +407,11 @@ where
             match input.uncons_range(len) {
                 Ok(xs) => {
                     if xs == self.0 {
+                        let distance = input.distance(&before) - len;
                         input.reset(before);
-                        if let Ok(consumed) = input.uncons_range(*to_consume) {
-                            if *to_consume == 0 {
+
+                        if let Ok(consumed) = input.uncons_range(distance) {
+                            if distance == 0 {
                                 return EmptyOk(consumed);
                             } else {
                                 *to_consume = 0;
@@ -420,16 +423,40 @@ where
                         // because we've already done it on look_ahead_input.
                         unreachable!();
                     } else {
+                        // Reset the stream back to where it was when we entered the top of the loop
                         input.reset(look_ahead_input);
-                        *to_consume += 1;
+
+                        // Advance the stream by one item
                         if input.uncons().is_err() {
                             unreachable!();
                         }
                     }
                 }
-                Err(e) => {
-                    input.reset(before);
-                    return wrap_stream_error(input, e);
+                Err(first_error) => {
+                    // If we are unable to find a successful parse even after advancing with `uncons`
+                    // below we must reset the stream to its state before the first error.
+                    // If we don't we may try and match the range `::` against `:<EOF>` which would
+                    // fail as only one `:` is present at this parse attempt. But when we later resume
+                    // with more input we must start parsing again at the first time we errored so we
+                    // can see the entire `::`
+                    if first_stream_error.is_none() {
+                        first_stream_error = Some((first_error, input.distance(&before)));
+                    }
+
+                    // Reset the stream back to where it was when we entered the top of the loop
+                    input.reset(look_ahead_input);
+
+                    // See if we can advance anyway
+                    if input.uncons().is_err() {
+                        let (first_error, first_error_distance) = first_stream_error.unwrap();
+
+                        // Reset the stream
+                        input.reset(before);
+                        *to_consume = first_error_distance;
+
+                        // Return the original error if uncons failed
+                        return wrap_stream_error(input, first_error);
+                    }
                 }
             };
         }
@@ -487,5 +514,29 @@ mod tests {
         let mut parser = range("hello");
         let result = parser.parse("hell\u{00EE} world");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn take_until_range_1() {
+        let result = take_until_range("\"").parse("Foo baz bar quux\"");
+        assert_eq!(result, Ok(("Foo baz bar quux", "\"")));
+    }
+
+    #[test]
+    fn take_until_range_2() {
+        let result = take_until_range("===").parse("if ((pointless_comparison == 3) === true) {");
+        assert_eq!(result, Ok(("if ((pointless_comparison == 3) ", "=== true) {")));
+    }
+
+    #[test]
+    fn take_until_range_unicode_1() {
+        let result = take_until_range("🦀").parse("😃 Ferris the friendly rustacean 🦀 and his snake friend 🐍");
+        assert_eq!(result, Ok(("😃 Ferris the friendly rustacean ", "🦀 and his snake friend 🐍")));
+    }
+
+    #[test]
+    fn take_until_range_unicode_2() {
+        let result = take_until_range("⁘⁙/⁘").parse("⚙️🛠️🦀=🏎️⁘⁙⁘⁘⁙/⁘⁘⁙/⁘");
+        assert_eq!(result, Ok(("⚙️🛠️🦀=🏎️⁘⁙⁘", "⁘⁙/⁘⁘⁙/⁘")));
     }
 }
