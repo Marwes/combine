@@ -1,11 +1,11 @@
 #![cfg(feature = "std")]
 extern crate combine;
-use combine::stream::IteratorStream;
+use combine::parser::char::{char, digit, spaces, string};
 use combine::stream::buffered::BufferedStream;
 use combine::stream::easy::{self, Error};
-use combine::parser::char::{char, digit, spaces, string};
-use combine::{choice, many, sep_by, try, Parser, Positioned, many1};
 use combine::stream::state::State;
+use combine::stream::IteratorStream;
+use combine::{choice, many, many1, sep_by, try, Parser, Positioned};
 
 #[test]
 fn shared_stream_buffer() {

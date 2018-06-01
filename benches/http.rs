@@ -9,7 +9,7 @@ use std::fmt;
 
 use combine::range::{range, take_while1};
 use combine::stream::easy;
-use combine::{many, token, ParseError, Parser, RangeStream, many1};
+use combine::{many, many1, token, ParseError, Parser, RangeStream};
 
 #[derive(Debug)]
 struct Request<'a> {

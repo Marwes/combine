@@ -2,12 +2,14 @@
 
 use lib::marker::PhantomData;
 
-use Parser;
-use stream::{uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
-             Resetable, StreamOnce};
-use error::{ConsumedResult, Info, ParseError, Tracked};
 use error::FastResult::*;
+use error::{ConsumedResult, Info, ParseError, Tracked};
 use parser::ParseMode;
+use stream::{
+    uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
+    Resetable, StreamOnce,
+};
+use Parser;
 
 pub struct Range<I>(I::Range)
 where
@@ -286,7 +288,7 @@ where
             mode,
             input,
             state,
-            &mut self.0, 
+            &mut self.0,
             |input, predicate| uncons_while(input, predicate),
             |input, predicate| uncons_while(input, predicate),
         )
@@ -343,7 +345,7 @@ where
             mode,
             input,
             state,
-            &mut self.0, 
+            &mut self.0,
             |input, predicate| uncons_while1(input, predicate),
             |input, predicate| uncons_while(input, predicate),
         )

@@ -2,19 +2,19 @@
 extern crate combine;
 
 use std::collections::HashMap;
-use std::fmt;
 use std::env;
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
-use combine::*;
 use combine::parser::char::space;
 use combine::stream::state::State;
+use combine::*;
 
 #[cfg(feature = "std")]
-use combine::stream::state::SourcePosition;
-#[cfg(feature = "std")]
 use combine::stream::easy;
+#[cfg(feature = "std")]
+use combine::stream::state::SourcePosition;
 
 enum Error<E> {
     Io(io::Error),

@@ -7,22 +7,22 @@ extern crate futures;
 extern crate partial_io;
 extern crate tokio_io;
 
-use std::rc::Rc;
 use std::cell::Cell;
-use std::str;
 use std::io::Cursor;
+use std::rc::Rc;
+use std::str;
 
 use bytes::BytesMut;
 
 use tokio_io::codec::Decoder;
 
-use combine::error::{ParseError, StreamError};
-use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
 use combine::combinator::{any_partial_state, AnyPartialState};
-use combine::parser::range::{range, recognize, take};
-use combine::{skip_many, Parser, skip_many1};
-use combine::stream::easy;
+use combine::error::{ParseError, StreamError};
 use combine::parser::byte::digit;
+use combine::parser::range::{range, recognize, take};
+use combine::stream::easy;
+use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
+use combine::{skip_many, skip_many1, Parser};
 
 pub struct LanguageServerDecoder {
     state: AnyPartialState,
@@ -98,11 +98,12 @@ impl Decoder for LanguageServerDecoder {
             // Since err contains references into `src` we must replace these before
             // we can return an error or call `split_to` to remove the input we
             // just consumed
-            let err = err.map_range(|r| {
-                str::from_utf8(r)
-                    .ok()
-                    .map_or_else(|| format!("{:?}", r), |s| s.to_string())
-            }).map_position(|p| p.translate_position(&src[..]));
+            let err =
+                err.map_range(|r| {
+                    str::from_utf8(r)
+                        .ok()
+                        .map_or_else(|| format!("{:?}", r), |s| s.to_string())
+                }).map_position(|p| p.translate_position(&src[..]));
             format!("{}\nIn input: `{}`", err, str::from_utf8(src).unwrap())
         })?;
 
@@ -139,8 +140,8 @@ impl Decoder for LanguageServerDecoder {
 
 fn main() {
     use futures::{Future, Stream};
-    use tokio_io::codec::FramedRead;
     use partial_io::{PartialAsyncRead, PartialOp};
+    use tokio_io::codec::FramedRead;
 
     let input = "Content-Length: 6\r\n\
                  \r\n\

@@ -3,12 +3,12 @@
 use lib::marker::PhantomData;
 use lib::mem;
 
-use Parser;
 use error::{ConsumedResult, Info, ParseError, Tracked};
-use stream::{Positioned, Resetable, Stream, StreamOnce};
-use parser::ParseMode;
-use parser::item::value;
 use parser::error::unexpected;
+use parser::item::value;
+use parser::ParseMode;
+use stream::{Positioned, Resetable, Stream, StreamOnce};
+use Parser;
 
 use either::Either;
 

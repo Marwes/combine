@@ -84,8 +84,10 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
-use stream::{FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamErrorFor,
-             StreamOnce};
+use stream::{
+    FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamErrorFor,
+    StreamOnce,
+};
 
 /// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
 /// well as string variants holding easy descriptions.

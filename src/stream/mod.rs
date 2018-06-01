@@ -355,7 +355,6 @@ pub trait Range {
     }
 }
 
-
 fn str_uncons_while<'a, F>(slice: &mut &'a str, mut chars: Chars<'a>, mut f: F) -> &'a str
 where
     F: FnMut(char) -> bool,
@@ -408,13 +407,14 @@ impl<'a> RangeStreamOnce for &'a str {
     {
         let mut chars = self.chars();
         match chars.next() {
-            Some(c) => if !f(c) { return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)) },
+            Some(c) => if !f(c) {
+                return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse));
+            },
             None => return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)),
         }
 
         ConsumedOk(str_uncons_while(self, chars, f))
     }
-
 
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<&'a str, StreamErrorFor<Self>> {
@@ -476,6 +476,7 @@ where
 
     macro_rules! check {
         () => {
+
             if !f(unsafe { slice.get_unchecked(i).clone() }) {
                 found = true;
                 break;
@@ -747,7 +748,6 @@ where
     }
 }
 
-
 fn slice_uncons_while_ref<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
 where
     F: FnMut(&'a T) -> bool,
@@ -757,6 +757,7 @@ where
 
     macro_rules! check {
         () => {
+
             if !f(unsafe { slice.get_unchecked(i) }) {
                 found = true;
                 break;
@@ -824,7 +825,6 @@ where
 
         ConsumedOk(slice_uncons_while_ref(&mut self.0, 1, f))
     }
-
 
     #[inline]
     fn distance(&self, end: &Self) -> usize {

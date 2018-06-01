@@ -93,8 +93,8 @@
 //! #[macro_use]
 //! extern crate combine;
 //! use combine::parser::char::{char, letter, spaces};
-//! use combine::{between, many1, parser, sep_by, Parser};
-//! use combine::error::ParseResult;
+//! use combine::{between, choice, many1, parser, sep_by, Parser};
+//! use combine::error::{ParseError, ParseResult};
 //! use combine::stream::{Stream, Positioned};
 //! use combine::stream::state::State;
 //!
@@ -105,12 +105,11 @@
 //!     Pair(Box<Expr>, Box<Expr>)
 //! }
 //!
-//! // The `parser!` macro can be used to define parser producing functions in most cases
-//! // (for more advanced uses standalone functions or explicit implementation of `Parser`
-//! // can be done to handle parsing)
-//! parser!{
-//!    fn expr[I]()(I) -> Expr
-//!     where [I: Stream<Item=char>]
+//! // `impl Parser` can be used to create reusable parsers with zero overhead
+//! fn expr_<I>() -> impl Parser<Input = I, Output = Expr>
+//!     where I: Stream<Item = char>,
+//!           // Necessary due to rust-lang/rust#24159
+//!           I::Error: ParseError<I::Item, I::Range, I::Position>,
 //! {
 //!     let word = many1(letter());
 //!
@@ -129,11 +128,27 @@
 //!                 lex_char(')'))
 //!                    .map(|t| Expr::Pair(Box::new(t.1), Box::new(t.3)));
 //!
-//!     word.map(Expr::Id)
-//!         .or(array.map(Expr::Array))
-//!         .or(pair)
+//!     choice((
+//!         word.map(Expr::Id),
+//!         array.map(Expr::Array),
+//!         pair,
+//!     ))
 //!         .skip(spaces())
 //! }
+//!
+//! // As this expression parser needs to be able to call itself recursively `impl Parser` can't
+//! // be used on its own as that would cause an infinitely large type. We can avoid this by using
+//! // the `parser!` macro which erases the inner type and the size of that type entirely which
+//! // lets it be used recursively.
+//! //
+//! // (This macro does not use `impl Trait` which means it can be used in rust < 1.26 as well to
+//! // emulate `impl Parser`)
+//! parser!{
+//!     fn expr[I]()(I) -> Expr
+//!     where [I: Stream<Item = char>]
+//!     {
+//!         expr_()
+//!     }
 //! }
 //!
 //! fn main() {
@@ -170,18 +185,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use parser::Parser;
-#[doc(inline)]
 pub use error::{ConsumedResult, ParseError, ParseResult};
+#[doc(inline)]
+pub use parser::Parser;
 #[doc(inline)]
 pub use stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
 #[doc(inline)]
-pub use combinator::{any, between, count, count_min_max, env_parser, eof, look_ahead, many,
-                     none_of, not_followed_by, one_of, optional, parser, position, satisfy,
-                     satisfy_map, sep_by, sep_end_by, skip_count, skip_count_min_max, skip_many,
-                     token, tokens, try, unexpected, value, chainl1, chainr1, many1, sep_by1,
-                     sep_end_by1, skip_many1};
+pub use combinator::{
+    any, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead, many, many1,
+    none_of, not_followed_by, one_of, optional, parser, position, satisfy, satisfy_map, sep_by,
+    sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max, skip_many, skip_many1, token,
+    tokens, try, unexpected, value,
+};
 #[doc(inline)]
 pub use parser::choice::choice;
 
@@ -533,14 +549,15 @@ macro_rules! parser {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! combine_parse_partial {
-    ((()) $input: ident $state: ident $parser: block) => { {
+    ((()) $input:ident $state:ident $parser:block) => {{
         let _ = $state;
         let ref mut state = Default::default();
         $parser.parse_partial($input, state)
-    } };
-    (($ignored: ty) $input: ident $state: ident $parser: block) => {
+    }};
+    (($ignored:ty) $input:ident $state:ident $parser:block) => {
+
         $parser.parse_partial($input, $state)
-    }
+    };
 }
 
 #[doc(hidden)]
@@ -648,10 +665,10 @@ extern crate unreachable;
 // Public but hidden to be accessible in macros
 #[doc(hidden)]
 pub mod lib {
-    #[cfg(feature = "std")]
-    pub use std::*;
     #[cfg(not(feature = "std"))]
     pub use core::*;
+    #[cfg(feature = "std")]
+    pub use std::*;
 }
 
 #[cfg(feature = "std")]
@@ -668,23 +685,25 @@ pub mod parser;
 
 /// Re-exported parsers for compatibility with older versions
 #[doc(hidden)]
-#[deprecated(since = "3.0.0",
-             note = "Please import parsers from the `parser` module and its submodules instead")]
+#[deprecated(
+    since = "3.0.0",
+    note = "Please import parsers from the `parser` module and its submodules instead"
+)]
 pub mod combinator {
-    #[doc(inline)]
-    pub use parser::sequence::*;
     #[doc(inline)]
     pub use parser::choice::*;
     #[doc(inline)]
-    pub use parser::item::*;
-    #[doc(inline)]
-    pub use parser::repeat::*;
+    pub use parser::combinator::*;
     #[doc(inline)]
     pub use parser::error::*;
     #[doc(inline)]
     pub use parser::function::*;
     #[doc(inline)]
-    pub use parser::combinator::*;
+    pub use parser::item::*;
+    #[doc(inline)]
+    pub use parser::repeat::*;
+    #[doc(inline)]
+    pub use parser::sequence::*;
 }
 
 #[doc(hidden)]
@@ -744,10 +763,10 @@ mod tests {
 
 #[cfg(all(feature = "std", test))]
 mod std_tests {
-    use super::*;
+    use super::easy::Error;
     use super::error::Consumed;
     use super::stream::IteratorStream;
-    use super::easy::Error;
+    use super::*;
 
     use parser::char::{alpha_num, char, digit, letter, spaces, string};
     use stream::easy;
@@ -983,8 +1002,8 @@ mod std_tests {
 
     #[test]
     fn std_error() {
-        use std::fmt;
         use std::error::Error as StdError;
+        use std::fmt;
         #[derive(Debug)]
         struct Error;
         impl fmt::Display for Error {
@@ -1016,8 +1035,8 @@ mod std_tests {
         // appreciate this.  For technical reasons this is pretty janky; see the discussion in
         // https://github.com/Marwes/combine/issues/86, and excuse the test with significant
         // boilerplate!
-        use std::fmt;
         use std::error::Error as StdError;
+        use std::fmt;
 
         #[derive(Clone, PartialEq, Debug)]
         struct CloneOnly(String);

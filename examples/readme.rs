@@ -1,6 +1,6 @@
 extern crate combine;
-use combine::{sep_by, Parser, many1};
 use combine::parser::char::{letter, space};
+use combine::{many1, sep_by, Parser};
 
 #[test]
 fn readme() {

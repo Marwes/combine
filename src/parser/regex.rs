@@ -37,11 +37,11 @@ extern crate regex;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use Parser;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use error::FastResult::*;
-use stream::{FullRangeStream, StreamOnce};
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use parser::range::take;
+use stream::{FullRangeStream, StreamOnce};
+use Parser;
 
 struct First<T>(Option<T>);
 

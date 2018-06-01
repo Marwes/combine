@@ -4,6 +4,7 @@ set -ex
 echo "TRAVIS_RUST_VERSION=$TRAVIS_RUST_VERSION"
 if [ "$TRAVIS_RUST_VERSION" == "1.20.0" ]; then
     cargo test --lib
+    cargo build --no-default-features
 else
     cargo build
     cargo test --features doc

@@ -1,8 +1,10 @@
 use lib::fmt;
 
-use error::{ParseError, StreamError, FastResult};
-use stream::{FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
-             StreamErrorFor, StreamOnce};
+use error::{FastResult, ParseError, StreamError};
+use stream::{
+    FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
+    StreamErrorFor, StreamOnce,
+};
 
 #[cfg(feature = "std")]
 use stream::ReadStream;
@@ -272,7 +274,10 @@ where
     }
 
     #[inline]
-    fn uncons_while1<F>(&mut self, mut predicate: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(
+        &mut self,
+        mut predicate: F,
+    ) -> FastResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {

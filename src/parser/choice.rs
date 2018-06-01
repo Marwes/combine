@@ -1,10 +1,10 @@
 //! Combinators which take one or more parsers and attempts to parse successfully with at least one
 //! of them.
-use {ErrorOffset, Parser, Stream, StreamOnce};
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use error::FastResult::*;
+use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use parser::ParseMode;
 use stream::Resetable;
+use {ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
