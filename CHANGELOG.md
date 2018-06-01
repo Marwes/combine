@@ -1,3 +1,15 @@
+<a name="3.3.1"></a>
+### 3.3.1 (2018-06-01)
+
+
+#### Bug Fixes
+
+*   support resuming streams in TakeUntilRange ([b54ff061](https://github.com/Marwes/combine/commit/b54ff0619663aaf7d3c33185b1a4b7ec73cc1f61))
+*   reset stream on error in take_until_range ([27449f21](https://github.com/Marwes/combine/commit/27449f2131ecb3d6ef956e2e67b588cae58a9810))
+*   support multi-byte `Item`s in take_until_range ([4a690d65](https://github.com/Marwes/combine/commit/4a690d65160ea6e1866fd6dbe8865acae4070c3a))
+
+
+
 <a name="v3.3.0"></a>
 ## v3.3.0 (2018-05-19)
 
