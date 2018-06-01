@@ -396,6 +396,7 @@ where
 
         let len = self.0.len();
         let before = input.checkpoint();
+        let mut first_stream_error = None;
 
         // Skip until the end of the last parse attempt
         ctry!(uncons_range(input, *to_consume));
@@ -406,9 +407,11 @@ where
             match input.uncons_range(len) {
                 Ok(xs) => {
                     if xs == self.0 {
+                        let distance = input.distance(&before) - len;
                         input.reset(before);
-                        if let Ok(consumed) = input.uncons_range(*to_consume) {
-                            if *to_consume == 0 {
+
+                        if let Ok(consumed) = input.uncons_range(distance) {
+                            if distance == 0 {
                                 return EmptyOk(consumed);
                             } else {
                                 *to_consume = 0;
@@ -420,34 +423,39 @@ where
                         // because we've already done it on look_ahead_input.
                         unreachable!();
                     } else {
-                        // Clone because we need look_ahead_input below to calculate how many bytes were consumed
-                        input.reset(look_ahead_input.clone());
+                        // Reset the stream back to where it was when we entered the top of the loop
+                        input.reset(look_ahead_input);
 
-                        // Advance the stream
+                        // Advance the stream by one item
                         if input.uncons().is_err() {
                             unreachable!();
                         }
-
-                        // Calculate how many bytes input.uncons() advanced the stream
-                        *to_consume += input.distance(&look_ahead_input);
                     }
                 }
                 Err(first_error) => {
-                    // Clone because we need look_ahead_input below to calculate how many bytes were consumed
-                    input.reset(look_ahead_input.clone());
-                    
+                    // If we are unable to find a successful parse even after advancing with `uncons`
+                    // below we must reset the stream to its state before the first error.
+                    // If we don't we may try and match the range `::` against `:<EOF>` which would
+                    // fail as only one `:` is present at this parse attempt. But when we later resume
+                    // with more input we must start parsing again at the first time we errored so we
+                    // can see the entire `::`
+                    if first_stream_error.is_none() {
+                        first_stream_error = Some((first_error, input.distance(&before)));
+                    }
+
+                    // Reset the stream back to where it was when we entered the top of the loop
+                    input.reset(look_ahead_input);
+
                     // See if we can advance anyway
                     if input.uncons().is_err() {
+                        let (first_error, first_error_distance) = first_stream_error.unwrap();
+
                         // Reset the stream
                         input.reset(before);
+                        *to_consume = first_error_distance;
 
                         // Return the original error if uncons failed
                         return wrap_stream_error(input, first_error);
-                    } else {
-                        // If we can advance, then ignore first_error
-
-                        // Calculate how many bytes input.uncons() advanced the stream
-                        *to_consume += input.distance(&look_ahead_input);
                     }
                 }
             };
