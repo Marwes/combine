@@ -141,7 +141,7 @@ where
 
 /// Equivalent to [`p1.message(msg)`].
 ///
-/// [`p1.message(msg)`]: ../error/trait.Parser.html#method.message
+/// [`p1.message(msg)`]: ../parser/trait.Parser.html#method.message
 #[inline(always)]
 pub fn message<P>(
     p: P,
@@ -191,7 +191,7 @@ where
 
 /// Equivalent to [`p.expected(info)`].
 ///
-/// [`p.expected(info)`]: ../error/trait.Parser.html#method.expected
+/// [`p.expected(info)`]: ../parser/trait.Parser.html#method.expected
 #[inline(always)]
 pub fn expected<P>(
     p: P,

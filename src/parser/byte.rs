@@ -326,7 +326,7 @@ where
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../error/trait.RangeStream.html
+/// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
@@ -382,7 +382,7 @@ where
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../error/trait.RangeStream.html
+/// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
 pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>

@@ -212,7 +212,7 @@ where
 
 /// Equivalent to [`p.map(f)`].
 ///
-/// [`p.map(f)`]: ../error/trait.Parser.html#method.map
+/// [`p.map(f)`]: ../parser/trait.Parser.html#method.map
 #[inline(always)]
 pub fn map<P, F, B>(p: P, f: F) -> Map<P, F>
 where
@@ -266,7 +266,7 @@ where
 
 /// Equivalent to [`p.flat_map(f)`].
 ///
-/// [`p.flat_map(f)`]: ../error/trait.Parser.html#method.flat_map
+/// [`p.flat_map(f)`]: ../parser/trait.Parser.html#method.flat_map
 #[inline(always)]
 pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
@@ -326,7 +326,7 @@ where
 
 /// Equivalent to [`p.and_then(f)`].
 ///
-/// [`p.and_then(f)`]: ../error/trait.Parser.html#method.and_then
+/// [`p.and_then(f)`]: ../parser/trait.Parser.html#method.and_then
 #[inline(always)]
 pub fn and_then<P, F, O, E, I>(p: P, f: F) -> AndThen<P, F>
 where
