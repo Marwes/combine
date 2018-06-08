@@ -397,7 +397,7 @@ where
 
 /// Equivalent to [`p1.with(p2)`].
 ///
-/// [`p1.with(p2)`]: ../error/trait.Parser.html#method.with
+/// [`p1.with(p2)`]: ../parser/trait.Parser.html#method.with
 #[inline(always)]
 pub fn with<P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
 where
@@ -556,7 +556,7 @@ where
 
 /// Equivalent to [`p.then(f)`].
 ///
-/// [`p.then(f)`]: ../error/trait.Parser.html#method.then
+/// [`p.then(f)`]: ../parser/trait.Parser.html#method.then
 #[inline(always)]
 pub fn then<P, F, N>(p: P, f: F) -> Then<P, F>
 where
@@ -644,7 +644,7 @@ where
 
 /// Equivalent to [`p.then_partial(f)`].
 ///
-/// [`p.then_partial(f)`]: ../error/trait.Parser.html#method.then_partial
+/// [`p.then_partial(f)`]: ../parser/trait.Parser.html#method.then_partial
 #[inline(always)]
 pub fn then_partial<P, F, N>(p: P, f: F) -> ThenPartial<P, F>
 where

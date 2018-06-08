@@ -585,7 +585,7 @@ where
 /// If you are looking to chain 3 or more parsers using `or` you may consider using the
 /// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
 ///
-/// [`p1.or(p2)`]: ../error/trait.Parser.html#method.or
+/// [`p1.or(p2)`]: ../parser/trait.Parser.html#method.or
 #[inline(always)]
 pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
