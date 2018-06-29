@@ -1205,7 +1205,7 @@ parser!{
     /// ```
     pub fn skip_until[P](end: P)(P::Input) -> ()
     where [
-        P: Parser
+        P: Parser,
     ]
     {
         take_until::<Sink<_>, _>(end).with(value(()))
