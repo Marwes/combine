@@ -9,6 +9,7 @@ extern crate combine;
 
 extern crate futures;
 extern crate partial_io;
+extern crate tokio_codec;
 extern crate tokio_io;
 
 use std::cell::Cell;
@@ -19,19 +20,17 @@ use std::str;
 use bytes::BytesMut;
 
 use futures::{Future, Stream};
-use tokio_io::codec::FramedRead;
+use tokio_codec::{Decoder, FramedRead};
 
-use tokio_io::codec::Decoder;
-
-use combine::combinator::{
-    any_partial_state, no_partial, optional, recognize, skip_many1, try, AnyPartialState,
-};
+use combine::combinator::{any_partial_state, no_partial, optional, recognize, try,
+                          AnyPartialState, skip_many1};
 use combine::parser::char::{char, digit, letter};
 use combine::parser::item::item;
-use combine::parser::range::{range, recognize_with_value, take_while, take_while1, take_until_range};
+use combine::parser::range::{range, recognize_with_value, take_until_range, take_while,
+                             take_while1};
 use combine::parser::repeat;
 use combine::stream::{easy, RangeStream};
-use combine::{any, count_min_max, many1, skip_many, Parser};
+use combine::{any, count_min_max, skip_many, Parser, many1};
 
 quick_error! {
     #[derive(Debug)]
@@ -57,11 +56,9 @@ quick_error! {
 
 macro_rules! mk_parser {
     ($parser:expr, $self_:expr,()) => {
-
         $parser
     };
     ($parser:expr, $self_:expr,($custom_state:ty)) => {
-
         $parser($self_.1.clone())
     };
 }
