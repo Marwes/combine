@@ -5,6 +5,7 @@ extern crate combine;
 
 extern crate futures;
 extern crate partial_io;
+extern crate tokio_codec;
 extern crate tokio_io;
 
 use std::cell::Cell;
@@ -22,7 +23,7 @@ use combine::parser::byte::digit;
 use combine::parser::range::{range, recognize, take};
 use combine::stream::easy;
 use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
-use combine::{skip_many, skip_many1, Parser};
+use combine::{skip_many, Parser, skip_many1};
 
 pub struct LanguageServerDecoder {
     state: AnyPartialState,
@@ -98,12 +99,11 @@ impl Decoder for LanguageServerDecoder {
             // Since err contains references into `src` we must replace these before
             // we can return an error or call `split_to` to remove the input we
             // just consumed
-            let err =
-                err.map_range(|r| {
-                    str::from_utf8(r)
-                        .ok()
-                        .map_or_else(|| format!("{:?}", r), |s| s.to_string())
-                }).map_position(|p| p.translate_position(&src[..]));
+            let err = err.map_range(|r| {
+                str::from_utf8(r)
+                    .ok()
+                    .map_or_else(|| format!("{:?}", r), |s| s.to_string())
+            }).map_position(|p| p.translate_position(&src[..]));
             format!("{}\nIn input: `{}`", err, str::from_utf8(src).unwrap())
         })?;
 
@@ -141,7 +141,7 @@ impl Decoder for LanguageServerDecoder {
 fn main() {
     use futures::{Future, Stream};
     use partial_io::{PartialAsyncRead, PartialOp};
-    use tokio_io::codec::FramedRead;
+    use tokio_codec::FramedRead;
 
     let input = "Content-Length: 6\r\n\
                  \r\n\

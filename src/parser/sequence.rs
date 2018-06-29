@@ -140,7 +140,7 @@ macro_rules! tuple_parser {
                     }
                 }
 
-                if let None = state.$h.value {
+                if mode.is_first() || state.$h.value.is_none() {
                     let temp = match $h.parse_mode(mode, input, &mut state.$h.state) {
                         ConsumedOk(x) => {
                             first_empty_parser = current_parser + 1;
@@ -161,7 +161,7 @@ macro_rules! tuple_parser {
                 }
 
                 $(
-                    if let None = state.$id.value {
+                    if mode.is_first() || state.$id.value.is_none() {
                         current_parser += 1;
                         let before = input.checkpoint();
                         let temp = match $id.parse_mode(mode, input, &mut state.$id.state) {
@@ -608,8 +608,11 @@ where
             mode.set_first();
         }
 
-        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
-            .parse_consumed_mode(mode, input, n_state);
+        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1).parse_consumed_mode(
+            mode,
+            input,
+            n_state,
+        );
         match result {
             EmptyOk(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();

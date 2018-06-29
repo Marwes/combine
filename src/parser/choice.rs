@@ -585,6 +585,31 @@ where
 /// If you are looking to chain 3 or more parsers using `or` you may consider using the
 /// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
 ///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::choice::or;
+/// # use combine::parser::char::{digit, string};
+/// # fn main() {
+/// let mut parser = or(
+///     string("let"),
+///     or(digit().map(|_| "digit"), string("led")),
+/// );
+/// assert_eq!(parser.parse("let"), Ok(("let", "")));
+/// assert_eq!(parser.parse("1"), Ok(("digit", "")));
+/// assert!(parser.parse("led").is_err());
+///
+/// let mut parser2 = or(string("two"), string("three"));
+/// // Fails as the parser for "two" consumes the first 't' before failing
+/// assert!(parser2.parse("three").is_err());
+///
+/// // Use 'try' to make failing parsers always act as if they have not consumed any input
+/// let mut parser3 = or(try(string("two")), try(string("three")));
+/// assert_eq!(parser3.parse("three"), Ok(("three", "")));
+/// # }
+/// ```
+///
+/// [`choice!`]: ../macro.choice.html
 /// [`p1.or(p2)`]: ../parser/trait.Parser.html#method.or
 #[inline(always)]
 pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
