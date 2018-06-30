@@ -59,7 +59,7 @@ macro_rules! parse_mode {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> $crate::error::ConsumedResult<Self::Output, Self::Input> {
             self.parse_mode($crate::parser::PartialMode::default(), input, state)
         }
 
@@ -68,7 +68,7 @@ macro_rules! parse_mode {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> $crate::error::ConsumedResult<Self::Output, Self::Input> {
             self.parse_mode($crate::parser::FirstMode, input, state)
         }
     }

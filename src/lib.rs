@@ -549,14 +549,13 @@ macro_rules! parser {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! combine_parse_partial {
-    ((()) $input:ident $state:ident $parser:block) => {{
+    ((()) $mode:ident $input:ident $state:ident $parser:block) => {{
         let _ = $state;
         let ref mut state = Default::default();
-        $parser.parse_partial($input, state)
+        $parser.parse_mode($mode, $input, state)
     }};
-    (($ignored:ty) $input:ident $state:ident $parser:block) => {
-
-        $parser.parse_partial($input, $state)
+    (($ignored:ty) $mode:ident $input:ident $state:ident $parser:block) => {
+        $parser.parse_mode($mode, $input, $state)
     };
 }
 
@@ -605,15 +604,18 @@ macro_rules! combine_parser_impl {
             type Output = $output_type;
             type PartialState = $($partial_state)*;
 
+            parse_mode!();
             #[inline]
-            fn parse_partial(
+            fn parse_mode_impl<M>(
                 &mut self,
+                mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
                 ) -> $crate::error::ConsumedResult<$output_type, $input_type>
+            where M: $crate::parser::ParseMode
             {
                 let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
-                combine_parse_partial!(($($partial_state)*) input state $parser)
+                combine_parse_partial!(($($partial_state)*) mode input state $parser)
             }
 
             #[inline]

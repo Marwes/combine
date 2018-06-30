@@ -1,13 +1,13 @@
 extern crate combine;
 
-use combine::Parser;
 use combine::parser::char::{digit, letter};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{no_partial, not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{any, eof, token, value, Token};
 use combine::parser::range::range;
-use combine::parser::repeat::{count_min_max, sep_by, take_until, sep_end_by1};
+use combine::parser::repeat::{count_min_max, sep_by, sep_end_by1, skip_until, take_until};
+use combine::Parser;
 
 #[test]
 fn choice_empty() {
@@ -43,10 +43,10 @@ fn not_followed_by_does_not_consume_any_input() {
 #[cfg(feature = "std")]
 mod tests_std {
     use super::*;
-    use combine::Parser;
     use combine::parser::char::{char, digit, letter};
     use combine::stream::easy::{Error, Errors, ParseError};
     use combine::stream::state::{SourcePosition, State};
+    use combine::Parser;
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {
@@ -389,6 +389,14 @@ mod tests_std {
         assert_eq!(
             take_until::<String, _>(try((char('a'), char('b')))).parse("aaab"),
             Ok((String::from("aa"), "ab"))
+        );
+    }
+
+    #[test]
+    fn parser_macro_must_impl_parse_mode_issue_168() {
+        assert_eq!(
+            skip_until(try((char('a'), char('b')))).parse("aaab"),
+            Ok(((), "ab"))
         );
     }
 }
