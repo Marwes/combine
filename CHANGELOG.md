@@ -1,5 +1,15 @@
+<a name="3.3.5"></a>
+### 3.3.5 (2018-06-30)
+
+
+#### Bug Fixes
+
+*   Propagate the ParseMode in range::recognize ([c330a737](https://github.com/Marwes/combine/commit/c330a73746f6adfa22c6b13b15d796d48f589614))
+
+
+
 <a name="3.3.4"></a>
-### 3.3.1 (2018-06-30)
+### 3.3.4 (2018-06-30)
 
 * fix: Forward the partial mode through the parser! macro correctly
 

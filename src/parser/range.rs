@@ -134,20 +134,26 @@ where
     type Output = (<P::Input as StreamOnce>::Range, P::Output);
     type PartialState = (usize, P::PartialState);
 
+    parse_mode!();
     #[inline]
-    fn parse_partial(
+    fn parse_mode<M>(
         &mut self,
+        mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where M: ParseMode
+    {
         let (ref mut distance_state, ref mut child_state) = *state;
 
         let before = input.checkpoint();
-        if let Err(_) = input.uncons_range(*distance_state) {
-            panic!("recognize errored when restoring the input stream to its expected state");
+        if !mode.is_first() {
+            if let Err(_) = input.uncons_range(*distance_state) {
+                panic!("recognize errored when restoring the input stream to its expected state");
+            }
         }
 
-        let value = match self.0.parse_partial(input, child_state) {
+        let value = match self.0.parse_mode(mode, input, child_state) {
             ConsumedOk(x) | EmptyOk(x) => x,
             EmptyErr(err) => return EmptyErr(err),
             ConsumedErr(err) => {

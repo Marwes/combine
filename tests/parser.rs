@@ -5,7 +5,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{no_partial, not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{any, eof, token, value, Token};
-use combine::parser::range::range;
+use combine::parser::range::{self, range};
 use combine::parser::repeat::{count_min_max, sep_by, sep_end_by1, skip_until, take_until};
 use combine::Parser;
 
@@ -397,6 +397,14 @@ mod tests_std {
         assert_eq!(
             skip_until(try((char('a'), char('b')))).parse("aaab"),
             Ok(((), "ab"))
+        );
+    }
+
+    #[test]
+    fn recognize_parser_issue_168() {
+        assert_eq!(
+            range::recognize(skip_until(try((char('a'), char('b'))))).parse("aaab"),
+            Ok(("aa", "ab"))
         );
     }
 }

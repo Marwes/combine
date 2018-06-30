@@ -231,6 +231,16 @@ macro_rules! impl_token_parser {
         }
 
         #[inline]
+        fn parse_first(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input>
+        {
+            self.0.parse_first(input, state)
+        }
+
+        #[inline]
         fn parse_partial(
             &mut self,
             input: &mut Self::Input,
@@ -555,6 +565,7 @@ macro_rules! combine_parse_partial {
         $parser.parse_mode($mode, $input, state)
     }};
     (($ignored:ty) $mode:ident $input:ident $state:ident $parser:block) => {
+
         $parser.parse_mode($mode, $input, $state)
     };
 }
