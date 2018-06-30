@@ -1,3 +1,16 @@
+<a name="3.3.4"></a>
+### 3.3.1 (2018-06-30)
+
+* fix: Forward the partial mode through the parser! macro correctly
+
+
+<a name="3.3.3"></a>
+### 3.3.3 (2018-06-29)
+
+#### Bug fixes
+* Parse from the start in sequence parsers in first mode
+
+
 <a name="3.3.1"></a>
 ### 3.3.1 (2018-06-01)
 
