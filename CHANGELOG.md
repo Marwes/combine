@@ -1,5 +1,5 @@
 <a name="3.3.4"></a>
-### 3.3.1 (2018-06-30)
+### 3.3.4 (2018-06-30)
 
 * fix: Forward the partial mode through the parser! macro correctly
 
