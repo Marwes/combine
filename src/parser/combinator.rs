@@ -636,12 +636,16 @@ where
         self.0.parse_lazy(input)
     }
 
+    parse_mode!();
     #[inline]
-    fn parse_partial(
+    fn parse_mode<M>(
         &mut self,
+        mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where M: ParseMode
+    {
         let mut new_child_state;
         let result = {
             let child_state = if let None = state.0 {
@@ -652,7 +656,7 @@ where
                 state.0.as_mut().unwrap().downcast_mut().unwrap()
             };
 
-            self.0.parse_partial(input, child_state)
+            self.0.parse_mode(mode, input, child_state)
         };
 
         if let ConsumedErr(_) = result {
@@ -730,11 +734,14 @@ where
     }
 
     #[inline]
-    fn parse_partial(
+    fn parse_mode<M>(
         &mut self,
+        mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where M: ParseMode
+    {
         let mut new_child_state;
         let result = {
             let child_state = if let None = state.0 {
@@ -745,7 +752,7 @@ where
                 state.0.as_mut().unwrap().downcast_mut().unwrap()
             };
 
-            self.0.parse_partial(input, child_state)
+            self.0.parse_mode(mode, input, child_state)
         };
 
         if let ConsumedErr(_) = result {
