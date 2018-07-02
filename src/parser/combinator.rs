@@ -644,7 +644,8 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input>
-    where M: ParseMode
+    where
+        M: ParseMode,
     {
         let mut new_child_state;
         let result = {
@@ -733,6 +734,7 @@ where
         self.0.parse_lazy(input)
     }
 
+    parse_mode!();
     #[inline]
     fn parse_mode<M>(
         &mut self,
@@ -740,7 +742,8 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input>
-    where M: ParseMode
+    where
+        M: ParseMode,
     {
         let mut new_child_state;
         let result = {
