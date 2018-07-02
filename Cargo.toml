@@ -1,7 +1,7 @@
 [package]
 
 name = "combine"
-version = "3.3.6-alpha.0"
+version = "3.3.6"
 authors = ["Markus Westerlind <marwes91@gmail.com>"]
 
 description = "Fast parser combinators on arbitrary streams with zero-copy support."
