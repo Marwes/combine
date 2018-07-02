@@ -1,3 +1,5 @@
+#![allow(renamed_and_removed_lints)]
+
 #[macro_use]
 extern crate quick_error;
 #[macro_use]
@@ -22,15 +24,19 @@ use bytes::BytesMut;
 use futures::{Future, Stream};
 use tokio_codec::{Decoder, FramedRead};
 
-use combine::combinator::{any_partial_state, no_partial, optional, recognize, try,
-                          AnyPartialState, skip_many1};
+use combine::combinator::{
+    any_partial_state, any_send_partial_state, no_partial, optional, recognize, skip_many1, try,
+    AnyPartialState, AnySendPartialState,
+};
+use combine::error::{ParseError, StreamError};
 use combine::parser::char::{char, digit, letter};
 use combine::parser::item::item;
-use combine::parser::range::{range, recognize_with_value, take_until_range, take_while,
-                             take_while1};
+use combine::parser::range::{
+    self, range, recognize_with_value, take, take_until_range, take_while, take_while1,
+};
 use combine::parser::repeat;
-use combine::stream::{easy, RangeStream};
-use combine::{any, count_min_max, skip_many, Parser, many1};
+use combine::stream::{easy, RangeStream, StreamErrorFor};
+use combine::{any, count_min_max, many1, skip_many, Parser};
 
 quick_error! {
     #[derive(Debug)]
@@ -118,14 +124,15 @@ macro_rules! impl_decoder {
 
 use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
 
-fn run_decoder<D, S>(input: &str, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
+fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
     D: Decoder,
     D::Item: ::std::fmt::Display,
     S: IntoIterator<Item = PartialOp> + 'static,
     S::IntoIter: Send,
+    B: ?Sized + AsRef<[u8]>,
 {
-    let ref mut reader = Cursor::new(input.as_bytes());
+    let ref mut reader = Cursor::new(input.as_ref());
     let partial_reader = PartialAsyncRead::new(reader, seq);
     FramedRead::new(partial_reader, decoder)
         .map(|x| {
@@ -186,6 +193,31 @@ parser!{
                 .skip(range(&"\r\n"[..]))
         )
     }
+}
+
+fn content_length<'a, I>(
+) -> impl Parser<Input = I, Output = String, PartialState = AnySendPartialState> + 'a
+where
+    I: RangeStream<Item = char, Range = &'a str> + 'a,
+    // Necessary due to rust-lang/rust#24159
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let content_length = range("Content-Length: ").with(
+        range::recognize(skip_many1(digit())).and_then(|digits: &str| {
+            // Convert the error from `.parse` into an error combine understands
+            digits.parse::<usize>().map_err(StreamErrorFor::<I>::other)
+        }),
+    );
+
+    any_send_partial_state(
+        (
+            skip_many(range("\r\n")),
+            content_length,
+            range("\r\n\r\n").map(|_| ()),
+        ).then_partial(|&mut (_, message_length, _)| {
+            take(message_length).map(|bytes: &str| bytes.to_owned())
+        }),
+    )
 }
 
 quickcheck! {
@@ -402,6 +434,28 @@ quickcheck! {
 
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(result.unwrap(), ["123", "456", "789"]);
+    }
+
+    fn any_send_partial_state_do_not_forget_state(sizes: Vec<usize>, seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, usize,
+            any_send_partial_state(content_length().map(|bytes| bytes.len()))
+        }
+
+        let input : String = sizes
+            .iter()
+            .map(|s| {
+                format!(
+                    "Content-Length: {}\r\n\r\n{}\r\n",
+                    s,
+                    ::std::iter::repeat('a').take(*s).collect::<String>()
+                )
+            })
+            .collect();
+
+        let result = run_decoder(input.as_bytes(), seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), sizes);
     }
 }
 #[test]
