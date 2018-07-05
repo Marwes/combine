@@ -443,6 +443,24 @@ mod tests_std {
     }
 
     #[test]
+    fn sequence_in_optional_nested_2_report_delayed_error() {
+        use combine::parser::item::position;
+        assert_eq!(
+            (char('{'), optional(position().with(char('a')))
+                .skip(optional(position().with(char('c'))))
+                .skip(char('}')))
+                .easy_parse("{b")
+                .map_err(|e| e.errors),
+            Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected('a'.into()),
+                Error::Expected('c'.into()),
+                Error::Expected('}'.into()),
+            ]),
+        );
+    }
+
+    #[test]
     fn sequence_in_many_report_delayed_error() {
         use combine::parser::item::position;
         assert_eq!(

@@ -83,6 +83,7 @@ macro_rules! tuple_parser {
                 $h: &mut $h $(, $id : &mut $id )*
             ) -> ConsumedResult<($h::Output, $($id::Output),*), Input>
             {
+                let inner_offset = err.offset;
                 err.offset = ErrorOffset(offset);
                 if first_empty_parser != 0 {
                     if let Ok(t) = input.uncons() {
@@ -90,6 +91,12 @@ macro_rules! tuple_parser {
                     }
                     dispatch_on!(0, |i, mut p| {
                         if i >= first_empty_parser {
+                            if err.offset <= ErrorOffset(1) {
+                                // We reached the last parser we need to add errors to (and the
+                                // parser that actually returned the error), use the returned
+                                // offset for that parser.
+                                err.offset = inner_offset;
+                            }
                             Parser::add_error(&mut p, &mut err);
                             if err.offset <= ErrorOffset(1) {
                                 return false;
@@ -101,7 +108,7 @@ macro_rules! tuple_parser {
                         true
                     }; $h $(, $id)*);
                     ConsumedErr(err.error)
-                } else {
+            } else {
                     EmptyErr(err)
                 }
             }
