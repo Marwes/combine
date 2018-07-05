@@ -656,6 +656,10 @@ where
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
+
+    fn parser_count(&self) -> ErrorOffset {
+        self.0.parser_count()
+    }
 }
 
 /// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without

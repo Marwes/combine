@@ -4,14 +4,12 @@
 //! implementing all combine parsers.
 use either::Either;
 
-use combinator::{
-    and_then, expected, flat_map, map, message, then, then_partial, AndThen, Expected, FlatMap,
-    Iter, Map, Message, Then, ThenPartial,
-};
+use ErrorOffset;
+use combinator::{and_then, expected, flat_map, map, message, then, then_partial, AndThen,
+                 Expected, FlatMap, Iter, Map, Message, Then, ThenPartial};
 use error::FastResult::*;
 use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
 use stream::{Resetable, Stream, StreamOnce};
-use ErrorOffset;
 
 use self::choice::{or, Or};
 use self::sequence::{skip, with, Skip, With};
@@ -956,6 +954,11 @@ where
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         (**self).add_error(error)
     }
+
+    #[inline(always)]
+    fn parser_count(&self) -> ErrorOffset {
+        (**self).parser_count()
+    }
 }
 
 #[cfg(feature = "std")]
@@ -988,6 +991,11 @@ where
     #[inline(always)]
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         (**self).add_error(error)
+    }
+
+    #[inline(always)]
+    fn parser_count(&self) -> ErrorOffset {
+        (**self).parser_count()
     }
 }
 

@@ -2,9 +2,9 @@
 
 use lib::marker::PhantomData;
 
+use Parser;
 use error::{ConsumedResult, ParseResult};
 use stream::Stream;
-use Parser;
 
 impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> ParseResult<O, I> + 'a {
     type Input = I;

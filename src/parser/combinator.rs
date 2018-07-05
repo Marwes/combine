@@ -63,7 +63,6 @@ where
     }
 
     parse_mode!();
-
     #[inline]
     fn parse_consumed_mode<M>(
         &mut self,
@@ -97,6 +96,10 @@ where
                 }
             }
         }
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.0.add_error(errors);
     }
 }
 

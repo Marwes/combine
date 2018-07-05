@@ -17,6 +17,12 @@ macro_rules! dispatch_on {
     } }
 }
 
+macro_rules! count {
+    () => { 0 };
+    ($f: ident) => { 1 };
+    ($f: ident, $($rest: ident),+) => { 1 + count!($($rest),*) };
+}
+
 #[doc(hidden)]
 pub struct SequenceState<T, U> {
     pub value: Option<T>,
@@ -89,9 +95,9 @@ macro_rules! tuple_parser {
                                 return false;
                             }
                         }
-                            err.offset = ErrorOffset(
-                                err.offset.0.saturating_sub(Parser::parser_count(&p).0)
-                            );
+                        err.offset = ErrorOffset(
+                            err.offset.0.saturating_sub(Parser::parser_count(&p).0)
+                        );
                         true
                     }; $h $(, $id)*);
                     ConsumedErr(err.error)
@@ -204,19 +210,37 @@ macro_rules! tuple_parser {
             #[inline(always)]
             fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
                 let (ref mut $h, $(ref mut $id),*) = *self;
+                let prev = errors.offset;
                 $h.add_error(errors);
                 if errors.offset <= ErrorOffset(1) {
+                    errors.offset = ErrorOffset(
+                        errors.offset.0.saturating_sub(1)
+                    );
                     return;
                 }
-                errors.offset = ErrorOffset(errors.offset.0.saturating_sub($h.parser_count().0));
+                if errors.offset == prev {
+                    errors.offset = ErrorOffset(errors.offset.0.saturating_sub($h.parser_count().0));
+                }
+
+                #[allow(dead_code)]
+                const LAST: usize = count!($($id),*);
+                #[allow(unused_mut, unused_variables)]
+                let mut i = 0;
                 $(
+                    i += 1;
+                    let prev = errors.offset;
                     $id.add_error(errors);
                     if errors.offset <= ErrorOffset(1) {
+                        errors.offset = ErrorOffset(
+                            errors.offset.0.saturating_sub(1)
+                        );
                         return;
                     }
-                    errors.offset = ErrorOffset(
-                        errors.offset.0.saturating_sub($id.parser_count().0)
-                    );
+                    if i != LAST && errors.offset == prev {
+                        errors.offset = ErrorOffset(
+                            errors.offset.0.saturating_sub($id.parser_count().0)
+                        );
+                    }
                 )*
             }
         }
@@ -393,6 +417,10 @@ where
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
+
+    fn parser_count(&self) -> ErrorOffset {
+        self.0.parser_count()
+    }
 }
 
 /// Equivalent to [`p1.with(p2)`].
@@ -438,6 +466,10 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
+    }
+
+    fn parser_count(&self) -> ErrorOffset {
+        self.0.parser_count()
     }
 }
 
@@ -608,11 +640,8 @@ where
             mode.set_first();
         }
 
-        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1).parse_consumed_mode(
-            mode,
-            input,
-            n_state,
-        );
+        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
+            .parse_consumed_mode(mode, input, n_state);
         match result {
             EmptyOk(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();

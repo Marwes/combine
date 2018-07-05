@@ -2,14 +2,12 @@
 
 use lib::marker::PhantomData;
 
+use Parser;
 use error::FastResult::*;
 use error::{ConsumedResult, Info, ParseError, Tracked};
 use parser::ParseMode;
-use stream::{
-    uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
-    Resetable, StreamOnce,
-};
-use Parser;
+use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
+             Resetable, StreamOnce, uncons_while1};
 
 pub struct Range<I>(I::Range)
 where

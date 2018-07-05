@@ -6,11 +6,11 @@ use lib::mem;
 
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
 use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
+use parser::ParseMode;
 use parser::choice::Or;
 use parser::sequence::With;
-use parser::ParseMode;
 use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
-use Parser;
+use {ErrorOffset, Parser};
 
 use error::FastResult::*;
 
@@ -331,8 +331,7 @@ where
 
     fn next(&mut self) -> Option<P::Output> {
         let before = self.input.checkpoint();
-        match self
-            .parser
+        match self.parser
             .parse_mode(self.mode, self.input, self.partial_state.borrow_mut())
         {
             EmptyOk(v) => {
@@ -390,6 +389,10 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
+    }
+
+    fn parser_count(&self) -> ErrorOffset {
+        self.0.parser_count()
     }
 }
 
@@ -470,8 +473,13 @@ where
             x
         })
     }
+
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
+    }
+
+    fn parser_count(&self) -> ErrorOffset {
+        self.0.parser_count()
     }
 }
 
