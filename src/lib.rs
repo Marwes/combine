@@ -200,6 +200,8 @@ pub use combinator::{
 };
 #[doc(inline)]
 pub use parser::choice::choice;
+#[doc(inline)]
+pub use parser::combinator::from_str;
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
@@ -271,7 +273,7 @@ macro_rules! impl_token_parser {
 /// #[macro_use]
 /// extern crate combine;
 /// use combine::parser::char::digit;
-/// use combine::{any, choice, many1, Parser, Stream};
+/// use combine::{any, choice, from_str, many1, Parser, Stream};
 /// use combine::error::ParseError;
 ///
 /// parser!{
@@ -287,8 +289,7 @@ macro_rules! impl_token_parser {
 ///     {
 ///         // The body must be a block body ( `{ <block body> }`) which ends with an expression
 ///         // which evaluates to a parser
-///         let digits = many1(digit());
-///         digits.and_then(|s: String| s.parse())
+///         from_str(many1::<String, _>(digit()))
 ///     }
 /// }
 ///
@@ -565,7 +566,6 @@ macro_rules! combine_parse_partial {
         $parser.parse_mode($mode, $input, state)
     }};
     (($ignored:ty) $mode:ident $input:ident $state:ident $parser:block) => {
-
         $parser.parse_mode($mode, $input, $state)
     };
 }
@@ -720,19 +720,31 @@ pub mod combinator {
 }
 
 #[doc(hidden)]
-#[deprecated(since = "3.0.0", note = "Please use the `parser::char` module instead")]
+#[deprecated(
+    since = "3.0.0",
+    note = "Please use the `parser::char` module instead"
+)]
 pub use parser::char;
 
 #[doc(hidden)]
-#[deprecated(since = "3.0.0", note = "Please use the `parser::byte` module instead")]
+#[deprecated(
+    since = "3.0.0",
+    note = "Please use the `parser::byte` module instead"
+)]
 pub use parser::byte;
 
 #[doc(hidden)]
-#[deprecated(since = "3.0.0", note = "Please use the `parser::range` module instead")]
+#[deprecated(
+    since = "3.0.0",
+    note = "Please use the `parser::range` module instead"
+)]
 pub use parser::range;
 
 #[doc(hidden)]
-#[deprecated(since = "3.0.0", note = "Please use the `parser::regex` module instead")]
+#[deprecated(
+    since = "3.0.0",
+    note = "Please use the `parser::regex` module instead"
+)]
 #[cfg(feature = "regex")]
 pub use parser::regex;
 

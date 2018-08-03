@@ -1,13 +1,15 @@
 //! Various combinators which do not fit anywhere else.
 
+use lib::error::Error as StdError;
 use lib::marker::PhantomData;
 use lib::mem;
+use lib::str;
 
-use error::{ConsumedResult, Info, ParseError, Tracked};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use parser::error::unexpected;
 use parser::item::value;
 use parser::ParseMode;
-use stream::{Positioned, Resetable, Stream, StreamOnce};
+use stream::{input_at_eof, Positioned, Resetable, Stream, StreamErrorFor, StreamOnce};
 use Parser;
 
 use either::Either;
@@ -301,18 +303,31 @@ where
         M: ParseMode,
     {
         let position = input.position();
+        let checkpoint = input.checkpoint();
         match self.0.parse_mode(mode, input, state) {
             EmptyOk(o) => match (self.1)(o) {
                 Ok(o) => EmptyOk(o),
-                Err(err) => EmptyErr(
-                    <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
-                ),
+                Err(err) => {
+                    let err = <Self::Input as StreamOnce>::Error::from_error(position, err.into());
+
+                    if input.is_partial() && input_at_eof(input) {
+                        input.reset(checkpoint);
+                        ConsumedErr(err)
+                    } else {
+                        EmptyErr(err.into())
+                    }
+                }
             },
             ConsumedOk(o) => match (self.1)(o) {
                 Ok(o) => ConsumedOk(o),
-                Err(err) => ConsumedErr(
-                    <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
-                ),
+                Err(err) => {
+                    if input.is_partial() && input_at_eof(input) {
+                        input.reset(checkpoint);
+                    }
+                    ConsumedErr(
+                        <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
+                    )
+                }
             },
             EmptyErr(err) => EmptyErr(err),
             ConsumedErr(err) => ConsumedErr(err),
@@ -866,4 +881,112 @@ where
     R: Parser,
 {
     Lazy(p)
+}
+
+mod internal {
+    pub trait Sealed {}
+}
+
+use self::internal::Sealed;
+
+pub trait StrLike: Sealed {
+    fn from_utf8(&self) -> Result<&str, ()>;
+}
+
+#[cfg(feature = "std")]
+impl Sealed for String {}
+#[cfg(feature = "std")]
+impl StrLike for String {
+    fn from_utf8(&self) -> Result<&str, ()> {
+        Ok(self)
+    }
+}
+
+impl<'a> Sealed for &'a str {}
+impl<'a> StrLike for &'a str {
+    fn from_utf8(&self) -> Result<&str, ()> {
+        Ok(*self)
+    }
+}
+
+impl Sealed for str {}
+impl StrLike for str {
+    fn from_utf8(&self) -> Result<&str, ()> {
+        Ok(self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl Sealed for Vec<u8> {}
+#[cfg(feature = "std")]
+impl StrLike for Vec<u8> {
+    fn from_utf8(&self) -> Result<&str, ()> {
+        (**self).from_utf8()
+    }
+}
+
+impl<'a> Sealed for &'a [u8] {}
+impl<'a> StrLike for &'a [u8] {
+    fn from_utf8(&self) -> Result<&str, ()> {
+        (**self).from_utf8()
+    }
+}
+
+impl Sealed for [u8] {}
+impl StrLike for [u8] {
+    fn from_utf8(&self) -> Result<&str, ()> {
+        str::from_utf8(self).map_err(|_| ())
+    }
+}
+
+parser!{
+pub struct FromStr;
+type PartialState = P::PartialState;
+
+/// Takes a parser that outputs a string like value (`&str`, `String`, `&[u8]` or `Vec<u8>`) and parses it
+/// using `std::str::FromStr`. Errors if the output of `parser` is not UTF-8 or if
+/// `FromStr::from_str` returns an error.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::parser::range;
+/// # use combine::parser::repeat::many1;
+/// # use combine::parser::combinator::from_str;
+/// # use combine::char;
+/// # use combine::*;
+/// # fn main() {
+/// let mut parser = from_str(many1::<String, _>(char::digit()));
+/// let result = parser.parse("12345\r\n");
+/// assert_eq!(result, Ok((12345i32, "\r\n")));
+///
+/// // Range parsers work as well
+/// let mut parser = from_str(range::take_while1(|c: char| c.is_digit(10)));
+/// let result = parser.parse("12345\r\n");
+/// assert_eq!(result, Ok((12345i32, "\r\n")));
+///
+/// // As do parsers that work with bytes
+/// let digits = || range::take_while1(|b: u8| b >= b'0' && b <= b'9');
+/// let mut parser = from_str(range::recognize((
+///     digits(),
+///     byte::byte(b'.'),
+///     digits(),
+/// )));
+/// let result = parser.parse(&b"123.45\r\n"[..]);
+/// assert_eq!(result, Ok((123.45f64, &b"\r\n"[..])));
+/// # }
+/// ```
+pub fn from_str[O, P](parser: P)(P::Input) -> O
+where [
+    P: Parser,
+    P::Output: StrLike,
+    O: str::FromStr,
+    O::Err: StdError + Send + Sync + 'static
+]
+{
+    parser.and_then(|r| {
+        r.from_utf8()
+            .map_err(|_| StreamErrorFor::<P::Input>::expected_static_message("UTF-8"))
+            .and_then(|s| s.parse().map_err(StreamErrorFor::<P::Input>::other))
+    })
+}
 }
