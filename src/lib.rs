@@ -676,6 +676,65 @@ pub extern crate either;
 extern crate memchr;
 extern crate unreachable;
 
+/// Internal API. May break without a semver bump
+macro_rules! forward_parser {
+    ($($methods: ident)*, $field: tt) => {
+        $(
+            forward_parser!($methods $field);
+        )*
+    };
+    (parse_mode $field: tt) => {
+        #[inline]
+        fn parse_mode_impl<M>(
+            &mut self,
+            mode: M,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input>
+        where
+            M: ParseMode,
+        {
+            self.$field.parse_mode(mode, input, state).map(|(a, _)| a)
+        }
+    };
+    (parse_lazy $field: tt) => {
+        fn parse_lazy(
+            &mut self,
+            input: &mut Self::Input,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.$field.parse_lazy(input)
+        }
+    };
+    (parse_partial $field: tt) => {
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.$field.parse_partial(input, state)
+        }
+    };
+    (add_error $field: tt) => {
+
+        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            self.$field.add_error(error)
+        }
+    };
+    (add_consumed_expected_error $field: tt) => {
+        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            self.$field.add_consumed_expected_error(error)
+        }
+    };
+    (parser_count $field: tt) => {
+        fn parser_count(&self) -> ErrorOffset {
+            self.$field.parser_count()
+        }
+    };
+    ($field: tt) => {
+        forward_parser!(parse_lazy parse_partial add_error add_consumed_expected_error parser_count, $field);
+    }
+}
+
 // Facade over the core types we need
 // Public but hidden to be accessible in macros
 #[doc(hidden)]

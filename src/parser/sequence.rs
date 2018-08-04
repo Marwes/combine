@@ -1,7 +1,7 @@
 //! Combinators which take multiple parsers and applies them one after another.
 use lib::marker::PhantomData;
 
-use combinator::{ignore, Ignore};
+use combinator::{ignore, Ignore, Map};
 use error::FastResult::*;
 use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use parser::ParseMode;
@@ -53,6 +53,11 @@ where
     }
 }
 
+macro_rules! last_ident {
+    ($id: ident) => { $id };
+    ($id: ident, $($rest: ident),+) => { last_ident!($($rest),+) };
+}
+
 macro_rules! tuple_parser {
     ($partial_state: ident; $h: ident $(, $id: ident)*) => {
         #[allow(non_snake_case)]
@@ -90,6 +95,9 @@ macro_rules! tuple_parser {
                         err.error.add(StreamError::unexpected_token(t));
                     }
                     dispatch_on!(0, |i, mut p| {
+                        if i + 1 == first_empty_parser {
+                            Parser::add_consumed_expected_error(&mut p, &mut err);
+                        }
                         if i >= first_empty_parser {
                             if err.offset <= ErrorOffset(1) {
                                 // We reached the last parser we need to add errors to (and the
@@ -249,6 +257,12 @@ macro_rules! tuple_parser {
                         );
                     }
                 )*
+            }
+
+            fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+                #[allow(unused_variables)]
+                let (ref mut $h, $(ref mut $id),*) = *self;
+                last_ident!($h $(, $id)*).add_consumed_expected_error(errors)
             }
         }
     }
@@ -421,13 +435,7 @@ where
         self.0.parse_mode(mode, input, state).map(|(_, b)| b)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
-
-    fn parser_count(&self) -> ErrorOffset {
-        self.0.parser_count()
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p1.with(p2)`].
@@ -471,13 +479,7 @@ where
         self.0.parse_mode(mode, input, state).map(|(a, _)| a)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
-
-    fn parser_count(&self) -> ErrorOffset {
-        self.0.parser_count()
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[inline(always)]
@@ -489,7 +491,11 @@ where
     Skip((p1, ignore(p2)))
 }
 
-impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
+impl_parser! {
+    Between(L, R, P),
+    Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output>
+}
+
 /// Parses `open` followed by `parser` followed by `close`.
 /// Returns the value of `parser`.
 ///
@@ -512,7 +518,10 @@ where
     R: Parser<Input = I>,
     P: Parser<Input = I>,
 {
-    Between(open.with(parser).skip(close))
+    fn middle<T, U, V>((_, x, _): (T, U, V)) -> U {
+        x
+    }
+    Between((open, parser, close).map(middle))
 }
 
 #[derive(Copy, Clone)]

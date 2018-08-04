@@ -1,13 +1,15 @@
 extern crate combine;
 
-use combine::Parser;
 use combine::parser::char::{digit, letter};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{no_partial, not_followed_by, try};
 use combine::parser::error::unexpected;
-use combine::parser::item::{any, eof, token, value, Token};
+use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
-use combine::parser::repeat::{count_min_max, many, sep_by, skip_until, take_until, sep_end_by1};
+use combine::parser::repeat::{
+    count_min_max, many, many1, sep_by, sep_end_by1, skip_until, take_until,
+};
+use combine::Parser;
 
 #[test]
 fn choice_empty() {
@@ -43,10 +45,10 @@ fn not_followed_by_does_not_consume_any_input() {
 #[cfg(feature = "std")]
 mod tests_std {
     use super::*;
-    use combine::Parser;
     use combine::parser::char::{char, digit, letter};
     use combine::stream::easy::{Error, Errors, ParseError};
     use combine::stream::state::{SourcePosition, State};
+    use combine::Parser;
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {
@@ -410,7 +412,6 @@ mod tests_std {
 
     #[test]
     fn sequence_in_optional_report_delayed_error() {
-        use combine::parser::item::position;
         assert_eq!(
             optional(position().with(char('a')))
                 .skip(char('}'))
@@ -426,7 +427,6 @@ mod tests_std {
 
     #[test]
     fn sequence_in_optional_nested_report_delayed_error() {
-        use combine::parser::item::position;
         assert_eq!(
             optional(position().with(char('a')))
                 .skip(optional(position().with(char('c'))))
@@ -444,12 +444,13 @@ mod tests_std {
 
     #[test]
     fn sequence_in_optional_nested_2_report_delayed_error() {
-        use combine::parser::item::position;
         assert_eq!(
-            (char('{'), optional(position().with(char('a')))
-                .skip(optional(position().with(char('c'))))
-                .skip(char('}')))
-                .easy_parse("{b")
+            (
+                char('{'),
+                optional(position().with(char('a')))
+                    .skip(optional(position().with(char('c'))))
+                    .skip(char('}'))
+            ).easy_parse("{b")
                 .map_err(|e| e.errors),
             Err(vec![
                 Error::Unexpected('b'.into()),
@@ -462,17 +463,30 @@ mod tests_std {
 
     #[test]
     fn sequence_in_many_report_delayed_error() {
-        use combine::parser::item::position;
+        let mut parser = many::<Vec<_>, _>(position().with(char('a'))).skip(char('}'));
+        let expected_error = Err(vec![
+            Error::Unexpected('b'.into()),
+            Error::Expected('a'.into()),
+            Error::Expected('}'.into()),
+        ]);
+        assert_eq!(parser.easy_parse("b").map_err(|e| e.errors), expected_error,);
         assert_eq!(
-            many::<Vec<_>, _>(position().with(char('a')))
-                .skip(char('}'))
-                .easy_parse("b")
-                .map_err(|e| e.errors),
-            Err(vec![
-                Error::Unexpected('b'.into()),
-                Error::Expected('a'.into()),
-                Error::Expected('}'.into()),
-            ]),
+            parser.easy_parse("ab").map_err(|e| e.errors),
+            expected_error,
+        );
+    }
+
+    #[test]
+    fn sequence_in_many1_report_delayed_error() {
+        let mut parser = many1::<Vec<_>, _>(position().with(char('a'))).skip(char('}'));
+        let expected_error = Err(vec![
+            Error::Unexpected('b'.into()),
+            Error::Expected('a'.into()),
+            Error::Expected('}'.into()),
+        ]);
+        assert_eq!(
+            parser.easy_parse("ab").map_err(|e| e.errors),
+            expected_error,
         );
     }
 }
