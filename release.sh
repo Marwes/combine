@@ -1,3 +1,5 @@
+#!/bin/bash
+
 VERSION=$1
 if [ -z "$VERSION"]
 then
