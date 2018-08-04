@@ -79,7 +79,6 @@
 //! ```
 //!
 //! [`Parser::easy_parse`]: ../parser/trait.Parser.html#method.easy_parse
-use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 
@@ -691,9 +690,9 @@ impl<I, R, P> Errors<I, R, P> {
 
 impl<I, R, P> StdError for Errors<I, R, P>
 where
-    P: fmt::Display + fmt::Debug + Any,
-    I: fmt::Display + fmt::Debug + Any,
-    R: fmt::Display + fmt::Debug + Any,
+    P: fmt::Display + fmt::Debug,
+    I: fmt::Display + fmt::Debug,
+    R: fmt::Display + fmt::Debug,
 {
     fn description(&self) -> &str {
         "parse error"

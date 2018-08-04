@@ -331,6 +331,107 @@ where
     }
 }
 
+#[derive(Clone)]
+pub struct Tokens2<C, T, I>
+where
+    I: Stream,
+{
+    cmp: C,
+    tokens: T,
+    _marker: PhantomData<I>,
+}
+
+impl<C, T, I> Parser for Tokens2<C, T, I>
+where
+    C: FnMut(T::Item, I::Item) -> bool,
+    T: Clone + IntoIterator,
+    I: Stream,
+{
+    type Input = I;
+    type Output = T;
+    type PartialState = ();
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<T, I> {
+        let start = input.position();
+        let mut consumed = false;
+        for c in self.tokens.clone() {
+            match ::stream::uncons(input) {
+                ConsumedOk(other) | EmptyOk(other) => {
+                    if !(self.cmp)(c, other.clone()) {
+                        return if consumed {
+                            let mut errors = <Self::Input as StreamOnce>::Error::from_error(
+                                start,
+                                StreamError::unexpected(Info::Token(other)),
+                            );
+                            ConsumedErr(errors)
+                        } else {
+                            EmptyErr(<Self::Input as StreamOnce>::Error::empty(start).into())
+                        };
+                    }
+                    consumed = true;
+                }
+                EmptyErr(mut error) => {
+                    error.error.set_position(start);
+                    return if consumed {
+                        ConsumedErr(error.error)
+                    } else {
+                        EmptyErr(error.into())
+                    };
+                }
+                ConsumedErr(mut error) => {
+                    error.set_position(start);
+                    return ConsumedErr(error);
+                }
+            }
+        }
+        if consumed {
+            ConsumedOk(self.tokens.clone())
+        } else {
+            EmptyOk(self.tokens.clone())
+        }
+    }
+}
+
+/// Parses multiple tokens.
+///
+/// Consumes items from the input and compares them to the values from `tokens` using the
+/// comparison function `cmp`. Succeeds if all the items from `tokens` are matched in the input
+/// stream and fails otherwise.
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # fn main() {
+/// # #[allow(deprecated)]
+/// # use std::ascii::AsciiExt;
+/// let result = tokens2(|l, r| l.eq_ignore_ascii_case(&r), "abc".chars())
+///     .parse("AbC")
+///     .map(|x| x.0.as_str());
+/// assert_eq!(result, Ok("abc"));
+/// let result = tokens2(
+///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
+///     &b"025"[..]
+/// )
+///     .parse(&b"123"[..])
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(&b"025"[..]));
+/// # }
+/// ```
+#[inline(always)]
+pub fn tokens2<C, T, I>(cmp: C, tokens: T) -> Tokens2<C, T, I>
+where
+    C: FnMut(T::Item, I::Item) -> bool,
+    T: Clone + IntoIterator,
+    I: Stream,
+{
+    Tokens2 {
+        cmp: cmp,
+        tokens: tokens,
+        _marker: PhantomData,
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Position<I>
 where

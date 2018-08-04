@@ -139,8 +139,7 @@ impl<I> Stream for I
 where
     I: StreamOnce + Positioned + Resetable,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-}
+{}
 
 #[inline]
 pub fn uncons<I>(input: &mut I) -> ConsumedResult<I::Item, I>
@@ -207,11 +206,7 @@ pub trait RangeStreamOnce: StreamOnce + Resetable {
 /// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
 pub trait RangeStream: Stream + RangeStreamOnce {}
 
-impl<I> RangeStream for I
-where
-    I: RangeStreamOnce + Stream,
-{
-}
+impl<I> RangeStream for I where I: RangeStreamOnce + Stream {}
 
 /// A `RangeStream` which is capable of providing it's entire range.
 pub trait FullRangeStream: RangeStream {
@@ -251,7 +246,8 @@ where
     }
 }
 
-fn input_at_eof<I>(input: &mut I) -> bool
+#[doc(hidden)]
+pub fn input_at_eof<I>(input: &mut I) -> bool
 where
     I: ?Sized + Stream,
 {
@@ -363,7 +359,6 @@ where
 
     macro_rules! test_next {
         () => {
-
             match chars.next() {
                 Some(c) => {
                     if !f(c) {
@@ -476,7 +471,6 @@ where
 
     macro_rules! check {
         () => {
-
             if !f(unsafe { slice.get_unchecked(i).clone() }) {
                 found = true;
                 break;
@@ -757,7 +751,6 @@ where
 
     macro_rules! check {
         () => {
-
             if !f(unsafe { slice.get_unchecked(i) }) {
                 found = true;
                 break;

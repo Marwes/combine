@@ -142,7 +142,8 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input>
-    where M: ParseMode
+    where
+        M: ParseMode,
     {
         let (ref mut distance_state, ref mut child_state) = *state;
 
@@ -533,18 +534,32 @@ mod tests {
     #[test]
     fn take_until_range_2() {
         let result = take_until_range("===").parse("if ((pointless_comparison == 3) === true) {");
-        assert_eq!(result, Ok(("if ((pointless_comparison == 3) ", "=== true) {")));
+        assert_eq!(
+            result,
+            Ok(("if ((pointless_comparison == 3) ", "=== true) {"))
+        );
     }
 
     #[test]
     fn take_until_range_unicode_1() {
-        let result = take_until_range("🦀").parse("😃 Ferris the friendly rustacean 🦀 and his snake friend 🐍");
-        assert_eq!(result, Ok(("😃 Ferris the friendly rustacean ", "🦀 and his snake friend 🐍")));
+        let result = take_until_range("🦀")
+            .parse("😃 Ferris the friendly rustacean 🦀 and his snake friend 🐍");
+        assert_eq!(
+            result,
+            Ok((
+                "😃 Ferris the friendly rustacean ",
+                "🦀 and his snake friend 🐍"
+            ))
+        );
     }
 
     #[test]
     fn take_until_range_unicode_2() {
-        let result = take_until_range("⁘⁙/⁘").parse("⚙️🛠️🦀=🏎️⁘⁙⁘⁘⁙/⁘⁘⁙/⁘");
-        assert_eq!(result, Ok(("⚙️🛠️🦀=🏎️⁘⁙⁘", "⁘⁙/⁘⁘⁙/⁘")));
+        let result = take_until_range("⁘⁙/⁘")
+            .parse("⚙️🛠️🦀=🏎️⁘⁙⁘⁘⁙/⁘⁘⁙/⁘");
+        assert_eq!(
+            result,
+            Ok(("⚙️🛠️🦀=🏎️⁘⁙⁘", "⁘⁙/⁘⁘⁙/⁘"))
+        );
     }
 }

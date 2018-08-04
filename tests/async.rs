@@ -25,8 +25,8 @@ use futures::{Future, Stream};
 use tokio_codec::{Decoder, FramedRead};
 
 use combine::combinator::{
-    any_partial_state, any_send_partial_state, no_partial, optional, recognize, skip_many1, try,
-    AnyPartialState, AnySendPartialState,
+    any_partial_state, any_send_partial_state, from_str, no_partial, optional, recognize,
+    skip_many1, try, AnyPartialState, AnySendPartialState,
 };
 use combine::error::{ParseError, StreamError};
 use combine::parser::char::{char, digit, letter};
@@ -172,10 +172,10 @@ parser!{
     fn prefix_many_then_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
     {
-        any_partial_state((char('#'), skip_many(char(' ')), many1(digit()))
+        let integer = from_str(many1::<String, _>(digit()));
+        any_partial_state((char('#'), skip_many(char(' ')), integer)
             .then_partial(|t| {
-                let s: &String = &t.2;
-                let c = s.parse().unwrap();
+                let c = t.2;
                 count_min_max(c, c, any())
             })
         )
