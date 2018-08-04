@@ -1,3 +1,27 @@
+<a name="3.4.0"></a>
+## 3.4.0 (2018-08-04)
+
+
+#### Features
+
+*   Add the silent combinator ([b9bc28d3](https://github.com/Marwes/combine/commit/b9bc28d32b80644ba5a7fdc6969e7e8e734ee4de))
+*   Add the `opaque` parser ([1a1123f5](https://github.com/Marwes/combine/commit/1a1123f5b6970c88d99643d87d75c8fb63117607))
+*   Add tokens2 as a simpler version of tokens ([072a8c13](https://github.com/Marwes/combine/commit/072a8c13f90c640d2a98910276bc96d5aa27fae9))
+*   Add the from_str combinator ([908f9ebd](https://github.com/Marwes/combine/commit/908f9ebdc3593eda67e8eba8f5b467962076964e))
+
+#### Bug Fixes
+
+*   Make (many1(p), end) report more expected messages ([9e26d38e](https://github.com/Marwes/combine/commit/9e26d38e06c8bac9dbaa547893b8f2aea01f047d))
+*   Report more errors in the middle of sequence parsers ([f9e404f6](https://github.com/Marwes/combine/commit/f9e404f6840eb4d42016122095416f76bee5abf3))
+*   Report more expected information from nested sequence parsers ([9aa1db92](https://github.com/Marwes/combine/commit/9aa1db92dcd17a35d5775bf78b6642c4e8c89d1d))
+*   Use the message variant in from_str to work on no_std ([edf5ff60](https://github.com/Marwes/combine/commit/edf5ff6002d6b6f2f8bd23692dce5084e9fc01dd))
+*   Remove redundant Any bound on easy::Errors ([16601046](https://github.com/Marwes/combine/commit/16601046f3c2aa8b4ad75ba2390486f7b5306219), closes [#177](https://github.com/Marwes/combine/issues/177))
+
+<a name="3.3.6"></a>
+### 3.3.6
+
+*   Don't forget the state in any_send_partial_state ([4e2eb928](https://github.com/Marwes/combine/commit/4e2eb928e6059a4182b2717bf2bfb7cccdc60127))
+
 <a name="3.3.5"></a>
 ### 3.3.5 (2018-06-30)
 
