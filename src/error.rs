@@ -13,7 +13,6 @@ use stream::StreamOnce;
 #[doc(hidden)]
 macro_rules! ctry {
     ($result:expr) => {
-
         match $result {
             $crate::error::FastResult::ConsumedOk(x) => {
                 (x, $crate::error::Consumed::Consumed(()))
@@ -327,6 +326,9 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     fn set_expected<F>(self_: &mut Tracked<Self>, info: Self::StreamError, f: F)
     where
         F: FnOnce(&mut Tracked<Self>);
+
+    /// Removes any expected errors currently in `self`
+    fn clear_expected(&mut self) {}
 
     fn is_unexpected_end_of_input(&self) -> bool;
 

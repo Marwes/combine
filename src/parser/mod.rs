@@ -10,6 +10,7 @@ use combinator::{
 };
 use error::FastResult::*;
 use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
+use parser::error::{silent, Silent};
 use stream::{Resetable, Stream, StreamOnce};
 use ErrorOffset;
 
@@ -717,6 +718,35 @@ pub trait Parser {
         S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
     {
         expected(self, msg.into())
+    }
+
+    /// Parses with `self`, if it fails without consuming any input any expected errors that would
+    /// otherwise be emitted by `self` are suppressed.
+    ///
+    /// ```
+    /// # #![cfg(feature = "std")]
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::stream::easy;
+    /// # use combine::stream::state::{State, SourcePosition};
+    /// # fn main() {
+    /// let result = token('9')
+    ///     .expected("nine")
+    ///     .silent()
+    ///     .easy_parse(State::new("8"));
+    /// assert_eq!(result, Err(easy::Errors {
+    ///     position: SourcePosition::default(),
+    ///     errors: vec![
+    ///         easy::Error::Unexpected('8'.into()),
+    ///     ]
+    /// }));
+    /// # }
+    /// ```
+    fn silent(self) -> Silent<Self>
+    where
+        Self: Sized,
+    {
+        silent(self)
     }
 
     /// Parses with `self` and applies `f` on the result if `self` parses successfully.

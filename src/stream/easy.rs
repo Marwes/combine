@@ -404,6 +404,13 @@ where
         self_.error.add(info);
     }
 
+    fn clear_expected(&mut self) {
+        self.errors.retain(|e| match *e {
+            Error::Expected(_) => false,
+            _ => true,
+        })
+    }
+
     fn is_unexpected_end_of_input(&self) -> bool {
         self.errors.iter().any(|err| *err == Error::end_of_input())
     }
@@ -486,7 +493,7 @@ impl<T, R> Error<T, R> {
     /// let input = r"
     ///   ,123
     /// ";
-    /// let result = spaces().with(char('.').or(char('a')).or(digit()))
+    /// let result = spaces().silent().with(char('.').or(char('a')).or(digit()))
     ///     .easy_parse(State::new(input));
     /// let m = format!("{}", result.unwrap_err());
     /// let expected = r"Parse error at line: 2, column: 3

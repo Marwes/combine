@@ -113,8 +113,13 @@
 //! {
 //!     let word = many1(letter());
 //!
+//!     // A parser which skips past whitespace.
+//!     // Since we aren't interested in knowing that our expression parser
+//!     // could have accepted additional whitespace between the tokens we also silence the error.
+//!     let skip_spaces = || spaces().silent();
+//!
 //!     //Creates a parser which parses a char and skips any trailing whitespace
-//!     let lex_char = |c| char(c).skip(spaces());
+//!     let lex_char = |c| char(c).skip(skip_spaces());
 //!
 //!     let comma_list = sep_by(expr(), lex_char(','));
 //!     let array = between(lex_char('['), lex_char(']'), comma_list);
@@ -133,7 +138,7 @@
 //!         array.map(Expr::Array),
 //!         pair,
 //!     ))
-//!         .skip(spaces())
+//!         .skip(skip_spaces())
 //! }
 //!
 //! // As this expression parser needs to be able to call itself recursively `impl Parser` can't
@@ -966,13 +971,14 @@ mod std_tests {
             let array = between(char('['), char(']'), sep_by(expr(), char(','))).expected("[");
             let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
             spaces()
+                .silent()
                 .with(
                     word.map(Expr::Id)
                         .or(integer.map(Expr::Int))
                         .or(array.map(Expr::Array))
                         .or(paren_expr),
                 )
-                .skip(spaces())
+                .skip(spaces().silent())
         }
     }
 
