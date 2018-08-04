@@ -6,9 +6,7 @@ use combine::parser::combinator::{no_partial, not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
-use combine::parser::repeat::{
-    count_min_max, many, many1, sep_by, sep_end_by1, skip_until, take_until,
-};
+use combine::parser::repeat::{count_min_max, sep_by, sep_end_by1, skip_until, take_until};
 use combine::Parser;
 
 #[test]
@@ -461,32 +459,63 @@ mod tests_std {
         );
     }
 
-    #[test]
-    fn sequence_in_many_report_delayed_error() {
-        let mut parser = many::<Vec<_>, _>(position().with(char('a'))).skip(char('}'));
-        let expected_error = Err(vec![
-            Error::Unexpected('b'.into()),
-            Error::Expected('a'.into()),
-            Error::Expected('}'.into()),
-        ]);
-        assert_eq!(parser.easy_parse("b").map_err(|e| e.errors), expected_error,);
-        assert_eq!(
-            parser.easy_parse("ab").map_err(|e| e.errors),
-            expected_error,
-        );
+    macro_rules! sequence_many_test {
+        ($many:expr, $seq:expr) => {
+            let mut parser = $seq($many(position().with(char('a'))), char('}'));
+            let expected_error = Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected('a'.into()),
+                Error::Expected('}'.into()),
+            ]);
+            assert_eq!(
+                parser.easy_parse("ab").map_err(|e| e.errors),
+                expected_error,
+            );
+        };
     }
 
     #[test]
-    fn sequence_in_many1_report_delayed_error() {
-        let mut parser = many1::<Vec<_>, _>(position().with(char('a'))).skip(char('}'));
-        let expected_error = Err(vec![
-            Error::Unexpected('b'.into()),
-            Error::Expected('a'.into()),
-            Error::Expected('}'.into()),
-        ]);
-        assert_eq!(
-            parser.easy_parse("ab").map_err(|e| e.errors),
-            expected_error,
-        );
+    fn sequence_in_many_report_delayed_error() {
+        use combine::parser::{repeat, sequence};
+
+        sequence_many_test!(repeat::many::<Vec<_>, _>, sequence::skip);
+        sequence_many_test!(repeat::many1::<Vec<_>, _>, sequence::skip);
+        sequence_many_test!(repeat::many::<Vec<_>, _>, sequence::with);
+        sequence_many_test!(repeat::many1::<Vec<_>, _>, sequence::with);
+        sequence_many_test!(repeat::many::<Vec<_>, _>, |l, x| sequence::between(
+            l,
+            char('|'),
+            x,
+        ));
+        sequence_many_test!(repeat::many1::<Vec<_>, _>, |l, x| sequence::between(
+            l,
+            char('|'),
+            x,
+        ));
+    }
+
+    macro_rules! sequence_sep_by_test {
+        ($many:expr, $seq:expr) => {
+            let mut parser = $seq($many(position().with(char('a')), char(',')), char('}'));
+            let expected_error = Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected(','.into()),
+                Error::Expected('}'.into()),
+            ]);
+            assert_eq!(
+                parser.easy_parse("a,ab").map_err(|e| e.errors),
+                expected_error,
+            );
+        };
+    }
+
+    #[test]
+    fn sequence_in_sep_by_report_delayed_error() {
+        use combine::parser::{repeat, sequence};
+
+        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::skip);
+        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::skip);
+        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::with);
+        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::with);
     }
 }

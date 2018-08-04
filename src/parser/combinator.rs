@@ -98,9 +98,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors);
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// `try(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
@@ -148,9 +146,7 @@ where
         EmptyOk(o)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors);
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// `look_ahead(p)` acts as `p` but doesn't consume input on success.
@@ -210,9 +206,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors);
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.map(f)`].
@@ -264,9 +258,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors);
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.flat_map(f)`].
@@ -337,9 +329,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors);
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.and_then(f)`].
@@ -577,9 +567,7 @@ where
         self.0.parse_lazy(input)
     }
 
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(error)
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[inline(always)]
@@ -619,9 +607,7 @@ where
         self.0.parse_mode(mode, input, state).map(|_| ())
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[doc(hidden)]
@@ -688,9 +674,7 @@ where
         result
     }
 
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(error)
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
@@ -786,9 +770,7 @@ where
         result
     }
 
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(error)
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
@@ -872,6 +854,17 @@ where
         M: ParseMode,
     {
         (self.0)().parse_mode_impl(mode, input, state)
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        (self.0)().add_error(errors);
+    }
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        (self.0)().add_consumed_expected_error(errors);
     }
 }
 
