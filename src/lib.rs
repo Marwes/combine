@@ -202,6 +202,8 @@ pub use combinator::{
 pub use parser::choice::choice;
 #[doc(inline)]
 pub use parser::combinator::from_str;
+#[doc(inline)]
+pub use parser::item::tokens2;
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
