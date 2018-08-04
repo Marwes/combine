@@ -16,9 +16,11 @@
 *   Report more expected information from nested sequence parsers ([9aa1db92](https://github.com/Marwes/combine/commit/9aa1db92dcd17a35d5775bf78b6642c4e8c89d1d))
 *   Use the message variant in from_str to work on no_std ([edf5ff60](https://github.com/Marwes/combine/commit/edf5ff6002d6b6f2f8bd23692dce5084e9fc01dd))
 *   Remove redundant Any bound on easy::Errors ([16601046](https://github.com/Marwes/combine/commit/16601046f3c2aa8b4ad75ba2390486f7b5306219), closes [#177](https://github.com/Marwes/combine/issues/177))
+
+<a name="3.3.6"></a>
+### 3.3.6
+
 *   Don't forget the state in any_send_partial_state ([4e2eb928](https://github.com/Marwes/combine/commit/4e2eb928e6059a4182b2717bf2bfb7cccdc60127))
-
-
 
 <a name="3.3.5"></a>
 ### 3.3.5 (2018-06-30)
