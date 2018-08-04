@@ -986,3 +986,127 @@ where [
     })
 }
 }
+
+#[derive(Copy, Clone)]
+pub struct Opaque<F, I, O, S>(F, PhantomData<fn(&mut I, &mut S) -> O>);
+impl<F, I, O, S> Parser for Opaque<F, I, O, S>
+where
+    I: Stream,
+    S: Default,
+    F: FnMut(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)),
+{
+    type Input = I;
+    type Output = O;
+    type PartialState = S;
+
+    fn parse_stream_consumed(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+        let mut x = None;
+        (self.0)(&mut |parser| x = Some(parser.parse_stream_consumed(input)));
+        x.expect("Parser")
+    }
+
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+        let mut x = None;
+        (self.0)(&mut |parser| x = Some(parser.parse_lazy(input)));
+        x.expect("Parser")
+    }
+
+    parse_mode!();
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let mut x = None;
+        (self.0)(&mut |parser| {
+            x = Some(if mode.is_first() {
+                parser.parse_first(input, state)
+            } else {
+                parser.parse_partial(input, state)
+            })
+        });
+        x.expect("Parser")
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        (self.0)(&mut |parser| parser.add_error(errors));
+    }
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        (self.0)(&mut |parser| parser.add_consumed_expected_error(errors));
+    }
+}
+
+/// Alias over `Opaque` where the function can be a plain function pointer (does not need to
+/// capture any values)
+pub type FnOpaque<I, O, S = ()> =
+    Opaque<fn(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)), I, O, S>;
+
+/// Creates a parser from a function which takes a function that are given the actual parser.
+/// Though convoluted this makes it possible to hide the concrete parser type without `Box` or
+/// losing the full information about the parser as is the case of [`parser`][].
+///
+/// Since this hides the type this can also be useful for writing mutually recursive `impl Parser`
+/// parsers to break the otherwise arbitrarily large type that rustc creates internally.
+///
+/// If you need a more general version (that does not need trait objects) try the [`parser!`][]
+/// macro.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::combinator::{FnOpaque, opaque, no_partial};
+/// # use combine::parser::char::{char, digit};
+/// # use combine::*;
+///
+/// # fn main() {
+///
+/// #[derive(PartialEq, Debug)]
+/// enum Expr {
+///     Number(i64),
+///     Pair(Box<Expr>, Box<Expr>),
+/// }
+///
+/// fn expr<I>() -> FnOpaque<I, Expr>
+/// where
+///     I: Stream<Item = char>,
+///     I::Error: ParseError<I::Item, I::Range, I::Position>,
+/// {
+///     opaque(|f| {
+///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
+///         // letting us avoid naming that type
+///         f(&mut no_partial(choice((
+///             from_str(many1::<String, _>(digit()))
+///                 .map(Expr::Number),
+///             (char('('), expr(), char(','), expr(), char(')'))
+///                 .map(|(_, l, _, r, _)| Expr::Pair(Box::new(l), Box::new(r)))
+///         ))))
+///     })
+/// }
+///
+/// assert_eq!(
+///     expr().easy_parse("123"),
+///     Ok((Expr::Number(123), ""))
+/// );
+///
+/// # }
+/// ```
+///
+/// [`parser`]: ../function/fn.parser.html
+/// [`parser!`]: ../../macro.parser.html
+pub fn opaque<F, I, O, S>(f: F) -> Opaque<F, I, O, S>
+where
+    I: Stream,
+    S: Default,
+    F: FnMut(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)),
+{
+    Opaque(f, PhantomData)
+}
