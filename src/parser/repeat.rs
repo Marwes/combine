@@ -10,7 +10,7 @@ use parser::choice::Or;
 use parser::sequence::With;
 use parser::ParseMode;
 use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
-use Parser;
+use {ErrorOffset, Parser};
 
 use error::FastResult::*;
 
@@ -391,6 +391,17 @@ where
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.add_error(errors);
+    }
+
+    fn parser_count(&self) -> ErrorOffset {
+        self.0.parser_count()
+    }
 }
 
 /// Parses `p` zero or more times returning a collection with the values from `p`.
@@ -470,9 +481,15 @@ where
             x
         })
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.add_error(errors);
     }
+
+    forward_parser!(add_error parser_count, 0);
 }
 
 /// Parses `p` one or more times returning a collection with the values from `p`.
@@ -600,9 +617,14 @@ where
             .parse_mode(mode, input, state)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.parser.add_error(errors)
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.separator.add_error(errors)
     }
+
+    forward_parser!(add_error parser_count, parser);
 }
 
 /// Parses `parser` zero or more time separated by `separator`, returning a collection with the
@@ -697,9 +719,14 @@ where
         })
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.parser.add_error(errors)
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.separator.add_error(errors)
     }
+
+    forward_parser!(add_error parser_count, parser);
 }
 
 /// Parses `parser` one or more time separated by `separator`, returning a collection with the

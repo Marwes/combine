@@ -137,6 +137,15 @@ where
         self.0.add_error(errors);
         errors.error.add_message(self.1.clone());
     }
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.0.add_error(errors);
+    }
+
+    forward_parser!(parser_count, 0);
 }
 
 /// Equivalent to [`p1.message(msg)`].
@@ -187,6 +196,15 @@ where
             self.0.add_error(errors);
         })
     }
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.add_error(errors);
+    }
+
+    forward_parser!(parser_count, 0);
 }
 
 /// Equivalent to [`p.expected(info)`].
@@ -201,4 +219,55 @@ where
     P: Parser,
 {
     Expected(p, info)
+}
+
+#[derive(Clone)]
+pub struct Silent<P>(P)
+where
+    P: Parser;
+impl<P> Parser for Silent<P>
+where
+    P: Parser,
+{
+    type Input = P::Input;
+    type Output = P::Output;
+    type PartialState = P::PartialState;
+
+    parse_mode!();
+    #[inline(always)]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        self.0.parse_mode(mode, input, state).map_err(|mut err| {
+            err.clear_expected();
+            err
+        })
+    }
+
+    fn add_error(&mut self, _errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {}
+
+    fn add_consumed_expected_error(
+        &mut self,
+        _errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+    }
+
+    forward_parser!(parser_count, 0);
+}
+
+/// Equivalent to [`p.silent()`].
+///
+/// [`p.silent()`]: ../trait.Parser.html#method.silent
+#[inline(always)]
+pub fn silent<P>(p: P) -> Silent<P>
+where
+    P: Parser,
+{
+    Silent(p)
 }

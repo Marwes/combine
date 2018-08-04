@@ -653,9 +653,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
+    forward_parser!(add_error parser_count, 0);
 }
 
 /// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without

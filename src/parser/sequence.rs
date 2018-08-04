@@ -1,7 +1,7 @@
 //! Combinators which take multiple parsers and applies them one after another.
 use lib::marker::PhantomData;
 
-use combinator::{ignore, Ignore};
+use combinator::{ignore, Ignore, Map};
 use error::FastResult::*;
 use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use parser::ParseMode;
@@ -15,6 +15,12 @@ macro_rules! dispatch_on {
             dispatch_on!($i + 1, $f; $($id),*);
         }
     } }
+}
+
+macro_rules! count {
+    () => { 0 };
+    ($f: ident) => { 1 };
+    ($f: ident, $($rest: ident),+) => { 1 + count!($($rest),*) };
 }
 
 #[doc(hidden)]
@@ -47,6 +53,11 @@ where
     }
 }
 
+macro_rules! last_ident {
+    ($id: ident) => { $id };
+    ($id: ident, $($rest: ident),+) => { last_ident!($($rest),+) };
+}
+
 macro_rules! tuple_parser {
     ($partial_state: ident; $h: ident $(, $id: ident)*) => {
         #[allow(non_snake_case)]
@@ -77,25 +88,35 @@ macro_rules! tuple_parser {
                 $h: &mut $h $(, $id : &mut $id )*
             ) -> ConsumedResult<($h::Output, $($id::Output),*), Input>
             {
+                let inner_offset = err.offset;
                 err.offset = ErrorOffset(offset);
                 if first_empty_parser != 0 {
                     if let Ok(t) = input.uncons() {
                         err.error.add(StreamError::unexpected_token(t));
                     }
                     dispatch_on!(0, |i, mut p| {
+                        if i + 1 == first_empty_parser {
+                            Parser::add_consumed_expected_error(&mut p, &mut err);
+                        }
                         if i >= first_empty_parser {
+                            if err.offset <= ErrorOffset(1) {
+                                // We reached the last parser we need to add errors to (and the
+                                // parser that actually returned the error), use the returned
+                                // offset for that parser.
+                                err.offset = inner_offset;
+                            }
                             Parser::add_error(&mut p, &mut err);
                             if err.offset <= ErrorOffset(1) {
                                 return false;
                             }
                         }
-                            err.offset = ErrorOffset(
-                                err.offset.0.saturating_sub(Parser::parser_count(&p).0)
-                            );
+                        err.offset = ErrorOffset(
+                            err.offset.0.saturating_sub(Parser::parser_count(&p).0)
+                        );
                         true
                     }; $h $(, $id)*);
                     ConsumedErr(err.error)
-                } else {
+            } else {
                     EmptyErr(err)
                 }
             }
@@ -204,20 +225,44 @@ macro_rules! tuple_parser {
             #[inline(always)]
             fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
                 let (ref mut $h, $(ref mut $id),*) = *self;
+                let prev = errors.offset;
                 $h.add_error(errors);
                 if errors.offset <= ErrorOffset(1) {
+                    errors.offset = ErrorOffset(
+                        errors.offset.0.saturating_sub(1)
+                    );
                     return;
                 }
-                errors.offset = ErrorOffset(errors.offset.0.saturating_sub($h.parser_count().0));
+                if errors.offset == prev {
+                    errors.offset = ErrorOffset(errors.offset.0.saturating_sub($h.parser_count().0));
+                }
+
+                #[allow(dead_code)]
+                const LAST: usize = count!($($id),*);
+                #[allow(unused_mut, unused_variables)]
+                let mut i = 0;
                 $(
+                    i += 1;
+                    let prev = errors.offset;
                     $id.add_error(errors);
                     if errors.offset <= ErrorOffset(1) {
+                        errors.offset = ErrorOffset(
+                            errors.offset.0.saturating_sub(1)
+                        );
                         return;
                     }
-                    errors.offset = ErrorOffset(
-                        errors.offset.0.saturating_sub($id.parser_count().0)
-                    );
+                    if i != LAST && errors.offset == prev {
+                        errors.offset = ErrorOffset(
+                            errors.offset.0.saturating_sub($id.parser_count().0)
+                        );
+                    }
                 )*
+            }
+
+            fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+                #[allow(unused_variables)]
+                let (ref mut $h, $(ref mut $id),*) = *self;
+                last_ident!($h $(, $id)*).add_consumed_expected_error(errors)
             }
         }
     }
@@ -390,9 +435,7 @@ where
         self.0.parse_mode(mode, input, state).map(|(_, b)| b)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p1.with(p2)`].
@@ -436,9 +479,7 @@ where
         self.0.parse_mode(mode, input, state).map(|(a, _)| a)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error(errors)
-    }
+    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[inline(always)]
@@ -450,7 +491,11 @@ where
     Skip((p1, ignore(p2)))
 }
 
-impl_parser! { Between(L, R, P), Skip<With<L, P>, R> }
+impl_parser! {
+    Between(L, R, P),
+    Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output>
+}
+
 /// Parses `open` followed by `parser` followed by `close`.
 /// Returns the value of `parser`.
 ///
@@ -473,7 +518,10 @@ where
     R: Parser<Input = I>,
     P: Parser<Input = I>,
 {
-    Between(open.with(parser).skip(close))
+    fn middle<T, U, V>((_, x, _): (T, U, V)) -> U {
+        x
+    }
+    Between((open, parser, close).map(middle))
 }
 
 #[derive(Copy, Clone)]
@@ -608,11 +656,8 @@ where
             mode.set_first();
         }
 
-        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1).parse_consumed_mode(
-            mode,
-            input,
-            n_state,
-        );
+        let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
+            .parse_consumed_mode(mode, input, n_state);
         match result {
             EmptyOk(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();

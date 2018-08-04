@@ -113,8 +113,13 @@
 //! {
 //!     let word = many1(letter());
 //!
+//!     // A parser which skips past whitespace.
+//!     // Since we aren't interested in knowing that our expression parser
+//!     // could have accepted additional whitespace between the tokens we also silence the error.
+//!     let skip_spaces = || spaces().silent();
+//!
 //!     //Creates a parser which parses a char and skips any trailing whitespace
-//!     let lex_char = |c| char(c).skip(spaces());
+//!     let lex_char = |c| char(c).skip(skip_spaces());
 //!
 //!     let comma_list = sep_by(expr(), lex_char(','));
 //!     let array = between(lex_char('['), lex_char(']'), comma_list);
@@ -133,7 +138,7 @@
 //!         array.map(Expr::Array),
 //!         pair,
 //!     ))
-//!         .skip(spaces())
+//!         .skip(skip_spaces())
 //! }
 //!
 //! // As this expression parser needs to be able to call itself recursively `impl Parser` can't
@@ -228,35 +233,7 @@ macro_rules! impl_token_parser {
         type Output = <$inner_type as Parser>::Output;
         type PartialState = <$inner_type as Parser>::PartialState;
 
-        #[inline]
-        fn parse_lazy(&mut self,
-                      input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-            self.0.parse_lazy(input)
-        }
-
-        #[inline]
-        fn parse_first(
-            &mut self,
-            input: &mut Self::Input,
-            state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input>
-        {
-            self.0.parse_first(input, state)
-        }
-
-        #[inline]
-        fn parse_partial(
-            &mut self,
-            input: &mut Self::Input,
-            state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input>
-        {
-            self.0.parse_partial(input, state)
-        }
-
-        fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-            self.0.add_error(errors)
-        }
+        forward_parser!(0);
     }
 }
 }
@@ -645,6 +622,20 @@ macro_rules! combine_parser_impl {
                 }
                 parser.add_error(errors)
             }
+
+            fn add_consumed_expected_error(
+                &mut self,
+                errors: &mut $crate::error::Tracked<
+                    <$input_type as $crate::stream::StreamOnce>::Error
+                    >)
+            {
+                let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                let mut parser = $parser;
+                {
+                    let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                }
+                parser.add_consumed_expected_error(errors)
+            }
         }
 
         $(#[$attr])*
@@ -675,6 +666,75 @@ pub extern crate either;
 
 extern crate memchr;
 extern crate unreachable;
+
+/// Internal API. May break without a semver bump
+macro_rules! forward_parser {
+    (, $($field: tt)+) => {
+    };
+    ($method: ident $( $methods: ident)*, $($field: tt)*) => {
+        forward_parser!($method $($field)+);
+        forward_parser!($($methods)*, $($field)+);
+    };
+    (parse_mode $($field: tt)+) => {
+        #[inline]
+        fn parse_mode_impl<M>(
+            &mut self,
+            mode: M,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input>
+        where
+            M: ParseMode,
+        {
+            self.$($field)+.parse_mode(mode, input, state).map(|(a, _)| a)
+        }
+    };
+    (parse_lazy $($field: tt)+) => {
+        fn parse_lazy(
+            &mut self,
+            input: &mut Self::Input,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.$($field)+.parse_lazy(input)
+        }
+    };
+    (parse_first $($field: tt)+) => {
+        fn parse_first(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.$($field)+.parse_first(input, state)
+        }
+    };
+    (parse_partial $($field: tt)+) => {
+        fn parse_partial(
+            &mut self,
+            input: &mut Self::Input,
+            state: &mut Self::PartialState,
+        ) -> ConsumedResult<Self::Output, Self::Input> {
+            self.$($field)+.parse_partial(input, state)
+        }
+    };
+    (add_error $($field: tt)+) => {
+
+        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            self.$($field)+.add_error(error)
+        }
+    };
+    (add_consumed_expected_error $($field: tt)+) => {
+        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            self.$($field)+.add_consumed_expected_error(error)
+        }
+    };
+    (parser_count $($field: tt)+) => {
+        fn parser_count(&self) -> $crate::ErrorOffset {
+            self.$($field)+.parser_count()
+        }
+    };
+    ($field: tt) => {
+        forward_parser!(parse_lazy parse_first parse_partial add_error add_consumed_expected_error parser_count, $field);
+    }
+}
 
 // Facade over the core types we need
 // Public but hidden to be accessible in macros
@@ -911,13 +971,14 @@ mod std_tests {
             let array = between(char('['), char(']'), sep_by(expr(), char(','))).expected("[");
             let paren_expr = between(char('('), char(')'), parser(term)).expected("(");
             spaces()
+                .silent()
                 .with(
                     word.map(Expr::Id)
                         .or(integer.map(Expr::Int))
                         .or(array.map(Expr::Array))
                         .or(paren_expr),
                 )
-                .skip(spaces())
+                .skip(spaces().silent())
         }
     }
 

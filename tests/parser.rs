@@ -4,7 +4,7 @@ use combine::parser::char::{digit, letter};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{no_partial, not_followed_by, try};
 use combine::parser::error::unexpected;
-use combine::parser::item::{any, eof, token, value, Token};
+use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
 use combine::parser::repeat::{count_min_max, sep_by, sep_end_by1, skip_until, take_until};
 use combine::Parser;
@@ -406,5 +406,116 @@ mod tests_std {
             range::recognize(skip_until(try((char('a'), char('b'))))).parse("aaab"),
             Ok(("aa", "ab"))
         );
+    }
+
+    #[test]
+    fn sequence_in_optional_report_delayed_error() {
+        assert_eq!(
+            optional(position().with(char('a')))
+                .skip(char('}'))
+                .easy_parse("b")
+                .map_err(|e| e.errors),
+            Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected('a'.into()),
+                Error::Expected('}'.into()),
+            ]),
+        );
+    }
+
+    #[test]
+    fn sequence_in_optional_nested_report_delayed_error() {
+        assert_eq!(
+            optional(position().with(char('a')))
+                .skip(optional(position().with(char('c'))))
+                .skip(char('}'))
+                .easy_parse("b")
+                .map_err(|e| e.errors),
+            Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected('a'.into()),
+                Error::Expected('c'.into()),
+                Error::Expected('}'.into()),
+            ]),
+        );
+    }
+
+    #[test]
+    fn sequence_in_optional_nested_2_report_delayed_error() {
+        assert_eq!(
+            (
+                char('{'),
+                optional(position().with(char('a')))
+                    .skip(optional(position().with(char('c'))))
+                    .skip(char('}'))
+            ).easy_parse("{b")
+                .map_err(|e| e.errors),
+            Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected('a'.into()),
+                Error::Expected('c'.into()),
+                Error::Expected('}'.into()),
+            ]),
+        );
+    }
+
+    macro_rules! sequence_many_test {
+        ($many:expr, $seq:expr) => {
+            let mut parser = $seq($many(position().with(char('a'))), char('}'));
+            let expected_error = Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected('a'.into()),
+                Error::Expected('}'.into()),
+            ]);
+            assert_eq!(
+                parser.easy_parse("ab").map_err(|e| e.errors),
+                expected_error,
+            );
+        };
+    }
+
+    #[test]
+    fn sequence_in_many_report_delayed_error() {
+        use combine::parser::{repeat, sequence};
+
+        sequence_many_test!(repeat::many::<Vec<_>, _>, sequence::skip);
+        sequence_many_test!(repeat::many1::<Vec<_>, _>, sequence::skip);
+        sequence_many_test!(repeat::many::<Vec<_>, _>, sequence::with);
+        sequence_many_test!(repeat::many1::<Vec<_>, _>, sequence::with);
+        sequence_many_test!(repeat::many::<Vec<_>, _>, |l, x| sequence::between(
+            l,
+            char('|'),
+            x,
+        ));
+        sequence_many_test!(repeat::many1::<Vec<_>, _>, |l, x| sequence::between(
+            l,
+            char('|'),
+            x,
+        ));
+    }
+
+    macro_rules! sequence_sep_by_test {
+        ($many:expr, $seq:expr) => {
+            let mut parser = $seq($many(position().with(char('a')), char(',')), char('}'));
+            let expected_error = Err(vec![
+                Error::Unexpected('b'.into()),
+                Error::Expected(','.into()),
+                Error::Expected('}'.into()),
+            ]);
+            assert_eq!(
+                parser.easy_parse("a,ab").map_err(|e| e.errors),
+                expected_error,
+            );
+        };
+    }
+
+    #[test]
+    fn sequence_in_sep_by_report_delayed_error() {
+        use combine::parser::{repeat, sequence};
+
+        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::skip);
+        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::skip);
+        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::with);
+        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::with);
     }
 }
