@@ -1,6 +1,6 @@
 //! Various combinators which do not fit anywhere else.
 
-use lib::error::Error as StdError;
+use lib::fmt;
 use lib::marker::PhantomData;
 use lib::mem;
 use lib::str;
@@ -980,13 +980,13 @@ where [
     P: Parser,
     P::Output: StrLike,
     O: str::FromStr,
-    O::Err: StdError + Send + Sync + 'static
+    O::Err: fmt::Display,
 ]
 {
     parser.and_then(|r| {
         r.from_utf8()
             .map_err(|_| StreamErrorFor::<P::Input>::expected_static_message("UTF-8"))
-            .and_then(|s| s.parse().map_err(StreamErrorFor::<P::Input>::other))
+            .and_then(|s| s.parse().map_err(StreamErrorFor::<P::Input>::message_message))
     })
 }
 }
