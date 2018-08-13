@@ -1151,7 +1151,7 @@ pub type FnOpaque<I, O, S = ()> =
 /// ```
 /// # #[macro_use]
 /// # extern crate combine;
-/// # use combine::combinator::{FnOpaque, opaque, no_partial};
+/// # use combine::combinator::{FnOpaque, no_partial};
 /// # use combine::parser::char::{char, digit};
 /// # use combine::*;
 ///
@@ -1168,16 +1168,16 @@ pub type FnOpaque<I, O, S = ()> =
 ///     I: Stream<Item = char>,
 ///     I::Error: ParseError<I::Item, I::Range, I::Position>,
 /// {
-///     opaque(|f| {
+///     opaque!(
 ///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
 ///         // letting us avoid naming that type
-///         f(&mut no_partial(choice((
+///         no_partial(choice((
 ///             from_str(many1::<String, _>(digit()))
 ///                 .map(Expr::Number),
 ///             (char('('), expr(), char(','), expr(), char(')'))
 ///                 .map(|(_, l, _, r, _)| Expr::Pair(Box::new(l), Box::new(r)))
-///         ))))
-///     })
+///         ))),
+///     )
 /// }
 ///
 /// assert_eq!(
@@ -1197,4 +1197,25 @@ where
     F: FnMut(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)),
 {
     Opaque(f, PhantomData)
+}
+
+/// Convenience macro over [`opaque`][].
+///
+/// [`opaque`]: fn.opaque.html
+#[macro_export]
+macro_rules! opaque {
+    ($e: expr) => {
+        opaque!($e,);
+    };
+    ($e: expr,) => {
+        $crate::parser::combinator::opaque(
+            move |f: &mut FnMut(
+                &mut $crate::Parser<
+                    Input = _,
+                    Output = _,
+                    PartialState = _,
+                >,
+            )| { f(&mut $e) },
+        )
+    };
 }
