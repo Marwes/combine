@@ -1,3 +1,14 @@
+<a name="3.5.0"></a>
+## 3.5.0 (2018-08-13)
+
+
+#### Features
+
+*   Add opaque! as convenience over the opaque parser ([9855aa1f](https://github.com/Marwes/combine/commit/9855aa1f39b62b09addb1c7a25035616a8cbef42))
+*   Add the factory parser ([fdd38d46](https://github.com/Marwes/combine/commit/fdd38d46b5dbdeece7f6f3a99b12e470a08e9a92))
+
+
+
 <a name="3.4.0"></a>
 ## 3.4.0 (2018-08-04)
 
