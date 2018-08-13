@@ -868,8 +868,14 @@ where
     }
 }
 
-/// Constructs the parser lazily and on each `parse_*` call. Can be used to effectively reduce the
-/// size of deeply nested parsers as only the function producing the parser is stored in `Lazy`
+/// Constructs the parser lazily on each `parse_*` call. Can be used to effectively reduce the
+/// size of deeply nested parsers as only the function producing the parser is stored.
+///
+/// NOTE: Expects that the parser returned is always the same one, if that is not the case the
+/// reported error may be wrong. If different parsers may be returned, use the [`factory`][] parser
+/// instead.
+///
+/// [`factory`]: fn.factory.html
 #[inline(always)]
 pub fn lazy<P, R>(p: P) -> Lazy<P>
 where
@@ -877,6 +883,88 @@ where
     R: Parser,
 {
     Lazy(p)
+}
+
+#[derive(Copy, Clone)]
+pub struct Factory<P, R>(P, Option<R>);
+
+impl<P, R> Factory<P, R>
+where
+    P: FnMut() -> R,
+{
+    fn parser(&mut self) -> &mut R {
+        if let Some(ref mut r) = self.1 {
+            return r;
+        }
+        self.1 = Some((self.0)());
+        self.1.as_mut().unwrap()
+    }
+}
+
+impl<I, O, P, R> Parser for Factory<P, R>
+where
+    I: Stream,
+    P: FnMut() -> R,
+    R: Parser<Input = I, Output = O>,
+{
+    type Input = I;
+    type Output = O;
+    type PartialState = R::PartialState;
+
+    parse_mode!();
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        // Always ask for a new parser except if we are in a partial call being resumed as we want
+        // to resume the same parser then
+        if mode.is_first() {
+            self.1 = None;
+        }
+        self.parser().parse_mode_impl(mode, input, state)
+    }
+
+    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        self.parser().add_error(errors);
+    }
+
+    fn add_consumed_expected_error(
+        &mut self,
+        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+        self.parser().add_consumed_expected_error(errors);
+    }
+}
+
+/// Constructs the parser lazily on each `parse_*` call. This is similar to [`lazy`][] but it
+/// allows different parsers to be returned on each call to `p` while still reporting the correct
+/// errors.
+///
+/// [`lazy`]: fn.lazy.html
+///
+/// ```
+/// # use combine::*;
+/// # use combine::parser::char::{digit, letter};
+/// # use combine::parser::combinator::{FnOpaque, opaque, factory};
+///
+/// let mut parsers: Vec<FnOpaque<_, _>> = vec![opaque(|f| f(&mut digit())), opaque(|f| f(&mut letter()))];
+/// let mut iter = parsers.into_iter().cycle();
+/// let mut parser = many(factory(move || iter.next().unwrap()));
+/// assert_eq!(parser.parse("1a2b3cd"), Ok(("1a2b3c".to_string(), "d")));
+/// ```
+#[inline(always)]
+pub fn factory<P, R>(p: P) -> Factory<P, R>
+where
+    P: FnMut() -> R,
+    R: Parser,
+{
+    Factory(p, None)
 }
 
 mod internal {
@@ -1063,7 +1151,7 @@ pub type FnOpaque<I, O, S = ()> =
 /// ```
 /// # #[macro_use]
 /// # extern crate combine;
-/// # use combine::combinator::{FnOpaque, opaque, no_partial};
+/// # use combine::combinator::{FnOpaque, no_partial};
 /// # use combine::parser::char::{char, digit};
 /// # use combine::*;
 ///
@@ -1080,16 +1168,16 @@ pub type FnOpaque<I, O, S = ()> =
 ///     I: Stream<Item = char>,
 ///     I::Error: ParseError<I::Item, I::Range, I::Position>,
 /// {
-///     opaque(|f| {
+///     opaque!(
 ///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
 ///         // letting us avoid naming that type
-///         f(&mut no_partial(choice((
+///         no_partial(choice((
 ///             from_str(many1::<String, _>(digit()))
 ///                 .map(Expr::Number),
 ///             (char('('), expr(), char(','), expr(), char(')'))
 ///                 .map(|(_, l, _, r, _)| Expr::Pair(Box::new(l), Box::new(r)))
-///         ))))
-///     })
+///         ))),
+///     )
 /// }
 ///
 /// assert_eq!(
@@ -1109,4 +1197,25 @@ where
     F: FnMut(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)),
 {
     Opaque(f, PhantomData)
+}
+
+/// Convenience macro over [`opaque`][].
+///
+/// [`opaque`]: fn.opaque.html
+#[macro_export]
+macro_rules! opaque {
+    ($e: expr) => {
+        opaque!($e,);
+    };
+    ($e: expr,) => {
+        $crate::parser::combinator::opaque(
+            move |f: &mut FnMut(
+                &mut $crate::Parser<
+                    Input = _,
+                    Output = _,
+                    PartialState = _,
+                >,
+            )| { f(&mut $e) },
+        )
+    };
 }
