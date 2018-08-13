@@ -1,12 +1,12 @@
 extern crate combine;
 
-use combine::parser::char::{digit, letter};
+use combine::parser::char::{digit, letter, string};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{no_partial, not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
-use combine::parser::repeat::{count_min_max, sep_by, sep_end_by1, skip_until, take_until};
+use combine::parser::repeat::{count_min_max, many, sep_by, sep_end_by1, skip_until, take_until};
 use combine::Parser;
 
 #[test]
@@ -448,7 +448,8 @@ mod tests_std {
                 optional(position().with(char('a')))
                     .skip(optional(position().with(char('c'))))
                     .skip(char('}'))
-            ).easy_parse("{b")
+            )
+                .easy_parse("{b")
                 .map_err(|e| e.errors),
             Err(vec![
                 Error::Unexpected('b'.into()),
@@ -517,5 +518,40 @@ mod tests_std {
         sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::skip);
         sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::with);
         sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::with);
+    }
+
+    #[test]
+    fn choice_compose_on_error() {
+        let ident = |s| try(string(s));
+        let mut parser = choice((ident("aa").skip(string(";")), choice((ident("cc"),))));
+
+        assert_eq!(
+            parser.easy_parse("c").map_err(|err| err.errors),
+            Err(vec![
+                Error::Unexpected('c'.into()),
+                Error::Expected("aa".into()),
+                Error::Unexpected("end of input".into()),
+                Error::Expected("cc".into()),
+            ]),
+        );
+    }
+
+    #[test]
+    fn choice_compose_issue_175() {
+        let ident = |s| try(string(s));
+        let mut parser = many::<Vec<_>, _>(position().and(choice((
+            ident("aa").skip(string(";")),
+            choice((ident("bb"), ident("cc"))),
+        )))).skip(string("."));
+
+        assert_eq!(
+            parser.easy_parse("c").map_err(|err| err.errors),
+            Err(vec![
+                Error::Unexpected('c'.into()),
+                Error::Expected("aa".into()),
+                Error::Expected("bb".into()),
+                Error::Expected("cc".into()),
+            ]),
+        );
     }
 }

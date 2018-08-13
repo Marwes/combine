@@ -1,3 +1,13 @@
+<a name="3.5.1"></a>
+### 3.5.1 (2018-08-13)
+
+
+#### Bug Fixes
+
+*   Add all errors of nested choice parsers ([f2b8fbbf](https://github.com/Marwes/combine/commit/f2b8fbbfe300e2b219eb72116856c217fcec8b2b))
+
+
+
 <a name="3.5.0"></a>
 ## 3.5.0 (2018-08-13)
 

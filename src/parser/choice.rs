@@ -282,7 +282,11 @@ macro_rules! tuple_choice_parser_inner {
             ) {
                 if error.offset != ErrorOffset(0) {
                     let ($(ref mut $id,)+) = *self;
+                    // Reset the offset to 1 on every add so that we always (and only) takes the
+                    // error of the first parser. If we don't do this the first parser will consume
+                    // the offset to the detriment for all the other parsers.
                     $(
+                        error.offset = ErrorOffset(1);
                         $id.add_error(error);
                     )+
                 }
@@ -365,7 +369,9 @@ where
     }
 
     fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.0.add_error_choice(error)
+        let before = error.offset.0;
+        self.0.add_error_choice(error);
+        error.offset.0 = before.saturating_sub(1);
     }
 }
 
@@ -498,6 +504,7 @@ where
     fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
         if error.offset != ErrorOffset(0) {
             for p in self {
+                error.offset = ErrorOffset(1);
                 p.add_error(error);
             }
         }
