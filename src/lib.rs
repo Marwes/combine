@@ -565,7 +565,6 @@ macro_rules! combine_parse_partial {
         $parser.parse_mode($mode, $input, state)
     }};
     (($ignored:ty) $mode:ident $input:ident $state:ident $parser:block) => {
-
         $parser.parse_mode($mode, $input, $state)
     };
 }
@@ -1113,3 +1112,123 @@ mod std_tests {
         });
     }
 }
+
+use std::mem;
+use std::ptr;
+use std::slice;
+
+pub struct WriteVec<'a, T: 'a> {
+    vec: &'a mut Vec<T>,
+    uninit: Uninit<&'a mut [T]>,
+}
+
+impl<'a, T> Drop for WriteVec<'a, T> {
+    fn drop(&mut self) {
+        let new_len = self.vec.capacity() - self.uninit.data.len();
+        unsafe {
+            self.vec.set_len(new_len);
+        }
+    }
+}
+
+impl<'a, T: Copy> WriteVec<'a, T> {
+    pub fn new(vec: &'a mut Vec<T>) -> Self {
+        unsafe {
+            WriteVec {
+                uninit: Uninit::from_uninitialized_vec(&mut *(vec as *mut _)),
+                vec,
+            }
+        }
+    }
+
+    pub fn get_uninit(&mut self) -> &mut Uninit<&'a mut [T]> {
+        &mut self.uninit
+    }
+}
+
+#[repr(transparent)]
+pub struct Uninit<T: ?Sized> {
+    data: T,
+}
+
+impl<'a, T: Copy + 'a> Uninit<&'a mut [T]> {
+    pub fn initialize<F>(f: F, p: &'a mut T, size: usize) -> &'a mut [T]
+    where
+        F: FnOnce(&mut Uninit<&mut [T]>),
+    {
+        unsafe {
+            let mut uninit = Self::from_slice(slice::from_raw_parts_mut(p, size));
+            f(&mut uninit);
+
+            slice::from_raw_parts_mut(p, size - uninit.data.len())
+        }
+    }
+
+    pub fn from_uninitialized_vec(vec: &mut Vec<T>) -> Self {
+        let unused = vec.capacity() - vec.len();
+        unsafe {
+            Self::from_slice(slice::from_raw_parts_mut(
+                vec.as_mut_ptr().offset(vec.len() as isize), // FIXME cast
+                unused,
+            ))
+        }
+    }
+
+    pub fn from_slice(data: &'a mut [T]) -> Self {
+        Uninit { data }
+    }
+
+    pub fn write(&mut self, value: &[T]) -> &'a mut [T] {
+        let mut data = &mut [][..];
+        mem::swap(&mut data, &mut self.data);
+        let (before, after) = data.split_at_mut(value.len());
+        self.data = after;
+        before.copy_from_slice(value);
+        before
+    }
+}
+
+/*
+#[repr(transparent)]
+pub struct UninitBuffer<T: ?Sized> {
+    data: T,
+}
+
+pub unsafe trait Buffer: ::std::ops::IndexMut<usize> {
+    type Element: Copy;
+    unsafe fn get_unchecked_mut(&mut self, i: usize) -> &mut Self::Element;
+}
+
+unsafe impl<T> Buffer for [T; 32]
+where
+    T: Copy,
+{
+    type Element = T;
+    unsafe fn get_unchecked_mut(&mut self, i: usize) -> &mut Self::Element {
+        self.get_unchecked_mut(i)
+    }
+}
+
+impl<B: Copy> UninitBuffer<B>
+where
+    B: Buffer,
+{
+    pub fn new() -> Self {
+        UninitBuffer {
+            data: unsafe { mem::unitialized() },
+        }
+    }
+
+    pub fn write(&mut self, value: &[T]) -> &mut [T] {
+        self.data.copy_from_slice(value);
+        &mut self.data[..value.len()]
+    }
+
+    pub fn write_one(&mut self, at: usize, value: T) -> &mut T {
+        unsafe {
+            ptr::write(&mut self.data[at], value);
+        }
+        &mut self.data[at]
+    }
+}
+*/
