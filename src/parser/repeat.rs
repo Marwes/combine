@@ -410,6 +410,9 @@ where
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
 /// calling many, `many::<Vec<_>, _>(...)`.
 ///
+/// NOTE: If `p` can succeed without consuming any input this may hang forever as `many` will
+/// repeatedly use `p` to parse the same location in the input every time
+///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
@@ -498,6 +501,9 @@ where
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
 /// calling many1 `many1::<Vec<_>, _>(...)`.
 ///
+/// NOTE: If `p` can succeed without consuming any input this may hang forever as `many1` will
+/// repeatedly use `p` to parse the same location in the input every time
+///
 ///
 /// ```
 /// # extern crate combine;
@@ -542,6 +548,9 @@ impl_parser!{ SkipMany(P,), Ignore<Many<Sink<()>, Ignore<P>>> }
 
 /// Parses `p` zero or more times ignoring the result.
 ///
+/// NOTE: If `p` can succeed without consuming any input this may hang forever as `skip_many` will
+/// repeatedly use `p` to parse the same location in the input every time
+///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
@@ -563,6 +572,9 @@ where
 impl_parser!{ SkipMany1(P,), Ignore<Many1<Sink<()>, Ignore<P>>> }
 
 /// Parses `p` one or more times ignoring the result.
+///
+/// NOTE: If `p` can succeed without consuming any input this may hang forever as `skip_many1` will
+/// repeatedly use `p` to parse the same location in the input every time
 ///
 /// ```
 /// # extern crate combine;
