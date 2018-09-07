@@ -1005,6 +1005,48 @@ where
     }
 }
 
+pub trait JoinConsecutive {
+    type Output;
+    fn join_to(self, next: &mut Self::Output);
+}
+
+impl JoinConsecutive for u8 {
+    type Output = Vec<u8>;
+    fn join_to(self, output: &mut Self::Output) {
+        output.push(self);
+    }
+}
+
+impl JoinConsecutive for char {
+    type Output = String;
+    fn join_to(self, output: &mut Self::Output) {
+        output.push(self);
+    }
+}
+
+impl<'a, T> JoinConsecutive for &'a [T] {
+    type Output = &'a [T];
+    fn join_to(self, output: &mut Self::Output) {
+        unsafe {
+            assert!(output.as_ptr().offset(output.len() as isize) == self.as_ptr());
+            *output = ::lib::slice::from_raw_parts(output.as_ptr(), output.len() + self.len())
+        }
+    }
+}
+
+impl<'a> JoinConsecutive for &'a str {
+    type Output = &'a str;
+    fn join_to(self, output: &mut Self::Output) {
+        unsafe {
+            assert!(output.as_ptr().offset(output.len() as isize) == self.as_ptr());
+            *output = ::lib::str::from_utf8_unchecked(::lib::slice::from_raw_parts(
+                output.as_ptr(),
+                output.len() + self.len(),
+            ))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

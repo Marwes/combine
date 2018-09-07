@@ -339,7 +339,7 @@ macro_rules! seq_parser_impl {
     (; $name: ident $($tt: tt)*) => {
         $name { $($tt)* }
     };
-    ( (_ : $first_parser: expr, $($remaining: tt)+ ); $name: ident $($tt: tt)*) => {
+    ( (_ : $first_parser: expr, $($remaining: tt)+ ); $name: path $($tt: tt)*) => {
         seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* )
     };
     ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ );
@@ -350,13 +350,13 @@ macro_rules! seq_parser_impl {
     ( ( _ : $first_parser: expr ); $name: ident $($tt: tt)*) => {
         seq_parser_impl!( ; $name $($tt)* )
     };
-    ( ($first_field: ident : $first_parser: expr ); $name: ident $($tt: tt)*) => {
+    ( ($first_field: ident : $first_parser: expr ); $name: path $($tt: tt)*) => {
         seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
     };
     ( ( _ : $first_parser: expr, ); $name: ident $($tt: tt)*) => {
         seq_parser_impl!(; $name $($tt)*)
     };
-    ( ($first_field: ident : $first_parser: expr, ); $name: ident $($tt: tt)*) => {
+    ( ($first_field: ident : $first_parser: expr, ); $name: path $($tt: tt)*) => {
         seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
     };
 }
@@ -393,7 +393,7 @@ macro_rules! seq_parser_impl {
 /// ```
 #[macro_export]
 macro_rules! struct_parser {
-    ($name: ident { $($tt: tt)* }) => {
+    ($name: path { $($tt: tt)* }) => {
         seq_parser_expr!( ( $($tt)* ); )
             .map(|seq_parser_pattern!( ( $($tt)* ); )|
                 seq_parser_impl!(( $($tt)* ); $name )
@@ -403,6 +403,7 @@ macro_rules! struct_parser {
 
 #[derive(Copy, Clone)]
 pub struct With<P1, P2>((Ignore<P1>, P2))
+)
 where
     P1: Parser,
     P2: Parser;
@@ -452,6 +453,7 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Skip<P1, P2>((P1, Ignore<P2>))
+)
 where
     P1: Parser,
     P2: Parser;
