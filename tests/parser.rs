@@ -554,4 +554,17 @@ mod tests_std {
             ]),
         );
     }
+
+    #[test]
+    fn test() {
+        let mut parser = (digit(), letter());
+
+        assert_eq!(
+            parser.easy_parse("11").map_err(|err| err.errors),
+            Err(vec![
+                Error::Unexpected('1'.into()),
+                Error::Expected("letter".into()),
+            ]),
+        );
+    }
 }

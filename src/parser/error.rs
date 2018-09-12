@@ -138,14 +138,7 @@ where
         errors.error.add_message(self.1.clone());
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
-        self.0.add_error(errors);
-    }
-
-    forward_parser!(parser_count, 0);
+    forward_parser!(parser_count add_consumed_expected_error, 0);
 }
 
 /// Equivalent to [`p1.message(msg)`].
@@ -197,14 +190,7 @@ where
         })
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
-        self.add_error(errors);
-    }
-
-    forward_parser!(parser_count, 0);
+    forward_parser!(parser_count add_consumed_expected_error, 0);
 }
 
 /// Equivalent to [`p.expected(info)`].
