@@ -1,3 +1,13 @@
+<a name="3.5.2"></a>
+### 3.5.2 (2018-09-12)
+
+
+#### Bug Fixes
+
+*   Don't report previous errors from expected ([0048c5ef](https://github.com/Marwes/combine/commit/0048c5ef4577592df94e0c5296bee3a128117211))
+
+
+
 <a name="3.5.1"></a>
 ### 3.5.1 (2018-08-13)
 
