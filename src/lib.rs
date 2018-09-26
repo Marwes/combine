@@ -201,7 +201,7 @@ pub use combinator::{
     any, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead, many, many1,
     none_of, not_followed_by, one_of, optional, parser, position, satisfy, satisfy_map, sep_by,
     sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max, skip_many, skip_many1, token,
-    tokens, try, unexpected, value,
+    tokens, try, unexpected, unexpected_any, value,
 };
 #[doc(inline)]
 pub use parser::choice::choice;
