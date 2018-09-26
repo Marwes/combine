@@ -561,7 +561,7 @@ pub trait Parser {
     ///             value(9).left()
     ///         }
     ///         else {
-    ///             unexpected(d).map(|_| 0).message("Not a nine").right()
+    ///             unexpected_any(d).message("Not a nine").right()
     ///         }
     ///     })
     ///     .easy_parse("9");
@@ -600,7 +600,7 @@ pub trait Parser {
     ///             value(9).left()
     ///         }
     ///         else {
-    ///             unexpected(*d).map(|_| 0).message("Not a nine").right()
+    ///             unexpected_any(*d).message("Not a nine").right()
     ///         }
     ///     })
     ///     .easy_parse("9");
