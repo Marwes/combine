@@ -73,6 +73,7 @@ https://github.com/Marwes/combine/issues/73 contains discussion and links to com
 * Redis https://github.com/mitsuhiko/redis-rs/pull/141 (Uses partial parsing)
 * Toml https://github.com/ordian/toml_edit
 * Maker Interchange Format https://github.com/aidanhs/frametool (Uses combine as a lexer)
+* Javascript https://github.com/freemasen/ress
 
 ### Miscellaneous
 
