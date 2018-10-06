@@ -1,4 +1,9 @@
 //! Module containing zero-copy parsers.
+//!
+//! These parsers require the [`RangeStream`][] bound instead of a plain [`Stream`][].
+//!
+//! [`RangeStream`]: ../../stream/trait.RangeStream.html
+//! [`Stream`]: ../../stream/trait.Stream.html
 
 use lib::marker::PhantomData;
 
@@ -50,6 +55,9 @@ parser!{
     pub struct Recognize;
     /// Zero-copy parser which returns consumed input range.
     ///
+    /// [`combinator::recognize`][] is a non-`RangeStream` alternative.
+    ///
+    /// [`combinator::recognize`]: ../../parser/combinator/fn.recognize.html
     /// ```
     /// # extern crate combine;
     /// # use combine::parser::range::recognize;
@@ -100,7 +108,7 @@ where
         }
         result
     } else {
-        if let Err(_) = input.uncons_range(*distance_state) {
+        if input.uncons_range(*distance_state).is_err() {
             panic!("recognize errored when restoring the input stream to its expected state");
         }
 
@@ -180,6 +188,10 @@ where
 
 /// Zero-copy parser which returns a pair: (consumed input range, parsed value).
 ///
+///
+/// [`combinator::recognize_with_value`][] is a non-`RangeStream` alternative.
+///
+/// [`combinator::recognize_with_value`]: ../../parser/combinator/fn.recognize_with_value.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::recognize_with_value;
@@ -210,6 +222,9 @@ where
 /// Zero-copy parser which reads a range of length `i.len()` and succeeds if `i` is equal to that
 /// range.
 ///
+/// [`tokens2`][] is a non-`RangeStream` alternative.
+///
+/// [`tokens2`]: ../../parser/item/fn.tokens2.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::range;
@@ -248,6 +263,9 @@ where
 
 /// Zero-copy parser which reads a range of length `n`.
 ///
+/// [`count_min_max`][] is a non-`RangeStream` alternative.
+///
+/// [`count_min_max`]: ../../parser/repeat/fn.count_min_max.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::take;
@@ -306,6 +324,9 @@ where
 
 /// Zero-copy parser which reads a range of 0 or more tokens which satisfy `f`.
 ///
+/// [`many`][] is a non-`RangeStream` alternative.
+///
+/// [`many`]: ../../parser/repeat/fn.many.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::take_while;
@@ -363,6 +384,9 @@ where
 
 /// Zero-copy parser which reads a range of 1 or more tokens which satisfy `f`.
 ///
+/// [`many1`][] is a non-`RangeStream` alternative.
+///
+/// [`many1`]: ../../parser/repeat/fn.many1.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::take_while1;
@@ -479,6 +503,9 @@ where
 /// The range `r` will not be consumed. If `r` is not found, the parser will
 /// return an error.
 ///
+/// [`repeat::take_until`][] is a non-`RangeStream` alternative.
+///
+/// [`repeat::take_until`]: ../../parser/repeat/fn.take_until.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::{range, take_until_range};
