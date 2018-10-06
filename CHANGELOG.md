@@ -1,3 +1,18 @@
+<a name="3.5.3"></a>
+### 3.5.3 (2018-10-06)
+
+
+#### Features
+
+*   Allow regex parsers to use regex-1.0 ([77fe362c](https://github.com/Marwes/combine/commit/77fe362c56efa6ce20e3074388aeda33cfe91c4b))
+*   pub use unexpected_any ([8b2ca559](https://github.com/Marwes/combine/commit/8b2ca55971e01e8a87ec20ec7b9fe8476023117f))
+
+#### Bug Fixes
+
+*   use unexpected_any inside `then` examples ([f2018db5](https://github.com/Marwes/combine/commit/f2018db5cf5487d02488d017c23f6993e6ed6f82))
+
+
+
 <a name="3.5.2"></a>
 ### 3.5.2 (2018-09-12)
 
