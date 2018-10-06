@@ -812,7 +812,7 @@ pub use parser::range;
     since = "3.0.0",
     note = "Please use the `parser::regex` module instead"
 )]
-#[cfg(feature = "regex")]
+#[cfg(any(feature = "regex", feature = "regex-1"))]
 pub use parser::regex;
 
 #[doc(hidden)]

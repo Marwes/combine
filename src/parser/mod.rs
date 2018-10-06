@@ -68,7 +68,7 @@ pub mod error;
 pub mod function;
 pub mod item;
 pub mod range;
-#[cfg(feature = "regex")]
+#[cfg(any(feature = "regex", feature = "regex-1"))]
 pub mod regex;
 pub mod repeat;
 pub mod sequence;
