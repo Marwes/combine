@@ -1,13 +1,20 @@
 //! Module containing zero-copy parsers.
+//!
+//! These parsers require the [`RangeStream`][] bound instead of a plain [`Stream`][].
+//!
+//! [`RangeStream`]: ../../stream/trait.RangeStream.html
+//! [`Stream`]: ../../stream/trait.Stream.html
 
 use lib::marker::PhantomData;
 
-use Parser;
 use error::FastResult::*;
 use error::{ConsumedResult, Info, ParseError, Tracked};
 use parser::ParseMode;
-use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
-             Resetable, StreamOnce, uncons_while1};
+use stream::{
+    uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
+    Resetable, StreamOnce,
+};
+use Parser;
 
 pub struct Range<I>(I::Range)
 where
@@ -27,11 +34,13 @@ where
         use stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
-            Ok(other) => if other == self.0 {
-                ConsumedOk(other)
-            } else {
-                EmptyErr(I::Error::empty(position).into())
-            },
+            Ok(other) => {
+                if other == self.0 {
+                    ConsumedOk(other)
+                } else {
+                    EmptyErr(I::Error::empty(position).into())
+                }
+            }
             Err(err) => wrap_stream_error(input, err),
         }
     }
@@ -46,6 +55,9 @@ parser!{
     pub struct Recognize;
     /// Zero-copy parser which returns consumed input range.
     ///
+    /// [`combinator::recognize`][] is a non-`RangeStream` alternative.
+    ///
+    /// [`combinator::recognize`]: ../../parser/combinator/fn.recognize.html
     /// ```
     /// # extern crate combine;
     /// # use combine::parser::range::recognize;
@@ -96,7 +108,7 @@ where
         }
         result
     } else {
-        if let Err(_) = input.uncons_range(*distance_state) {
+        if input.uncons_range(*distance_state).is_err() {
             panic!("recognize errored when restoring the input stream to its expected state");
         }
 
@@ -147,7 +159,7 @@ where
 
         let before = input.checkpoint();
         if !mode.is_first() {
-            if let Err(_) = input.uncons_range(*distance_state) {
+            if input.uncons_range(*distance_state).is_err() {
                 panic!("recognize errored when restoring the input stream to its expected state");
             }
         }
@@ -176,6 +188,10 @@ where
 
 /// Zero-copy parser which returns a pair: (consumed input range, parsed value).
 ///
+///
+/// [`combinator::recognize_with_value`][] is a non-`RangeStream` alternative.
+///
+/// [`combinator::recognize_with_value`]: ../../parser/combinator/fn.recognize_with_value.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::recognize_with_value;
@@ -206,6 +222,9 @@ where
 /// Zero-copy parser which reads a range of length `i.len()` and succeeds if `i` is equal to that
 /// range.
 ///
+/// [`tokens2`][] is a non-`RangeStream` alternative.
+///
+/// [`tokens2`]: ../../parser/item/fn.tokens2.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::range;
@@ -244,6 +263,9 @@ where
 
 /// Zero-copy parser which reads a range of length `n`.
 ///
+/// [`count_min_max`][] is a non-`RangeStream` alternative.
+///
+/// [`count_min_max`]: ../../parser/repeat/fn.count_min_max.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::take;
@@ -302,6 +324,9 @@ where
 
 /// Zero-copy parser which reads a range of 0 or more tokens which satisfy `f`.
 ///
+/// [`many`][] is a non-`RangeStream` alternative.
+///
+/// [`many`]: ../../parser/repeat/fn.many.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::take_while;
@@ -359,6 +384,9 @@ where
 
 /// Zero-copy parser which reads a range of 1 or more tokens which satisfy `f`.
 ///
+/// [`many1`][] is a non-`RangeStream` alternative.
+///
+/// [`many1`]: ../../parser/repeat/fn.many1.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::take_while1;
@@ -475,6 +503,9 @@ where
 /// The range `r` will not be consumed. If `r` is not found, the parser will
 /// return an error.
 ///
+/// [`repeat::take_until`][] is a non-`RangeStream` alternative.
+///
+/// [`repeat::take_until`]: ../../parser/repeat/fn.take_until.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::{range, take_until_range};

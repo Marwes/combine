@@ -68,7 +68,7 @@ pub mod error;
 pub mod function;
 pub mod item;
 pub mod range;
-#[cfg(feature = "regex")]
+#[cfg(any(feature = "regex", feature = "regex-1"))]
 pub mod regex;
 pub mod repeat;
 pub mod sequence;
@@ -801,10 +801,7 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter<'a>(
-        self,
-        input: &'a mut <Self as Parser>::Input,
-    ) -> Iter<'a, Self, Self::PartialState, FirstMode>
+    fn iter(self, input: &mut <Self as Parser>::Input) -> Iter<Self, Self::PartialState, FirstMode>
     where
         Self: Parser + Sized,
     {

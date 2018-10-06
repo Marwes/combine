@@ -1,7 +1,9 @@
 //! Module containing regex parsers on streams returning ranges of `&str` or `&[u8]`.
 //!
 //! All regex parsers are overloaded on `&str` and `&[u8]` ranges and can take a `Regex` by value
-//! or shared reference (`&`)
+//! or shared reference (`&`).
+//!
+//! Enabled using the `regex` feature (for `regex-0.2`) or the `regex-1` feature for `regex-1.0`.
 //!
 //! ```
 //! extern crate regex;
@@ -32,16 +34,14 @@
 //! }
 //! ```
 
-extern crate regex;
-
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use Parser;
 use error::FastResult::*;
 use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use parser::range::take;
 use stream::{FullRangeStream, StreamOnce};
+use Parser;
 
 struct First<T>(Option<T>);
 
@@ -58,26 +58,6 @@ pub trait MatchFind {
     type Range;
     fn end(&self) -> usize;
     fn as_match(&self) -> Self::Range;
-}
-
-impl<'t> MatchFind for self::regex::Match<'t> {
-    type Range = &'t str;
-    fn end(&self) -> usize {
-        self::regex::Match::end(self)
-    }
-    fn as_match(&self) -> Self::Range {
-        self.as_str()
-    }
-}
-
-impl<'t> MatchFind for self::regex::bytes::Match<'t> {
-    type Range = &'t [u8];
-    fn end(&self) -> usize {
-        self::regex::bytes::Match::end(self)
-    }
-    fn as_match(&self) -> Self::Range {
-        self.as_bytes()
-    }
 }
 
 pub trait Regex<Range> {
@@ -117,89 +97,226 @@ where
     }
 }
 
-impl<'a> Regex<&'a str> for self::regex::Regex {
-    fn is_match(&self, range: &'a str) -> bool {
-        self::regex::Regex::is_match(self, range)
+fn find_iter<'a, I, F>(iterable: I) -> (usize, F)
+where
+    I: IntoIterator,
+    I::Item: MatchFind,
+    F: FromIterator<<I::Item as MatchFind>::Range>,
+{
+    let mut end = 0;
+    let value = iterable
+        .into_iter()
+        .map(|m| {
+            end = m.end();
+            m.as_match()
+        })
+        .collect();
+    (end, value)
+}
+
+#[cfg(feature = "regex")]
+mod regex {
+    pub extern crate regex;
+
+    use std::iter::FromIterator;
+
+    pub use self::regex::*;
+
+    use super::{find_iter, MatchFind, Regex};
+
+    impl<'t> MatchFind for regex::Match<'t> {
+        type Range = &'t str;
+        fn end(&self) -> usize {
+            regex::Match::end(self)
+        }
+        fn as_match(&self) -> Self::Range {
+            self.as_str()
+        }
     }
-    fn find_iter<F>(&self, range: &'a str) -> (usize, F)
-    where
-        F: FromIterator<&'a str>,
-    {
-        let mut end = 0;
-        let value = self::regex::Regex::find_iter(self, range)
-            .map(|m| {
-                end = m.end();
-                m.as_match()
-            })
-            .collect();
-        (end, value)
+
+    impl<'t> MatchFind for regex::bytes::Match<'t> {
+        type Range = &'t [u8];
+        fn end(&self) -> usize {
+            regex::bytes::Match::end(self)
+        }
+        fn as_match(&self) -> Self::Range {
+            self.as_bytes()
+        }
     }
-    fn captures<F, G>(&self, range: &'a str) -> (usize, G)
-    where
-        F: FromIterator<&'a str>,
-        G: FromIterator<F>,
-    {
-        let mut end = 0;
-        let value = self::regex::Regex::captures_iter(self, range)
-            .map(|captures| {
-                let mut captures_iter = captures.iter();
-                // The first group is the match on the entire regex
-                let first_match = captures_iter.next().unwrap().unwrap();
-                end = first_match.end();
-                Some(Some(first_match))
-                    .into_iter()
-                    .chain(captures_iter)
-                    .filter_map(|match_| match_.map(|m| m.as_match()))
-                    .collect()
-            })
-            .collect();
-        (end, value)
+
+    impl<'a> Regex<&'a str> for regex::Regex {
+        fn is_match(&self, range: &'a str) -> bool {
+            regex::Regex::is_match(self, range)
+        }
+        fn find_iter<F>(&self, range: &'a str) -> (usize, F)
+        where
+            F: FromIterator<&'a str>,
+        {
+            find_iter(regex::Regex::find_iter(self, range))
+        }
+        fn captures<F, G>(&self, range: &'a str) -> (usize, G)
+        where
+            F: FromIterator<&'a str>,
+            G: FromIterator<F>,
+        {
+            let mut end = 0;
+            let value = regex::Regex::captures_iter(self, range)
+                .map(|captures| {
+                    let mut captures_iter = captures.iter();
+                    // The first group is the match on the entire regex
+                    let first_match = captures_iter.next().unwrap().unwrap();
+                    end = first_match.end();
+                    Some(Some(first_match))
+                        .into_iter()
+                        .chain(captures_iter)
+                        .filter_map(|match_| match_.map(|m| m.as_match()))
+                        .collect()
+                })
+                .collect();
+            (end, value)
+        }
+        fn as_str(&self) -> &str {
+            regex::Regex::as_str(self)
+        }
     }
-    fn as_str(&self) -> &str {
-        self::regex::Regex::as_str(self)
+
+    impl<'a> Regex<&'a [u8]> for regex::bytes::Regex {
+        fn is_match(&self, range: &'a [u8]) -> bool {
+            regex::bytes::Regex::is_match(self, range)
+        }
+        fn find_iter<F>(&self, range: &'a [u8]) -> (usize, F)
+        where
+            F: FromIterator<&'a [u8]>,
+        {
+            find_iter(regex::bytes::Regex::find_iter(self, range))
+        }
+        fn captures<F, G>(&self, range: &'a [u8]) -> (usize, G)
+        where
+            F: FromIterator<&'a [u8]>,
+            G: FromIterator<F>,
+        {
+            let mut end = 0;
+            let value = regex::bytes::Regex::captures_iter(self, range)
+                .map(|captures| {
+                    let mut captures_iter = captures.iter();
+                    // The first group is the match on the entire regex
+                    let first_match = captures_iter.next().unwrap().unwrap();
+                    end = first_match.end();
+                    Some(Some(first_match))
+                        .into_iter()
+                        .chain(captures_iter)
+                        .filter_map(|match_| match_.map(|m| m.as_match()))
+                        .collect()
+                })
+                .collect();
+            (end, value)
+        }
+        fn as_str(&self) -> &str {
+            regex::bytes::Regex::as_str(self)
+        }
     }
 }
 
-impl<'a> Regex<&'a [u8]> for self::regex::bytes::Regex {
-    fn is_match(&self, range: &'a [u8]) -> bool {
-        self::regex::bytes::Regex::is_match(self, range)
+#[cfg(feature = "regex-1")]
+mod regex_1 {
+    pub extern crate combine_regex_1 as regex_1;
+
+    use std::iter::FromIterator;
+
+    pub use self::regex_1::*;
+
+    use super::{find_iter, MatchFind, Regex};
+
+    impl<'t> MatchFind for regex_1::Match<'t> {
+        type Range = &'t str;
+        fn end(&self) -> usize {
+            regex_1::Match::end(self)
+        }
+        fn as_match(&self) -> Self::Range {
+            self.as_str()
+        }
     }
-    fn find_iter<F>(&self, range: &'a [u8]) -> (usize, F)
-    where
-        F: FromIterator<&'a [u8]>,
-    {
-        let mut end = 0;
-        let value = self::regex::bytes::Regex::find_iter(self, range)
-            .map(|m| {
-                end = m.end();
-                m.as_match()
-            })
-            .collect();
-        (end, value)
+
+    impl<'t> MatchFind for regex_1::bytes::Match<'t> {
+        type Range = &'t [u8];
+        fn end(&self) -> usize {
+            regex_1::bytes::Match::end(self)
+        }
+        fn as_match(&self) -> Self::Range {
+            self.as_bytes()
+        }
     }
-    fn captures<F, G>(&self, range: &'a [u8]) -> (usize, G)
-    where
-        F: FromIterator<&'a [u8]>,
-        G: FromIterator<F>,
-    {
-        let mut end = 0;
-        let value = self::regex::bytes::Regex::captures_iter(self, range)
-            .map(|captures| {
-                let mut captures_iter = captures.iter();
-                // The first group is the match on the entire regex
-                let first_match = captures_iter.next().unwrap().unwrap();
-                end = first_match.end();
-                Some(Some(first_match))
-                    .into_iter()
-                    .chain(captures_iter)
-                    .filter_map(|match_| match_.map(|m| m.as_match()))
-                    .collect()
-            })
-            .collect();
-        (end, value)
+
+    impl<'a> Regex<&'a str> for regex_1::Regex {
+        fn is_match(&self, range: &'a str) -> bool {
+            regex_1::Regex::is_match(self, range)
+        }
+        fn find_iter<F>(&self, range: &'a str) -> (usize, F)
+        where
+            F: FromIterator<&'a str>,
+        {
+            find_iter(regex_1::Regex::find_iter(self, range))
+        }
+        fn captures<F, G>(&self, range: &'a str) -> (usize, G)
+        where
+            F: FromIterator<&'a str>,
+            G: FromIterator<F>,
+        {
+            let mut end = 0;
+            let value = regex_1::Regex::captures_iter(self, range)
+                .map(|captures| {
+                    let mut captures_iter = captures.iter();
+                    // The first group is the match on the entire regex
+                    let first_match = captures_iter.next().unwrap().unwrap();
+                    end = first_match.end();
+                    Some(Some(first_match))
+                        .into_iter()
+                        .chain(captures_iter)
+                        .filter_map(|match_| match_.map(|m| m.as_match()))
+                        .collect()
+                })
+                .collect();
+            (end, value)
+        }
+        fn as_str(&self) -> &str {
+            regex_1::Regex::as_str(self)
+        }
     }
-    fn as_str(&self) -> &str {
-        self::regex::bytes::Regex::as_str(self)
+
+    impl<'a> Regex<&'a [u8]> for regex_1::bytes::Regex {
+        fn is_match(&self, range: &'a [u8]) -> bool {
+            regex_1::bytes::Regex::is_match(self, range)
+        }
+        fn find_iter<F>(&self, range: &'a [u8]) -> (usize, F)
+        where
+            F: FromIterator<&'a [u8]>,
+        {
+            find_iter(regex_1::bytes::Regex::find_iter(self, range))
+        }
+        fn captures<F, G>(&self, range: &'a [u8]) -> (usize, G)
+        where
+            F: FromIterator<&'a [u8]>,
+            G: FromIterator<F>,
+        {
+            let mut end = 0;
+            let value = regex_1::bytes::Regex::captures_iter(self, range)
+                .map(|captures| {
+                    let mut captures_iter = captures.iter();
+                    // The first group is the match on the entire regex
+                    let first_match = captures_iter.next().unwrap().unwrap();
+                    end = first_match.end();
+                    Some(Some(first_match))
+                        .into_iter()
+                        .chain(captures_iter)
+                        .filter_map(|match_| match_.map(|m| m.as_match()))
+                        .collect()
+                })
+                .collect();
+            (end, value)
+        }
+        fn as_str(&self) -> &str {
+            regex_1::bytes::Regex::as_str(self)
+        }
     }
 }
 
@@ -502,4 +619,23 @@ where
     I::Range: ::stream::Range,
 {
     CapturesMany(regex, PhantomData)
+}
+
+#[cfg(all(test, feature = "regex-1"))]
+mod tests {
+
+    use parser::regex::find;
+    use parser::regex::regex_1::regex_1::Regex;
+    use Parser;
+
+    #[test]
+    fn test() {
+        let mut digits = find(Regex::new("^[0-9]+").unwrap());
+        assert_eq!(digits.parse("123 456 "), Ok(("123", " 456 ")));
+        assert!(digits.parse("abc 123 456 ").is_err());
+
+        let mut digits2 = find(Regex::new("[0-9]+").unwrap());
+        assert_eq!(digits2.parse("123 456 "), Ok(("123", " 456 ")));
+        assert_eq!(digits2.parse("abc 123 456 "), Ok(("123", " 456 ")));
+    }
 }

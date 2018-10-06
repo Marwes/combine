@@ -79,7 +79,7 @@ where
     F: Extend<P::Output> + Default,
 {
     Count {
-        parser: parser,
+        parser,
         count: count,
         _marker: PhantomData,
     }
@@ -193,7 +193,7 @@ where
     assert!(min <= max);
 
     CountMinMax {
-        parser: parser,
+        parser,
         min: min,
         max: max,
         _marker: PhantomData,
@@ -271,11 +271,13 @@ where
 
     fn into_result_<O>(self, value: O) -> ConsumedResult<O, P::Input> {
         match self.state {
-            State::Ok | State::EmptyErr => if self.consumed {
-                ConsumedOk(value)
-            } else {
-                EmptyOk(value)
-            },
+            State::Ok | State::EmptyErr => {
+                if self.consumed {
+                    ConsumedOk(value)
+                } else {
+                    EmptyOk(value)
+                }
+            }
             State::ConsumedErr(e) => ConsumedErr(e),
         }
     }
@@ -472,7 +474,7 @@ where
         let mut iter = Iter {
             parser: &mut self.0,
             consumed: *consumed_state,
-            input: input,
+            input,
             state: State::Ok,
             partial_state: child_state,
             mode,
@@ -666,8 +668,8 @@ where
     S: Parser<Input = P::Input>,
 {
     SepBy {
-        parser: parser,
-        separator: separator,
+        parser,
+        separator,
         _marker: PhantomData,
     }
 }
@@ -777,8 +779,8 @@ where
     S: Parser<Input = P::Input>,
 {
     SepBy1 {
-        parser: parser,
-        separator: separator,
+        parser,
+        separator,
         _marker: PhantomData,
     }
 }
@@ -851,8 +853,8 @@ where
     S: Parser<Input = P::Input>,
 {
     SepEndBy {
-        parser: parser,
-        separator: separator,
+        parser,
+        separator,
         _marker: PhantomData,
     }
 }
@@ -959,8 +961,8 @@ where
     S: Parser<Input = P::Input>,
 {
     SepEndBy1 {
-        parser: parser,
-        separator: separator,
+        parser,
+        separator,
         _marker: PhantomData,
     }
 }

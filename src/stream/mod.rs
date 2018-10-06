@@ -238,11 +238,13 @@ where
 {
     match input.uncons_range(size) {
         Err(err) => wrap_stream_error(input, err),
-        Ok(x) => if size == 0 {
-            EmptyOk(x)
-        } else {
-            ConsumedOk(x)
-        },
+        Ok(x) => {
+            if size == 0 {
+                EmptyOk(x)
+            } else {
+                ConsumedOk(x)
+            }
+        }
     }
 }
 
@@ -275,12 +277,10 @@ where
                     input.position(),
                     StreamError::end_of_input(),
                 ))
+            } else if x.len() == 0 {
+                EmptyOk(x)
             } else {
-                if x.len() == 0 {
-                    EmptyOk(x)
-                } else {
-                    ConsumedOk(x)
-                }
+                ConsumedOk(x)
             }
         }
     }
@@ -402,9 +402,11 @@ impl<'a> RangeStreamOnce for &'a str {
     {
         let mut chars = self.chars();
         match chars.next() {
-            Some(c) => if !f(c) {
-                return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse));
-            },
+            Some(c) => {
+                if !f(c) {
+                    return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse));
+                }
+            }
             None => return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)),
         }
 
@@ -996,7 +998,7 @@ where
     match parser.parse_with_state(&mut input, partial_state) {
         Ok(message) => Ok((Some(message), input.distance(&start))),
         Err(err) => {
-            return if input.is_partial() && err.is_unexpected_end_of_input() {
+            if input.is_partial() && err.is_unexpected_end_of_input() {
                 Ok((None, input.distance(&start)))
             } else {
                 Err(err)
