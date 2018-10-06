@@ -2,12 +2,14 @@
 
 use lib::marker::PhantomData;
 
-use Parser;
 use error::FastResult::*;
 use error::{ConsumedResult, Info, ParseError, Tracked};
 use parser::ParseMode;
-use stream::{uncons_range, uncons_while, wrap_stream_error, RangeStream, RangeStreamOnce,
-             Resetable, StreamOnce, uncons_while1};
+use stream::{
+    uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
+    Resetable, StreamOnce,
+};
+use Parser;
 
 pub struct Range<I>(I::Range)
 where
@@ -27,11 +29,13 @@ where
         use stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
-            Ok(other) => if other == self.0 {
-                ConsumedOk(other)
-            } else {
-                EmptyErr(I::Error::empty(position).into())
-            },
+            Ok(other) => {
+                if other == self.0 {
+                    ConsumedOk(other)
+                } else {
+                    EmptyErr(I::Error::empty(position).into())
+                }
+            }
             Err(err) => wrap_stream_error(input, err),
         }
     }
@@ -147,7 +151,7 @@ where
 
         let before = input.checkpoint();
         if !mode.is_first() {
-            if let Err(_) = input.uncons_range(*distance_state) {
+            if input.uncons_range(*distance_state).is_err() {
                 panic!("recognize errored when restoring the input stream to its expected state");
             }
         }

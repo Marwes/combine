@@ -2,9 +2,9 @@
 
 use lib::marker::PhantomData;
 
-use Parser;
 use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use stream::{uncons, Stream, StreamOnce};
+use Parser;
 
 use error::FastResult::*;
 
@@ -360,7 +360,7 @@ where
                 ConsumedOk(other) | EmptyOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
-                            let mut errors = <Self::Input as StreamOnce>::Error::from_error(
+                            let errors = <Self::Input as StreamOnce>::Error::from_error(
                                 start,
                                 StreamError::unexpected(Info::Token(other)),
                             );
@@ -376,7 +376,7 @@ where
                     return if consumed {
                         ConsumedErr(error.error)
                     } else {
-                        EmptyErr(error.into())
+                        EmptyErr(error)
                     };
                 }
                 ConsumedErr(mut error) => {

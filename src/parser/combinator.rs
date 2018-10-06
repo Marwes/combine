@@ -387,10 +387,10 @@ where
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(
-                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
-                                    .into(),
-                            )
+                            return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
+                                input.position(),
+                                err,
+                            ))
                         }
                     }
                 }
@@ -404,10 +404,10 @@ where
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(
-                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
-                                    .into(),
-                            )
+                            return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
+                                input.position(),
+                                err,
+                            ))
                         }
                     }
                 }
@@ -653,7 +653,7 @@ where
     {
         let mut new_child_state;
         let result = {
-            let child_state = if let None = state.0 {
+            let child_state = if state.0.is_none() {
                 new_child_state = Some(Default::default());
                 new_child_state.as_mut().unwrap()
             } else {
@@ -665,7 +665,7 @@ where
         };
 
         if let ConsumedErr(_) = result {
-            if let None = state.0 {
+            if state.0.is_none() {
                 // FIXME Make None unreachable for LLVM
                 state.0 = Some(Box::new(new_child_state.unwrap()));
             }
@@ -761,7 +761,7 @@ where
         };
 
         if let ConsumedErr(_) = result {
-            if let None = state.0 {
+            if state.0.is_none() {
                 // FIXME Make None unreachable for LLVM
                 state.0 = Some(Box::new(new_child_state.unwrap()));
             }
@@ -1209,13 +1209,9 @@ macro_rules! opaque {
     };
     ($e: expr,) => {
         $crate::parser::combinator::opaque(
-            move |f: &mut FnMut(
-                &mut $crate::Parser<
-                    Input = _,
-                    Output = _,
-                    PartialState = _,
-                >,
-            )| { f(&mut $e) },
+            move |f: &mut FnMut(&mut $crate::Parser<Input = _, Output = _, PartialState = _>)| {
+                f(&mut $e)
+            },
         )
     };
 }

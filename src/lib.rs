@@ -186,7 +186,11 @@
 //! [fn parser]: parser/function/fn.parser.html
 //! [`parser!`]: macro.parser.html
 // inline(always) is only used on trivial functions returning parsers
-#![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(clippy::inline_always, clippy::type_complexity)
+)]
+#![cfg_attr(feature = "cargo-clippy", feature(tool_lints))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
@@ -541,7 +545,8 @@ macro_rules! parser {
 macro_rules! combine_parse_partial {
     ((()) $mode:ident $input:ident $state:ident $parser:block) => {{
         let _ = $state;
-        let ref mut state = Default::default();
+        let mut state = Default::default();
+        let state = &mut state;
         $parser.parse_mode($mode, $input, state)
     }};
     (($ignored:ty) $mode:ident $input:ident $state:ident $parser:block) => {
@@ -604,7 +609,7 @@ macro_rules! combine_parser_impl {
                 ) -> $crate::error::ConsumedResult<$output_type, $input_type>
             where M: $crate::parser::ParseMode
             {
-                let $type_name { $( $arg: ref mut $arg,)* __marker: _ } = *self;
+                let $type_name { $( $arg: ref mut $arg,)* .. } = *self;
                 combine_parse_partial!(($($partial_state)*) mode input state $parser)
             }
 
@@ -615,7 +620,7 @@ macro_rules! combine_parser_impl {
                     <$input_type as $crate::stream::StreamOnce>::Error
                     >)
             {
-                let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                let $type_name { $( $arg : ref mut $arg,)*  .. } = *self;
                 let mut parser = $parser;
                 {
                     let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
@@ -629,7 +634,7 @@ macro_rules! combine_parser_impl {
                     <$input_type as $crate::stream::StreamOnce>::Error
                     >)
             {
-                let $type_name { $( $arg : ref mut $arg,)*  __marker: _ } = *self;
+                let $type_name { $( $arg : ref mut $arg,)*  .. } = *self;
                 let mut parser = $parser;
                 {
                     let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
@@ -873,15 +878,17 @@ mod std_tests {
     {
         let before = input.checkpoint();
         match input.uncons() {
-            Ok(c) => if c.is_alphanumeric() {
-                input.reset(before);
-                let e = Error::Unexpected(c.into());
-                Err(Consumed::Empty(
-                    easy::Errors::new(input.position(), e).into(),
-                ))
-            } else {
-                Ok(((), Consumed::Empty(())))
-            },
+            Ok(c) => {
+                if c.is_alphanumeric() {
+                    input.reset(before);
+                    let e = Error::Unexpected(c.into());
+                    Err(Consumed::Empty(
+                        easy::Errors::new(input.position(), e).into(),
+                    ))
+                } else {
+                    Ok(((), Consumed::Empty(())))
+                }
+            }
             Err(_) => Ok(((), Consumed::Empty(()))),
         }
     }

@@ -801,10 +801,7 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter<'a>(
-        self,
-        input: &'a mut <Self as Parser>::Input,
-    ) -> Iter<'a, Self, Self::PartialState, FirstMode>
+    fn iter(self, input: &mut <Self as Parser>::Input) -> Iter<Self, Self::PartialState, FirstMode>
     where
         Self: Parser + Sized,
     {
