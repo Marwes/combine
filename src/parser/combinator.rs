@@ -41,11 +41,15 @@ where [
     P::Output: Into<Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
 ]
 {
-    try(try(parser).then(unexpected)
+    attempt(attempt(parser).then(unexpected)
         .or(value(())))
 }
 }
 
+/**
+ * TODO :: Rename `Try` to `Attempt`
+ * Because this is public, it's name cannot be changed without also making a breaking change.
+ */
 #[derive(Copy, Clone)]
 pub struct Try<P>(P);
 impl<I, O, P> Parser for Try<P>

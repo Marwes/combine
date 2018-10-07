@@ -200,7 +200,7 @@ where
 /// # fn main() {
 /// let mut parser = recognize_with_value((
 ///     skip_many1(digit()),
-///     optional((try(char('.')), skip_many1(digit()))),
+///     optional((attempt(char('.')), skip_many1(digit()))),
 /// ).map(|(_, opt)| opt.is_some()));
 ///
 /// assert_eq!(parser.parse("1234!"), Ok((("1234", false), "!")));

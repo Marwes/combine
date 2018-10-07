@@ -5,7 +5,7 @@ use combine::stream::buffered::BufferedStream;
 use combine::stream::easy::{self, Error};
 use combine::stream::state::State;
 use combine::stream::IteratorStream;
-use combine::{choice, many, many1, sep_by, try, Parser, Positioned};
+use combine::{attempt, choice, many, many1, sep_by, Parser, Positioned};
 
 #[test]
 fn shared_stream_buffer() {
@@ -32,9 +32,9 @@ fn shared_stream_backtrack() {
     let stream = BufferedStream::new(State::new(IteratorStream::new(&mut iter)), 2);
 
     let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
-        try(string("apple")),
-        try(string("orange")),
-        try(string("ananas")),
+        attempt(string("apple")),
+        attempt(string("orange")),
+        attempt(string("ananas")),
     ]);
     let mut parser = sep_by(value, char(','));
     let result = parser.parse(stream).map(|t| t.0);
@@ -49,9 +49,9 @@ fn shared_stream_insufficent_backtrack() {
     let stream = BufferedStream::new(easy::Stream(State::new(IteratorStream::new(&mut iter))), 1);
 
     let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
-        try(string("apple")),
-        try(string("orange")),
-        try(string("ananas")),
+        attempt(string("apple")),
+        attempt(string("orange")),
+        attempt(string("ananas")),
     ]);
     let mut parser = sep_by(value, char(','));
     let result: Result<Vec<&str>, _> = parser.parse(stream).map(|t| t.0);

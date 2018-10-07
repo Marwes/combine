@@ -25,8 +25,8 @@ use futures::{Future, Stream};
 use tokio_codec::{Decoder, FramedRead};
 
 use combine::combinator::{
-    any_partial_state, any_send_partial_state, from_str, no_partial, optional, recognize,
-    skip_many1, try, AnyPartialState, AnySendPartialState,
+    any_partial_state, any_send_partial_state, attempt, from_str, no_partial, optional, recognize,
+    skip_many1, AnyPartialState, AnySendPartialState,
 };
 use combine::error::{ParseError, StreamError};
 use combine::parser::char::{char, digit, letter};
@@ -138,8 +138,7 @@ where
         .map(|x| {
             println!("Decoded `{}`", x);
             x
-        })
-        .collect()
+        }).collect()
         .wait()
 }
 
@@ -214,9 +213,10 @@ where
             skip_many(range("\r\n")),
             content_length,
             range("\r\n\r\n").map(|_| ()),
-        ).then_partial(|&mut (_, message_length, _)| {
-            take(message_length).map(|bytes: &str| bytes.to_owned())
-        }),
+        )
+            .then_partial(|&mut (_, message_length, _)| {
+                take(message_length).map(|bytes: &str| bytes.to_owned())
+            }),
     )
 }
 
@@ -403,7 +403,7 @@ quickcheck! {
     fn take_until_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             |count: Rc<Cell<i32>>| {
-                let end = try((item(':').map(move |_| count.set(count.get() + 1)), item(':')));
+                let end = attempt((item(':').map(move |_| count.set(count.get() + 1)), item(':')));
                 repeat::take_until(end).skip((item(':'), item(':')))
             },
             Rc<Cell<i32>>

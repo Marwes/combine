@@ -2,7 +2,7 @@ extern crate combine;
 
 use combine::parser::char::{digit, letter, string};
 use combine::parser::choice::{choice, optional};
-use combine::parser::combinator::{no_partial, not_followed_by, try};
+use combine::parser::combinator::{attempt, no_partial, not_followed_by};
 use combine::parser::error::unexpected;
 use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
@@ -210,9 +210,9 @@ mod tests_std {
 
     #[test]
     fn try_tests() {
-        // Ensure try adds error messages exactly once
+        // Ensure attempt adds error messages exactly once
         assert_eq!(
-            try(unexpected("test")).easy_parse(State::new("hi")),
+            attempt(unexpected("test")).easy_parse(State::new("hi")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
@@ -222,7 +222,7 @@ mod tests_std {
             })
         );
         assert_eq!(
-            try(char('h').with(unexpected("test"))).easy_parse(State::new("hi")),
+            attempt(char('h').with(unexpected("test"))).easy_parse(State::new("hi")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 2 },
                 errors: vec![
@@ -387,7 +387,7 @@ mod tests_std {
     #[test]
     fn sequence_parser_resets_partial_state_issue_168() {
         assert_eq!(
-            take_until::<String, _>(try((char('a'), char('b')))).parse("aaab"),
+            take_until::<String, _>(attempt((char('a'), char('b')))).parse("aaab"),
             Ok((String::from("aa"), "ab"))
         );
     }
@@ -395,7 +395,7 @@ mod tests_std {
     #[test]
     fn parser_macro_must_impl_parse_mode_issue_168() {
         assert_eq!(
-            skip_until(try((char('a'), char('b')))).parse("aaab"),
+            skip_until(attempt((char('a'), char('b')))).parse("aaab"),
             Ok(((), "ab"))
         );
     }
@@ -403,7 +403,7 @@ mod tests_std {
     #[test]
     fn recognize_parser_issue_168() {
         assert_eq!(
-            range::recognize(skip_until(try((char('a'), char('b'))))).parse("aaab"),
+            range::recognize(skip_until(attempt((char('a'), char('b'))))).parse("aaab"),
             Ok(("aa", "ab"))
         );
     }
@@ -522,7 +522,7 @@ mod tests_std {
 
     #[test]
     fn choice_compose_on_error() {
-        let ident = |s| try(string(s));
+        let ident = |s| attempt(string(s));
         let mut parser = choice((ident("aa").skip(string(";")), choice((ident("cc"),))));
 
         assert_eq!(
@@ -538,7 +538,7 @@ mod tests_std {
 
     #[test]
     fn choice_compose_issue_175() {
-        let ident = |s| try(string(s));
+        let ident = |s| attempt(string(s));
         let mut parser = many::<Vec<_>, _>(position().and(choice((
             ident("aa").skip(string(";")),
             choice((ident("bb"), ident("cc"))),
