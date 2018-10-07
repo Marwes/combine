@@ -117,8 +117,36 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
+///
+/// Note: if you're on the 2018 edition, you'll need to either use `r#try`, or [`attempt`](fn.attempt.html)
 #[inline(always)]
 pub fn try<P>(p: P) -> Try<P>
+where
+    P: Parser,
+{
+    Try(p)
+}
+
+/// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
+/// after consuming input. (alias for [`try`](fn.try.html))
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::char::string;
+/// # fn main() {
+/// let mut p = attempt(string("let"))
+///     .or(string("lex"));
+/// let result = p.parse("lex").map(|x| x.0);
+/// assert_eq!(result, Ok("lex"));
+/// let result = p.parse("aet").map(|x| x.0);
+/// assert!(result.is_err());
+/// # }
+/// ```
+///
+/// `attempt` is an alias for [`try`](fn.try.html). It was added because [`try`](fn.try.html) is now a keyword in Rust 2018.
+#[inline(always)]
+pub fn attempt<P>(p: P) -> Try<P>
 where
     P: Parser,
 {

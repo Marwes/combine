@@ -202,10 +202,10 @@ pub use stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
 #[doc(inline)]
 pub use combinator::{
-    any, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead, many, many1,
-    none_of, not_followed_by, one_of, optional, parser, position, satisfy, satisfy_map, sep_by,
-    sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max, skip_many, skip_many1, token,
-    tokens, try, unexpected, unexpected_any, value,
+    any, attempt, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead,
+    many, many1, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
+    satisfy_map, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max,
+    skip_many, skip_many1, token, tokens, try, unexpected, unexpected_any, value,
 };
 #[doc(inline)]
 pub use parser::choice::choice;
@@ -831,6 +831,17 @@ mod tests {
         }
         let mut p = chainl1(string("abc"), char(',').map(|_| first));
         assert!(p.parse("abc,ab").is_err());
+    }
+
+    #[test]
+    fn attempt_try() {
+        // `attempt` is an alias for `try`. This is a small smoke test for
+        // `attempt`, since the main functionality is tested with `try`
+        let mut parser = choice((
+            attempt((string("abc"), string("def"))),
+            attempt((string("abc"), string("ghi"))),
+        ));
+        assert_eq!(parser.parse("abcghi"), Ok((("abc", "ghi"), "")));
     }
 
     #[test]
