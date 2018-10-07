@@ -119,6 +119,10 @@ where
 /// ```
 ///
 /// Note: if you're on the 2018 edition, you'll need to either use `r#try`, or [`attempt`](fn.attempt.html)
+#[deprecated(
+    since = "3.5",
+    note = "try is a reserved keyword in Rust 2018. Use attempt instead."
+)]
 #[inline(always)]
 pub fn try<P>(p: P) -> Try<P>
 where
