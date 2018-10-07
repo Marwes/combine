@@ -41,11 +41,15 @@ where [
     P::Output: Into<Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
 ]
 {
-    try(try(parser).then(unexpected)
+    attempt(attempt(parser).then(unexpected)
         .or(value(())))
 }
 }
 
+/**
+ * TODO :: Rename `Try` to `Attempt`
+ * Because this is public, it's name cannot be changed without also making a breaking change.
+ */
 #[derive(Copy, Clone)]
 pub struct Try<P>(P);
 impl<I, O, P> Parser for Try<P>
@@ -117,8 +121,40 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
+///
+/// Note: if you're on the 2018 edition, you'll need to either use `r#try`, or [`attempt`](fn.attempt.html)
+#[deprecated(
+    since = "3.5",
+    note = "try is a reserved keyword in Rust 2018. Use attempt instead."
+)]
 #[inline(always)]
 pub fn try<P>(p: P) -> Try<P>
+where
+    P: Parser,
+{
+    Try(p)
+}
+
+/// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
+/// after consuming input. (alias for [`try`](fn.try.html))
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::*;
+/// # use combine::parser::char::string;
+/// # fn main() {
+/// let mut p = attempt(string("let"))
+///     .or(string("lex"));
+/// let result = p.parse("lex").map(|x| x.0);
+/// assert_eq!(result, Ok("lex"));
+/// let result = p.parse("aet").map(|x| x.0);
+/// assert!(result.is_err());
+/// # }
+/// ```
+///
+/// `attempt` is an alias for [`try`](fn.try.html). It was added because [`try`](fn.try.html) is now a keyword in Rust 2018.
+#[inline(always)]
+pub fn attempt<P>(p: P) -> Try<P>
 where
     P: Parser,
 {

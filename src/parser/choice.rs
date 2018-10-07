@@ -537,8 +537,8 @@ where
 /// // Fails as the parser for "two" consumes the first 't' before failing
 /// assert!(parser2.parse("three").is_err());
 ///
-/// // Use 'try' to make failing parsers always act as if they have not consumed any input
-/// let mut parser3 = choice([try(string("one")), try(string("two")), try(string("three"))]);
+/// // Use 'attempt' to make failing parsers always act as if they have not consumed any input
+/// let mut parser3 = choice([attempt(string("one")), attempt(string("two")), attempt(string("three"))]);
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
@@ -610,8 +610,8 @@ where
 /// // Fails as the parser for "two" consumes the first 't' before failing
 /// assert!(parser2.parse("three").is_err());
 ///
-/// // Use 'try' to make failing parsers always act as if they have not consumed any input
-/// let mut parser3 = or(try(string("two")), try(string("three")));
+/// // Use 'attempt' to make failing parsers always act as if they have not consumed any input
+/// let mut parser3 = or(attempt(string("two")), attempt(string("three")));
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```

@@ -12,7 +12,7 @@
 //! # Overview
 //!
 //! `combine` limits itself to creating [LL(1) parsers](https://en.wikipedia.org/wiki/LL_parser)
-//! (it is possible to opt-in to LL(k) parsing using the [`try`] combinator) which makes the
+//! (it is possible to opt-in to LL(k) parsing using the [`attempt`] combinator) which makes the
 //! parsers easy to reason about in both function and performance while sacrificing
 //! some generality. In addition to you being able to reason better about the parsers you
 //! construct `combine` the library also takes the knowledge of being an LL parser and uses it to
@@ -177,7 +177,7 @@
 //! [`byte`]: parser/byte/index.html
 //! [`range`]: parser/range/index.html
 //! [`many`]: parser/repeat/fn.many.html
-//! [`try`]: parser/combinator/fn.try.html
+//! [`attempt`]: parser/combinator/fn.attempt.html
 //! [`satisfy`]: parser/item/fn.satisfy.html
 //! [`or`]: parser/trait.Parser.html#method.or
 //! [`Stream`]: stream/trait.Stream.html
@@ -201,11 +201,12 @@ pub use parser::Parser;
 pub use stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
 #[doc(inline)]
+#[allow(deprecated)] // Needed to re-export `try`
 pub use combinator::{
-    any, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead, many, many1,
-    none_of, not_followed_by, one_of, optional, parser, position, satisfy, satisfy_map, sep_by,
-    sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max, skip_many, skip_many1, token,
-    tokens, try, unexpected, unexpected_any, value,
+    any, attempt, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead,
+    many, many1, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
+    satisfy_map, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max,
+    skip_many, skip_many1, token, tokens, try, unexpected, unexpected_any, value,
 };
 #[doc(inline)]
 pub use parser::choice::choice;
@@ -834,14 +835,26 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
+    fn attempt_try() {
+        // `attempt` is an alias for `try`. This is a small smoke test for
+        // `try`, since the main functionality is tested with `attempt`
+        let mut parser = choice((
+            try((string("abc"), string("def"))),
+            try((string("abc"), string("ghi"))),
+        ));
+        assert_eq!(parser.parse("abcghi"), Ok((("abc", "ghi"), "")));
+    }
+
+    #[test]
     fn choice_strings() {
         let mut fruits = [
-            try(string("Apple")),
-            try(string("Banana")),
-            try(string("Cherry")),
-            try(string("Date")),
-            try(string("Fig")),
-            try(string("Grape")),
+            attempt(string("Apple")),
+            attempt(string("Banana")),
+            attempt(string("Cherry")),
+            attempt(string("Date")),
+            attempt(string("Fig")),
+            attempt(string("Grape")),
         ];
         let mut parser = choice(&mut fruits);
         assert_eq!(parser.parse("Apple"), Ok(("Apple", "")));

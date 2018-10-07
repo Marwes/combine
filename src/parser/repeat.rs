@@ -1184,14 +1184,14 @@ where
 }
 
 /// Takes input until `end` is encountered or `end` indicates that it has consumed input before
-/// failing (`try` can be used to make it look like it has not consumed any input)
+/// failing (`attempt` can be used to make it look like it has not consumed any input)
 ///
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::char;
 /// # use combine::parser::byte;
-/// # use combine::parser::combinator::try;
+/// # use combine::parser::combinator::attempt;
 /// # use combine::parser::repeat::take_until;
 /// # fn main() {
 ///     let mut char_parser = take_until(char::digit());
@@ -1201,8 +1201,8 @@ where
 ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok((b"123".to_vec(), &b"TAG"[..])));
 ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
 ///
-///     // `try` must be used if the `end` should be consume input before failing
-///     let mut byte_parser = take_until(try(byte::bytes(&b"TAG"[..])));
+///     // `attempt` must be used if the `end` should be consume input before failing
+///     let mut byte_parser = take_until(attempt(byte::bytes(&b"TAG"[..])));
 ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok((b"123TA".to_vec(), &b"TAG"[..])));
 /// }
 /// ```
@@ -1222,14 +1222,14 @@ parser!{
     #[derive(Copy, Clone)]
     pub struct SkipUntil;
     /// Skips input until `end` is encountered or `end` indicates that it has consumed input before
-    /// failing (`try` can be used to make it look like it has not consumed any input)
+    /// failing (`attempt` can be used to make it look like it has not consumed any input)
     ///
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char;
     /// # use combine::parser::byte;
-    /// # use combine::parser::combinator::try;
+    /// # use combine::parser::combinator::attempt;
     /// # use combine::parser::repeat::skip_until;
     /// # fn main() {
     ///     let mut char_parser = skip_until(char::digit());
@@ -1239,8 +1239,8 @@ parser!{
     ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
     ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
     ///
-    ///     // `try` must be used if the `end` should be consume input before failing
-    ///     let mut byte_parser = skip_until(try(byte::bytes(&b"TAG"[..])));
+    ///     // `attempt` must be used if the `end` should be consume input before failing
+    ///     let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
     ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
     /// }
     /// ```

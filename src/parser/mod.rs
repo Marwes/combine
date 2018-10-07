@@ -524,8 +524,8 @@ pub trait Parser {
     /// // Fails as the parser for "two" consumes the first 't' before failing
     /// assert!(parser2.parse("three").is_err());
     ///
-    /// // Use 'try' to make failing parsers always act as if they have not consumed any input
-    /// let mut parser3 = try(string("two")).or(try(string("three")));
+    /// // Use 'attempt' to make failing parsers always act as if they have not consumed any input
+    /// let mut parser3 = attempt(string("two")).or(attempt(string("three")));
     /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
     /// # }
     /// ```
