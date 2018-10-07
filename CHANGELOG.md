@@ -1,3 +1,14 @@
+<a name="3.6.0"></a>
+## 3.6.0 (2018-10-07)
+
+
+#### Features
+
+*   Deprecates `try` in favor of `attempt` ([a9c79321](https://github.com/Marwes/combine/commit/a9c79321b28ea5332d30429936bfca0c034105ca))
+*   Adds `attempt`, a 2018-compatible alias for `try` ([18edaec4](https://github.com/Marwes/combine/commit/18edaec46f67a3803b96bac3762b6f809d0c2724))
+
+
+
 <a name="3.5.3"></a>
 ### 3.5.3 (2018-10-06)
 
