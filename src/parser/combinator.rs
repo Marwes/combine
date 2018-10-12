@@ -46,7 +46,7 @@ where [
 }
 }
 
-/**
+/*
  * TODO :: Rename `Try` to `Attempt`
  * Because this is public, it's name cannot be changed without also making a breaking change.
  */
