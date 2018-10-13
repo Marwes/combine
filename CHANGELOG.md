@@ -1,3 +1,13 @@
+<a name="3.6.1"></a>
+### 3.6.1 (2018-10-13)
+
+
+#### Bug Fixes
+
+*   Allow clippy to run on stable rust ([6cb00803](https://github.com/Marwes/combine/commit/6cb00803d0135a3849a7f0b35dcf635764b32c06))
+
+
+
 <a name="3.6.0"></a>
 ## 3.6.0 (2018-10-07)
 
