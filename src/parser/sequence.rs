@@ -81,7 +81,6 @@ macro_rules! tuple_parser {
               $($id: Parser<Input=Input>),*
         {
             #[allow(dead_code)]
-            #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
             fn add_errors(
                 input: &mut Input,
                 mut err: Tracked<Input::Error>,
