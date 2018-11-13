@@ -309,17 +309,17 @@ fn eq(l: char, r: char) -> bool {
 }
 
 #[derive(Copy, Clone)]
-pub struct Str<I>(&'static str, PhantomData<fn(I) -> I>)
+pub struct Str<'a, I>(&'static str, PhantomData<(&'a str, fn(I) -> I)>)
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
-impl<I> Parser for Str<I>
+impl<'a, I> Parser for Str<'a, I>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
-    type Output = &'static str;
+    type Output = &'a str;
     type PartialState = ();
 
     #[inline]
@@ -347,7 +347,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string<I>(s: &'static str) -> Str<I>
+pub fn string<'a, I>(s: &'static str) -> Str<'a, I>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -356,18 +356,18 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct StrCmp<C, I>(&'static str, C, PhantomData<fn(I) -> I>)
+pub struct StrCmp<'a, C, I>(&'static str, C, PhantomData<(&'a str, fn(I) -> I)>)
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
-impl<C, I> Parser for StrCmp<C, I>
+impl<'a, C, I> Parser for StrCmp<'a, C, I>
 where
     C: FnMut(char, char) -> bool,
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
-    type Output = &'static str;
+    type Output = &'a str;
     type PartialState = ();
 
     #[inline]
@@ -396,7 +396,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string_cmp<C, I>(s: &'static str, cmp: C) -> StrCmp<C, I>
+pub fn string_cmp<'a, C, I>(s: &'static str, cmp: C) -> StrCmp<'a, C, I>
 where
     C: FnMut(char, char) -> bool,
     I: Stream<Item = char>,

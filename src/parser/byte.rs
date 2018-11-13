@@ -284,18 +284,18 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct Bytes<I>(&'static [u8], PhantomData<I>)
+pub struct Bytes<'a, I>(&'static [u8], PhantomData<(&'a [u8], I)>)
 where
     I: Stream<Item = u8>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
 
-impl<'a, I> Parser for Bytes<I>
+impl<'a, 'b, I> Parser for Bytes<'a, I>
 where
-    I: Stream<Item = u8, Range = &'a [u8]>,
+    I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
-    type Output = &'static [u8];
+    type Output = &'a [u8];
     type PartialState = ();
 
     #[inline]
@@ -329,28 +329,28 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
+pub fn bytes<'a, 'b, I>(s: &'static [u8]) -> Bytes<'a, I>
 where
-    I: Stream<Item = u8, Range = &'a [u8]>,
+    I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     Bytes(s, PhantomData)
 }
 
 #[derive(Copy, Clone)]
-pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>)
+pub struct BytesCmp<'a, C, I>(&'static [u8], C, PhantomData<(&'a [u8], I)>)
 where
     I: Stream<Item = u8>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
 
-impl<'a, C, I> Parser for BytesCmp<C, I>
+impl<'a, 'b, C, I> Parser for BytesCmp<'a, C, I>
 where
     C: FnMut(u8, u8) -> bool,
-    I: Stream<Item = u8, Range = &'a [u8]>,
+    I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     type Input = I;
-    type Output = &'static [u8];
+    type Output = &'a [u8];
     type PartialState = ();
 
     #[inline]
@@ -385,10 +385,10 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
+pub fn bytes_cmp<'a, 'b, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<'a, C, I>
 where
     C: FnMut(u8, u8) -> bool,
-    I: Stream<Item = u8, Range = &'a [u8]>,
+    I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     BytesCmp(s, cmp, PhantomData)
