@@ -544,7 +544,8 @@ mod tests_std {
         let mut parser = many::<Vec<_>, _>(position().and(choice((
             ident("aa").skip(string(";")),
             choice((ident("bb"), ident("cc"))),
-        )))).skip(string("."));
+        ))))
+        .skip(string("."));
 
         assert_eq!(
             parser.easy_parse("c").map_err(|err| err.errors),

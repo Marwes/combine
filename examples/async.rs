@@ -23,7 +23,7 @@ use combine::parser::byte::digit;
 use combine::parser::range::{range, recognize, take};
 use combine::stream::easy;
 use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
-use combine::{skip_many, Parser, skip_many1};
+use combine::{skip_many, skip_many1, Parser};
 
 pub struct LanguageServerDecoder {
     state: AnyPartialState,
@@ -58,9 +58,11 @@ where
 {
     let content_length = range(&b"Content-Length: "[..])
         .with(recognize(skip_many1(digit())).and_then(|digits: &[u8]| {
-            str::from_utf8(digits).unwrap().parse::<usize>()
-                                // Convert the error from `.parse` into an error combine understands
-                                .map_err(StreamErrorFor::<I>::other)
+            str::from_utf8(digits)
+                .unwrap()
+                .parse::<usize>()
+                // Convert the error from `.parse` into an error combine understands
+                .map_err(StreamErrorFor::<I>::other)
         }))
         .map(move |x| {
             content_length_parses.set(content_length_parses.get() + 1);
@@ -74,9 +76,10 @@ where
             skip_many(range(&b"\r\n"[..])),
             content_length,
             range(&b"\r\n\r\n"[..]).map(|_| ()),
-        ).then_partial(|&mut (_, message_length, _)| {
-            take(message_length).map(|bytes: &[u8]| bytes.to_owned())
-        }),
+        )
+            .then_partial(|&mut (_, message_length, _)| {
+                take(message_length).map(|bytes: &[u8]| bytes.to_owned())
+            }),
     )
 }
 
@@ -95,15 +98,18 @@ impl Decoder for LanguageServerDecoder {
             // expected if end of input is unexpectedly reached
             easy::Stream(PartialStream(&src[..])),
             &mut self.state,
-        ).map_err(|err| {
+        )
+        .map_err(|err| {
             // Since err contains references into `src` we must replace these before
             // we can return an error or call `split_to` to remove the input we
             // just consumed
-            let err = err.map_range(|r| {
-                str::from_utf8(r)
-                    .ok()
-                    .map_or_else(|| format!("{:?}", r), |s| s.to_string())
-            }).map_position(|p| p.translate_position(&src[..]));
+            let err = err
+                .map_range(|r| {
+                    str::from_utf8(r)
+                        .ok()
+                        .map_or_else(|| format!("{:?}", r), |s| s.to_string())
+                })
+                .map_position(|p| p.translate_position(&src[..]));
             format!("{}\nIn input: `{}`", err, str::from_utf8(src).unwrap())
         })?;
 

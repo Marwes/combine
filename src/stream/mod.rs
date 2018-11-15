@@ -139,7 +139,8 @@ impl<I> Stream for I
 where
     I: StreamOnce + Positioned + Resetable,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
-{}
+{
+}
 
 #[inline]
 pub fn uncons<I>(input: &mut I) -> ConsumedResult<I::Item, I>

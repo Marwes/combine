@@ -443,7 +443,8 @@ where
         None => I::Error::from_error(
             input.position(),
             StreamError::message_static_message("parser choice is empty"),
-        ).into(),
+        )
+        .into(),
         Some(mut prev_err) => {
             if prev_err.offset != ErrorOffset(1) {
                 let offset = prev_err.offset;

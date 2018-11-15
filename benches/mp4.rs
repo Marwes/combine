@@ -42,13 +42,14 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
         brand_name(),
         take(4),
         many(brand_name()),
-    ).map(|(_, m, v, c)| {
-        MP4Box::Ftyp(FileType {
-            major_brand: m,
-            major_brand_version: v,
-            compatible_brands: c,
-        })
-    });
+    )
+        .map(|(_, m, v, c)| {
+            MP4Box::Ftyp(FileType {
+                major_brand: m,
+                major_brand_version: v,
+                compatible_brands: c,
+            })
+        });
 
     let mp4_box = take(4)
         .map(BigEndian::read_u32)

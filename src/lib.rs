@@ -788,17 +788,11 @@ pub mod combinator {
 }
 
 #[doc(hidden)]
-#[deprecated(
-    since = "3.0.0",
-    note = "Please use the `parser::char` module instead"
-)]
+#[deprecated(since = "3.0.0", note = "Please use the `parser::char` module instead")]
 pub use parser::char;
 
 #[doc(hidden)]
-#[deprecated(
-    since = "3.0.0",
-    note = "Please use the `parser::byte` module instead"
-)]
+#[deprecated(since = "3.0.0", note = "Please use the `parser::byte` module instead")]
 pub use parser::byte;
 
 #[doc(hidden)]
@@ -911,11 +905,9 @@ mod std_tests {
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
     {
-        let (s, input) = try!(
-            many1::<String, _>(digit())
-                .expected("integer")
-                .parse_stream(input)
-        );
+        let (s, input) = try!(many1::<String, _>(digit())
+            .expected("integer")
+            .parse_stream(input));
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);

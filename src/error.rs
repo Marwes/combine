@@ -14,9 +14,7 @@ use stream::StreamOnce;
 macro_rules! ctry {
     ($result:expr) => {
         match $result {
-            $crate::error::FastResult::ConsumedOk(x) => {
-                (x, $crate::error::Consumed::Consumed(()))
-            }
+            $crate::error::FastResult::ConsumedOk(x) => (x, $crate::error::Consumed::Consumed(())),
             $crate::error::FastResult::EmptyOk(x) => (x, $crate::error::Consumed::Empty(())),
             $crate::error::FastResult::ConsumedErr(err) => {
                 return $crate::error::FastResult::ConsumedErr(err.into())

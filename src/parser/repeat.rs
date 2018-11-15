@@ -711,11 +711,10 @@ where
         let rest = match *parsed_one {
             Some(rest) => rest,
             None => {
-                let (first, rest) = ctry!(self.parser.parse_mode(
-                    mode,
-                    input,
-                    &mut child_state.B.state
-                ));
+                let (first, rest) =
+                    ctry!(self
+                        .parser
+                        .parse_mode(mode, input, &mut child_state.B.state));
                 elements.extend(Some(first));
                 rest
             }
@@ -897,11 +896,10 @@ where
         let rest = match *parsed_one {
             Some(rest) => rest,
             None => {
-                let (first, rest) = ctry!(self.parser.parse_mode(
-                    mode,
-                    input,
-                    &mut child_state.B.state
-                ));
+                let (first, rest) =
+                    ctry!(self
+                        .parser
+                        .parse_mode(mode, input, &mut child_state.B.state));
                 elements.extend(Some(first));
                 rest
             }
