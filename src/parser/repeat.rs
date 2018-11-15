@@ -50,6 +50,7 @@ where
                 .inspect(|_| *count += 1),
         );
 
+        *count = 0;
         iter.into_result_fast(elements)
     }
 
