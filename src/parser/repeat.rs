@@ -14,49 +14,9 @@ use {ErrorOffset, Parser};
 
 use error::FastResult::*;
 
+parser!{
 #[derive(Copy, Clone)]
-pub struct Count<F, P> {
-    parser: P,
-    count: usize,
-    _marker: PhantomData<fn() -> F>,
-}
-
-impl<P, F> Parser for Count<F, P>
-where
-    P: Parser,
-    F: Extend<P::Output> + Default,
-{
-    type Input = P::Input;
-    type Output = F;
-    type PartialState = (usize, F, P::PartialState);
-
-    parse_mode!();
-    #[inline]
-    fn parse_mode_impl<M>(
-        &mut self,
-        mode: M,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
-    where
-        M: ParseMode,
-    {
-        let (ref mut count, ref mut elements, ref mut child_state) = *state;
-        let mut iter = self.parser.by_ref().partial_iter(mode, input, child_state);
-
-        elements.extend(
-            iter.by_ref()
-                .take(self.count - *count)
-                .inspect(|_| *count += 1),
-        );
-
-        iter.into_result_fast(elements)
-    }
-
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        self.parser.add_error(error)
-    }
-}
+pub struct Count;
 
 /// Parses `parser` from zero up to `count` times.
 ///
@@ -73,16 +33,15 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn count<F, P>(count: usize, parser: P) -> Count<F, P>
-where
+pub fn count[F, P](count: usize, parser: P)(P::Input) -> F
+where [
     P: Parser,
     F: Extend<P::Output> + Default,
+]
 {
-    Count {
-        parser,
-        count: count,
-        _marker: PhantomData,
-    }
+    count_min_max(0, *count, parser)
+}
+
 }
 
 parser!{
@@ -710,11 +669,10 @@ where
         let rest = match *parsed_one {
             Some(rest) => rest,
             None => {
-                let (first, rest) = ctry!(self.parser.parse_mode(
-                    mode,
-                    input,
-                    &mut child_state.B.state
-                ));
+                let (first, rest) =
+                    ctry!(self
+                        .parser
+                        .parse_mode(mode, input, &mut child_state.B.state));
                 elements.extend(Some(first));
                 rest
             }
@@ -896,11 +854,10 @@ where
         let rest = match *parsed_one {
             Some(rest) => rest,
             None => {
-                let (first, rest) = ctry!(self.parser.parse_mode(
-                    mode,
-                    input,
-                    &mut child_state.B.state
-                ));
+                let (first, rest) =
+                    ctry!(self
+                        .parser
+                        .parse_mode(mode, input, &mut child_state.B.state));
                 elements.extend(Some(first));
                 rest
             }

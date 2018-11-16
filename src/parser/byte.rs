@@ -5,12 +5,12 @@ use lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use Parser;
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
 use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
-use parser::ParseMode;
 use parser::sequence::With;
+use parser::ParseMode;
 use stream::{uncons_range, FullRangeStream, RangeStream, Stream, StreamOnce};
+use Parser;
 
 use error::FastResult::*;
 
@@ -727,9 +727,9 @@ pub mod num {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use stream::IteratorStream;
         use stream::buffered::BufferedStream;
         use stream::state::State;
+        use stream::IteratorStream;
 
         #[test]
         fn no_rangestream() {

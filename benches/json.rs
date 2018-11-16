@@ -97,7 +97,8 @@ where
                 n * 10.0f64.powi(e as i32)
             }
             None => n,
-        })).expected("number")
+        }))
+    .expected("number")
 }
 
 fn json_char<I>() -> impl Parser<Input = I, Output = char>
@@ -210,9 +211,10 @@ fn json_test() {
             ("true", Bool(true)),
             ("false", Bool(false)),
             ("null", Null),
-        ].into_iter()
-            .map(|(k, v)| (k.to_string(), v))
-            .collect(),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect(),
     );
     match result {
         Ok(result) => assert_eq!(result, (expected, "")),

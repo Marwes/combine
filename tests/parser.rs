@@ -6,7 +6,7 @@ use combine::parser::combinator::{attempt, no_partial, not_followed_by};
 use combine::parser::error::unexpected;
 use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
-use combine::parser::repeat::{count_min_max, many, sep_by, sep_end_by1, skip_until, take_until};
+use combine::parser::repeat::{count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until};
 use combine::Parser;
 
 #[test]
@@ -43,6 +43,8 @@ fn not_followed_by_does_not_consume_any_input() {
 #[cfg(feature = "std")]
 mod tests_std {
     use super::*;
+    use combine::parser::byte::{alpha_num, bytes};
+    use combine::parser::byte::num::be_u32;
     use combine::parser::char::{char, digit, letter};
     use combine::stream::easy::{Error, Errors, ParseError};
     use combine::stream::state::{SourcePosition, State};
@@ -542,7 +544,8 @@ mod tests_std {
         let mut parser = many::<Vec<_>, _>(position().and(choice((
             ident("aa").skip(string(";")),
             choice((ident("bb"), ident("cc"))),
-        )))).skip(string("."));
+        ))))
+        .skip(string("."));
 
         assert_eq!(
             parser.easy_parse("c").map_err(|err| err.errors),
@@ -566,5 +569,25 @@ mod tests_std {
                 Error::Expected("letter".into()),
             ]),
         );
+    }
+
+    #[test]
+    fn test_nested_count_overflow() {
+        let key = || count::<Vec<_>, _>(64, alpha_num());
+        let value_bytes = || be_u32()
+            .then_partial(|&mut size| count::<Vec<_>, _>(size as usize, any()));
+        let value_messages = (be_u32(), be_u32())
+            .then_partial(|&mut (_body_size, message_count)| {
+                count::<Vec<_>, _>(message_count as usize, value_bytes())
+            });
+        let put = (bytes(b"PUT"), key())
+            .map(|(_, key)| key)
+            .and(value_messages);
+
+        let parser = || put.map(|(_, messages)| messages);
+
+        let command = &b"PUTkey\x00\x00\x00\x12\x00\x00\x00\x02\x00\x00\x00\x04\xDE\xAD\xBE\xEF\x00\x00\x00\x02\xBE\xEF"[..];
+        let result = parser().parse(command).unwrap();
+        assert_eq!(2, result.0.len());
     }
 }

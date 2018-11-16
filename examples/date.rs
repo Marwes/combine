@@ -83,14 +83,15 @@ where
         choice([char('-'), char('+')]),
         two_digits(),
         optional(optional(char(':')).with(two_digits())),
-    ).map(|(sign, hour, minute)| {
-        let offset = hour * 60 + minute.unwrap_or(0);
-        if sign == '-' {
-            -offset
-        } else {
-            offset
-        }
-    });
+    )
+        .map(|(sign, hour, minute)| {
+            let offset = hour * 60 + minute.unwrap_or(0);
+            if sign == '-' {
+                -offset
+            } else {
+                offset
+            }
+        });
 
     utc.or(offset)
 }
@@ -108,14 +109,15 @@ where
         two_digits(),
         char('-'),
         two_digits(),
-    ).map(|(year, _, month, _, day)| {
-        // Its ok to just unwrap since we only parsed digits
-        Date {
-            year: year.parse().unwrap(),
-            month: month,
-            day: day,
-        }
-    })
+    )
+        .map(|(year, _, month, _, day)| {
+            // Its ok to just unwrap since we only parsed digits
+            Date {
+                year: year.parse().unwrap(),
+                month: month,
+                day: day,
+            }
+        })
 }
 
 /// Parses a time
@@ -132,15 +134,16 @@ where
         char(':'),
         two_digits(),
         time_zone(),
-    ).map(|(hour, _, minute, _, second, time_zone)| {
-        // Its ok to just unwrap since we only parsed digits
-        Time {
-            hour: hour,
-            minute: minute,
-            second: second,
-            time_zone: time_zone,
-        }
-    })
+    )
+        .map(|(hour, _, minute, _, second, time_zone)| {
+            // Its ok to just unwrap since we only parsed digits
+            Time {
+                hour: hour,
+                minute: minute,
+                second: second,
+                time_zone: time_zone,
+            }
+        })
 }
 
 /// Parses a date time according to ISO8601
@@ -223,6 +226,8 @@ where
 {
     let mut text = String::new();
     read.read_to_string(&mut text).map_err(Error::Io)?;
-    date_time().parse(State::new(&*text)).map_err(Error::Parse)?;
+    date_time()
+        .parse(State::new(&*text))
+        .map_err(Error::Parse)?;
     Ok(())
 }

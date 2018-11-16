@@ -80,7 +80,8 @@ where
         take_while1(is_horizontal_space),
         take_while1(|c| c != b'\r' && c != b'\n'),
         end_of_line(),
-    ).map(|(_, line, _)| line);
+    )
+        .map(|(_, line, _)| line);
 
     struct_parser!(Header {
         name: take_while1(is_token),
@@ -109,7 +110,8 @@ where
         end_of_line(),
         many(message_header()),
         end_of_line(),
-    ).map(|(request, _, headers, _)| (request, headers));
+    )
+        .map(|(request, _, headers, _)| (request, headers));
 
     request.parse(input)
 }

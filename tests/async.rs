@@ -138,7 +138,8 @@ where
         .map(|x| {
             println!("Decoded `{}`", x);
             x
-        }).collect()
+        })
+        .collect()
         .wait()
 }
 

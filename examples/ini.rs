@@ -49,7 +49,8 @@ where
         many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
         token('='),
         many1(satisfy(|c| c != '\n' && c != ';')),
-    ).map(|(key, _, value)| (key, value))
+    )
+        .map(|(key, _, value)| (key, value))
         .message("while parsing property")
 }
 
@@ -82,7 +83,8 @@ where
         between(token('['), token(']'), many(satisfy(|c| c != ']'))),
         whitespace(),
         properties(),
-    ).map(|(name, _, properties)| (name, properties))
+    )
+        .map(|(name, _, properties)| (name, properties))
         .message("while parsing section")
 }
 
