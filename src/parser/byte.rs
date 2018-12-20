@@ -14,7 +14,7 @@ use Parser;
 
 use error::FastResult::*;
 
-/// Parses a byteacter and succeeds if the byteacter is equal to `c`.
+/// Parses a byte and succeeds if the byte is equal to `c`.
 ///
 /// ```
 /// use combine::Parser;
@@ -103,7 +103,7 @@ where
 
 impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
-/// Parses a newline byteacter (`b'\n'`).
+/// Parses a newline byte (`b'\n'`).
 ///
 /// ```
 /// use combine::Parser;
@@ -125,7 +125,7 @@ where
 
 impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newline<I>>> }
 
-/// Parses carriage return and newline (`&b"\r\n"`), returning the newline byteacter.
+/// Parses carriage return and newline (`&b"\r\n"`), returning the newline byte.
 ///
 /// ```
 /// use combine::Parser;
@@ -149,7 +149,7 @@ where
 }
 
 impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
-/// Parses a tab byteacter (`b'\t'`).
+/// Parses a tab byte (`b'\t'`).
 ///
 /// ```
 /// use combine::Parser;
