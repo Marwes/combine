@@ -143,7 +143,7 @@ where
         .wait()
 }
 
-parser!{
+parser! {
     type PartialState = AnyPartialState;
     fn basic_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
@@ -154,7 +154,7 @@ parser!{
     }
 }
 
-impl_decoder!{ Basic, String, basic_parser() }
+impl_decoder! { Basic, String, basic_parser() }
 
 #[test]
 fn many1_skip_no_errors() {
@@ -167,7 +167,7 @@ fn many1_skip_no_errors() {
     assert_eq!(result.unwrap(), vec!["123".to_string(), "456".to_string()]);
 }
 
-parser!{
+parser! {
     type PartialState = AnyPartialState;
     fn prefix_many_then_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
@@ -182,7 +182,7 @@ parser!{
     }
 }
 
-parser!{
+parser! {
     type PartialState = AnyPartialState;
     fn choice_parser['a, I]()(I) -> String
         where [ I: RangeStream<Item = char, Range = &'a str> ]
@@ -459,10 +459,11 @@ quickcheck! {
         assert_eq!(result.unwrap(), sizes);
     }
 }
+
 #[test]
 fn inner_no_partial_test() {
     let seq = vec![PartialOp::Limited(10)];
-    impl_decoder!{ TestParser, String,
+    impl_decoder! { TestParser, String,
         no_partial(many1(digit()))
             .or(many1(letter()))
             .skip(range(&"\r\n"[..]))
@@ -478,4 +479,19 @@ fn inner_no_partial_test() {
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
     assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"]);
+}
+
+#[test]
+fn skip_count_min_max_test() {
+    let seq = vec![PartialOp::Limited(1)];
+    impl_decoder! { TestParser, String,
+        repeat::skip_count_min_max(1, 2, char('_')).skip(char('.')).map(|_| "".to_string())
+    }
+
+    let input = "_.";
+
+    let result = run_decoder(input, seq, TestParser::default());
+
+    assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+    assert_eq!(result.unwrap(), [""]);
 }

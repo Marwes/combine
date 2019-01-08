@@ -46,7 +46,7 @@ mod tests_std {
     use combine::parser::byte::{alpha_num, bytes};
     use combine::parser::byte::num::be_u32;
     use combine::parser::char::{char, digit, letter};
-    use combine::stream::easy::{Error, Errors, ParseError};
+    use combine::stream::easy::{self, Error, Errors};
     use combine::stream::state::{SourcePosition, State};
     use combine::Parser;
 
@@ -76,7 +76,7 @@ mod tests_std {
     #[test]
     fn sep_by_consumed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(Vec<(char, char)>, &str), ParseError<&str>> =
+        let result_err: Result<(Vec<(char, char)>, &str), easy::ParseError<&str>> =
             parser2.easy_parse("a,bc");
         assert!(result_err.is_err());
     }

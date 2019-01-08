@@ -50,9 +50,10 @@ where
     }
 }
 
-parser!{
+parser! {
     #[derive(Clone)]
     pub struct Recognize;
+    type PartialState = <RecognizeWithValue<P> as Parser>::PartialState;
     /// Zero-copy parser which returns consumed input range.
     ///
     /// [`combinator::recognize`][] is a non-`RangeStream` alternative.

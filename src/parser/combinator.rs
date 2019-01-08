@@ -16,7 +16,7 @@ use either::Either;
 
 use error::FastResult::*;
 
-parser!{
+parser! {
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy;
 /// Succeeds only if `parser` fails.
@@ -409,7 +409,7 @@ where
                             return EmptyErr(
                                 <P::Input as StreamOnce>::Error::from_error(input.position(), err)
                                     .into(),
-                            )
+                            );
                         }
                     }
                 }
@@ -426,7 +426,7 @@ where
                             return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
                                 input.position(),
                                 err,
-                            ))
+                            ));
                         }
                     }
                 }
@@ -443,7 +443,7 @@ where
                             return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
                                 input.position(),
                                 err,
-                            ))
+                            ));
                         }
                     }
                 }
@@ -1059,7 +1059,7 @@ impl StrLike for [u8] {
     }
 }
 
-parser!{
+parser! {
 pub struct FromStr;
 type PartialState = P::PartialState;
 

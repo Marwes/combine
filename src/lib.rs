@@ -973,7 +973,7 @@ mod std_tests {
         Times(Box<Expr>, Box<Expr>),
     }
 
-    parser!{
+    parser! {
         fn expr[I]()(I) -> Expr
         where
             [I: Stream<Item = char>,]
