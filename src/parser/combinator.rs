@@ -6,8 +6,6 @@ use lib::mem;
 use lib::str;
 
 use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
-use parser::error::unexpected;
-use parser::item::value;
 use parser::ParseMode;
 use stream::{input_at_eof, Positioned, Resetable, Stream, StreamErrorFor, StreamOnce};
 use Parser;
@@ -16,9 +14,49 @@ use either::Either;
 
 use error::FastResult::*;
 
-parser! {
 #[derive(Copy, Clone)]
-pub struct NotFollowedBy;
+pub struct NotFollowedBy<P>(P);
+impl<I, O, P> Parser for NotFollowedBy<P>
+where
+    I: Stream,
+    P: Parser<Input = I, Output = O>,
+{
+    type Input = I;
+    type Output = ();
+    type PartialState = P::PartialState;
+
+    parse_mode!();
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        let checkpoint = input.checkpoint();
+        let result = self.0.parse_mode(mode, input, state);
+        input.reset(checkpoint);
+        match result {
+            ConsumedOk(_) | EmptyOk(_) => EmptyErr(I::Error::empty(input.position()).into()),
+            ConsumedErr(_) | EmptyErr(_) => EmptyOk(()),
+        }
+    }
+
+    #[inline]
+    fn add_error(&mut self, _errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {}
+
+    fn add_consumed_expected_error(
+        &mut self,
+        _error: &mut Tracked<<Self::Input as StreamOnce>::Error>,
+    ) {
+    }
+
+    forward_parser!(parser_count, 0);
+}
+
 /// Succeeds only if `parser` fails.
 /// Never consumes any input.
 ///
@@ -32,18 +70,16 @@ pub struct NotFollowedBy;
 ///     .parse("letx")
 ///     .map(|x| x.0);
 /// assert!(result.is_err());
+///
 /// # }
 /// ```
 #[inline(always)]
-pub fn not_followed_by[P](parser: P)(P::Input) -> ()
-where [
+pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
+where
     P: Parser,
     P::Output: Into<Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
-]
 {
-    attempt(attempt(parser).then(unexpected)
-        .or(value(())))
-}
+    NotFollowedBy(parser)
 }
 
 /*
