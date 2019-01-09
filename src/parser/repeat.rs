@@ -4,7 +4,7 @@ use lib::borrow::BorrowMut;
 use lib::marker::PhantomData;
 use lib::mem;
 
-use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional};
+use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
 use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
 use parser::choice::Or;
 use parser::sequence::With;
@@ -44,9 +44,10 @@ where [
 
 }
 
-parser!{
+parser! {
     #[derive(Copy, Clone)]
     pub struct SkipCount;
+    type PartialState = <With<Count<Sink, P>, Value<P::Input, ()>> as Parser>::PartialState;
     /// Parses `parser` from zero up to `count` times skipping the output of `parser`.
     ///
     /// ```
@@ -65,7 +66,7 @@ parser!{
         P: Parser
     ]
     {
-        ::combinator::count::<Sink<()>, _>(*count, parser.map(|_| ())).with(value(()))
+        ::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -159,9 +160,10 @@ where
     }
 }
 
-parser!{
+parser! {
     #[derive(Copy, Clone)]
     pub struct SkipCountMinMax;
+    type PartialState = <With<CountMinMax<Sink, P>, Value<P::Input, ()>> as Parser>::PartialState;
     /// Parses `parser` from `min` to `max` times (including `min` and `max`)
     /// skipping the output of `parser`.
     ///
@@ -186,7 +188,7 @@ parser!{
         P: Parser
     ]
     {
-        ::combinator::count_min_max::<Sink<()>, _>(*min, *max, parser.map(|_| ())).with(value(()))
+        ::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -488,15 +490,15 @@ where
 #[derive(Clone)]
 #[doc(hidden)]
 // FIXME Should not be public
-pub struct Sink<T>(PhantomData<T>);
+pub struct Sink;
 
-impl<T> Default for Sink<T> {
+impl Default for Sink {
     fn default() -> Self {
-        Sink(PhantomData)
+        Sink
     }
 }
 
-impl<A> Extend<A> for Sink<A> {
+impl<A> Extend<A> for Sink {
     fn extend<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = A>,
@@ -505,7 +507,7 @@ impl<A> Extend<A> for Sink<A> {
     }
 }
 
-impl_parser!{ SkipMany(P,), Ignore<Many<Sink<()>, Ignore<P>>> }
+impl_parser! { SkipMany(P,), Ignore<Many<Sink, Ignore<P>>> }
 
 /// Parses `p` zero or more times ignoring the result.
 ///
@@ -530,7 +532,7 @@ where
     SkipMany(ignore(many(ignore(p))))
 }
 
-impl_parser!{ SkipMany1(P,), Ignore<Many1<Sink<()>, Ignore<P>>> }
+impl_parser! { SkipMany1(P,), Ignore<Many1<Sink, Ignore<P>>> }
 
 /// Parses `p` one or more times ignoring the result.
 ///
@@ -1175,9 +1177,10 @@ where
     }
 }
 
-parser!{
+parser! {
     #[derive(Copy, Clone)]
     pub struct SkipUntil;
+    type PartialState = <With<TakeUntil<Sink, P>, Value<P::Input, ()>> as Parser>::PartialState;
     /// Skips input until `end` is encountered or `end` indicates that it has consumed input before
     /// failing (`attempt` can be used to make it look like it has not consumed any input)
     ///
@@ -1206,7 +1209,7 @@ parser!{
         P: Parser,
     ]
     {
-        take_until::<Sink<_>, _>(end).with(value(()))
+        take_until::<Sink, _>(end).with(value(()))
     }
 }
 
