@@ -1,3 +1,13 @@
+<a name="3.6.5"></a>
+### 3.6.5 (2019-01-09)
+
+
+#### Bug Fixes
+
+*   not_followed_by should fail on empty successful parses ([aa17e7d2](https://github.com/Marwes/combine/commit/aa17e7d25532eebdb6c447459c8550a4fb6bbe93))
+*   Propagate the PartialState through parser! uses ([ae888244](https://github.com/Marwes/combine/commit/ae8882449ee935f7ffb0dd3ef7f0e2d8d6932409), closes [#223](https://github.com/Marwes/combine/issues/223))
+
+
 <a name="3.6.3"></a>
 ### 3.6.3 (2018-11-16)
 
