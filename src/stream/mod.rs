@@ -52,6 +52,8 @@ pub mod buffered;
 pub mod easy;
 /// Stateful stream wrappers.
 pub mod state;
+/// Stream wrapper allowing custom state to be used.
+pub mod user_state;
 
 /// A type which has a position.
 pub trait Positioned: StreamOnce {

@@ -5,8 +5,8 @@
 use either::Either;
 
 use combinator::{
-    and_then, expected, flat_map, map, message, then, then_partial, AndThen, Expected, FlatMap,
-    Iter, Map, Message, Then, ThenPartial,
+    and_then, expected, flat_map, map, map_input, message, then, then_partial, AndThen, Expected,
+    FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
 };
 use error::FastResult::*;
 use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
@@ -636,6 +636,14 @@ pub trait Parser {
         F: FnMut(Self::Output) -> B,
     {
         map(self, f)
+    }
+
+    fn map_input<F, B>(self, f: F) -> MapInput<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(Self::Output, &mut Self::Input) -> B,
+    {
+        map_input(self, f)
     }
 
     /// Uses `f` to map over the output of `self`. If `f` returns an error the parser fails.

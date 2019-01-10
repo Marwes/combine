@@ -14,7 +14,7 @@ use {ErrorOffset, Parser};
 
 use error::FastResult::*;
 
-parser!{
+parser! {
 #[derive(Copy, Clone)]
 pub struct Count;
 
@@ -41,7 +41,6 @@ where [
 {
     count_min_max(0, *count, parser)
 }
-
 }
 
 parser! {
