@@ -19,4 +19,6 @@ else
 
     cargo build --no-default-features
     cargo test --no-default-features --examples
+
+    cargo update -p regex --precise 0.2.1
 fi

@@ -729,7 +729,7 @@ macro_rules! dispatch_parser_impl {
             type Output = Output;
             type PartialState = Option<$parser_name<$($id::PartialState),*>>;
 
-            $crate::parse_mode!();
+            $crate::parse_mode!(Input);
             fn parse_mode<Mode>(
                 &mut self,
                 mode: Mode,
