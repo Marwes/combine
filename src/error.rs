@@ -441,8 +441,8 @@ where
 
     #[inline]
     fn add(&mut self, err: Self::StreamError) {
-        *self = match (&self, err) {
-            (&UnexpectedParse::Eoi, _) => UnexpectedParse::Eoi,
+        *self = match (*self, err) {
+            (UnexpectedParse::Eoi, _) => UnexpectedParse::Eoi,
             (_, err) => err,
         };
     }
@@ -583,8 +583,8 @@ where
 
     #[inline]
     fn add(&mut self, err: Self::StreamError) {
-        *self = match (&self, err) {
-            (&StringStreamError::Eoi, _) => StringStreamError::Eoi,
+        *self = match (*self, err) {
+            (StringStreamError::Eoi, _) => StringStreamError::Eoi,
             (_, err) => err,
         };
     }
