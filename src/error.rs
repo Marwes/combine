@@ -414,11 +414,10 @@ impl<Item, Range> StreamError<Item, Range> for UnexpectedParse {
     where
         T: StreamError<Item, Range>,
     {
-        let msg = match self {
-            UnexpectedParse::Unexpected => "parse",
-            UnexpectedParse::Eoi => "end of input",
-        };
-        T::unexpected_static_message(msg)
+        match self {
+            UnexpectedParse::Unexpected => T::unexpected_static_message("parse"),
+            UnexpectedParse::Eoi => T::end_of_input(),
+        }
     }
 }
 
@@ -442,7 +441,10 @@ where
 
     #[inline]
     fn add(&mut self, err: Self::StreamError) {
-        *self = err;
+        *self = match (*self, err) {
+            (UnexpectedParse::Eoi, _) => UnexpectedParse::Eoi,
+            (_, err) => err,
+        };
     }
 
     #[inline]
@@ -581,7 +583,10 @@ where
 
     #[inline]
     fn add(&mut self, err: Self::StreamError) {
-        *self = err;
+        *self = match (*self, err) {
+            (StringStreamError::Eoi, _) => StringStreamError::Eoi,
+            (_, err) => err,
+        };
     }
 
     #[inline]
