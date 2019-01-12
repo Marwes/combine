@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION=$1
-if [ -z "$VERSION"]; then
+if [ -z "$VERSION" ]; then
     echo "Expected patch, minor or major"
     exit 1
 fi
