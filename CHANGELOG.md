@@ -1,7 +1,7 @@
 <a name="3.6.6"></a>
 ### 3.6.6 (2019-01-12)
 
-
+* Fix two inconsisties regarding EOI [#227](https://github.com/Marwes/combine/pull/227)
 
 
 <a name="3.6.5"></a>
