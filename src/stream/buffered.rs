@@ -123,4 +123,8 @@ where
             Ok(value)
         }
     }
+
+    fn is_partial(&self) -> bool {
+        self.iter.is_partial()
+    }
 }

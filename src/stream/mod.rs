@@ -127,10 +127,10 @@ pub trait Resetable {
     fn reset(&mut self, checkpoint: Self::Checkpoint);
 }
 
-clone_resetable!{('a) &'a str}
-clone_resetable!{('a, T) &'a [T]}
-clone_resetable!{('a, T) SliceStream<'a, T> }
-clone_resetable!{(T: Clone) IteratorStream<T>}
+clone_resetable! {('a) &'a str}
+clone_resetable! {('a, T) &'a [T]}
+clone_resetable! {('a, T) SliceStream<'a, T> }
+clone_resetable! {(T: Clone) IteratorStream<T>}
 
 /// A stream of tokens which can be duplicated
 pub trait Stream: StreamOnce + Resetable + Positioned {}
