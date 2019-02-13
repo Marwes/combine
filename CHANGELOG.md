@@ -1,3 +1,13 @@
+<a name="3.6.7"></a>
+### 3.6.7 (2019-02-13)
+
+
+#### Bug Fixes
+
+*   Forward is_partial in all Stream adaptors ([121b3987](https://github.com/Marwes/combine/commit/121b39879543c074924185dfe17d6b4f434ce413))
+
+
+
 <a name="3.6.6"></a>
 ### 3.6.6 (2019-01-12)
 
