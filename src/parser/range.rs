@@ -8,11 +8,11 @@
 use lib::marker::PhantomData;
 
 use error::FastResult::*;
-use error::{ConsumedResult, Info, ParseError, Tracked};
+use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use parser::ParseMode;
 use stream::{
-    uncons_range, uncons_while, uncons_while1, wrap_stream_error, RangeStream, RangeStreamOnce,
-    Resetable, StreamOnce,
+    uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
+    Range as StreamRange, RangeStream, RangeStreamOnce, Resetable, StreamOnce,
 };
 use Parser;
 
@@ -525,6 +525,78 @@ where
     I: RangeStream,
 {
     TakeUntilRange(r)
+}
+
+pub struct TakeFn<F, I> {
+    searcher: F,
+    _marker: PhantomData<fn(I)>,
+}
+
+impl<F, I> Parser for TakeFn<F, I>
+where
+    F: FnMut(I::Range) -> Option<usize>,
+    I: RangeStream + FullRangeStream,
+    I::Range: ::stream::Range,
+{
+    type Input = I;
+    type Output = I::Range;
+    type PartialState = usize;
+
+    parse_mode!();
+    #[inline]
+    fn parse_mode<M>(
+        &mut self,
+        mode: M,
+        input: &mut Self::Input,
+        offset: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input>
+    where
+        M: ParseMode,
+    {
+        if mode.is_first() {
+            *offset = 0;
+        } else {
+            let _ = input.uncons_range(*offset);
+        }
+
+        match (self.searcher)(input.range()) {
+            Some(i) => {
+                let result = uncons_range(input, *offset + i);
+                if result.is_ok() {
+                    *offset = 0;
+                }
+                result
+            }
+            None => {
+                let range = input.range();
+                *offset = range.len();
+                let _ = input.uncons_range(range.len());
+                let err = I::Error::from_error(input.position(), StreamError::end_of_input());
+                if !input.is_partial() && range.is_empty() {
+                    EmptyErr(err.into())
+                } else {
+                    ConsumedErr(err)
+                }
+            }
+        }
+    }
+}
+
+/// Searches the entire range using `searcher` and then consumes a range of `Some(n)`.
+/// If `f` can not find anything in the range it must return `None` which indicates an end of input error.
+///
+/// See [`take_until_bytes`](../byte/fn.take_until_bytes.html) for a usecase.   
+#[inline(always)]
+pub fn take_fn<F, I>(searcher: F) -> TakeFn<F, I>
+where
+    F: FnMut(I::Range) -> Option<usize>,
+    I: FullRangeStream,
+    I::Range: ::stream::Range,
+{
+    TakeFn {
+        searcher,
+        _marker: PhantomData,
+    }
 }
 
 #[cfg(test)]

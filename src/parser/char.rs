@@ -24,7 +24,7 @@ where
     token(c)
 }
 
-parser!{
+parser! {
     #[derive(Copy, Clone)]
     pub struct Digit;
     /// Parses a base-10 digit.

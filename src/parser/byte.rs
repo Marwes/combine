@@ -6,10 +6,10 @@ use lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use error::{ConsumedResult, Info, ParseError, Tracked};
+use parser::range::take_fn;
 use parser::sequence::With;
-use parser::ParseMode;
-use stream::{uncons_range, FullRangeStream, RangeStream, Stream, StreamOnce};
+use stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
 use Parser;
 
 use error::FastResult::*;
@@ -36,7 +36,7 @@ impl_token_parser! { Digit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f:ident) => {{
-        let f = static_fn!{
+        let f = static_fn! {
             (c, u8) -> bool { AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false) }
         };
         $ty(satisfy(f).expected(stringify!($name)), PhantomData)
@@ -394,93 +394,29 @@ where
     BytesCmp(s, cmp, PhantomData)
 }
 
-fn take_until_after<I>(
-    input: &mut I,
-    offset: &mut usize,
-    bytes: &[u8],
-    found: Option<usize>,
-) -> ConsumedResult<I::Range, I>
-where
-    I: RangeStream,
-    I::Range: ::stream::Range,
-{
-    match found {
-        Some(i) => {
-            let result = uncons_range(input, *offset + i);
-            if result.is_ok() {
-                *offset = 0;
-            }
-            result
-        }
-        None => {
-            *offset = bytes.len();
-            let _ = input.uncons_range(bytes.len());
-            let err = I::Error::from_error(input.position(), StreamError::end_of_input());
-            if !input.is_partial() && bytes.is_empty() {
-                EmptyErr(err.into())
-            } else {
-                ConsumedErr(err)
-            }
-        }
-    }
-}
-
 macro_rules! take_until {
     (
         $(#[$attr:meta])*
         $type_name: ident, $func_name: ident, $memchr: ident, $($param: ident),+
     ) => {
-        pub struct $type_name<I> {
-            $( $param: u8, )+
-            _marker: PhantomData<fn(I)>
-        }
-
-        impl<I> Parser for $type_name<I>
-        where
-            I: RangeStream + FullRangeStream,
-            I::Range: AsRef<[u8]> + ::stream::Range,
-        {
-            type Input = I;
-            type Output = I::Range;
-            type PartialState = usize;
-
-            parse_mode!();
-            #[inline]
-            fn parse_mode<M>(
-                &mut self,
-                mode: M,
-                input: &mut Self::Input,
-                offset: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
-            where
-                M: ParseMode,
+        parser!{
+            #[derive(Clone)]
+            pub struct $type_name;
+            #[inline(always)]
+            $(#[$attr])*
+            pub fn $func_name[I]($($param : u8),*)(I) -> I::Range
+                where [
+                    I: RangeStream + FullRangeStream,
+                    I::Range: AsRef<[u8]> + ::stream::Range,
+                ]
             {
-                if mode.is_first() {
-                    *offset = 0;
-                }
-                let range = input.range();
-                let bytes = range.as_ref();
-                let found = ::memchr::$memchr( $(self.$param),+ , &bytes[*offset..]);
-                take_until_after(input, offset, bytes, found)
-            }
-        }
-
-        $(#[$attr])*
-        #[inline(always)]
-        pub fn $func_name<I>( $($param: u8),+ ) -> $type_name<I>
-        where
-            I: RangeStream + FullRangeStream,
-            I::Range: AsRef<[u8]>,
-        {
-            $type_name {
-                $($param,)+
-                _marker: PhantomData
+                take_fn(move |haystack: I::Range| ::memchr::$memchr( $(*$param),+ , haystack.as_ref()))
             }
         }
     }
 }
 
-take_until!{
+take_until! {
     /// Zero-copy parser which reads a range of 0 or more tokens until `a` is found.
     ///
     /// If `a` is not found, the parser will return an error.
@@ -499,7 +435,7 @@ take_until!{
     /// ```
     TakeUntilByte, take_until_byte, memchr, a
 }
-take_until!{
+take_until! {
     /// Zero-copy parser which reads a range of 0 or more tokens until `a` or `b` is found.
     ///
     /// If `a` or `b` is not found, the parser will return an error.
@@ -518,7 +454,7 @@ take_until!{
     /// ```
     TakeUntilByte2, take_until_byte2, memchr2, a, b
 }
-take_until!{
+take_until! {
     /// Zero-copy parser which reads a range of 0 or more tokens until `a`, 'b' or `c` is found.
     ///
     /// If `a`, 'b' or `c` is not found, the parser will return an error.
@@ -536,6 +472,52 @@ take_until!{
     /// # }
     /// ```
     TakeUntilByte3, take_until_byte3, memchr3, a, b, c
+}
+
+parser! {
+/// Zero-copy parser which reads a range of 0 or more tokens until `needle` is found.
+///
+/// If `a`, 'b' or `c` is not found, the parser will return an error.
+///
+/// Optimized variant of [`take_until_range`](../range/fn.take_until_range.html)
+///
+/// ```
+/// use combine::*;
+/// use combine::parser::byte::take_until_bytes;
+/// assert_eq!(
+///     take_until_bytes(&b"\r\n"[..]).easy_parse(&b"abc\r\n"[..]).map(|(x, _)| x),
+///     Ok((&b"abc"[..]))
+/// );
+/// // Also works on strings as long as `needle` is UTF-8
+/// assert_eq!(
+///     take_until_bytes("\r\n".as_bytes()).easy_parse("abc\r\n").map(|(x, _)| x),
+///     Ok(("abc"))
+/// );
+/// ```
+#[inline(always)]
+pub fn take_until_bytes['a, I](needle: &'a [u8])(I) -> I::Range
+where [
+    I: RangeStream + FullRangeStream,
+    I::Range: AsRef<[u8]> + ::stream::Range,
+]
+{
+    take_fn(move |haystack: I::Range| memslice(needle, haystack.as_ref()))
+}
+
+}
+
+fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
+    let (&prefix, suffix) = match needle.split_first() {
+        Some(x) => x,
+        None => return Some(0),
+    };
+    let mut iter = ::memchr::memchr_iter(prefix, haystack);
+    while let Some(i) = iter.next() {
+        if haystack[i + 1..].starts_with(suffix) {
+            return Some(i);
+        }
+    }
+    None
 }
 
 /// Parsers for decoding numbers in big-endian or little-endian order.
@@ -765,5 +747,25 @@ pub mod num {
                 Ok(123.45)
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn memslice_basic() {
+        let haystack = b"abc123";
+        assert_eq!(memslice(b"", haystack), Some(0));
+        assert_eq!(memslice(b"a", haystack), Some(0));
+        assert_eq!(memslice(b"ab", haystack), Some(0));
+        assert_eq!(memslice(b"c12", haystack), Some(2));
+
+        let haystack2 = b"abcab2";
+        assert_eq!(memslice(b"abc", haystack2), Some(0));
+        assert_eq!(memslice(b"ab2", haystack2), Some(3));
+
+        let haystack3 = b"aaabaaaa";
+        assert_eq!(memslice(b"aaaa", haystack3), Some(4));
     }
 }
