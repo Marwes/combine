@@ -17,10 +17,10 @@ macro_rules! ctry {
             $crate::error::FastResult::ConsumedOk(x) => (x, $crate::error::Consumed::Consumed(())),
             $crate::error::FastResult::EmptyOk(x) => (x, $crate::error::Consumed::Empty(())),
             $crate::error::FastResult::ConsumedErr(err) => {
-                return $crate::error::FastResult::ConsumedErr(err.into())
+                return $crate::error::FastResult::ConsumedErr(err.into());
             }
             $crate::error::FastResult::EmptyErr(err) => {
-                return $crate::error::FastResult::EmptyErr(err.into())
+                return $crate::error::FastResult::EmptyErr(err.into());
             }
         }
     };

@@ -507,10 +507,10 @@ where
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
-                                input.position(),
-                                err,
-                            ));
+                            return ConsumedErr(
+                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
+                                    .into(),
+                            );
                         }
                     }
                 }
@@ -524,10 +524,10 @@ where
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
-                                input.position(),
-                                err,
-                            ));
+                            return ConsumedErr(
+                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
+                                    .into(),
+                            );
                         }
                     }
                 }

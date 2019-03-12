@@ -98,12 +98,12 @@ where
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
     let request_line = struct_parser!(Request {
-            method: take_while1(is_token),
-            _: take_while1(is_space),
-            uri: take_while1(is_not_space),
-            _: take_while1(is_space),
-            version: http_version,
-        });
+        method: take_while1(is_token),
+        _: take_while1(is_space),
+        uri: take_while1(is_not_space),
+        _: take_while1(is_space),
+        version: http_version,
+    });
 
     let mut request = (
         request_line,

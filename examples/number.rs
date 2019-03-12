@@ -21,7 +21,7 @@ fn main() {
         optional((item(b'.'), skip_many(digit()))),
     ))
     .and_then(|bs: &[u8]| {
-        // `bs` only contains digits which are ascii and thus UTF-8
+        // `bs` only contains digits and an optional '.' all of which are ascii and thus UTF-8
         let s = unsafe { str::from_utf8_unchecked(bs) };
         s.parse::<f64>().map_err(|_| UnexpectedParse::Unexpected)
     });

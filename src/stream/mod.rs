@@ -1005,7 +1005,7 @@ where
                 Ok((None, input.distance(&start)))
             } else {
                 Err(err)
-            }
+            };
         }
     }
 }

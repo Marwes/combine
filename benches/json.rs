@@ -160,7 +160,7 @@ where
 
 // We need to use `parser!` to break the recursive use of `value` to prevent the returned parser
 // from containing itself
-parser!{
+parser! {
     #[inline(always)]
     fn json_value_[I]()(I) -> Value
         where [ I: Stream<Item = char> ]
