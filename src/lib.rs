@@ -881,6 +881,8 @@ mod std_tests {
     fn follow<I>(input: &mut I) -> ParseResult<(), I>
     where
         I: Stream<Item = char, Error = easy::ParseError<I>>,
+        I::Item: PartialEq,
+        I::Range: PartialEq,
         I::Position: Default,
     {
         let before = input.checkpoint();

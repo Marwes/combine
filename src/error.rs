@@ -206,7 +206,7 @@ pub type ParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 ///
 /// Usually multiple instances of `StreamError` is composed into a `ParseError` to build the final
 /// error value.
-pub trait StreamError<Item, Range>: Sized + PartialEq {
+pub trait StreamError<Item, Range>: Sized {
     fn unexpected_token(token: Item) -> Self;
     fn unexpected_range(token: Range) -> Self;
     fn unexpected_message<T>(msg: T) -> Self
@@ -266,6 +266,8 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn end_of_input() -> Self {
         Self::unexpected_static_message("end of input")
     }
+
+    fn is_unexpected_end_of_input(&self) -> bool;
 
     /// Converts `self` into a different `StreamError` type.
     ///
@@ -410,6 +412,11 @@ impl<Item, Range> StreamError<Item, Range> for UnexpectedParse {
     }
 
     #[inline]
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == UnexpectedParse::Eoi
+    }
+
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: StreamError<Item, Range>,
@@ -550,6 +557,10 @@ impl<Item, Range> StreamError<Item, Range> for StringStreamError {
     #[inline]
     fn end_of_input() -> Self {
         StringStreamError::Eoi
+    }
+    #[inline]
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == StringStreamError::Eoi
     }
     #[inline]
     fn into_other<T>(self) -> T

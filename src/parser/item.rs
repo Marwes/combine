@@ -645,7 +645,7 @@ where
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<(), I> {
         let before = input.checkpoint();
         match input.uncons() {
-            Err(ref err) if *err == StreamError::end_of_input() => EmptyOk(()),
+            Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),
             _ => {
                 input.reset(before);
                 EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())

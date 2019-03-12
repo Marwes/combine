@@ -89,7 +89,6 @@ where
 impl<I> StreamOnce for BufferedStream<I>
 where
     I: StreamOnce + Positioned,
-    I::Item: Clone + PartialEq,
 {
     type Item = I::Item;
     type Range = I::Range;

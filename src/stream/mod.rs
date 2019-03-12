@@ -96,12 +96,12 @@ pub type StreamErrorFor<I> = <<I as StreamOnce>::Error as ParseError<
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {
     /// The type of items which is yielded from this stream.
-    type Item: Clone + PartialEq;
+    type Item: Clone;
 
     /// The type of a range of items yielded from this stream.
     /// Types which do not a have a way of yielding ranges of items should just use the
     /// `Self::Item` for this type.
-    type Range: Clone + PartialEq;
+    type Range: Clone;
 
     /// Type which represents the position in a stream.
     /// `Ord` is required to allow parsers to determine which of two positions are further ahead.
@@ -255,7 +255,10 @@ where
     I: ?Sized + Stream,
 {
     let before = input.checkpoint();
-    let x = input.uncons() == Err(StreamError::end_of_input());
+    let x = input
+        .uncons()
+        .err()
+        .map_or(false, |err| err.is_unexpected_end_of_input());
     input.reset(before);
     x
 }

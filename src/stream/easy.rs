@@ -26,7 +26,9 @@
 //!                 I::Range,
 //!                 I::Position,
 //!                 StreamError = easy::Error<I::Item, I::Range>
-//!             >
+//!             >,
+//!             I::Item: PartialEq,
+//!             I::Range: PartialEq,
 //!         ]
 //!         {
 //!             many1(letter()).and_then(|word: String| {
@@ -265,6 +267,10 @@ where
         Error::Message(Info::Range(token))
     }
 
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == Self::end_of_input()
+    }
+
     #[inline]
     fn other<E>(err: E) -> Self
     where
@@ -412,7 +418,9 @@ where
     }
 
     fn is_unexpected_end_of_input(&self) -> bool {
-        self.errors.iter().any(|err| *err == Error::end_of_input())
+        self.errors
+            .iter()
+            .any(StreamError::is_unexpected_end_of_input)
     }
 
     #[inline]
@@ -749,6 +757,8 @@ where
 impl<S> StreamOnce for Stream<S>
 where
     S: StreamOnce + Positioned,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     type Item = S::Item;
     type Range = S::Range;
@@ -768,6 +778,8 @@ where
 impl<S> RangeStreamOnce for Stream<S>
 where
     S: RangeStream,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
@@ -799,6 +811,8 @@ where
 impl<S> Positioned for Stream<S>
 where
     S: StreamOnce + Positioned,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     fn position(&self) -> S::Position {
         self.0.position()
@@ -808,6 +822,8 @@ where
 impl<S> FullRangeStream for Stream<S>
 where
     S: FullRangeStream,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     fn range(&self) -> Self::Range {
         self.0.range()

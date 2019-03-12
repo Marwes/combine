@@ -149,6 +149,8 @@ pub trait Parser {
             Position = I::Position,
         >,
         I::Position: Default,
+        I::Item: PartialEq,
+        I::Range: PartialEq,
         Self: Sized + Parser<Input = ::easy::Stream<I>>,
     {
         let input = ::easy::Stream(input);
