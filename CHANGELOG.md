@@ -1,3 +1,13 @@
+<a name="3.8.0"></a>
+## 3.8.0 (2019-03-12)
+
+
+#### Features
+
+*   Add take_fn and take_until_bytes ([5f560780](https://github.com/Marwes/combine/commit/5f5607806f8e133485c990419a03de8c7531fa14))
+
+
+
 <a name="3.6.7"></a>
 ### 3.6.7 (2019-02-13)
 
