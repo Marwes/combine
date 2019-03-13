@@ -527,14 +527,32 @@ where
     TakeUntilRange(r)
 }
 
+#[derive(Debug, PartialEq)]
+pub enum TakeRange {
+    /// Found the pattern at this offset
+    Found(usize),
+    /// Did not find the pattern but the parser can skip ahead to this offset.
+    NotFound(usize),
+}
+
+impl From<Option<usize>> for TakeRange {
+    fn from(opt: Option<usize>) -> TakeRange {
+        match opt {
+            Some(i) => TakeRange::Found(i),
+            None => TakeRange::NotFound(0),
+        }
+    }
+}
+
 pub struct TakeFn<F, I> {
     searcher: F,
     _marker: PhantomData<fn(I)>,
 }
 
-impl<F, I> Parser for TakeFn<F, I>
+impl<F, R, I> Parser for TakeFn<F, I>
 where
-    F: FnMut(I::Range) -> Option<usize>,
+    F: FnMut(I::Range) -> R,
+    R: Into<TakeRange>,
     I: RangeStream + FullRangeStream,
     I::Range: ::stream::Range,
 {
@@ -553,25 +571,32 @@ where
     where
         M: ParseMode,
     {
+        let checkpoint = input.checkpoint();
+
         if mode.is_first() {
             *offset = 0;
         } else {
             let _ = input.uncons_range(*offset);
         }
 
-        match (self.searcher)(input.range()) {
-            Some(i) => {
+        match (self.searcher)(input.range()).into() {
+            TakeRange::Found(i) => {
+                input.reset(checkpoint);
                 let result = uncons_range(input, *offset + i);
                 if result.is_ok() {
                     *offset = 0;
                 }
                 result
             }
-            None => {
+            TakeRange::NotFound(next_offset) => {
+                *offset = next_offset;
+
                 let range = input.range();
-                *offset = range.len();
                 let _ = input.uncons_range(range.len());
-                let err = I::Error::from_error(input.position(), StreamError::end_of_input());
+                let position = input.position();
+                input.reset(checkpoint);
+
+                let err = I::Error::from_error(position, StreamError::end_of_input());
                 if !input.is_partial() && range.is_empty() {
                     EmptyErr(err.into())
                 } else {
@@ -583,13 +608,18 @@ where
 }
 
 /// Searches the entire range using `searcher` and then consumes a range of `Some(n)`.
-/// If `f` can not find anything in the range it must return `None` which indicates an end of input error.
+/// If `f` can not find anything in the range it must return `None/NotFound` which indicates an end of input error.
 ///
-/// See [`take_until_bytes`](../byte/fn.take_until_bytes.html) for a usecase.   
+/// If partial parsing is used the `TakeRange` enum can be returned instead of `Option`. By
+/// returning `TakeRange::NotFound(n)` it indicates that the input can skip ahead until `n`
+/// when parsing is next resumed.
+///
+/// See [`take_until_bytes`](../byte/fn.take_until_bytes.html) for a usecase.
 #[inline(always)]
-pub fn take_fn<F, I>(searcher: F) -> TakeFn<F, I>
+pub fn take_fn<F, R, I>(searcher: F) -> TakeFn<F, I>
 where
-    F: FnMut(I::Range) -> Option<usize>,
+    F: FnMut(I::Range) -> R,
+    R: Into<TakeRange>,
     I: FullRangeStream,
     I::Range: ::stream::Range,
 {

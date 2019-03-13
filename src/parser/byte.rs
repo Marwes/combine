@@ -7,7 +7,7 @@ use self::ascii::AsciiChar;
 
 use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
 use error::{ConsumedResult, Info, ParseError, Tracked};
-use parser::range::take_fn;
+use parser::range::{take_fn, TakeRange};
 use parser::sequence::With;
 use stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
 use Parser;
@@ -410,7 +410,13 @@ macro_rules! take_until {
                     I::Range: AsRef<[u8]> + ::stream::Range,
                 ]
             {
-                take_fn(move |haystack: I::Range| ::memchr::$memchr( $(*$param),+ , haystack.as_ref()))
+                take_fn(move |haystack: I::Range| {
+                    let haystack = haystack.as_ref();
+                    match ::memchr::$memchr( $(*$param),+ , haystack) {
+                        Some(i) => TakeRange::Found(i),
+                        None => TakeRange::NotFound(haystack.len()),
+                    }
+                })
             }
         }
     }
@@ -501,7 +507,13 @@ where [
     I::Range: AsRef<[u8]> + ::stream::Range,
 ]
 {
-    take_fn(move |haystack: I::Range| memslice(needle, haystack.as_ref()))
+    take_fn(move |haystack: I::Range| {
+        let haystack = haystack.as_ref();
+        match memslice(needle, haystack) {
+            Some(i) => TakeRange::Found(i),
+            None => TakeRange::NotFound(haystack.len().saturating_sub(needle.len() - 1)),
+        }
+    })
 }
 
 }
