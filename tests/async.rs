@@ -29,10 +29,11 @@ use combine::combinator::{
     skip_many1, AnyPartialState, AnySendPartialState,
 };
 use combine::error::{ParseError, StreamError};
+use combine::parser::byte::take_until_bytes;
 use combine::parser::char::{char, digit, letter};
 use combine::parser::item::item;
 use combine::parser::range::{
-    self, range, recognize_with_value, take, take_until_range, take_while, take_while1,
+    self, range, recognize_with_value, take, take_fn, take_until_range, take_while, take_while1,
 };
 use combine::parser::repeat;
 use combine::stream::{easy, RangeStream, StreamErrorFor};
@@ -449,6 +450,50 @@ quickcheck! {
                     "Content-Length: {}\r\n\r\n{}\r\n",
                     s,
                     ::std::iter::repeat('a').take(*s).collect::<String>()
+                )
+            })
+            .collect();
+
+        let result = run_decoder(input.as_bytes(), seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), sizes);
+    }
+
+    fn take_fn_test(sizes: Vec<usize>, seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, usize,
+            take_fn(|s: &str| s.find("\r\n")).map(|bytes: &str| bytes.parse::<usize>().unwrap()).skip(take(2))
+        }
+
+        let input : String = sizes
+            .iter()
+            .map(|s| {
+                format!(
+                    "{}\r\n",
+                    s,
+                )
+            })
+            .collect();
+
+        let result = run_decoder(input.as_bytes(), seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), sizes);
+    }
+
+    fn take_until_bytes_test(sizes: Vec<usize>, seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, usize,
+            take_until_bytes("\r\n".as_bytes())
+                .map(|bytes: &str| bytes.parse::<usize>().unwrap())
+                .skip(take(2))
+        }
+
+        let input : String = sizes
+            .iter()
+            .map(|s| {
+                format!(
+                    "{}\r\n",
+                    s,
                 )
             })
             .collect();
