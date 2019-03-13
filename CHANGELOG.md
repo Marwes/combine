@@ -1,3 +1,13 @@
+<a name="3.8.1"></a>
+### 3.8.1 (2019-03-13)
+
+
+#### Bug Fixes
+
+*   Handle partial parsing in `take_fn/take_until*` ([bae1e3bb](https://github.com/Marwes/combine/commit/bae1e3bbe476fb3fe7c4ff6cc375e50f3d9cfd45))
+
+
+
 <a name="3.8.0"></a>
 ## 3.8.0 (2019-03-12)
 
