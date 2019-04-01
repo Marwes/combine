@@ -76,12 +76,15 @@ https://github.com/Marwes/combine/issues/73 contains discussion and links to com
 * Toml https://github.com/ordian/toml_edit
 * Maker Interchange Format https://github.com/aidanhs/frametool (Uses combine as a lexer)
 * Javascript https://github.com/freemasen/ress
+* JPEG Metadata https://github.com/vadixidav/exifsd
 
 ### Miscellaneous
 
 * Template language https://github.com/tailhook/trimmer
 * Code exercises https://github.com/dgel/adventOfCode2017
-* Programming language https://github.com/MaikKlein/spire-lang
+* Programming language
+  * https://github.com/MaikKlein/spire-lang
+  * https://github.com/vadixidav/typeflow/tree/master/lang
 * Query parser (+ more) https://github.com/mozilla/mentat
 * Query parser https://github.com/tantivy-search/tantivy
 
