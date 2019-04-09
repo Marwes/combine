@@ -31,15 +31,18 @@ unreachable = "1.0.0"
 regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 
+tokio-codec-0-1 = { package = "tokio-codec", version = "0.1", optional = true }
+bytes-0-4 = { package = "bytes", version = "0.4", optional = true }
+
 [dev-dependencies]
 criterion = "0.2"
 lazy_static = "1.0"
 
 futures = "0.1"
 tokio-io = "0.1"
-tokio-codec = "0.1"
+tokio-codec-0-1 = { package = "tokio-codec", version = "0.1" }
+bytes-0-4 = { package = "bytes", version = "0.4" }
 partial-io = { version = "0.3", features = ["tokio", "quickcheck"] }
-bytes = "0.4"
 quickcheck = "0.6"
 quick-error = "1.0"
 

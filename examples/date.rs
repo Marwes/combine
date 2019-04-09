@@ -55,11 +55,11 @@ pub struct DateTime {
     pub time: Time,
 }
 
-fn two_digits<I>() -> impl Parser<Input = I, Output = i32>
+fn two_digits<Input>() -> impl Parser< Input, Output = i32>
 where
-    I: Stream<Item = char>,
+    Input: Stream<Item = char>,
     // Necessary due to rust-lang/rust#24159
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (digit(), digit()).map(|(x, y): (char, char)| {
         let x = x.to_digit(10).expect("digit");
@@ -73,10 +73,10 @@ where
 /// -06:30
 /// -01
 /// Z
-fn time_zone<I>() -> impl Parser<Input = I, Output = i32>
+fn time_zone<Input>() -> impl Parser< Input, Output = i32>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let utc = char('Z').map(|_| 0);
     let offset = (
@@ -98,10 +98,10 @@ where
 
 /// Parses a date
 /// 2010-01-30
-fn date<I>() -> impl Parser<Input = I, Output = Date>
+fn date<Input>() -> impl Parser< Input, Output = Date>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (
         many::<String, _>(digit()),
@@ -122,10 +122,10 @@ where
 
 /// Parses a time
 /// 12:30:02
-fn time<I>() -> impl Parser<Input = I, Output = Time>
+fn time<Input>() -> impl Parser< Input, Output = Time>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (
         two_digits(),
@@ -148,10 +148,10 @@ where
 
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
-fn date_time<I>() -> impl Parser<Input = I, Output = DateTime>
+fn date_time<Input>() -> impl Parser< Input, Output = DateTime>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (date(), char('T'), time()).map(|(date, _, time)| DateTime {
         date: date,

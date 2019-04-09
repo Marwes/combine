@@ -16,23 +16,22 @@ use crate::error::ParseResult::*;
 
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
-impl<I, O, P> Parser for NotFollowedBy<P>
+impl<Input, O, P> Parser<Input> for NotFollowedBy<P>
 where
-    I: Stream,
-    P: Parser<Input = I, Output = O>,
+    Input: Stream,
+    P: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = ();
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -40,21 +39,17 @@ where
         let result = self.0.parse_mode(mode, input, state);
         ctry!(input.reset(checkpoint).consumed());
         match result {
-            ConsumedOk(_) | EmptyOk(_) => EmptyErr(I::Error::empty(input.position()).into()),
+            ConsumedOk(_) | EmptyOk(_) => EmptyErr(Input::Error::empty(input.position()).into()),
             ConsumedErr(_) | EmptyErr(_) => EmptyOk(()),
         }
     }
 
     #[inline]
-    fn add_error(&mut self, _errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {}
+    fn add_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
-    fn add_consumed_expected_error(
-        &mut self,
-        _error: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
-    }
+    fn add_consumed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
-    forward_parser!(parser_count, 0);
+    forward_parser!(Input, parser_count, 0);
 }
 
 /// Succeeds only if `parser` fails.
@@ -74,10 +69,11 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn not_followed_by<P>(parser: P) -> NotFollowedBy<P>
+pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
 where
-    P: Parser,
-    P::Output: Into<Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>>,
+    Input: Stream,
+    P: Parser<Input>,
+    P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
 {
     NotFollowedBy(parser)
 }
@@ -88,31 +84,27 @@ where
  */
 #[derive(Copy, Clone)]
 pub struct Try<P>(P);
-impl<I, O, P> Parser for Try<P>
+impl<Input, O, P> Parser<Input> for Try<P>
 where
-    I: Stream,
-    P: Parser<Input = I, Output = O>,
+    Input: Stream,
+    P: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = O;
     type PartialState = P::PartialState;
 
     #[inline]
-    fn parse_stream(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         self.parse_lazy(input)
     }
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_consumed_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -123,9 +115,9 @@ where
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -141,7 +133,7 @@ where
         }
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
@@ -163,9 +155,10 @@ where
 ///
 /// `attempt` is an alias for [`try`](fn.try.html). It was added because [`try`](fn.try.html) is now a keyword in Rust 2018.
 #[inline(always)]
-pub fn attempt<P>(p: P) -> Try<P>
+pub fn attempt<Input, P>(p: P) -> Try<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
     Try(p)
 }
@@ -173,17 +166,16 @@ where
 #[derive(Copy, Clone)]
 pub struct LookAhead<P>(P);
 
-impl<I, O, P> Parser for LookAhead<P>
+impl<Input, O, P> Parser<Input> for LookAhead<P>
 where
-    I: Stream,
-    P: Parser<Input = I, Output = O>,
+    Input: Stream,
+    P: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         let before = input.checkpoint();
         let result = self.0.parse_lazy(input);
         ctry!(input.reset(before).consumed());
@@ -191,7 +183,7 @@ where
         EmptyOk(o)
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// `look_ahead(p)` acts as `p` but doesn't consume input on success.
@@ -211,35 +203,33 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn look_ahead<P>(p: P) -> LookAhead<P>
+pub fn look_ahead<Input, P>(p: P) -> LookAhead<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
     LookAhead(p)
 }
 
 #[derive(Copy, Clone)]
-pub struct Map<P, F>(P, F)
+pub struct Map<P, F>(P, F);
+impl<Input, A, B, P, F> Parser<Input> for Map<P, F>
 where
-    P: Parser;
-impl<I, A, B, P, F> Parser for Map<P, F>
-where
-    I: Stream,
-    P: Parser<Input = I, Output = A>,
+    Input: Stream,
+    P: Parser<Input, Output = A>,
     F: FnMut(A) -> B,
 {
-    type Input = I;
     type Output = B;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -251,16 +241,17 @@ where
         }
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.map(f)`].
 ///
 /// [`p.map(f)`]: ../parser/trait.Parser.html#method.map
 #[inline(always)]
-pub fn map<P, F, B>(p: P, f: F) -> Map<P, F>
+pub fn map<Input, P, F, B>(p: P, f: F) -> Map<P, F>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     F: FnMut(P::Output) -> B,
 {
     Map(p, f)
@@ -268,24 +259,23 @@ where
 
 #[derive(Copy, Clone)]
 pub struct FlatMap<P, F>(P, F);
-impl<I, A, B, P, F> Parser for FlatMap<P, F>
+impl<Input, A, B, P, F> Parser<Input> for FlatMap<P, F>
 where
-    I: Stream,
-    P: Parser<Input = I, Output = A>,
-    F: FnMut(A) -> Result<B, I::Error>,
+    Input: Stream,
+    P: Parser<Input, Output = A>,
+    F: FnMut(A) -> Result<B, Input::Error>,
 {
-    type Input = I;
     type Output = B;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -303,42 +293,42 @@ where
         }
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.flat_map(f)`].
 ///
 /// [`p.flat_map(f)`]: ../parser/trait.Parser.html#method.flat_map
 #[inline(always)]
-pub fn flat_map<P, F, B>(p: P, f: F) -> FlatMap<P, F>
+pub fn flat_map<Input, P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
-    P: Parser,
-    F: FnMut(P::Output) -> Result<B, <P::Input as StreamOnce>::Error>,
+    Input: Stream,
+    P: Parser<Input>,
+    F: FnMut(P::Output) -> Result<B, <Input as StreamOnce>::Error>,
 {
     FlatMap(p, f)
 }
 
 #[derive(Copy, Clone)]
 pub struct AndThen<P, F>(P, F);
-impl<P, F, O, E, I> Parser for AndThen<P, F>
+impl<Input, P, F, O, E> Parser<Input> for AndThen<P, F>
 where
-    I: Stream,
-    P: Parser<Input = I>,
+    Input: Stream,
+    P: Parser<Input>,
     F: FnMut(P::Output) -> Result<O, E>,
-    E: Into<<I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    E: Into<<Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    type Input = P::Input;
     type Output = O;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -348,7 +338,7 @@ where
             EmptyOk(o) => match (self.1)(o) {
                 Ok(o) => EmptyOk(o),
                 Err(err) => {
-                    let err = <Self::Input as StreamOnce>::Error::from_error(position, err.into());
+                    let err = <Input as StreamOnce>::Error::from_error(position, err.into());
 
                     if input.is_partial() && input_at_eof(input) {
                         ctry!(input.reset(checkpoint).consumed());
@@ -365,7 +355,7 @@ where
                         ctry!(input.reset(checkpoint).consumed());
                     }
                     ConsumedErr(
-                        <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
+                        <Input as StreamOnce>::Error::from_error(position, err.into()).into(),
                     )
                 }
             },
@@ -374,19 +364,19 @@ where
         }
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.and_then(f)`].
 ///
 /// [`p.and_then(f)`]: ../parser/trait.Parser.html#method.and_then
 #[inline(always)]
-pub fn and_then<P, F, O, E, I>(p: P, f: F) -> AndThen<P, F>
+pub fn and_then<Input, P, F, O, E>(p: P, f: F) -> AndThen<P, F>
 where
-    P: Parser<Input = I>,
+    P: Parser<Input>,
     F: FnMut(P::Output) -> Result<O, E>,
-    I: Stream,
-    E: Into<<I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError>,
+    Input: Stream,
+    E: Into<<Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError>,
 {
     AndThen(p, f)
 }
@@ -394,18 +384,14 @@ where
 #[derive(Copy, Clone)]
 pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
 
-impl<F, P> Recognize<F, P>
-where
-    P: Parser,
-    F: Default + Extend<<P::Input as StreamOnce>::Item>,
-{
+impl<F, P> Recognize<F, P> {
     #[inline]
-    fn recognize_result(
+    fn recognize_result<Input>(
         elements: &mut F,
-        before: <<Self as Parser>::Input as ResetStream>::Checkpoint,
-        input: &mut <Self as Parser>::Input,
-        result: ParseResult<P::Output, <P::Input as StreamOnce>::Error>,
-    ) -> ParseResult<F, <P::Input as StreamOnce>::Error> {
+        before: <Input as ResetStream>::Checkpoint,
+        input: &mut Input,
+        result: ParseResult<P::Output, <Input as StreamOnce>::Error>,
+    ) -> ParseResult<F, <Input as StreamOnce>::Error> {
         match result {
             EmptyOk(_) => {
                 let last_position = input.position();
@@ -416,7 +402,7 @@ where
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
                             return EmptyErr(
-                                <P::Input as StreamOnce>::Error::from_error(input.position(), err)
+                                <Input as StreamOnce>::Error::from_error(input.position(), err)
                                     .into(),
                             );
                         }
@@ -432,7 +418,7 @@ where
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
+                            return ConsumedErr(<Input as StreamOnce>::Error::from_error(
                                 input.position(),
                                 err,
                             ));
@@ -449,7 +435,7 @@ where
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(<P::Input as StreamOnce>::Error::from_error(
+                            return ConsumedErr(<Input as StreamOnce>::Error::from_error(
                                 input.position(),
                                 err,
                             ));
@@ -463,22 +449,22 @@ where
     }
 }
 
-impl<P, F> Parser for Recognize<F, P>
+impl<Input, P, F> Parser<Input> for Recognize<F, P>
 where
-    P: Parser,
-    F: Default + Extend<<P::Input as StreamOnce>::Item>,
+    Input: Stream,
+    P: Parser<Input>,
+    F: Default + Extend<<Input as StreamOnce>::Item>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (F, P::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -490,13 +476,13 @@ where
     }
 
     #[inline]
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
 
 /// Constructs a parser which returns the tokens parsed by `parser` accumulated in
-/// `F: Extend<P::Input::Item>` instead of `P::Output`.
+/// `F: Extend<Input::Item>` instead of `P::Output`.
 ///
 /// ```
 /// use combine::Parser;
@@ -508,42 +494,43 @@ where
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
 /// ```
 #[inline(always)]
-pub fn recognize<F, P>(parser: P) -> Recognize<F, P>
+pub fn recognize<Input, F, P>(parser: P) -> Recognize<F, P>
 where
-    P: Parser,
-    F: Default + Extend<<P::Input as StreamOnce>::Item>,
+    Input: Stream,
+    P: Parser<Input>,
+    F: Default + Extend<<Input as StreamOnce>::Item>,
 {
     Recognize(parser, PhantomData)
 }
 
-impl<L, R> Parser for Either<L, R>
+impl<Input, L, R> Parser<Input> for Either<L, R>
 where
-    L: Parser,
-    R: Parser<Input = L::Input, Output = L::Output>,
+    Input: Stream,
+    L: Parser<Input>,
+    R: Parser<Input, Output = L::Output>,
 {
-    type Input = L::Input;
     type Output = L::Output;
     type PartialState = Option<Either<L::PartialState, R::PartialState>>;
 
     #[inline]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         match *self {
             Either::Left(ref mut x) => x.parse_lazy(input),
             Either::Right(ref mut x) => x.parse_lazy(input),
         }
     }
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -578,7 +565,7 @@ where
     }
 
     #[inline]
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         match *self {
             Either::Left(ref mut x) => x.add_error(error),
             Either::Right(ref mut x) => x.add_error(error),
@@ -588,86 +575,89 @@ where
 
 pub struct NoPartial<P>(P);
 
-impl<P> Parser for NoPartial<P>
+impl<Input, P> Parser<Input> for NoPartial<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
-    type Input = <P as Parser>::Input;
-    type Output = <P as Parser>::Output;
+    type Output = <P as Parser<Input>>::Output;
     type PartialState = ();
 
     #[inline(always)]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         self.0.parse_lazy(input)
     }
 
     parse_mode!();
+    parse_mode!(Input);
     #[inline(always)]
     fn parse_mode_impl<M>(
         &mut self,
         _mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         _state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
         self.0.parse_lazy(input)
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[inline(always)]
-pub fn no_partial<P>(p: P) -> NoPartial<P>
+pub fn no_partial<Input, P>(p: P) -> NoPartial<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
     NoPartial(p)
 }
 
 #[derive(Copy, Clone)]
 pub struct Ignore<P>(P);
-impl<P> Parser for Ignore<P>
+impl<Input, P> Parser<Input> for Ignore<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = ();
     type PartialState = P::PartialState;
 
     #[inline(always)]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         self.0.parse_lazy(input).map(|_| ())
     }
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline(always)]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
         self.0.parse_mode(mode, input, state).map(|_| ())
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[doc(hidden)]
-pub fn ignore<P>(p: P) -> Ignore<P>
+pub fn ignore<Input, P>(p: P) -> Ignore<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
     Ignore(p)
 }
@@ -680,31 +670,31 @@ pub struct AnyPartialState(Option<Box<::std::any::Any>>);
 pub struct AnyPartialStateParser<P>(P);
 
 #[cfg(feature = "std")]
-impl<P> Parser for AnyPartialStateParser<P>
+impl<Input, P> Parser<Input> for AnyPartialStateParser<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     P::PartialState: 'static,
 {
-    type Input = P::Input;
     type Output = P::Output;
     type PartialState = AnyPartialState;
 
     #[inline]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         self.0.parse_lazy(input)
     }
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -731,7 +721,7 @@ where
         result
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
@@ -748,8 +738,8 @@ where
 ///
 /// parser! {
 ///     type PartialState = AnyPartialState;
-///     fn example[I]()(I) -> (char, char)
-///     where [ I: Stream<Item = char> ]
+///     fn example[Input]()(Input) -> (char, char)
+///     where [ Input: Stream<Item = char> ]
 ///     {
 ///         any_partial_state((letter(), letter()))
 ///     }
@@ -763,9 +753,10 @@ where
 /// # }
 /// ```
 #[cfg(feature = "std")]
-pub fn any_partial_state<P>(p: P) -> AnyPartialStateParser<P>
+pub fn any_partial_state<Input, P>(p: P) -> AnyPartialStateParser<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     P::PartialState: 'static,
 {
     AnyPartialStateParser(p)
@@ -779,31 +770,31 @@ pub struct AnySendPartialState(Option<Box<::std::any::Any + Send>>);
 pub struct AnySendPartialStateParser<P>(P);
 
 #[cfg(feature = "std")]
-impl<P> Parser for AnySendPartialStateParser<P>
+impl<Input, P> Parser<Input> for AnySendPartialStateParser<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     P::PartialState: Send + 'static,
 {
-    type Input = P::Input;
     type Output = P::Output;
     type PartialState = AnySendPartialState;
 
     #[inline]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         self.0.parse_lazy(input)
     }
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -830,7 +821,7 @@ where
         result
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
@@ -847,8 +838,8 @@ where
 ///
 /// parser! {
 ///     type PartialState = AnySendPartialState;
-///     fn example[I]()(I) -> (char, char)
-///     where [ I: Stream<Item = char> ]
+///     fn example[Input]()(Input) -> (char, char)
+///     where [ Input: Stream<Item = char> ]
 ///     {
 ///         any_send_partial_state((letter(), letter()))
 ///     }
@@ -862,9 +853,10 @@ where
 /// # }
 /// ```
 #[cfg(feature = "std")]
-pub fn any_send_partial_state<P>(p: P) -> AnySendPartialStateParser<P>
+pub fn any_send_partial_state<Input, P>(p: P) -> AnySendPartialStateParser<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     P::PartialState: Send + 'static,
 {
     AnySendPartialStateParser(p)
@@ -872,35 +864,31 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Lazy<P>(P);
-impl<I, O, P, R> Parser for Lazy<P>
+impl<Input, O, P, R> Parser<Input> for Lazy<P>
 where
-    I: Stream,
+    Input: Stream,
     P: FnMut() -> R,
-    R: Parser<Input = I, Output = O>,
+    R: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = O;
     type PartialState = R::PartialState;
 
-    fn parse_stream(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.0)().parse_stream(input)
     }
 
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.0)().parse_lazy(input)
     }
 
-    parse_mode!();
+    parse_mode!(Input);
 
     fn parse_consumed_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -910,23 +898,20 @@ where
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
         (self.0)().parse_mode_impl(mode, input, state)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         (self.0)().add_error(errors);
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         (self.0)().add_consumed_expected_error(errors);
     }
 }
@@ -940,10 +925,11 @@ where
 ///
 /// [`factory`]: fn.factory.html
 #[inline(always)]
-pub fn lazy<P, R>(p: P) -> Lazy<P>
+pub fn lazy<Input, P, R>(p: P) -> Lazy<P>
 where
+    Input: Stream,
     P: FnMut() -> R,
-    R: Parser,
+    R: Parser<Input>,
 {
     Lazy(p)
 }
@@ -964,24 +950,23 @@ where
     }
 }
 
-impl<I, O, P, R> Parser for Factory<P, R>
+impl<Input, O, P, R> Parser<Input> for Factory<P, R>
 where
-    I: Stream,
+    Input: Stream,
     P: FnMut() -> R,
-    R: Parser<Input = I, Output = O>,
+    R: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = O;
     type PartialState = R::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
 
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -993,14 +978,11 @@ where
         self.parser().parse_mode_impl(mode, input, state)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser().add_error(errors);
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser().add_consumed_expected_error(errors);
     }
 }
@@ -1022,10 +1004,11 @@ where
 /// assert_eq!(parser.parse("1a2b3cd"), Ok(("1a2b3c".to_string(), "d")));
 /// ```
 #[inline(always)]
-pub fn factory<P, R>(p: P) -> Factory<P, R>
+pub fn factory<Input, P, R>(p: P) -> Factory<P, R>
 where
+    Input: Stream,
     P: FnMut() -> R,
-    R: Parser,
+    R: Parser<Input>,
 {
     Factory(p, None)
 }
@@ -1122,9 +1105,9 @@ type PartialState = P::PartialState;
 /// assert_eq!(result, Ok((123.45f64, &b"\r\n"[..])));
 /// # }
 /// ```
-pub fn from_str[O, P](parser: P)(P::Input) -> O
+pub fn from_str[Input, O, P](parser: P)(Input) -> O
 where [
-    P: Parser,
+    P: Parser<Input>,
     P::Output: StrLike,
     O: str::FromStr,
     O::Err: fmt::Display,
@@ -1132,47 +1115,43 @@ where [
 {
     parser.and_then(|r| {
         r.from_utf8()
-            .map_err(|_| StreamErrorFor::<P::Input>::expected_static_message("UTF-8"))
-            .and_then(|s| s.parse().map_err(StreamErrorFor::<P::Input>::message_message))
+            .map_err(|_| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
+            .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_message))
     })
 }
 }
 
 #[derive(Copy, Clone)]
-pub struct Opaque<F, I, O, S>(F, PhantomData<fn(&mut I, &mut S) -> O>);
-impl<F, I, O, S> Parser for Opaque<F, I, O, S>
+pub struct Opaque<F, Input, O, S>(F, PhantomData<fn(&mut Input, &mut S) -> O>);
+impl<Input, F, O, S> Parser<Input> for Opaque<F, Input, O, S>
 where
-    I: Stream,
+    Input: Stream,
     S: Default,
-    F: FnMut(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)),
+    F: FnMut(&mut FnMut(&mut Parser<Input, Output = O, PartialState = S>)),
 {
-    type Input = I;
     type Output = O;
     type PartialState = S;
 
-    fn parse_stream(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         let mut x = None;
         (self.0)(&mut |parser| x = Some(parser.parse_stream(input)));
         x.expect("Parser")
     }
 
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         let mut x = None;
         (self.0)(&mut |parser| x = Some(parser.parse_lazy(input)));
         x.expect("Parser")
     }
 
-    parse_mode!();
+    parse_mode!(Input);
 
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -1187,22 +1166,19 @@ where
         x.expect("Parser")
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         (self.0)(&mut |parser| parser.add_error(errors));
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         (self.0)(&mut |parser| parser.add_consumed_expected_error(errors));
     }
 }
 
 /// Alias over `Opaque` where the function can be a plain function pointer (does not need to
 /// capture any values)
-pub type FnOpaque<I, O, S = ()> =
-    Opaque<fn(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)), I, O, S>;
+pub type FnOpaque<Input, O, S = ()> =
+    Opaque<fn(&mut FnMut(&mut Parser<Input, Output = O, PartialState = S>)), Input, O, S>;
 
 /// Creates a parser from a function which takes a function that are given the actual parser.
 /// Though convoluted this makes it possible to hide the concrete parser type without `Box` or
@@ -1229,10 +1205,10 @@ pub type FnOpaque<I, O, S = ()> =
 ///     Pair(Box<Expr>, Box<Expr>),
 /// }
 ///
-/// fn expr<I>() -> FnOpaque<I, Expr>
+/// fn expr<Input>() -> FnOpaque<Input, Expr>
 /// where
-///     I: Stream<Item = char>,
-///     I::Error: ParseError<I::Item, I::Range, I::Position>,
+///     Input: Stream<Item = char>,
+///     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 /// {
 ///     opaque!(
 ///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
@@ -1256,11 +1232,11 @@ pub type FnOpaque<I, O, S = ()> =
 ///
 /// [`parser`]: ../function/fn.parser.html
 /// [`parser!`]: ../../macro.parser.html
-pub fn opaque<F, I, O, S>(f: F) -> Opaque<F, I, O, S>
+pub fn opaque<Input, F, O, S>(f: F) -> Opaque<F, Input, O, S>
 where
-    I: Stream,
+    Input: Stream,
     S: Default,
-    F: FnMut(&mut FnMut(&mut Parser<Input = I, Output = O, PartialState = S>)),
+    F: FnMut(&mut FnMut(&mut Parser<Input, Output = O, PartialState = S>)),
 {
     Opaque(f, PhantomData)
 }
@@ -1275,9 +1251,65 @@ macro_rules! opaque {
     };
     ($e: expr,) => {
         $crate::parser::combinator::opaque(
-            move |f: &mut FnMut(&mut $crate::Parser<Input = _, Output = _, PartialState = _>)| {
-                f(&mut $e)
-            },
+            move |f: &mut FnMut(&mut $crate::Parser<_, Output = _, PartialState = _>)| f(&mut $e),
         )
     };
+}
+
+pub struct InputConverter<Input, InputInner, P>
+where
+    Input: Stream,
+    InputInner: Stream,
+{
+    parser: P,
+    convert: fn(Input) -> Result<InputInner, Input::Error>,
+    convert_error: fn(InputInner::Error) -> Input::Error,
+    _marker: PhantomData<fn(Input, InputInner)>,
+}
+impl<Input, InputInner, P> Parser<Input> for InputConverter<Input, InputInner, P>
+where
+    Input: Stream + Clone,
+    InputInner: Stream,
+    P: Parser<InputInner>,
+{
+    type Output = P::Output;
+    type PartialState = P::PartialState;
+
+    parse_mode!(Input);
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Input>
+    where
+        M: ParseMode,
+    {
+        let mut input_inner = match (self.convert)(input.clone()) {
+            Ok(x) => x,
+            Err(err) => return EmptyErr(err.into()),
+        };
+        self.parser
+            .parse_mode(mode, &mut input_inner, state)
+            .map_err(|err| (self.convert_error)(err))
+    }
+}
+
+pub fn input_converter<Input, InputInner, P>(
+    parser: P,
+    convert: fn(Input) -> Result<InputInner, Input::Error>,
+    convert_error: fn(InputInner::Error) -> Input::Error,
+) -> InputConverter<Input, InputInner, P>
+where
+    Input: Stream + Clone,
+    InputInner: Stream,
+    P: Parser<InputInner>,
+{
+    InputConverter {
+        parser,
+        convert,
+        convert_error,
+        _marker: PhantomData,
+    }
 }

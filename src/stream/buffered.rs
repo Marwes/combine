@@ -23,19 +23,19 @@ use crate::stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamO
 /// parser.easy_parse(buffered::Stream::new(..));
 /// ```
 #[derive(Debug, PartialEq)]
-pub struct Stream<I>
+pub struct Stream<Input>
 where
-    I: StreamOnce + Positioned,
+    Input: StreamOnce + Positioned,
 {
     offset: usize,
-    iter: I,
+    iter: Input,
     buffer_offset: usize,
-    buffer: VecDeque<(I::Item, I::Position)>,
+    buffer: VecDeque<(Input::Item, Input::Position)>,
 }
 
-impl<I> ResetStream for Stream<I>
+impl<Input> Resetable for Stream<Input>
 where
-    I: Positioned,
+    Input: Positioned,
 {
     type Checkpoint = usize;
 
@@ -51,21 +51,21 @@ where
                 StreamErrorFor::<Self>::message_static_message("Backtracked to far".into()),
             ))
         } else {
-            self.offset = checkpoint;
+        self.offset = checkpoint;
             Ok(())
-        }
+    }
     }
 }
 
-impl<I> Stream<I>
+impl<Input> Stream<Input>
 where
-    I: StreamOnce + Positioned,
-    I::Position: Clone,
-    I::Item: Clone,
+    Input: StreamOnce + Positioned,
+    Input::Position: Clone,
+    Input::Item: Clone,
 {
-    /// Constructs a new `Stream` from a `StreamOnce` instance with a `lookahead`
+    /// Constructs a new `BufferedStream` from a `StreamOnce` instance with a `lookahead`
     /// number of elements that can be stored in the buffer.
-    pub fn new(iter: I, lookahead: usize) -> Stream<I> {
+    pub fn new(iter: Input, lookahead: usize) -> Stream<Input> {
         Stream {
             offset: 0,
             iter: iter,
@@ -75,9 +75,9 @@ where
     }
 }
 
-impl<I> Positioned for Stream<I>
+impl<Input> Positioned for Stream<Input>
 where
-    I: StreamOnce + Positioned,
+    Input: StreamOnce + Positioned,
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
@@ -97,17 +97,18 @@ where
     }
 }
 
-impl<I> StreamOnce for Stream<I>
+impl<Input> StreamOnce for Stream<Input>
 where
-    I: StreamOnce + Positioned,
+    Input: StreamOnce + Positioned,
+    Input::Item: Clone + PartialEq,
 {
-    type Item = I::Item;
-    type Range = I::Range;
-    type Position = I::Position;
-    type Error = I::Error;
+    type Item = Input::Item;
+    type Range = Input::Range;
+    type Position = Input::Position;
+    type Error = Input::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
             let item = r#try!(self.iter.uncons());

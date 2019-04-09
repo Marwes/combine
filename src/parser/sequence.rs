@@ -142,9 +142,9 @@ macro_rules! tuple_parser {
             fn parse_mode_impl<M>(
                 &mut self,
                 mut mode: M,
-                input: &mut Self::Input,
+                input: &mut Input,
                 state: &mut Self::PartialState,
-            ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+            ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
             where
                 M: ParseMode,
             {
@@ -230,7 +230,7 @@ macro_rules! tuple_parser {
             }
 
             #[inline(always)]
-            fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
                 let (ref mut $h, $(ref mut $id),*) = *self;
                 let prev = errors.offset;
                 $h.add_error(errors);
@@ -266,7 +266,7 @@ macro_rules! tuple_parser {
                 )*
             }
 
-            fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+            fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
                 #[allow(unused_variables)]
                 let (ref mut $h, $(ref mut $id),*) = *self;
                 last_ident!($h $(, $id)*).add_consumed_expected_error(errors)
@@ -426,8 +426,8 @@ where
     #[inline]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         self.0.parse_lazy(input).map(|(_, b)| b)
     }
 
@@ -436,9 +436,9 @@ where
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -480,9 +480,9 @@ where
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -552,9 +552,9 @@ where
     fn parse_mode_impl<M>(
         &mut self,
         mut mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -608,7 +608,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors);
     }
 }
@@ -643,9 +643,9 @@ where
     fn parse_mode_impl<M>(
         &mut self,
         mut mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -696,7 +696,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors);
     }
 }

@@ -80,23 +80,22 @@ pub struct CountMinMax<F, P> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<P, F> Parser for CountMinMax<F, P>
+impl<Input, P, F> Parser<Input> for CountMinMax<F, P>
 where
     P: Parser,
     F: Extend<P::Output> + Default,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (usize, F, P::PartialState);
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -122,7 +121,7 @@ where
         }
     }
 
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser.add_error(error)
     }
 }
@@ -212,7 +211,7 @@ enum State<E> {
     ConsumedErr(E),
 }
 
-impl<'a, P: Parser, S, M> Iter<'a, P, S, M>
+impl<Input, 'a, P: Parser, S, M> Iter<'a, P, S, M>
 where
     S: BorrowMut<P::PartialState>,
 {
@@ -287,7 +286,7 @@ where
     }
 }
 
-impl<'a, P: Parser, S, M> Iterator for Iter<'a, P, S, M>
+impl<Input, 'a, P: Parser, S, M> Iterator for Iter<'a, P, S, M>
 where
     S: BorrowMut<P::PartialState>,
     M: ParseMode,
@@ -327,23 +326,22 @@ where
 #[derive(Copy, Clone)]
 pub struct Many<F, P>(P, PhantomData<F>);
 
-impl<F, P> Parser for Many<F, P>
+impl<Input, F, P> Parser<Input> for Many<F, P>
 where
     P: Parser,
     F: Extend<P::Output> + Default,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (F, P::PartialState);
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -355,14 +353,11 @@ where
         iter.into_result_fast(elements)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.add_error(errors);
     }
 
@@ -402,21 +397,20 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
-impl<F, P> Parser for Many1<F, P>
+impl<Input, F, P> Parser<Input> for Many1<F, P>
 where
     F: Extend<P::Output> + Default,
     P: Parser,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (bool, bool, F, P::PartialState);
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mut mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
     ) -> ParseResult<F, <P::Input as StreamOnce>::Error>
     where
@@ -452,10 +446,7 @@ where
         })
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.add_error(errors);
     }
 
@@ -502,7 +493,7 @@ impl Default for Sink {
     }
 }
 
-impl<A> Extend<A> for Sink {
+impl<Input, A> Extend<A> for Sink {
     fn extend<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = A>,
@@ -575,25 +566,24 @@ pub struct SepBy<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P, S> Parser for SepBy<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepBy<F, P, S>
 where
     F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = <Or<
         SepBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
+        FnParser<P::Input, fn(&mut Input) -> StdParseResult<F, Input>>,
     > as Parser>::PartialState;
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
     ) -> ParseResult<F, <P::Input as StreamOnce>::Error>
     where
@@ -604,10 +594,7 @@ where
             .parse_mode(mode, input, state)
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.separator.add_error(errors)
     }
 
@@ -653,13 +640,12 @@ pub struct SepBy1<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P, S> Parser for SepBy1<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepBy1<F, P, S>
 where
     F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (
         Option<Consumed<()>>,
@@ -669,12 +655,12 @@ where
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -705,10 +691,7 @@ where
         })
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.separator.add_error(errors)
     }
 
@@ -764,27 +747,26 @@ pub struct SepEndBy<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<F, P, S> Parser for SepEndBy<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepEndBy<F, P, S>
 where
     F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = <Or<
         SepEndBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
+        FnParser<P::Input, fn(&mut Input) -> StdParseResult<F, Input>>,
     > as Parser>::PartialState;
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -793,7 +775,7 @@ where
             .parse_mode(mode, input, state)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser.add_error(errors)
     }
 }
@@ -838,13 +820,12 @@ pub struct SepEndBy1<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<F, P, S> Parser for SepEndBy1<F, P, S>
+impl<Input, F, P, S> Parser<Input> for SepEndBy1<F, P, S>
 where
     F: Extend<P::Output> + Default,
     P: Parser,
     S: Parser<Input = P::Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (
         Option<Consumed<()>>,
@@ -854,12 +835,12 @@ where
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -891,7 +872,7 @@ where
         })
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser.add_error(errors)
     }
 }
@@ -940,14 +921,13 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Chainl1<P, Op>(P, Op);
-impl<I, P, Op> Parser for Chainl1<P, Op>
+impl<Input, I, P, Op> Parser<Input> for Chainl1<P, Op>
 where
     I: Stream,
     P: Parser<Input = I>,
     Op: Parser<Input = I>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
-    type Input = I;
     type Output = P::Output;
     type PartialState = (
         Option<(P::Output, Consumed<()>)>,
@@ -956,12 +936,12 @@ where
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mut mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -1000,7 +980,7 @@ where
         Ok((l, consumed)).into()
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
@@ -1031,20 +1011,19 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Chainr1<P, Op>(P, Op);
-impl<I, P, Op> Parser for Chainr1<P, Op>
+impl<Input, I, P, Op> Parser<Input> for Chainr1<P, Op>
 where
     I: Stream,
     P: Parser<Input = I>,
     Op: Parser<Input = I>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
-    type Input = I;
     type Output = P::Output;
     type PartialState = ();
     #[inline]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
     ) -> ParseResult<P::Output, <I as StreamOnce>::Error> {
         // FIXME ParseResult
         let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
@@ -1076,7 +1055,7 @@ where
         }
         Ok((l, consumed)).into()
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
@@ -1110,23 +1089,22 @@ pub struct TakeUntil<F, P> {
     end: P,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P> Parser for TakeUntil<F, P>
+impl<Input, F, P> Parser<Input> for TakeUntil<F, P>
 where
     F: Extend<<P::Input as StreamOnce>::Item> + Default,
     P: Parser,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (F, P::PartialState);
 
     parse_mode!();
     #[inline]
-    fn parse_mode_impl<M>(
+    fn parse_mode_impl<Input, M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -1231,28 +1209,27 @@ parser! {
 #[derive(Default)]
 pub struct EscapedState<T, U>(PhantomData<(T, U)>);
 
-pub struct Escaped<P, Q>
+pub struct Escaped<Input, P, Q>
 where
-    P: Parser,
+    Input: StreamOnce,
 {
     parser: P,
-    escape: <P::Input as StreamOnce>::Item,
+    escape: <Input as StreamOnce>::Item,
     escape_parser: Q,
 }
-impl<P, Q> Parser for Escaped<P, Q>
+impl<Input, P, Q> Parser<Input> for Escaped<P, Q>
 where
     P: Parser,
     <P::Input as StreamOnce>::Item: PartialEq,
     Q: Parser<Input = P::Input>,
 {
-    type Input = P::Input;
     type Output = ();
     type PartialState = EscapedState<P::PartialState, Q::PartialState>;
 
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         let mut consumed = Consumed::Empty(());
         loop {
             match self.parser.parse_lazy(input) {
@@ -1293,7 +1270,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         use crate::error::Info;
         self.parser.add_error(errors);
 

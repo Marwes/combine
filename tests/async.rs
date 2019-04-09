@@ -1,9 +1,11 @@
 #![allow(renamed_and_removed_lints)]
 
-use std::cell::Cell;
-use std::io::{self, Cursor};
-use std::rc::Rc;
-use std::str;
+use std::{
+    cell::Cell,
+    io::{self, Cursor},
+    rc::Rc,
+    str,
+};
 
 use bytes::BytesMut;
 
@@ -124,7 +126,7 @@ use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
 
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
-    D: Decoder,
+    D: Decoder<Error = Error>,
     D::Item: ::std::fmt::Display,
     S: IntoIterator<Item = PartialOp> + 'static,
     S::IntoIter: Send,
@@ -143,8 +145,8 @@ where
 
 parser! {
     type PartialState = AnyPartialState;
-    fn basic_parser['a, I]()(I) -> String
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    fn basic_parser['a, Input]()(Input) -> String
+        where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
         any_partial_state(
             many1(digit()).skip(range(&"\r\n"[..])),
@@ -167,10 +169,10 @@ fn many1_skip_no_errors() {
 
 parser! {
     type PartialState = AnyPartialState;
-    fn prefix_many_then_parser['a, I]()(I) -> String
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    fn prefix_many_then_parser['a, Input]()(Input) -> String
+        where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
-        let integer = from_str(many1::<String, _>(digit()));
+        let integer = from_str(many1::<String, _, _>(digit()));
         any_partial_state((char('#'), skip_many(char(' ')), integer)
             .then_partial(|t| {
                 let c = t.2;
@@ -182,8 +184,8 @@ parser! {
 
 parser! {
     type PartialState = AnyPartialState;
-    fn choice_parser['a, I]()(I) -> String
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    fn choice_parser['a, Input]()(Input) -> String
+        where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
         any_partial_state(
             many1(digit())
@@ -193,17 +195,19 @@ parser! {
     }
 }
 
-fn content_length<'a, I>(
-) -> impl Parser<Input = I, Output = String, PartialState = AnySendPartialState> + 'a
+fn content_length<'a, Input>(
+) -> impl Parser<Input, Output = String, PartialState = AnySendPartialState> + 'a
 where
-    I: RangeStream<Item = char, Range = &'a str> + 'a,
+    Input: RangeStream<Item = char, Range = &'a str> + 'a,
     // Necessary due to rust-lang/rust#24159
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let content_length = range("Content-Length: ").with(
         range::recognize(skip_many1(digit())).and_then(|digits: &str| {
             // Convert the error from `.parse` into an error combine understands
-            digits.parse::<usize>().map_err(StreamErrorFor::<I>::other)
+            digits
+                .parse::<usize>()
+                .map_err(StreamErrorFor::<Input>::other)
         }),
     );
 
@@ -505,11 +509,6 @@ quickcheck! {
 #[test]
 fn inner_no_partial_test() {
     let seq = vec![PartialOp::Limited(10)];
-    impl_decoder! { TestParser, String,
-        no_partial(many1(digit()))
-            .or(many1(letter()))
-            .skip(range(&"\r\n"[..]))
-    }
 
     let input = "1\r\n\
                  abcd\r\n\
@@ -517,7 +516,26 @@ fn inner_no_partial_test() {
                  abc\r\n\
                  1232751\r\n";
 
-    let result = run_decoder(input, seq, TestParser::default());
+    fn easy_stream(bs: &[u8]) -> Result<easy::Stream<&str>, Error> {
+        Ok(str::from_utf8(bs).map(combine::easy::Stream)?)
+    }
+    let parser = no_partial(many1(digit()).map(|s: String| s))
+        .or(many1(letter()))
+        .skip(range(&"\r\n"[..]));
+    let decoder = CombineDecoder::with_converters(
+        input_converter(
+            parser,
+            |input| {
+                str::from_utf8(input)
+                    .map(easy::Stream)
+                    .map(PartialStream)
+                    .map_err(|_| combine::error::UnexpectedParse::Unexpected)
+            },
+            |err| ParseError::into_other(err),
+        ),
+        |err, input| ParseError::into_other::<easy::Errors<_, _, _>>(err).into(),
+    );
+    let result = run_decoder(input, seq, decoder);
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
     assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"]);

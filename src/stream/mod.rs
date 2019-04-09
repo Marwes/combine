@@ -60,7 +60,7 @@ pub trait Positioned: StreamOnce {
     fn position(&self) -> Self::Position;
 }
 
-/// Convenience alias over the `StreamError` for the input stream `I`
+/// Convenience alias over the `StreamError` for the input stream `Input`
 ///
 /// ```
 /// #[macro_use]
@@ -71,15 +71,15 @@ pub trait Positioned: StreamOnce {
 /// use combine::error::{ParseError, StreamError};
 ///
 /// parser!{
-///    fn parser[I]()(I) -> String
-///     where [ I: Stream<Item = char>, ]
+///    fn parser[Input]()(Input) -> String
+///     where [ Input: Stream<Item = char>, ]
 ///     {
 ///         many1(letter()).and_then(|word: String| {
 ///             if word == "combine" {
 ///                 Ok(word)
 ///             } else {
-///                 // The alias makes it easy to refer to the `StreamError` type of `I`
-///                 Err(StreamErrorFor::<I>::expected_static_message("combine"))
+///                 // The alias makes it easy to refer to the `StreamError` type of `Input`
+///                 Err(StreamErrorFor::<Input>::expected_static_message("combine"))
 ///             }
 ///         })
 ///     }
@@ -88,10 +88,10 @@ pub trait Positioned: StreamOnce {
 /// fn main() {
 /// }
 /// ```
-pub type StreamErrorFor<I> = <<I as StreamOnce>::Error as ParseError<
-    <I as StreamOnce>::Item,
-    <I as StreamOnce>::Range,
-    <I as StreamOnce>::Position,
+pub type StreamErrorFor<Input> = <<Input as StreamOnce>::Error as ParseError<
+    <Input as StreamOnce>::Item,
+    <Input as StreamOnce>::Range,
+    <Input as StreamOnce>::Position,
 >>::StreamError;
 
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
@@ -144,17 +144,17 @@ clone_resetable! {(T: Clone) IteratorStream<T>}
 /// implemented automatically.
 pub trait Stream: StreamOnce + ResetStream + Positioned {}
 
-impl<I> Stream for I
+impl<Input> Stream for Input
 where
-    I: StreamOnce + Positioned + ResetStream,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: StreamOnce + Positioned + ResetStream,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
 }
 
 #[inline]
-pub fn uncons<I>(input: &mut I) -> ParseResult<I::Item, <I as StreamOnce>::Error>
+pub fn uncons<Input>(input: &mut Input) -> ParseResult<Input::Item, Input::Error>
 where
-    I: ?Sized + Stream,
+    Input: ?Sized + Stream,
 {
     match input.uncons() {
         Ok(x) => ConsumedOk(x),
@@ -216,7 +216,7 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
 /// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
 pub trait RangeStream: Stream + RangeStreamOnce {}
 
-impl<I> RangeStream for I where I: RangeStreamOnce + Stream {}
+impl<Input> RangeStream for Input where Input: RangeStreamOnce + Stream {}
 
 /// A `RangeStream` which is capable of providing it's entire range.
 pub trait FullRangeStream: RangeStream {
@@ -226,14 +226,14 @@ pub trait FullRangeStream: RangeStream {
 
 #[doc(hidden)]
 #[inline]
-pub fn wrap_stream_error<T, I>(
-    input: &I,
-    err: <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError,
-) -> ParseResult<T, <I as StreamOnce>::Error>
+pub fn wrap_stream_error<T, Input>(
+    input: &Input,
+    err: <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError,
+) -> ParseResult<T, <Input as StreamOnce>::Error>
 where
-    I: ?Sized + StreamOnce + Positioned,
+    Input: ?Sized + StreamOnce + Positioned,
 {
-    let err = I::Error::from_error(input.position(), err);
+    let err = Input::Error::from_error(input.position(), err);
     if input.is_partial() {
         ConsumedErr(err)
     } else {
@@ -245,9 +245,9 @@ where
 pub fn uncons_range<I>(
     input: &mut I,
     size: usize,
-) -> ParseResult<I::Range, <I as StreamOnce>::Error>
+) -> ParseResult<Input::Range, <Input as StreamOnce>::Error>
 where
-    I: ?Sized + RangeStream,
+    Input: ?Sized + RangeStream,
 {
     match input.uncons_range(size) {
         Err(err) => wrap_stream_error(input, err),
@@ -262,9 +262,9 @@ where
 }
 
 #[doc(hidden)]
-pub fn input_at_eof<I>(input: &mut I) -> bool
+pub fn input_at_eof<Input>(input: &mut Input) -> bool
 where
-    I: ?Sized + Stream,
+    Input: ?Sized + Stream,
 {
     let before = input.checkpoint();
     let x = input
@@ -276,14 +276,14 @@ where
 
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
-pub fn uncons_while<I, F>(
-    input: &mut I,
+pub fn uncons_while<Input, F>(
+    input: &mut Input,
     predicate: F,
-) -> ParseResult<I::Range, <I as StreamOnce>::Error>
+) -> ParseResult<Input::Range, Input::Error>
 where
-    F: FnMut(I::Item) -> bool,
-    I: ?Sized + RangeStream,
-    I::Range: Range,
+    F: FnMut(Input::Item) -> bool,
+    Input: ?Sized + RangeStream,
+    Input::Range: Range,
 {
     match input.uncons_while(predicate) {
         Err(err) => wrap_stream_error(input, err),
@@ -291,7 +291,7 @@ where
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -311,20 +311,20 @@ where
 /// # Note
 ///
 /// This may not return `EmptyOk` as it should uncons at least one item.
-pub fn uncons_while1<I, F>(
-    input: &mut I,
+pub fn uncons_while1<Input, F>(
+    input: &mut Input,
     predicate: F,
-) -> ParseResult<I::Range, <I as StreamOnce>::Error>
+) -> ParseResult<Input::Range, Input::Error>
 where
-    F: FnMut(I::Item) -> bool,
-    I: ?Sized + RangeStream,
+    F: FnMut(Input::Item) -> bool,
+    Input: ?Sized + RangeStream,
 {
     match input.uncons_while1(predicate) {
         ConsumedOk(x) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -336,19 +336,19 @@ where
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
             } else {
-                EmptyErr(I::Error::empty(input.position()).into())
+                EmptyErr(Input::Error::empty(input.position()).into())
             }
         }
         ConsumedErr(err) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -862,45 +862,45 @@ where
 ///
 /// [`from_iter`]: fn.from_iter.html
 #[derive(Copy, Clone, Debug)]
-pub struct IteratorStream<I>(I);
+pub struct IteratorStream<Input>(Input);
 
-impl<I> IteratorStream<I>
+impl<Input> IteratorStream<Input>
 where
-    I: Iterator,
+    Input: Iterator,
 {
     /// Converts an `Iterator` into a stream.
     ///
     /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
     ///     such as `BufferedStreamRef` and `State` to become a `Stream` which can be parsed
-    pub fn new<T>(iter: T) -> IteratorStream<I>
+    pub fn new<T>(iter: T) -> IteratorStream<Input>
     where
-        T: IntoIterator<IntoIter = I, Item = I::Item>,
+        T: IntoIterator<IntoIter = Input, Item = Input::Item>,
     {
         IteratorStream(iter.into_iter())
     }
 }
 
-impl<I> Iterator for IteratorStream<I>
+impl<Input> Iterator for IteratorStream<Input>
 where
-    I: Iterator,
+    Input: Iterator,
 {
-    type Item = I::Item;
-    fn next(&mut self) -> Option<I::Item> {
+    type Item = Input::Item;
+    fn next(&mut self) -> Option<Input::Item> {
         self.0.next()
     }
 }
 
-impl<I: Iterator> StreamOnce for IteratorStream<I>
+impl<Input: Iterator> StreamOnce for IteratorStream<Input>
 where
-    I::Item: Clone + PartialEq,
+    Input::Item: Clone + PartialEq,
 {
-    type Item = I::Item;
-    type Range = I::Item;
+    type Item = Input::Item;
+    type Range = Input::Item;
     type Position = ();
     type Error = UnexpectedParse;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
         match self.next() {
             Some(x) => Ok(x),
             None => Err(UnexpectedParse::Eoi),
@@ -1055,14 +1055,26 @@ where
 /// using `parser`.
 ///
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
-pub fn decode<P>(
-    mut parser: P,
-    mut input: P::Input,
+pub fn decode<Input, P>(
+    parser: P,
+    mut input: Input,
     partial_state: &mut P::PartialState,
-) -> Result<(Option<P::Output>, usize), <P::Input as StreamOnce>::Error>
+) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
 where
-    P: Parser,
-    P::Input: RangeStream,
+    P: Parser<Input>,
+    Input: RangeStream,
+{
+    decode_mut(parser, &mut input, partial_state)
+}
+
+fn decode_mut<Input, P>(
+    mut parser: P,
+    mut input: &mut Input,
+    partial_state: &mut P::PartialState,
+) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
+where
+    P: Parser<Input>,
+    Input: RangeStream,
 {
     let start = input.checkpoint();
     match parser.parse_with_state(&mut input, partial_state) {
@@ -1072,6 +1084,82 @@ where
                 Ok((None, input.distance(&start)))
             } else {
                 Err(err)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "tokio-codec-0-1")]
+pub mod tokio {
+    use super::*;
+
+    use std::{io, marker::PhantomData};
+
+    pub trait InputConverter<'a, Input: 'a> {
+        type Error;
+        fn convert(&mut self, bs: &'a [u8]) -> Result<Input, Self::Error>;
+    }
+
+    impl<'a, Input, Error, F> InputConverter<'a, Input> for F
+    where
+        F: FnMut(&'a [u8]) -> Result<Input, Error>,
+        Input: 'a,
+    {
+        type Error = Error;
+        fn convert(&mut self, bs: &'a [u8]) -> Result<Input, Self::Error> {
+            self(bs)
+        }
+    }
+
+    pub struct Decoder<S, E, F> {
+        state: S,
+        parser: F,
+        _marker: PhantomData<fn() -> E>,
+    }
+    impl<S, O, E, F> tokio_codec_0_1::Decoder for Decoder<S, E, F>
+    where
+        S: Default,
+        E: From<io::Error>,
+        F: FnMut(&[u8], &mut S) -> Result<(Option<O>, usize), E>,
+    {
+        type Item = O;
+        type Error = E;
+
+        fn decode(
+            &mut self,
+            src: &mut bytes_0_4::BytesMut,
+        ) -> Result<Option<Self::Item>, Self::Error> {
+            let (opt, removed_len) = {
+                let input = &src[..];
+                (self.parser)(input, &mut self.state)?
+            };
+
+            src.split_to(removed_len);
+            Ok(opt)
+        }
+    }
+
+    impl<S, E> Decoder<S, E, ()> {
+        pub fn with_converters<P, O, G>(
+            mut parser: P,
+            mut error_converter: G,
+        ) -> Decoder<S, E, impl FnMut(&[u8], &mut S) -> Result<(Option<O>, usize), E>>
+        where
+            P: for<'a> Parser<&'a [u8], Output = O, PartialState = S>,
+            S: Default,
+            E: From<io::Error>,
+            G: for<'a> FnMut(UnexpectedParse, &'a [u8]) -> E,
+        {
+            Decoder {
+                state: Default::default(),
+                parser: move |mut input: &[u8], state: &mut S| {
+                    let checkpoint = input.checkpoint();
+                    Ok(decode_mut(&mut parser, &mut input, state).map_err(|err| {
+                        input.reset(checkpoint);
+                        error_converter(err, input)
+                    })?)
+                },
+                _marker: PhantomData,
             }
         }
     }
