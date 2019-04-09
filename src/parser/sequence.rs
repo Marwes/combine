@@ -699,8 +699,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use parser::item::any;
+    use parser::{item::any, EasyParser};
 
     #[test]
     fn sequence_single_parser() {

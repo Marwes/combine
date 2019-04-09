@@ -406,6 +406,7 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
+    use parser::EasyParser;
     use stream::easy::{Error, Errors};
     use stream::state::{SourcePosition, State};
 

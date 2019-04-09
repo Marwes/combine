@@ -76,67 +76,6 @@ pub trait Parser<Input: Stream> {
     /// If partial parsing is not supported this can be set to `()`.
     type PartialState: Default;
 
-    /// Entry point of the parser. Takes some input and tries to parse it, returning an easy to use
-    /// and format error if parsing did not succeed.
-    ///
-    /// Returns the parsed result and the remaining input if the parser succeeds, or a
-    /// This function wraps requires `Input == easy::Stream<Input>` which makes it return
-    /// return `easy::Errors` if an error occurs. Due to this wrapping it is recommended that the
-    /// parser `Self` is written with a generic input type.
-    ///
-    /// ```
-    /// # #[macro_use]
-    /// # extern crate combine;
-    ///
-    /// use combine::{Parser, Stream};
-    /// use combine::parser::repeat::many1;
-    /// use combine::parser::char::letter;
-    ///
-    /// // Good!
-    /// parser!{
-    /// fn my_parser[Input]()(Input) -> String
-    ///     where [Input: Stream<Item=char>]
-    /// {
-    ///     many1(letter())
-    /// }
-    /// }
-    ///
-    /// // Won't compile with `easy_parse` since it is specialized on `&str`
-    /// parser!{
-    /// fn my_parser2['a]()(&'a str) -> String
-    /// {
-    ///     many1(letter())
-    /// }
-    /// }
-    ///
-    /// fn main() {
-    ///     assert_eq!(my_parser().parse("abc"), Ok(("abc".to_string(), "")));
-    ///     // Would fail to compile if uncommented
-    ///     // my_parser2().parse("abc")
-    /// }
-    /// ```
-    ///
-    /// [`ParseError`]: struct.ParseError.html
-    #[cfg(feature = "std")]
-    fn easy_parse(
-        &mut self,
-        input: Input,
-    ) -> Result<(<Self as Parser<::easy::Stream<Input>>>::Output, Input), ::easy::ParseError<Input>>
-    where
-        Input: Stream,
-        ::easy::Stream<Input>: StreamOnce<
-            Item = Input::Item,
-            Range = Input::Range,
-            Error = ::easy::ParseError<::easy::Stream<Input>>,
-            Position = Input::Position,
-        >,
-        Input::Position: Default,
-        Self: Sized + Parser<::easy::Stream<Input>>,
-    {
-        let input = ::easy::Stream(input);
-        self.parse(input).map(|(v, input)| (v, input.0))
-    }
-
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
     /// Returns the parsed result and the remaining input if the parser succeeds, or a
@@ -918,6 +857,76 @@ pub trait Parser<Input: Stream> {
     {
         Either::Right(self)
     }
+}
+
+pub trait EasyParser<Input: Stream>: Parser<::easy::Stream<Input>> {
+    /// Entry point of the parser. Takes some input and tries to parse it, returning an easy to use
+    /// and format error if parsing did not succeed.
+    ///
+    /// Returns the parsed result and the remaining input if the parser succeeds, or a
+    /// This function wraps requires `Input == easy::Stream<Input>` which makes it return
+    /// return `easy::Errors` if an error occurs. Due to this wrapping it is recommended that the
+    /// parser `Self` is written with a generic input type.
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate combine;
+    ///
+    /// use combine::{Parser, Stream};
+    /// use combine::parser::repeat::many1;
+    /// use combine::parser::char::letter;
+    ///
+    /// // Good!
+    /// parser!{
+    /// fn my_parser[Input]()(Input) -> String
+    ///     where [Input: Stream<Item=char>]
+    /// {
+    ///     many1(letter())
+    /// }
+    /// }
+    ///
+    /// // Won't compile with `easy_parse` since it is specialized on `&str`
+    /// parser!{
+    /// fn my_parser2['a]()(&'a str) -> String
+    /// {
+    ///     many1(letter())
+    /// }
+    /// }
+    ///
+    /// fn main() {
+    ///     assert_eq!(my_parser().parse("abc"), Ok(("abc".to_string(), "")));
+    ///     // Would fail to compile if uncommented
+    ///     // my_parser2().parse("abc")
+    /// }
+    /// ```
+    ///
+    /// [`ParseError`]: struct.ParseError.html
+    #[cfg(feature = "std")]
+    fn easy_parse(
+        &mut self,
+        input: Input,
+    ) -> Result<(<Self as Parser<::easy::Stream<Input>>>::Output, Input), ::easy::ParseError<Input>>
+    where
+        Input: Stream,
+        ::easy::Stream<Input>: StreamOnce<
+            Item = Input::Item,
+            Range = Input::Range,
+            Error = ::easy::ParseError<::easy::Stream<Input>>,
+            Position = Input::Position,
+        >,
+        Input::Position: Default,
+        Self: Sized + Parser<::easy::Stream<Input>>,
+    {
+        let input = ::easy::Stream(input);
+        self.parse(input).map(|(v, input)| (v, input.0))
+    }
+}
+
+impl<Input, P> EasyParser<Input> for P
+where
+    P: ?Sized + Parser<::easy::Stream<Input>>,
+    Input: Stream,
+{
 }
 
 macro_rules! forward_deref {

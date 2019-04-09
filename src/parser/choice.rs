@@ -688,6 +688,7 @@ where
 mod tests {
     use super::*;
     use parser::item::any;
+    use parser::EasyParser;
 
     #[test]
     fn choice_single_parser() {

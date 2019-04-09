@@ -195,6 +195,9 @@
 
 #[doc(inline)]
 pub use error::{ConsumedResult, ParseError, ParseResult};
+#[cfg(feature = "std")]
+#[doc(inline)]
+pub use parser::EasyParser;
 #[doc(inline)]
 pub use parser::Parser;
 #[doc(inline)]
@@ -272,7 +275,7 @@ macro_rules! impl_token_parser {
 ///     {
 ///         // The body must be a block body ( `{ <block body> }`) which ends with an expression
 ///         // which evaluates to a parser
-///         from_str(many1::<String, _>(digit()))
+///         from_str(many1::<String, _, _>(digit()))
 ///     }
 /// }
 ///
@@ -907,7 +910,7 @@ mod std_tests {
         Input: Stream<Item = char>,
         Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
     {
-        let (s, input) = try!(many1::<String, _>(digit())
+        let (s, input) = try!(many1::<String, _, _>(digit())
             .expected("integer")
             .parse_stream(input));
         let mut n = 0;
@@ -940,8 +943,7 @@ mod std_tests {
     #[test]
     fn field() {
         let word = || many(alpha_num());
-        let spaces = spaces();
-        let c_decl = (word(), spaces.clone(), char(':'), spaces, word())
+        let c_decl = (word(), spaces(), char(':'), spaces(), word())
             .map(|t| (t.0, t.4))
             .parse("x: int");
         assert_eq!(c_decl, Ok((("x".to_string(), "int".to_string()), "")));
@@ -1076,14 +1078,14 @@ mod std_tests {
 
     #[test]
     fn sep_by_error_consume() {
-        let mut p = sep_by::<Vec<_>, _, _>(string("abc"), char(','));
+        let mut p = sep_by::<Vec<_>, _, _, _>(string("abc"), char(','));
         let err = p.easy_parse(State::new("ab,abc")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
     #[test]
     fn inner_error_consume() {
-        let mut p = many::<Vec<_>, _>(between(char('['), char(']'), digit()));
+        let mut p = many::<Vec<_>, _, _>(between(char('['), char(']'), digit()));
         let result = p.easy_parse(State::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x)).unwrap_err();
@@ -1119,7 +1121,7 @@ mod std_tests {
             }
         }
         let result: Result<((), _), easy::Errors<char, &str, _>> =
-            Parser::easy_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
+            EasyParser::easy_parse(&mut string("abc").and_then(|_| Err(Error)), "abc");
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {

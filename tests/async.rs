@@ -37,7 +37,7 @@ use combine::parser::range::{
 };
 use combine::parser::repeat;
 use combine::stream::{easy, RangeStream, StreamErrorFor};
-use combine::{any, count_min_max, many1, skip_many, Parser};
+use combine::{any, count_min_max, many1, skip_many, EasyParser, Parser};
 
 quick_error! {
     #[derive(Debug)]
@@ -197,7 +197,7 @@ parser! {
 }
 
 fn content_length<'a, Input>(
-) -> impl Parser< Input, Output = String, PartialState = AnySendPartialState> + 'a
+) -> impl Parser<Input, Output = String, PartialState = AnySendPartialState> + 'a
 where
     Input: RangeStream<Item = char, Range = &'a str> + 'a,
     // Necessary due to rust-lang/rust#24159
@@ -206,7 +206,9 @@ where
     let content_length = range("Content-Length: ").with(
         range::recognize(skip_many1(digit())).and_then(|digits: &str| {
             // Convert the error from `.parse` into an error combine understands
-            digits.parse::<usize>().map_err(StreamErrorFor::<Input>::other)
+            digits
+                .parse::<usize>()
+                .map_err(StreamErrorFor::<Input>::other)
         }),
     );
 
