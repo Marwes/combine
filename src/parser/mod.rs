@@ -20,24 +20,6 @@ use self::sequence::{skip, with, Skip, With};
 /// Internal API. May break without a semver bump
 #[macro_export]
 #[doc(hidden)]
-macro_rules! impl_parser {
-    ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<$first $(,$ty_var)*>($inner_type)
-        where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
-    impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
-        where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
-        type Input = <$first as Parser>::Input;
-        type Output = <$inner_type as Parser>::Output;
-        type PartialState = <$inner_type as Parser>::PartialState;
-        forward_parser!(0);
-    }
-}
-}
-
-/// Internal API. May break without a semver bump
-#[macro_export]
-#[doc(hidden)]
 macro_rules! parse_mode {
     () => {
         #[inline(always)]
