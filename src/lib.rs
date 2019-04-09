@@ -680,8 +680,6 @@ extern crate unreachable;
 
 /// Internal API. May break without a semver bump
 macro_rules! forward_parser {
-    ($input: ty, $($field: tt)+) => {
-    };
     ($input: ty, $method: ident $( $methods: ident)*, $($field: tt)*) => {
         forward_parser!($input, $method $($field)+);
         forward_parser!($input, $($methods)*, $($field)+);
@@ -744,7 +742,9 @@ macro_rules! forward_parser {
     };
     ($input: ty, $field: tt) => {
         forward_parser!($input, parse_lazy parse_first parse_partial add_error add_consumed_expected_error parser_count, $field);
-    }
+    };
+    ($input: ty, $($field: tt)+) => {
+    };
 }
 
 // Facade over the core types we need
