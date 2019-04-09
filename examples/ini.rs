@@ -39,7 +39,7 @@ pub struct Ini {
     pub sections: HashMap<String, HashMap<String, String>>,
 }
 
-fn property<I>() -> impl Parser<Input = I, Output = (String, String)>
+fn property<I>() -> impl Parser< I, Output = (String, String)>
 where
     I: Stream<Item = char>,
     // Necessary due to rust-lang/rust#24159
@@ -54,7 +54,7 @@ where
         .message("while parsing property")
 }
 
-fn whitespace<I>() -> impl Parser<Input = I>
+fn whitespace<I>() -> impl Parser< I>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -65,7 +65,7 @@ where
     skip_many(skip_many1(space()).or(comment))
 }
 
-fn properties<I>() -> impl Parser<Input = I, Output = HashMap<String, String>>
+fn properties<I>() -> impl Parser< I, Output = HashMap<String, String>>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -74,7 +74,7 @@ where
     many(property().skip(whitespace()))
 }
 
-fn section<I>() -> impl Parser<Input = I, Output = (String, HashMap<String, String>)>
+fn section<I>() -> impl Parser< I, Output = (String, HashMap<String, String>)>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -88,7 +88,7 @@ where
         .message("while parsing section")
 }
 
-fn ini<I>() -> impl Parser<Input = I, Output = Ini>
+fn ini<I>() -> impl Parser< I, Output = Ini>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,

@@ -50,7 +50,7 @@ impl LanguageServerDecoder {
 // gets parsed once per message
 fn decode_parser<'a, I>(
     content_length_parses: Rc<Cell<i32>>,
-) -> impl Parser<Input = I, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
+) -> impl Parser< I, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
 where
     I: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
     // Necessary due to rust-lang/rust#24159

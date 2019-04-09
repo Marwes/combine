@@ -988,12 +988,12 @@ impl PointerOffset {
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
 pub fn decode<P>(
     mut parser: P,
-    mut input: P::Input,
+    mut input: Input,
     partial_state: &mut P::PartialState,
-) -> Result<(Option<P::Output>, usize), <P::Input as StreamOnce>::Error>
+) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
 where
-    P: Parser,
-    P::Input: RangeStream,
+    P: Parser<Input>,
+    Input: RangeStream,
 {
     let start = input.checkpoint();
     match parser.parse_with_state(&mut input, partial_state) {

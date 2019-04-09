@@ -6,13 +6,13 @@ use error::{ConsumedResult, ParseResult};
 use stream::Stream;
 use Parser;
 
-impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> ParseResult<O, I> + 'a {
-    type Input = I;
+impl<'a, Input, I: Stream, O> Parser<Input> for FnMut(&mut I) -> ParseResult<O, I> + 'a {
+    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
         self(input).into()
     }
 }
@@ -65,31 +65,31 @@ where
     FnParser(f, PhantomData)
 }
 
-impl<I, O, F> Parser for FnParser<I, F>
+impl<I, O, F> Parser<I> for FnParser<I, F>
 where
     I: Stream,
     F: FnMut(&mut I) -> ParseResult<O, I>,
 {
-    type Input = I;
+    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
         (self.0)(input).into()
     }
 }
 
-impl<I, O> Parser for fn(&mut I) -> ParseResult<O, I>
+impl<I, O> Parser<I> for fn(&mut I) -> ParseResult<O, I>
 where
     I: Stream,
 {
-    type Input = I;
+    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
         self(input).into()
     }
 }
@@ -116,17 +116,17 @@ where
     }
 }
 
-impl<E, I, O> Parser for EnvParser<E, I, O>
+impl<Input, E, I, O> Parser<Input> for EnvParser<E, I, O>
 where
     E: Clone,
     I: Stream,
 {
-    type Input = I;
+    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
         (self.parser)(self.env.clone(), input).into()
     }
 }

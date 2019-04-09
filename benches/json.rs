@@ -38,20 +38,20 @@ enum Value {
     Array(Vec<Value>),
 }
 
-fn lex<P>(p: P) -> impl Parser<Input = P::Input, Output = P::Output>
+fn lex<P>(p: P) -> impl Parser< Input, Output = P::Output>
 where
-    P: Parser,
-    P::Input: Stream<Item = char>,
-    <P::Input as StreamOnce>::Error: ParseError<
-        <P::Input as StreamOnce>::Item,
-        <P::Input as StreamOnce>::Range,
-        <P::Input as StreamOnce>::Position,
+    P: Parser<Input>,
+    Input: Stream<Item = char>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Item,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
     >,
 {
     p.skip(spaces())
 }
 
-fn integer<I>() -> impl Parser<Input = I, Output = i64>
+fn integer<I>() -> impl Parser< I, Output = i64>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -67,7 +67,7 @@ where
         .expected("integer")
 }
 
-fn number<I>() -> impl Parser<Input = I, Output = f64>
+fn number<I>() -> impl Parser< I, Output = f64>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -101,7 +101,7 @@ where
     .expected("number")
 }
 
-fn json_char<I>() -> impl Parser<Input = I, Output = char>
+fn json_char<I>() -> impl Parser< I, Output = char>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -129,7 +129,7 @@ where
     })
 }
 
-fn json_string<I>() -> impl Parser<Input = I, Output = String>
+fn json_string<I>() -> impl Parser< I, Output = String>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -137,7 +137,7 @@ where
     between(char('"'), lex(char('"')), many(json_char())).expected("string")
 }
 
-fn object<I>() -> impl Parser<Input = I, Output = Value>
+fn object<I>() -> impl Parser< I, Output = Value>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -150,7 +150,7 @@ where
 }
 
 #[inline(always)]
-fn json_value<I>() -> impl Parser<Input = I, Output = Value>
+fn json_value<I>() -> impl Parser< I, Output = Value>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,

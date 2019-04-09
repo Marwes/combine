@@ -55,7 +55,7 @@ pub struct DateTime {
     pub time: Time,
 }
 
-fn two_digits<I>() -> impl Parser<Input = I, Output = i32>
+fn two_digits<I>() -> impl Parser< I, Output = i32>
 where
     I: Stream<Item = char>,
     // Necessary due to rust-lang/rust#24159
@@ -73,7 +73,7 @@ where
 /// -06:30
 /// -01
 /// Z
-fn time_zone<I>() -> impl Parser<Input = I, Output = i32>
+fn time_zone<I>() -> impl Parser< I, Output = i32>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -98,7 +98,7 @@ where
 
 /// Parses a date
 /// 2010-01-30
-fn date<I>() -> impl Parser<Input = I, Output = Date>
+fn date<I>() -> impl Parser< I, Output = Date>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -122,7 +122,7 @@ where
 
 /// Parses a time
 /// 12:30:02
-fn time<I>() -> impl Parser<Input = I, Output = Time>
+fn time<I>() -> impl Parser< I, Output = Time>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -148,7 +148,7 @@ where
 
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
-fn date_time<I>() -> impl Parser<Input = I, Output = DateTime>
+fn date_time<I>() -> impl Parser< I, Output = DateTime>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,

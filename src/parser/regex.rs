@@ -322,24 +322,24 @@ mod regex_1 {
 
 pub struct Match<R, I>(R, PhantomData<I>);
 
-impl<'a, R, I> Parser for Match<R, I>
+impl<'a, Input, R, I> Parser<Input> for Match<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         if self.0.is_match(input.range()) {
             EmptyOk(input.range())
         } else {
             EmptyErr(I::Error::empty(input.position()).into())
         }
     }
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         error.error.add(StreamError::expected_message(format_args!(
             "/{}/",
             self.0.as_str()
@@ -376,25 +376,25 @@ where
 #[derive(Clone)]
 pub struct Find<R, I>(R, PhantomData<fn() -> I>);
 
-impl<'a, R, I> Parser for Find<R, I>
+impl<'a, Input, R, I> Parser<Input> for Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
     I::Range: ::stream::Range,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
             None => EmptyErr(I::Error::empty(input.position()).into()),
         }
     }
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         error.error.add(StreamError::expected_message(format_args!(
             "/{}/",
             self.0.as_str()
@@ -435,23 +435,23 @@ where
 #[derive(Clone)]
 pub struct FindMany<F, R, I>(R, PhantomData<fn() -> (I, F)>);
 
-impl<'a, F, R, I> Parser for FindMany<F, R, I>
+impl<'a, Input, F, R, I> Parser<Input> for FindMany<F, R, I>
 where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
     I::Range: ::stream::Range,
 {
-    type Input = I;
+    
     type Output = F;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         error.error.add(StreamError::expected_message(format_args!(
             "/{}/",
             self.0.as_str()
@@ -491,26 +491,26 @@ where
 #[derive(Clone)]
 pub struct Captures<F, R, I>(R, PhantomData<fn() -> (I, F)>);
 
-impl<'a, F, R, I> Parser for Captures<F, R, I>
+impl<'a, Input, F, R, I> Parser<Input> for Captures<F, R, I>
 where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
     I::Range: ::stream::Range,
 {
-    type Input = I;
+    
     type Output = F;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
             None => EmptyErr(I::Error::empty(input.position()).into()),
         }
     }
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         error.error.add(StreamError::expected_message(format_args!(
             "/{}/",
             self.0.as_str()
@@ -557,7 +557,7 @@ where
 #[derive(Clone)]
 pub struct CapturesMany<F, G, R, I>(R, PhantomData<fn() -> (I, F, G)>);
 
-impl<'a, F, G, R, I> Parser for CapturesMany<F, G, R, I>
+impl<'a, Input, F, G, R, I> Parser<Input> for CapturesMany<F, G, R, I>
 where
     F: FromIterator<I::Range>,
     G: FromIterator<F>,
@@ -565,16 +565,16 @@ where
     I: FullRangeStream,
     I::Range: ::stream::Range,
 {
-    type Input = I;
+    
     type Output = G;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         error.error.add(StreamError::expected_message(format_args!(
             "/{}/",
             self.0.as_str()

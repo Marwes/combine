@@ -358,7 +358,7 @@ mod tests_std {
         let mut p1 = char('1');
         let mut p2 = no_partial((optional(char('b')), char('2')).map(|t| t.1));
         let mut parser =
-            choice::<[&mut Parser<Input = _, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
+            choice::<[&mut Parser< _, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
 
         assert_eq!(
             parser.easy_parse(State::new("c")),

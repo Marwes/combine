@@ -197,7 +197,7 @@ parser! {
 }
 
 fn content_length<'a, I>(
-) -> impl Parser<Input = I, Output = String, PartialState = AnySendPartialState> + 'a
+) -> impl Parser< I, Output = String, PartialState = AnySendPartialState> + 'a
 where
     I: RangeStream<Item = char, Range = &'a str> + 'a,
     // Necessary due to rust-lang/rust#24159

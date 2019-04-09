@@ -313,22 +313,22 @@ pub struct Str<I>(&'static str, PhantomData<fn(I) -> I>)
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
-impl<I> Parser for Str<I>
+impl<I> Parser<I> for Str<I>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    type Input = I;
+    
     type Output = &'static str;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         tokens(eq, self.0.into(), self.0.chars())
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         tokens::<_, _, I>(eq, self.0.into(), self.0.chars()).add_error(errors)
     }
 }
@@ -360,23 +360,23 @@ pub struct StrCmp<C, I>(&'static str, C, PhantomData<fn(I) -> I>)
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
-impl<C, I> Parser for StrCmp<C, I>
+impl<Input, C, I> Parser<Input> for StrCmp<C, I>
 where
     C: FnMut(char, char) -> bool,
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    type Input = I;
+    
     type Output = &'static str;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         tokens(&mut self.1, self.0.into(), self.0.chars())
             .parse_lazy(input)
             .map(|_| self.0)
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         tokens::<_, _, I>(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
     }
 }

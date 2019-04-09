@@ -289,22 +289,22 @@ where
     I: Stream<Item = u8>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
 
-impl<'a, I> Parser for Bytes<I>
+impl<'a, Input, I> Parser<Input> for Bytes<I>
 where
     I: Stream<Item = u8, Range = &'a [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    type Input = I;
+    
     type Output = &'static [u8];
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         tokens::<_, _, I>(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
     }
 }
@@ -343,22 +343,22 @@ where
     I: Stream<Item = u8>,
     I::Error: ParseError<I::Item, I::Range, I::Position>;
 
-impl<'a, C, I> Parser for BytesCmp<C, I>
+impl<'a, Input, C, I> Parser<Input> for BytesCmp<C, I>
 where
     C: FnMut(u8, u8) -> bool,
     I: Stream<Item = u8, Range = &'a [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    type Input = I;
+    
     type Output = &'static [u8];
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         let cmp = &mut self.1;
         tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         let cmp = &mut self.1;
         tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
     }
@@ -550,21 +550,21 @@ pub mod num {
             #[derive(Clone)]
             pub struct $type_name<B, I>(PhantomData<(B, I)>);
 
-            impl<'a, B, I> Parser for $type_name<B, I>
+            impl<'a, Input, B, I> Parser<Input> for $type_name<B, I>
             where
                 I: Stream<Item = u8>,
                 I::Error: ParseError<I::Item, I::Range, I::Position>,
                 B: ByteOrder,
             {
-                type Input = I;
+                
                 type Output = $func_name;
                 type PartialState = ();
 
                 #[inline]
                 fn parse_lazy(
                     &mut self,
-                    input: &mut Self::Input
-                    ) -> ConsumedResult<Self::Output, Self::Input> {
+                    input: &mut Input
+                    ) -> ConsumedResult<Self::Output, Input> {
                     let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
                     for elem in &mut *buffer {
                         *elem = ctry!(uncons(input)).0;

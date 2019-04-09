@@ -20,17 +20,17 @@ pub struct Range<I>(I::Range)
 where
     I: RangeStream;
 
-impl<I> Parser for Range<I>
+impl<I> Parser<I> for Range<I>
 where
     I: RangeStream,
     I::Range: PartialEq + ::stream::Range,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         use stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
@@ -44,7 +44,7 @@ where
             Err(err) => wrap_stream_error(input, err),
         }
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         // TODO Add unexpected message?
         errors.error.add_expected(Info::Range(self.0.clone()));
     }
@@ -53,7 +53,7 @@ where
 parser! {
     #[derive(Clone)]
     pub struct Recognize;
-    type PartialState = <RecognizeWithValue<P> as Parser>::PartialState;
+    type PartialState = <RecognizeWithValue<P> as Parser<Input>>::PartialState;
     /// Zero-copy parser which returns consumed input range.
     ///
     /// [`combinator::recognize`][] is a non-`RangeStream` alternative.
@@ -71,11 +71,11 @@ parser! {
     /// # }
     /// ```
     #[inline(always)]
-    pub fn recognize[P](parser: P)(P::Input) -> <P::Input as StreamOnce>::Range
+    pub fn recognize[P](parser: P)(Input) -> <Input as StreamOnce>::Range
     where [
-        P: Parser,
-        P::Input: RangeStream,
-        <P::Input as StreamOnce>::Range: ::stream::Range,
+        P: Parser<Input>,
+        Input: RangeStream,
+        <Input as StreamOnce>::Range: ::stream::Range,
     ]
     {
         recognize_with_value(parser).map(|(range, _)| range)
@@ -135,24 +135,24 @@ where
 #[derive(Clone)]
 pub struct RecognizeWithValue<P>(P);
 
-impl<P> Parser for RecognizeWithValue<P>
+impl<Input, P> Parser<Input> for RecognizeWithValue<P>
 where
-    P: Parser,
-    P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::stream::Range,
+    P: Parser<Input>,
+    Input: RangeStream,
+    <Input as StreamOnce>::Range: ::stream::Range,
 {
-    type Input = P::Input;
-    type Output = (<P::Input as StreamOnce>::Range, P::Output);
+    
+    type Output = (<Input as StreamOnce>::Range, P::Output);
     type PartialState = (usize, P::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ConsumedResult<Self::Output, Input>
     where
         M: ParseMode,
     {
@@ -182,7 +182,7 @@ where
             (range, value)
         })
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
@@ -213,9 +213,9 @@ where
 #[inline(always)]
 pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
 where
-    P: Parser,
-    P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::stream::Range,
+    P: Parser<Input>,
+    Input: RangeStream,
+    <Input as StreamOnce>::Range: ::stream::Range,
 {
     RecognizeWithValue(parser)
 }
@@ -248,16 +248,16 @@ where
 }
 
 pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
-impl<I> Parser for Take<I>
+impl<I> Parser<I> for Take<I>
 where
     I: RangeStream,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<Self::Output, Input> {
         uncons_range(input, self.0)
     }
 }
@@ -291,24 +291,24 @@ where
 }
 
 pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
-impl<I, F> Parser for TakeWhile<I, F>
+impl<I, F> Parser<I> for TakeWhile<I, F>
 where
     I: RangeStream,
     I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = usize;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ConsumedResult<Self::Output, Input>
     where
         M: ParseMode,
     {
@@ -351,24 +351,24 @@ where
 }
 
 pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
-impl<I, F> Parser for TakeWhile1<I, F>
+impl<I, F> Parser<I> for TakeWhile1<I, F>
 where
     I: RangeStream,
     I::Range: ::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = usize;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ConsumedResult<Self::Output, Input>
     where
         M: ParseMode,
     {
@@ -413,21 +413,21 @@ where
 pub struct TakeUntilRange<I>(I::Range)
 where
     I: RangeStream;
-impl<I> Parser for TakeUntilRange<I>
+impl<I> Parser<I> for TakeUntilRange<I>
 where
     I: RangeStream,
     I::Range: PartialEq + ::stream::Range,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = usize;
 
     #[inline]
     fn parse_partial(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         to_consume: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ConsumedResult<Self::Output, Input> {
         use stream::Range;
 
         let len = self.0.len();
@@ -549,25 +549,25 @@ pub struct TakeFn<F, I> {
     _marker: PhantomData<fn(I)>,
 }
 
-impl<F, R, I> Parser for TakeFn<F, I>
+impl<Input, F, R, I> Parser<Input> for TakeFn<F, I>
 where
     F: FnMut(I::Range) -> R,
     R: Into<TakeRange>,
     I: RangeStream + FullRangeStream,
     I::Range: ::stream::Range,
 {
-    type Input = I;
+    
     type Output = I::Range;
     type PartialState = usize;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         offset: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ConsumedResult<Self::Output, Input>
     where
         M: ParseMode,
     {

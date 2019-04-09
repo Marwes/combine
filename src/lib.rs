@@ -85,7 +85,7 @@
 //! [`parser!`] macro can be used. In effect it makes it possible to return a parser without naming
 //! the type of the parser (which can be very large due to combine's trait based approach). While
 //! it is possible to do avoid naming the type without the macro those solutions require either allocation
-//! (`Box<Parser<Input = I, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
+//! (`Box<Parser< I, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
 //! macro thus threads the needle and makes it possible to have non-allocating, anonymous parsers
 //! on stable rust.
 //!
@@ -106,7 +106,7 @@
 //! }
 //!
 //! // `impl Parser` can be used to create reusable parsers with zero overhead
-//! fn expr_<I>() -> impl Parser<Input = I, Output = Expr>
+//! fn expr_<I>() -> impl Parser< I, Output = Expr>
 //!     where I: Stream<Item = char>,
 //!           // Necessary due to rust-lang/rust#24159
 //!           I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -228,17 +228,17 @@ macro_rules! impl_token_parser {
     pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
         where I: Stream<Item=$ty>,
               I::Error: ParseError<$ty, I::Range, I::Position>
-              $(, $ty_var : Parser<Input=I>)*;
-    impl <I $(,$ty_var)*> Parser for $name<I $(,$ty_var)*>
+              $(, $ty_var : Parser<I>)*;
+    impl <I $(,$ty_var)*> Parser<I> for $name<I $(,$ty_var)*>
         where I: Stream<Item=$ty>,
               I::Error: ParseError<$ty, I::Range, I::Position>
-              $(, $ty_var : Parser<Input=I>)*
+              $(, $ty_var : Parser<I>)*
     {
-        type Input = I;
-        type Output = <$inner_type as Parser>::Output;
-        type PartialState = <$inner_type as Parser>::PartialState;
 
-        forward_parser!(0);
+        type Output = <$inner_type as Parser<Input>>::Output;
+        type PartialState = <$inner_type as Parser<Input>>::PartialState;
+
+        forward_parser!(I, 0);
     }
 }
 }
@@ -306,8 +306,8 @@ macro_rules! impl_token_parser {
 ///     // Give the created type a unique name
 ///     #[derive(Clone)]
 ///     pub struct Twice;
-///     pub fn twice[F, P](f: F)(P::Input) -> (P::Output, P::Output)
-///         where [P: Parser,
+///     pub fn twice[F, P](f: F)(Input) -> (P::Output, P::Output)
+///         where [P: Parser<Input>,
 ///                F: FnMut() -> P]
 ///     {
 ///         (f(), f())
@@ -587,7 +587,7 @@ macro_rules! combine_parser_impl {
 
         // We want this to work on older compilers, at least for a while
         #[allow(non_shorthand_field_patterns)]
-        impl<$($type_params)*> $crate::Parser for $type_name<$($type_params)*>
+        impl<$($type_params)*> $crate::Parser<$input_type> for $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
                     $crate::error::ParseError<
                         <$input_type as $crate::stream::StreamOnce>::Item,
@@ -596,16 +596,16 @@ macro_rules! combine_parser_impl {
                         >,
                 $($where_clause)*
         {
-            type Input = $input_type;
+
             type Output = $output_type;
             type PartialState = $($partial_state)*;
 
-            parse_mode!();
+            parse_mode!(Input);
             #[inline]
             fn parse_mode_impl<M>(
                 &mut self,
                 mode: M,
-                input: &mut Self::Input,
+                input: &mut Input,
                 state: &mut Self::PartialState,
                 ) -> $crate::error::ConsumedResult<$output_type, $input_type>
             where M: $crate::parser::ParseMode
@@ -624,7 +624,7 @@ macro_rules! combine_parser_impl {
                 let $type_name { $( $arg : ref mut $arg,)*  .. } = *self;
                 let mut parser = $parser;
                 {
-                    let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                    let _: &mut $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
                 }
                 parser.add_error(errors)
             }
@@ -638,7 +638,7 @@ macro_rules! combine_parser_impl {
                 let $type_name { $( $arg : ref mut $arg,)*  .. } = *self;
                 let mut parser = $parser;
                 {
-                    let _: &mut $crate::Parser<Input = $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                    let _: &mut $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
                 }
                 parser.add_consumed_expected_error(errors)
             }
@@ -675,70 +675,70 @@ extern crate unreachable;
 
 /// Internal API. May break without a semver bump
 macro_rules! forward_parser {
-    (, $($field: tt)+) => {
+    ($input: ty, $($field: tt)+) => {
     };
-    ($method: ident $( $methods: ident)*, $($field: tt)*) => {
-        forward_parser!($method $($field)+);
-        forward_parser!($($methods)*, $($field)+);
+    ($input: ty, $method: ident $( $methods: ident)*, $($field: tt)*) => {
+        forward_parser!($input, $method $($field)+);
+        forward_parser!($input, $($methods)*, $($field)+);
     };
-    (parse_mode $($field: tt)+) => {
+    ($input: ty, parse_mode $($field: tt)+) => {
         #[inline]
         fn parse_mode_impl<M>(
             &mut self,
             mode: M,
-            input: &mut Self::Input,
+            input: &mut $input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input>
+        ) -> ConsumedResult<Self::Output, $input>
         where
             M: ParseMode,
         {
             self.$($field)+.parse_mode(mode, input, state).map(|(a, _)| a)
         }
     };
-    (parse_lazy $($field: tt)+) => {
+    ($input: ty, parse_lazy $($field: tt)+) => {
         fn parse_lazy(
             &mut self,
-            input: &mut Self::Input,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+            input: &mut $input,
+        ) -> ConsumedResult<Self::Output, $input> {
             self.$($field)+.parse_lazy(input)
         }
     };
-    (parse_first $($field: tt)+) => {
+    ($input: ty, parse_first $($field: tt)+) => {
         fn parse_first(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut $input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ConsumedResult<Self::Output, $input> {
             self.$($field)+.parse_first(input, state)
         }
     };
-    (parse_partial $($field: tt)+) => {
+    ($input: ty, parse_partial $($field: tt)+) => {
         fn parse_partial(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut $input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ConsumedResult<Self::Output, $input> {
             self.$($field)+.parse_partial(input, state)
         }
     };
-    (add_error $($field: tt)+) => {
+    ($input: ty, add_error $($field: tt)+) => {
 
-        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        fn add_error(&mut self, error: &mut Tracked<<$input as StreamOnce>::Error>) {
             self.$($field)+.add_error(error)
         }
     };
-    (add_consumed_expected_error $($field: tt)+) => {
-        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    ($input: ty, add_consumed_expected_error $($field: tt)+) => {
+        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<$input as StreamOnce>::Error>) {
             self.$($field)+.add_consumed_expected_error(error)
         }
     };
-    (parser_count $($field: tt)+) => {
+    ($input: ty, parser_count $($field: tt)+) => {
         fn parser_count(&self) -> $crate::ErrorOffset {
             self.$($field)+.parser_count()
         }
     };
-    ($field: tt) => {
-        forward_parser!(parse_lazy parse_first parse_partial add_error add_consumed_expected_error parser_count, $field);
+    ($input: ty, $field: tt) => {
+        forward_parser!($input, parse_lazy parse_first parse_partial add_error add_consumed_expected_error parser_count, $field);
     }
 }
 
@@ -1095,7 +1095,7 @@ mod std_tests {
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<Input = _, Output = char, PartialState = _>> = Box::new(digit());
+        let mut parser: Box<Parser<_, Output = char, PartialState = _>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
