@@ -37,7 +37,7 @@ use combine::parser::range::{
 };
 use combine::parser::repeat;
 use combine::stream::{easy, RangeStream, StreamErrorFor};
-use combine::{any, count_min_max, many1, skip_many, EasyParser, Parser};
+use combine::{any, count_min_max, many1, skip_many, Parser};
 
 quick_error! {
     #[derive(Debug)]
@@ -173,7 +173,7 @@ parser! {
     fn prefix_many_then_parser['a, Input]()(Input) -> String
         where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
-        let integer = from_str(many1::<String, _>(digit()));
+        let integer = from_str(many1::<String, _, _>(digit()));
         any_partial_state((char('#'), skip_many(char(' ')), integer)
             .then_partial(|t| {
                 let c = t.2;
