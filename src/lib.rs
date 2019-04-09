@@ -224,7 +224,6 @@ macro_rules! static_fn {
 
 macro_rules! impl_token_parser {
     ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
-    #[derive(Clone)]
     pub struct $name<Input $(,$ty_var)*>($inner_type, PhantomData<fn (Input) -> Input>)
         where Input: Stream<Item=$ty>,
               Input::Error: ParseError<$ty, Input::Range, Input::Position>

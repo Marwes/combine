@@ -32,7 +32,7 @@ pub struct Count;
 /// # }
 /// ```
 #[inline(always)]
-pub fn count[Input, F, P](count: usize, parser: P)(Input) -> F
+pub fn count[F, Input, P](count: usize, parser: P)(Input) -> F
 where [
     Input: Stream,
     P: Parser<Input>,
@@ -46,7 +46,7 @@ where [
 
 parser! {
     pub struct SkipCount;
-    type PartialState = <With<Count<Input, Sink, P>, Value<Input, ()>> as Parser<Input>>::PartialState;
+    type PartialState = <With<Count<Sink, Input, P>, Value<Input, ()>> as Parser<Input>>::PartialState;
     /// Parses `parser` from zero up to `count` times skipping the output of `parser`.
     ///
     /// ```
@@ -65,7 +65,7 @@ parser! {
         P: Parser<Input>
     ]
     {
-        ::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
+        ::combinator::count::<Sink, _, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -144,7 +144,7 @@ where
 ///
 /// If `min` > `max`.
 #[inline(always)]
-pub fn count_min_max<Input, F, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
+pub fn count_min_max<F, Input, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
 where
     Input: Stream,
     P: Parser<Input>,
@@ -187,13 +187,13 @@ parser! {
         P: Parser<Input>,
     ]
     {
-        ::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
+        ::combinator::count_min_max::<Sink, _, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
 pub struct Iter<'a, Input, P, S, M>
 where
-    Input: 'a + StreamOnce,
+    Input: Stream + 'a,
     P: Parser<Input>,
 {
     parser: P,
@@ -327,7 +327,7 @@ where
 #[derive(Copy, Clone)]
 pub struct Many<F, P>(P, PhantomData<F>);
 
-impl<Input, F, P> Parser<Input> for Many<F, P>
+impl<F, Input, P> Parser<Input> for Many<F, P>
 where
     Input: Stream,
     P: Parser<Input>,
@@ -372,7 +372,7 @@ where
 ///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling many, `many::<Vec<_>, _>(...)`.
+/// calling many, `many::<Vec<_>, _, _>(...)`.
 ///
 /// NOTE: If `p` can succeed without consuming any input this may hang forever as `many` will
 /// repeatedly use `p` to parse the same location in the input every time
@@ -389,7 +389,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn many<Input, F, P>(p: P) -> Many<F, P>
+pub fn many<F, Input, P>(p: P) -> Many<F, P>
 where
     Input: Stream,
     P: Parser<Input>,
@@ -400,7 +400,7 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
-impl<Input, F, P> Parser<Input> for Many1<F, P>
+impl<F, Input, P> Parser<Input> for Many1<F, P>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -478,7 +478,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn many1<Input, F, P>(p: P) -> Many1<F, P>
+pub fn many1<F, Input, P>(p: P) -> Many1<F, P>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -531,7 +531,7 @@ where [
     P: Parser<Input>,
 ]
 {
-    ignore(many::<Sink, _>(ignore(p)))
+    ignore(many::<Sink, _, _>(ignore(p)))
 }
 }
 
@@ -559,7 +559,7 @@ where [
     P: Parser<Input>,
 ]
 {
-    ignore(many1::<Sink, _>(ignore(p)))
+    ignore(many1::<Sink, _, _>(ignore(p)))
 }
 }
 
@@ -569,7 +569,7 @@ pub struct SepBy<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<Input, F, P, S> Parser<Input> for SepBy<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepBy<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -625,7 +625,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn sep_by<Input, F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
+pub fn sep_by<F, Input, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -645,7 +645,7 @@ pub struct SepBy1<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<Input, F, P, S> Parser<Input> for SepBy1<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepBy1<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -733,7 +733,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn sep_by1<Input, F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
+pub fn sep_by1<F, Input, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -754,7 +754,7 @@ pub struct SepEndBy<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<Input, F, P, S> Parser<Input> for SepEndBy<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepEndBy<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -808,7 +808,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn sep_end_by<Input, F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
+pub fn sep_end_by<F, Input, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -829,7 +829,7 @@ pub struct SepEndBy1<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<Input, F, P, S> Parser<Input> for SepEndBy1<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepEndBy1<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -916,7 +916,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn sep_end_by1<Input, F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
+pub fn sep_end_by1<F, Input, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 where
     Input: Stream,
     F: Extend<P::Output> + Default,
@@ -1099,7 +1099,7 @@ pub struct TakeUntil<F, P> {
     end: P,
     _marker: PhantomData<fn() -> F>,
 }
-impl<Input, F, P> Parser<Input> for TakeUntil<F, P>
+impl<F, Input, P> Parser<Input> for TakeUntil<F, P>
 where
     Input: Stream,
     F: Extend<<Input as StreamOnce>::Item> + Default,
@@ -1170,7 +1170,7 @@ where
 /// }
 /// ```
 #[inline(always)]
-pub fn take_until<Input, F, P>(end: P) -> TakeUntil<F, P>
+pub fn take_until<F, Input, P>(end: P) -> TakeUntil<F, P>
 where
     Input: Stream,
     F: Extend<<Input as StreamOnce>::Item> + Default,
@@ -1213,7 +1213,7 @@ parser! {
         P: Parser<Input>,
     ]
     {
-        take_until::<Sink, _>(end).with(value(()))
+        take_until::<Sink, _, _>(end).with(value(()))
     }
 }
 

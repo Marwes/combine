@@ -67,7 +67,7 @@ pub mod sequence;
 /// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
 /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
 /// [`add_error`]: trait.Parser.html#method.add_error
-pub trait Parser<Input: StreamOnce> {
+pub trait Parser<Input: Stream> {
     /// The type which is returned if the parser is successful.
     type Output;
 
@@ -121,7 +121,7 @@ pub trait Parser<Input: StreamOnce> {
     fn easy_parse(
         &mut self,
         input: Input,
-    ) -> Result<(<Self as Parser<Input>>::Output, Input), ::easy::ParseError<Input>>
+    ) -> Result<(<Self as Parser<::easy::Stream<Input>>>::Output, Input), ::easy::ParseError<Input>>
     where
         Input: Stream,
         ::easy::Stream<Input>: StreamOnce<
@@ -963,7 +963,7 @@ macro_rules! forward_deref {
 
 impl<'a, Input, P> Parser<Input> for &'a mut P
 where
-    Input: StreamOnce,
+    Input: Stream,
     P: ?Sized + Parser<Input>,
 {
     forward_deref!(Input);
@@ -972,7 +972,7 @@ where
 #[cfg(feature = "std")]
 impl<Input, P> Parser<Input> for Box<P>
 where
-    Input: StreamOnce,
+    Input: Stream,
     P: ?Sized + Parser<Input>,
 {
     forward_deref!(Input);

@@ -487,7 +487,7 @@ impl<F, P> Recognize<F, P> {
 
 impl<Input, P, F> Parser<Input> for Recognize<F, P>
 where
-    Input: StreamOnce,
+    Input: Stream,
     P: Parser<Input>,
     F: Default + Extend<<Input as StreamOnce>::Item>,
 {
@@ -541,7 +541,7 @@ where
 
 impl<Input, L, R> Parser<Input> for Either<L, R>
 where
-    Input: StreamOnce,
+    Input: Stream,
     L: Parser<Input>,
     R: Parser<Input, Output = L::Output>,
 {
@@ -610,7 +610,7 @@ pub struct NoPartial<P>(P);
 
 impl<Input, P> Parser<Input> for NoPartial<P>
 where
-    Input: StreamOnce,
+    Input: Stream,
     P: Parser<Input>,
 {
     type Output = <P as Parser<Input>>::Output;
@@ -651,7 +651,7 @@ where
 pub struct Ignore<P>(P);
 impl<Input, P> Parser<Input> for Ignore<P>
 where
-    Input: StreamOnce,
+    Input: Stream,
     P: Parser<Input>,
 {
     type Output = ();
@@ -698,7 +698,7 @@ pub struct AnyPartialStateParser<P>(P);
 #[cfg(feature = "std")]
 impl<Input, P> Parser<Input> for AnyPartialStateParser<P>
 where
-    Input: StreamOnce,
+    Input: Stream,
     P: Parser<Input>,
     P::PartialState: 'static,
 {
