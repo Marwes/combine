@@ -63,18 +63,18 @@ fn is_http_version(c: u8) -> bool {
     c >= b'0' && c <= b'9' || c == b'.'
 }
 
-fn end_of_line<'a, I>() -> impl Parser<Output = u8, Input = I>
+fn end_of_line<'a, Input>() -> impl Parser<Output = u8, Input = Input>
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: RangeStream<Item = u8, Range = &'a [u8]>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'))
 }
 
-fn message_header<'a, I>() -> impl Parser<Output = Header<'a>, Input = I>
+fn message_header<'a, Input>() -> impl Parser<Output = Header<'a>, Input = Input>
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: RangeStream<Item = u8, Range = &'a [u8]>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let message_header_line = (
         take_while1(is_horizontal_space),
@@ -90,10 +90,10 @@ where
     })
 }
 
-fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
+fn parse_http_request<'a, Input>(input: Input) -> Result<((Request<'a>, Vec<Header<'a>>), Input), Input::Error>
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: RangeStream<Item = u8, Range = &'a [u8]>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
@@ -142,10 +142,10 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
     http_requests_bench(b, &buffer[..])
 }
 
-fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
+fn http_requests_bench<'a, Input>(b: &mut Bencher, buffer: Input)
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]> + Clone,
-    I::Error: ParseError<I::Item, I::Range, I::Position> + fmt::Debug,
+    Input: RangeStream<Item = u8, Range = &'a [u8]> + Clone,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position> + fmt::Debug,
 {
     b.iter(|| {
         let mut buf = black_box(buffer.clone());

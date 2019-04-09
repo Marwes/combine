@@ -48,13 +48,13 @@ impl LanguageServerDecoder {
 /// ```
 // The `content_length_parses` parameter only exists to demonstrate that `content_length` only
 // gets parsed once per message
-fn decode_parser<'a, I>(
+fn decode_parser<'a, Input>(
     content_length_parses: Rc<Cell<i32>>,
-) -> impl Parser< I, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
+) -> impl Parser< Input, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
+    Input: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
     // Necessary due to rust-lang/rust#24159
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let content_length = range(&b"Content-Length: "[..])
         .with(recognize(skip_many1(digit())).and_then(|digits: &[u8]| {
@@ -62,7 +62,7 @@ where
                 .unwrap()
                 .parse::<usize>()
                 // Convert the error from `.parse` into an error combine understands
-                .map_err(StreamErrorFor::<I>::other)
+                .map_err(StreamErrorFor::<Input>::other)
         }))
         .map(move |x| {
             content_length_parses.set(content_length_parses.get() + 1);

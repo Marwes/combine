@@ -97,11 +97,11 @@ where
     }
 }
 
-fn find_iter<'a, I, F>(iterable: I) -> (usize, F)
+fn find_iter<'a, Input, F>(iterable: Input) -> (usize, F)
 where
-    I: IntoIterator,
-    I::Item: MatchFind,
-    F: FromIterator<<I::Item as MatchFind>::Range>,
+    Input: IntoIterator,
+    Input::Item: MatchFind,
+    F: FromIterator<<Input::Item as MatchFind>::Range>,
 {
     let mut end = 0;
     let value = iterable
@@ -320,15 +320,15 @@ mod regex_1 {
     }
 }
 
-pub struct Match<R, I>(R, PhantomData<I>);
+pub struct Match<R, Input>(R, PhantomData<Input>);
 
-impl<'a, Input, R, I> Parser<Input> for Match<R, I>
+impl<'a, Input, R, Input> Parser<Input> for Match<R, Input>
 where
-    R: Regex<I::Range>,
-    I: FullRangeStream,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
 {
     
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = ();
 
     #[inline]
@@ -336,7 +336,7 @@ where
         if self.0.is_match(input.range()) {
             EmptyOk(input.range())
         } else {
-            EmptyErr(I::Error::empty(input.position()).into())
+            EmptyErr(Input::Error::empty(input.position()).into())
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -365,25 +365,25 @@ where
 ///     );
 /// }
 /// ```
-pub fn match_<R, I>(regex: R) -> Match<R, I>
+pub fn match_<R, Input>(regex: R) -> Match<R, Input>
 where
-    R: Regex<I::Range>,
-    I: FullRangeStream,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
 {
     Match(regex, PhantomData)
 }
 
 #[derive(Clone)]
-pub struct Find<R, I>(R, PhantomData<fn() -> I>);
+pub struct Find<R, Input>(R, PhantomData<fn() -> Input>);
 
-impl<'a, Input, R, I> Parser<Input> for Find<R, I>
+impl<'a, Input, R, Input> Parser<Input> for Find<R, Input>
 where
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = ();
 
     #[inline]
@@ -391,7 +391,7 @@ where
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
-            None => EmptyErr(I::Error::empty(input.position()).into()),
+            None => EmptyErr(Input::Error::empty(input.position()).into()),
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -423,24 +423,24 @@ where
 ///     assert_eq!(digits2.parse("abc 123 456 "), Ok(("123", " 456 ")));
 /// }
 /// ```
-pub fn find<R, I>(regex: R) -> Find<R, I>
+pub fn find<R, Input>(regex: R) -> Find<R, Input>
 where
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     Find(regex, PhantomData)
 }
 
 #[derive(Clone)]
-pub struct FindMany<F, R, I>(R, PhantomData<fn() -> (I, F)>);
+pub struct FindMany<F, R, Input>(R, PhantomData<fn() -> (Input, F)>);
 
-impl<'a, Input, F, R, I> Parser<Input> for FindMany<F, R, I>
+impl<'a, Input, F, R, Input> Parser<Input> for FindMany<F, R, Input>
 where
-    F: FromIterator<I::Range>,
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    F: FromIterator<Input::Range>,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     
     type Output = F;
@@ -460,7 +460,7 @@ where
 }
 
 /// Matches `regex` on the input by running `find_iter` on the input.
-/// Returns all matches in a `F: FromIterator<I::Range>`.
+/// Returns all matches in a `F: FromIterator<Input::Range>`.
 /// Consumes all input up until the end of the last match.
 ///
 /// ```
@@ -478,25 +478,25 @@ where
 ///     assert_eq!(digits.parse("abc"), Ok((vec![], "abc")));
 /// }
 /// ```
-pub fn find_many<F, R, I>(regex: R) -> FindMany<F, R, I>
+pub fn find_many<F, R, Input>(regex: R) -> FindMany<F, R, Input>
 where
-    F: FromIterator<I::Range>,
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    F: FromIterator<Input::Range>,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     FindMany(regex, PhantomData)
 }
 
 #[derive(Clone)]
-pub struct Captures<F, R, I>(R, PhantomData<fn() -> (I, F)>);
+pub struct Captures<F, R, Input>(R, PhantomData<fn() -> (Input, F)>);
 
-impl<'a, Input, F, R, I> Parser<Input> for Captures<F, R, I>
+impl<'a, Input, F, R, Input> Parser<Input> for Captures<F, R, Input>
 where
-    F: FromIterator<I::Range>,
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    F: FromIterator<Input::Range>,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     
     type Output = F;
@@ -507,7 +507,7 @@ where
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
-            None => EmptyErr(I::Error::empty(input.position()).into()),
+            None => EmptyErr(Input::Error::empty(input.position()).into()),
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -544,26 +544,26 @@ where
 ///     );
 /// }
 /// ```
-pub fn captures<F, R, I>(regex: R) -> Captures<F, R, I>
+pub fn captures<F, R, Input>(regex: R) -> Captures<F, R, Input>
 where
-    F: FromIterator<I::Range>,
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    F: FromIterator<Input::Range>,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     Captures(regex, PhantomData)
 }
 
 #[derive(Clone)]
-pub struct CapturesMany<F, G, R, I>(R, PhantomData<fn() -> (I, F, G)>);
+pub struct CapturesMany<F, G, R, Input>(R, PhantomData<fn() -> (Input, F, G)>);
 
-impl<'a, Input, F, G, R, I> Parser<Input> for CapturesMany<F, G, R, I>
+impl<'a, Input, F, G, R, Input> Parser<Input> for CapturesMany<F, G, R, Input>
 where
-    F: FromIterator<I::Range>,
+    F: FromIterator<Input::Range>,
     G: FromIterator<F>,
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     
     type Output = G;
@@ -583,7 +583,7 @@ where
 }
 
 /// Matches `regex` on the input by running `captures_iter` on the input.
-/// Returns all captures which is part of the match in a `F: FromIterator<I::Range>`.
+/// Returns all captures which is part of the match in a `F: FromIterator<Input::Range>`.
 /// Consumes all input up until the end of the last match.
 ///
 /// ```
@@ -610,13 +610,13 @@ where
 ///     );
 /// }
 /// ```
-pub fn captures_many<F, G, R, I>(regex: R) -> CapturesMany<F, G, R, I>
+pub fn captures_many<F, G, R, Input>(regex: R) -> CapturesMany<F, G, R, Input>
 where
-    F: FromIterator<I::Range>,
+    F: FromIterator<Input::Range>,
     G: FromIterator<F>,
-    R: Regex<I::Range>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    R: Regex<Input::Range>,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     CapturesMany(regex, PhantomData)
 }

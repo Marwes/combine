@@ -85,7 +85,7 @@
 //! [`parser!`] macro can be used. In effect it makes it possible to return a parser without naming
 //! the type of the parser (which can be very large due to combine's trait based approach). While
 //! it is possible to do avoid naming the type without the macro those solutions require either allocation
-//! (`Box<Parser< I, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
+//! (`Box<Parser< Input, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
 //! macro thus threads the needle and makes it possible to have non-allocating, anonymous parsers
 //! on stable rust.
 //!
@@ -106,10 +106,10 @@
 //! }
 //!
 //! // `impl Parser` can be used to create reusable parsers with zero overhead
-//! fn expr_<I>() -> impl Parser< I, Output = Expr>
-//!     where I: Stream<Item = char>,
+//! fn expr_<Input>() -> impl Parser< Input, Output = Expr>
+//!     where Input: Stream<Item = char>,
 //!           // Necessary due to rust-lang/rust#24159
-//!           I::Error: ParseError<I::Item, I::Range, I::Position>,
+//!           Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 //! {
 //!     let word = many1(letter());
 //!
@@ -149,8 +149,8 @@
 //! // (This macro does not use `impl Trait` which means it can be used in rust < 1.26 as well to
 //! // emulate `impl Parser`)
 //! parser!{
-//!     fn expr[I]()(I) -> Expr
-//!     where [I: Stream<Item = char>]
+//!     fn expr[Input]()(Input) -> Expr
+//!     where [Input: Stream<Item = char>]
 //!     {
 //!         expr_()
 //!     }
@@ -225,20 +225,20 @@ macro_rules! static_fn {
 macro_rules! impl_token_parser {
     ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
     #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
-        where I: Stream<Item=$ty>,
-              I::Error: ParseError<$ty, I::Range, I::Position>
-              $(, $ty_var : Parser<I>)*;
-    impl <I $(,$ty_var)*> Parser<I> for $name<I $(,$ty_var)*>
-        where I: Stream<Item=$ty>,
-              I::Error: ParseError<$ty, I::Range, I::Position>
-              $(, $ty_var : Parser<I>)*
+    pub struct $name<Input $(,$ty_var)*>($inner_type, PhantomData<fn (Input) -> Input>)
+        where Input: Stream<Item=$ty>,
+              Input::Error: ParseError<$ty, Input::Range, Input::Position>
+              $(, $ty_var : Parser<Input>)*;
+    impl <Input $(,$ty_var)*> Parser<Input> for $name<Input $(,$ty_var)*>
+        where Input: Stream<Item=$ty>,
+              Input::Error: ParseError<$ty, Input::Range, Input::Position>
+              $(, $ty_var : Parser<Input>)*
     {
 
         type Output = <$inner_type as Parser<Input>>::Output;
         type PartialState = <$inner_type as Parser<Input>>::PartialState;
 
-        forward_parser!(I, 0);
+        forward_parser!(Input, 0);
     }
 }
 }
@@ -261,13 +261,13 @@ macro_rules! impl_token_parser {
 /// use combine::error::ParseError;
 ///
 /// parser!{
-///     /// `[I]` represents a normal type parameters and lifetime declaration for the function
-///     /// It gets expanded to `<I>`
-///     fn integer[I]()(I) -> i32
+///     /// `[Input]` represents a normal type parameters and lifetime declaration for the function
+///     /// It gets expanded to `<Input>`
+///     fn integer[Input]()(Input) -> i32
 ///     where [
-///         I: Stream<Item = char>,
-///         I::Error: ParseError<char, I::Range, I::Position>,
-///         <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError:
+///         Input: Stream<Item = char>,
+///         Input::Error: ParseError<char, Input::Range, Input::Position>,
+///         <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError:
 ///             From<::std::num::ParseIntError>,
 ///     ]
 ///     {
@@ -287,11 +287,11 @@ macro_rules! impl_token_parser {
 ///     // Documentation comments works as well
 ///
 ///     /// Parses an integer or a string (any characters)
-///     pub fn integer_or_string[I]()(I) -> IntOrString
+///     pub fn integer_or_string[Input]()(Input) -> IntOrString
 ///     where [
-///         I: Stream<Item = char>,
-///         I::Error: ParseError<char, I::Range, I::Position>,
-///         <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError:
+///         Input: Stream<Item = char>,
+///         Input::Error: ParseError<char, Input::Range, Input::Position>,
+///         <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError:
 ///             From<::std::num::ParseIntError>,
 ///     ]
 ///     {
@@ -878,10 +878,10 @@ mod std_tests {
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
-    fn follow<I>(input: &mut I) -> ParseResult<(), I>
+    fn follow<Input>(input: &mut Input) -> ParseResult<(), Input>
     where
-        I: Stream<Item = char, Error = easy::ParseError<I>>,
-        I::Position: Default,
+        Input: Stream<Item = char, Error = easy::ParseError<Input>>,
+        Input::Position: Default,
     {
         let before = input.checkpoint();
         match input.uncons() {
@@ -900,10 +900,10 @@ mod std_tests {
         }
     }
 
-    fn integer<'a, I>(input: &mut I) -> ParseResult<i64, I>
+    fn integer<'a, Input>(input: &mut Input) -> ParseResult<i64, Input>
     where
-        I: Stream<Item = char>,
-        I::Error: ParseError<I::Item, I::Range, I::Position>,
+        Input: Stream<Item = char>,
+        Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
     {
         let (s, input) = try!(many1::<String, _>(digit())
             .expected("integer")
@@ -974,9 +974,9 @@ mod std_tests {
     }
 
     parser! {
-        fn expr[I]()(I) -> Expr
+        fn expr[Input]()(Input) -> Expr
         where
-            [I: Stream<Item = char>,]
+            [Input: Stream<Item = char>,]
         {
             let word = many1(letter()).expected("identifier");
             let integer = parser(integer);
@@ -1024,10 +1024,10 @@ mod std_tests {
         assert_eq!(result, Err(err));
     }
 
-    fn term<I>(input: &mut I) -> ParseResult<Expr, I>
+    fn term<Input>(input: &mut Input) -> ParseResult<Expr, Input>
     where
-        I: Stream<Item = char>,
-        I::Error: ParseError<I::Item, I::Range, I::Position>,
+        Input: Stream<Item = char>,
+        Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
     {
         fn times(l: Expr, r: Expr) -> Expr {
             Expr::Times(Box::new(l), Box::new(r))

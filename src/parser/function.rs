@@ -6,19 +6,18 @@ use error::{ConsumedResult, ParseResult};
 use stream::Stream;
 use Parser;
 
-impl<'a, Input, I: Stream, O> Parser<Input> for FnMut(&mut I) -> ParseResult<O, I> + 'a {
-    
+impl<'a, Input: Stream, O> Parser<Input> for FnMut(&mut Input) -> ParseResult<O, Input> + 'a {
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
         self(input).into()
     }
 }
 
 #[derive(Copy, Clone)]
-pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
+pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 
 /// Wraps a function, turning it into a parser.
 ///
@@ -57,55 +56,53 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// # }
 /// ```
 #[inline(always)]
-pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
+pub fn parser<Input, O, F>(f: F) -> FnParser<Input, F>
 where
-    I: Stream,
-    F: FnMut(&mut I) -> ParseResult<O, I>,
+    Input: Stream,
+    F: FnMut(&mut Input) -> ParseResult<O, Input>,
 {
     FnParser(f, PhantomData)
 }
 
-impl<I, O, F> Parser<I> for FnParser<I, F>
+impl<Input, O, F> Parser<Input> for FnParser<Input, F>
 where
-    I: Stream,
-    F: FnMut(&mut I) -> ParseResult<O, I>,
+    Input: Stream,
+    F: FnMut(&mut Input) -> ParseResult<O, Input>,
 {
-    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
         (self.0)(input).into()
     }
 }
 
-impl<I, O> Parser<I> for fn(&mut I) -> ParseResult<O, I>
+impl<Input, O> Parser<Input> for fn(&mut Input) -> ParseResult<O, Input>
 where
-    I: Stream,
+    Input: Stream,
 {
-    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
         self(input).into()
     }
 }
 
 #[derive(Copy)]
-pub struct EnvParser<E, I, T>
+pub struct EnvParser<E, Input, T>
 where
-    I: Stream,
+    Input: Stream,
 {
     env: E,
-    parser: fn(E, &mut I) -> ParseResult<T, I>,
+    parser: fn(E, &mut Input) -> ParseResult<T, Input>,
 }
 
-impl<E, I, T> Clone for EnvParser<E, I, T>
+impl<E, Input, T> Clone for EnvParser<E, Input, T>
 where
-    I: Stream,
+    Input: Stream,
     E: Clone,
 {
     fn clone(&self) -> Self {
@@ -116,17 +113,16 @@ where
     }
 }
 
-impl<Input, E, I, O> Parser<Input> for EnvParser<E, I, O>
+impl<Input, E, O> Parser<Input> for EnvParser<E, Input, O>
 where
     E: Clone,
-    I: Stream,
+    Input: Stream,
 {
-    
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
         (self.parser)(self.env.clone(), input).into()
     }
 }
@@ -143,9 +139,9 @@ where
 /// # fn main() {
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
-///     fn string<I>(&self, input: &mut I) -> ParseResult<u32, I>
-///         where I: Stream<Item=char>,
-///               I::Error: ParseError<I::Item, I::Range, I::Position>,
+///     fn string<Input>(&self, input: &mut Input) -> ParseResult<u32, Input>
+///         where Input: Stream<Item=char>,
+///               Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 ///     {
 ///         many(letter())
 ///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
@@ -168,10 +164,13 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn env_parser<E, I, O>(env: E, parser: fn(E, &mut I) -> ParseResult<O, I>) -> EnvParser<E, I, O>
+pub fn env_parser<E, Input, O>(
+    env: E,
+    parser: fn(E, &mut Input) -> ParseResult<O, Input>,
+) -> EnvParser<E, Input, O>
 where
     E: Clone,
-    I: Stream,
+    Input: Stream,
 {
     EnvParser {
         env: env,

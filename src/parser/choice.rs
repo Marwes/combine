@@ -61,8 +61,7 @@ macro_rules! parse_mode_choice {
 /// on the input.
 ///
 /// This is an internal trait used to overload the `choice` function.
-pub trait ChoiceParser {
-    
+pub trait ChoiceParser<Input> {
     type Output;
     type PartialState: Default;
 
@@ -93,9 +92,8 @@ pub trait ChoiceParser {
 
 impl<'a, Input, P> ChoiceParser<Input> for &'a mut P
 where
-    P: ?Sized + ChoiceParser,
+    P: ?Sized + ChoiceParser<Input>,
 {
-    
     type Output = P::Output;
     type PartialState = P::PartialState;
 
@@ -226,12 +224,12 @@ macro_rules! tuple_choice_parser_inner {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Output $(,$id)+> ChoiceParser<I> for ($($id,)+)
+        impl<Input, Output $(,$id)+> ChoiceParser<Input> for ($($id,)+)
         where
             Input: Stream,
             $($id: Parser< Input, Output = Output>),+
         {
-            
+
             type Output = Output;
             type PartialState = self::$partial_state<$($id::PartialState),+>;
 
@@ -304,9 +302,9 @@ macro_rules! array_choice_parser {
         where
             P: Parser<Input>,
         {
-            
+
             type Output = P::Output;
-            type PartialState = <[P] as ChoiceParser>::PartialState;
+            type PartialState = <[P] as ChoiceParser<Input>>::PartialState;
 
             parse_mode_choice!();
             #[inline(always)]
@@ -348,9 +346,8 @@ pub struct Choice<P>(P);
 
 impl<Input, P> Parser<Input> for Choice<P>
 where
-    P: ChoiceParser,
+    P: ChoiceParser<Input>,
 {
-    
     type Output = P::Output;
     type PartialState = P::PartialState;
 
@@ -375,15 +372,15 @@ where
     }
 }
 
-fn slice_parse_mode<I, P, M>(
+fn slice_parse_mode<Input, P, M>(
     self_: &mut [P],
     mode: M,
     input: &mut Input,
     state: &mut (usize, P::PartialState),
 ) -> ConsumedResult<P::Output, Input>
 where
-    P: Parser< I>,
-    I: Stream,
+    P: Parser<Input>,
+    Input: Stream,
     M: ParseMode,
 {
     let mut prev_err = None;
@@ -440,7 +437,7 @@ where
         }
     }
     EmptyErr(match prev_err {
-        None => I::Error::from_error(
+        None => Input::Error::from_error(
             input.position(),
             StreamError::message_static_message("parser choice is empty"),
         )
@@ -462,12 +459,11 @@ where
     })
 }
 
-impl<I, O, P> ChoiceParser<I> for [P]
+impl<Input, O, P> ChoiceParser<Input> for [P]
 where
-    I: Stream,
-    P: Parser< I, Output = O>,
+    Input: Stream,
+    P: Parser<Input, Output = O>,
 {
-    
     type Output = O;
     type PartialState = (usize, P::PartialState);
 
@@ -544,25 +540,21 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn choice<P>(ps: P) -> Choice<P>
+pub fn choice<Input, P>(ps: P) -> Choice<P>
 where
-    P: ChoiceParser,
+    P: ChoiceParser<Input>,
 {
     Choice(ps)
 }
 
 #[derive(Copy, Clone)]
-pub struct Or<P1, P2>(Choice<(P1, P2)>)
+pub struct Or<P1, P2>(Choice<(P1, P2)>);
+impl<Input, O, P1, P2> Parser<Input> for Or<P1, P2>
 where
-    P1: Parser<Input>,
-    P2: Parser;
-impl<I, O, P1, P2> Parser<I> for Or<P1, P2>
-where
-    I: Stream,
-    P1: Parser< I, Output = O>,
-    P2: Parser< I, Output = O>,
+    Input: Stream,
+    P1: Parser<Input, Output = O>,
+    P2: Parser<Input, Output = O>,
 {
-    
     type Output = O;
     type PartialState = <Choice<(P1, P2)> as Parser<Input>>::PartialState;
 
@@ -620,10 +612,10 @@ where
 /// [`choice!`]: ../macro.choice.html
 /// [`p1.or(p2)`]: ../parser/trait.Parser.html#method.or
 #[inline(always)]
-pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
+pub fn or<Input, P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
     P1: Parser<Input>,
-    P2: Parser< Input, Output = P1::Output>,
+    P2: Parser<Input, Output = P1::Output>,
 {
     Or(choice((p1, p2)))
 }
@@ -634,7 +626,6 @@ impl<Input, P> Parser<Input> for Optional<P>
 where
     P: Parser<Input>,
 {
-    
     type Output = Option<P::Output>;
     type PartialState = P::PartialState;
 
@@ -679,7 +670,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn optional<P>(parser: P) -> Optional<P>
+pub fn optional<Input, P>(parser: P) -> Optional<P>
 where
     P: Parser<Input>,
 {

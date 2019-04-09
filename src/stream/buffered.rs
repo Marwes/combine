@@ -23,19 +23,19 @@ use stream::{Positioned, Resetable, StreamErrorFor, StreamOnce};
 /// parser.easy_parse(BufferedStream::new(..));
 /// ```
 #[derive(Debug, PartialEq)]
-pub struct BufferedStream<I>
+pub struct BufferedStream<Input>
 where
-    I: StreamOnce + Positioned,
+    Input: StreamOnce + Positioned,
 {
     offset: usize,
-    iter: I,
+    iter: Input,
     buffer_offset: usize,
-    buffer: VecDeque<(I::Item, I::Position)>,
+    buffer: VecDeque<(Input::Item, Input::Position)>,
 }
 
-impl<I> Resetable for BufferedStream<I>
+impl<Input> Resetable for BufferedStream<Input>
 where
-    I: Positioned,
+    Input: Positioned,
 {
     type Checkpoint = usize;
     fn checkpoint(&self) -> Self::Checkpoint {
@@ -46,15 +46,15 @@ where
     }
 }
 
-impl<I> BufferedStream<I>
+impl<Input> BufferedStream<Input>
 where
-    I: StreamOnce + Positioned,
-    I::Position: Clone,
-    I::Item: Clone,
+    Input: StreamOnce + Positioned,
+    Input::Position: Clone,
+    Input::Item: Clone,
 {
     /// Constructs a new `BufferedStream` from a `StreamOnce` instance with a `lookahead`
     /// number of elements that can be stored in the buffer.
-    pub fn new(iter: I, lookahead: usize) -> BufferedStream<I> {
+    pub fn new(iter: Input, lookahead: usize) -> BufferedStream<Input> {
         BufferedStream {
             offset: 0,
             iter: iter,
@@ -64,9 +64,9 @@ where
     }
 }
 
-impl<I> Positioned for BufferedStream<I>
+impl<Input> Positioned for BufferedStream<Input>
 where
-    I: StreamOnce + Positioned,
+    Input: StreamOnce + Positioned,
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
@@ -86,18 +86,18 @@ where
     }
 }
 
-impl<I> StreamOnce for BufferedStream<I>
+impl<Input> StreamOnce for BufferedStream<Input>
 where
-    I: StreamOnce + Positioned,
-    I::Item: Clone + PartialEq,
+    Input: StreamOnce + Positioned,
+    Input::Item: Clone + PartialEq,
 {
-    type Item = I::Item;
-    type Range = I::Range;
-    type Position = I::Position;
-    type Error = I::Error;
+    type Item = Input::Item;
+    type Range = Input::Range;
+    type Position = Input::Position;
+    type Error = Input::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
             let item = try!(self.iter.uncons());

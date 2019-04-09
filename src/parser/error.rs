@@ -9,18 +9,20 @@ use {Parser, Stream, StreamOnce};
 use error::FastResult::*;
 
 #[derive(Clone)]
-pub struct Unexpected<I, T>(Info<I::Item, I::Range>, PhantomData<fn(I) -> (I, T)>)
+pub struct Unexpected<Input, T>(
+    Info<Input::Item, Input::Range>,
+    PhantomData<fn(Input) -> (Input, T)>,
+)
 where
-    I: Stream;
-impl<I, T> Parser<I> for Unexpected<I, T>
+    Input: Stream;
+impl<Input, T> Parser<Input> for Unexpected<Input, T>
 where
-    I: Stream,
+    Input: Stream,
 {
-    
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<T, I> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<T, Input> {
         EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -50,10 +52,10 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn unexpected<I, S>(message: S) -> Unexpected<I, ()>
+pub fn unexpected<Input, S>(message: S) -> Unexpected<Input, ()>
 where
-    I: Stream,
-    S: Into<Info<I::Item, I::Range>>,
+    Input: Stream,
+    S: Into<Info<Input::Item, Input::Range>>,
 {
     unexpected_any(message)
 }
@@ -83,27 +85,21 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn unexpected_any<I, S, T>(message: S) -> Unexpected<I, T>
+pub fn unexpected_any<Input, S, T>(message: S) -> Unexpected<Input, T>
 where
-    I: Stream,
-    S: Into<Info<I::Item, I::Range>>,
+    Input: Stream,
+    S: Into<Info<Input::Item, Input::Range>>,
 {
     Unexpected(message.into(), PhantomData)
 }
 
 #[derive(Clone)]
-pub struct Message<P>(
-    P,
-    Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
-)
+pub struct Message<P, I, R>(P, Info<I, R>);
+impl<Input, P> Parser<Input> for Message<P, Input::Item, Input::Range>
 where
-    P: Parser;
-impl<I, P> Parser<I> for Message<P>
-where
-    I: Stream,
-    P: Parser< I>,
+    Input: Stream,
+    P: Parser<Input>,
 {
-    
     type Output = P::Output;
     type PartialState = P::PartialState;
 
@@ -145,28 +141,24 @@ where
 ///
 /// [`p1.message(msg)`]: ../parser/trait.Parser.html#method.message
 #[inline(always)]
-pub fn message<P>(
+pub fn message<Input, P>(
     p: P,
     msg: Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
-) -> Message<P>
+) -> Message<P, Input::Item, Input::Range>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Message(p, msg)
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(
-    P,
-    Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
-)
+pub struct Expected<P, I, R>(P, Info<I, R>);
+impl<Input, P> Parser<Input> for Expected<P, Input::Item, Input::Range>
 where
-    P: Parser;
-impl<Input, P> Parser<Input> for Expected<P>
-where
+    Input: Stream,
     P: Parser<Input>,
 {
-    
     type Output = P::Output;
     type PartialState = P::PartialState;
 
@@ -197,25 +189,23 @@ where
 ///
 /// [`p.expected(info)`]: ../parser/trait.Parser.html#method.expected
 #[inline(always)]
-pub fn expected<P>(
+pub fn expected<Input, P>(
     p: P,
     info: Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
-) -> Expected<P>
+) -> Expected<P, Input::Item, Input::Range>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Expected(p, info)
 }
 
 #[derive(Clone)]
-pub struct Silent<P>(P)
-where
-    P: Parser;
+pub struct Silent<P>(P);
 impl<Input, P> Parser<Input> for Silent<P>
 where
     P: Parser<Input>,
 {
-    
     type Output = P::Output;
     type PartialState = P::PartialState;
 
@@ -238,10 +228,7 @@ where
 
     fn add_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
-    fn add_consumed_expected_error(
-        &mut self,
-        _errors: &mut Tracked<<Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {
     }
 
     forward_parser!(Input, parser_count, 0);
@@ -251,7 +238,7 @@ where
 ///
 /// [`p.silent()`]: ../trait.Parser.html#method.silent
 #[inline(always)]
-pub fn silent<P>(p: P) -> Silent<P>
+pub fn silent<Input, P>(p: P) -> Silent<P>
 where
     P: Parser<Input>,
 {

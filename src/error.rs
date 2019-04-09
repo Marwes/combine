@@ -139,9 +139,9 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char<I>(input: &mut I) -> ParseResult<char, I>
-    ///     where I: Stream<Item = char>,
-    ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
+    /// fn char<Input>(input: &mut Input) -> ParseResult<char, Input>
+    ///     where Input: Stream<Item = char>,
+    ///           Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
     /// {
     ///     let (c, consumed) = try!(satisfy(|c| c != '"').parse_stream(input));
     ///     match c {
@@ -198,8 +198,8 @@ impl<T> Consumed<T> {
 /// A type alias over the specific `Result` type used by parsers to indicate whether they were
 /// successful or not.
 /// `O` is the type that is output on success.
-/// `I` is the specific stream type used in the parser.
-pub type ParseResult<O, I> = Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
+/// `Input` is the specific stream type used in the parser.
+pub type ParseResult<O, Input> = Result<(O, Consumed<()>), Consumed<Tracked<<Input as StreamOnce>::Error>>>;
 pub type ParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
@@ -708,7 +708,7 @@ impl<T, E> FastResult<T, E> {
 /// A `Result` type which has the consumed status flattened into the result.
 /// Conversions to and from `std::result::Result` can be done using `result.into()` or
 /// `From::from(result)`
-pub type ConsumedResult<O, I> = FastResult<O, <I as StreamOnce>::Error>;
+pub type ConsumedResult<O, Input> = FastResult<O, <Input as StreamOnce>::Error>;
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> {
     #[inline(always)]

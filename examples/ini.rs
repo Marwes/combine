@@ -39,11 +39,11 @@ pub struct Ini {
     pub sections: HashMap<String, HashMap<String, String>>,
 }
 
-fn property<I>() -> impl Parser< I, Output = (String, String)>
+fn property<Input>() -> impl Parser< Input, Output = (String, String)>
 where
-    I: Stream<Item = char>,
+    Input: Stream<Item = char>,
     // Necessary due to rust-lang/rust#24159
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (
         many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
@@ -54,10 +54,10 @@ where
         .message("while parsing property")
 }
 
-fn whitespace<I>() -> impl Parser< I>
+fn whitespace<Input>() -> impl Parser< Input>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
     // Wrap the `spaces().or(comment)` in `skip_many` so that it skips alternating whitespace and
@@ -65,19 +65,19 @@ where
     skip_many(skip_many1(space()).or(comment))
 }
 
-fn properties<I>() -> impl Parser< I, Output = HashMap<String, String>>
+fn properties<Input>() -> impl Parser< Input, Output = HashMap<String, String>>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     // After each property we skip any whitespace that followed it
     many(property().skip(whitespace()))
 }
 
-fn section<I>() -> impl Parser< I, Output = (String, HashMap<String, String>)>
+fn section<Input>() -> impl Parser< Input, Output = (String, HashMap<String, String>)>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (
         between(token('['), token(']'), many(satisfy(|c| c != ']'))),
@@ -88,10 +88,10 @@ where
         .message("while parsing section")
 }
 
-fn ini<I>() -> impl Parser< I, Output = Ini>
+fn ini<Input>() -> impl Parser< Input, Output = Ini>
 where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = char>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (whitespace(), properties(), many(section())).map(|(_, global, sections)| Ini {
         global: global,

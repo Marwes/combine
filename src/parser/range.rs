@@ -16,17 +16,16 @@ use stream::{
 };
 use Parser;
 
-pub struct Range<I>(I::Range)
+pub struct Range<Input>(Input::Range)
 where
-    I: RangeStream;
+    Input: RangeStream;
 
-impl<I> Parser<I> for Range<I>
+impl<Input> Parser<Input> for Range<Input>
 where
-    I: RangeStream,
-    I::Range: PartialEq + ::stream::Range,
+    Input: RangeStream,
+    Input::Range: PartialEq + ::stream::Range,
 {
-    
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = ();
 
     #[inline]
@@ -38,7 +37,7 @@ where
                 if other == self.0 {
                     ConsumedOk(other)
                 } else {
-                    EmptyErr(I::Error::empty(position).into())
+                    EmptyErr(Input::Error::empty(position).into())
                 }
             }
             Err(err) => wrap_stream_error(input, err),
@@ -71,7 +70,7 @@ parser! {
     /// # }
     /// ```
     #[inline(always)]
-    pub fn recognize[P](parser: P)(Input) -> <Input as StreamOnce>::Range
+    pub fn recognize[Input, P](parser: P)(Input) -> <Input as StreamOnce>::Range
     where [
         P: Parser<Input>,
         Input: RangeStream,
@@ -83,19 +82,19 @@ parser! {
 }
 
 #[inline]
-fn parse_partial_range<M, F, G, S, I>(
+fn parse_partial_range<M, F, G, S, Input>(
     mode: M,
-    input: &mut I,
+    input: &mut Input,
     distance_state: &mut usize,
     state: S,
     first: F,
     resume: G,
-) -> ConsumedResult<I::Range, I>
+) -> ConsumedResult<Input::Range, Input>
 where
     M: ParseMode,
-    F: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
-    G: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
-    I: RangeStream,
+    F: FnOnce(&mut Input, S) -> ConsumedResult<Input::Range, Input>,
+    G: FnOnce(&mut Input, S) -> ConsumedResult<Input::Range, Input>,
+    Input: RangeStream,
 {
     let before = input.checkpoint();
 
@@ -141,7 +140,6 @@ where
     Input: RangeStream,
     <Input as StreamOnce>::Range: ::stream::Range,
 {
-    
     type Output = (<Input as StreamOnce>::Range, P::Output);
     type PartialState = (usize, P::PartialState);
 
@@ -211,7 +209,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
+pub fn recognize_with_value<Input, P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser<Input>,
     Input: RangeStream,
@@ -239,21 +237,20 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn range<I>(i: I::Range) -> Range<I>
+pub fn range<Input>(i: Input::Range) -> Range<Input>
 where
-    I: RangeStream,
-    I::Range: PartialEq,
+    Input: RangeStream,
+    Input::Range: PartialEq,
 {
     Range(i)
 }
 
-pub struct Take<I>(usize, PhantomData<fn(I) -> I>);
-impl<I> Parser<I> for Take<I>
+pub struct Take<Input>(usize, PhantomData<fn(Input) -> Input>);
+impl<Input> Parser<Input> for Take<Input>
 where
-    I: RangeStream,
+    Input: RangeStream,
 {
-    
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = ();
 
     #[inline]
@@ -283,22 +280,21 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn take<I>(n: usize) -> Take<I>
+pub fn take<Input>(n: usize) -> Take<Input>
 where
-    I: RangeStream,
+    Input: RangeStream,
 {
     Take(n, PhantomData)
 }
 
-pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
-impl<I, F> Parser<I> for TakeWhile<I, F>
+pub struct TakeWhile<Input, F>(F, PhantomData<fn(Input) -> Input>);
+impl<Input, F> Parser<Input> for TakeWhile<Input, F>
 where
-    I: RangeStream,
-    I::Range: ::stream::Range,
-    F: FnMut(I::Item) -> bool,
+    Input: RangeStream,
+    Input::Range: ::stream::Range,
+    F: FnMut(Input::Item) -> bool,
 {
-    
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = usize;
 
     parse_mode!(Input);
@@ -341,24 +337,23 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
+pub fn take_while<Input, F>(f: F) -> TakeWhile<Input, F>
 where
-    I: RangeStream,
-    I::Range: ::stream::Range,
-    F: FnMut(I::Item) -> bool,
+    Input: RangeStream,
+    Input::Range: ::stream::Range,
+    F: FnMut(Input::Item) -> bool,
 {
     TakeWhile(f, PhantomData)
 }
 
-pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
-impl<I, F> Parser<I> for TakeWhile1<I, F>
+pub struct TakeWhile1<Input, F>(F, PhantomData<fn(Input) -> Input>);
+impl<Input, F> Parser<Input> for TakeWhile1<Input, F>
 where
-    I: RangeStream,
-    I::Range: ::stream::Range,
-    F: FnMut(I::Item) -> bool,
+    Input: RangeStream,
+    Input::Range: ::stream::Range,
+    F: FnMut(Input::Item) -> bool,
 {
-    
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = usize;
 
     parse_mode!(Input);
@@ -401,25 +396,24 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
+pub fn take_while1<Input, F>(f: F) -> TakeWhile1<Input, F>
 where
-    I: RangeStream,
-    I::Range: ::stream::Range,
-    F: FnMut(I::Item) -> bool,
+    Input: RangeStream,
+    Input::Range: ::stream::Range,
+    F: FnMut(Input::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)
 }
 
-pub struct TakeUntilRange<I>(I::Range)
+pub struct TakeUntilRange<Input>(Input::Range)
 where
-    I: RangeStream;
-impl<I> Parser<I> for TakeUntilRange<I>
+    Input: RangeStream;
+impl<Input> Parser<Input> for TakeUntilRange<Input>
 where
-    I: RangeStream,
-    I::Range: PartialEq + ::stream::Range,
+    Input: RangeStream,
+    Input::Range: PartialEq + ::stream::Range,
 {
-    
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = usize;
 
     #[inline]
@@ -520,9 +514,9 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn take_until_range<I>(r: I::Range) -> TakeUntilRange<I>
+pub fn take_until_range<Input>(r: Input::Range) -> TakeUntilRange<Input>
 where
-    I: RangeStream,
+    Input: RangeStream,
 {
     TakeUntilRange(r)
 }
@@ -544,20 +538,19 @@ impl From<Option<usize>> for TakeRange {
     }
 }
 
-pub struct TakeFn<F, I> {
+pub struct TakeFn<F, Input> {
     searcher: F,
-    _marker: PhantomData<fn(I)>,
+    _marker: PhantomData<fn(Input)>,
 }
 
-impl<Input, F, R, I> Parser<Input> for TakeFn<F, I>
+impl<Input, F, R> Parser<Input> for TakeFn<F, Input>
 where
-    F: FnMut(I::Range) -> R,
+    F: FnMut(Input::Range) -> R,
     R: Into<TakeRange>,
-    I: RangeStream + FullRangeStream,
-    I::Range: ::stream::Range,
+    Input: RangeStream + FullRangeStream,
+    Input::Range: ::stream::Range,
 {
-    
-    type Output = I::Range;
+    type Output = Input::Range;
     type PartialState = usize;
 
     parse_mode!(Input);
@@ -596,7 +589,7 @@ where
                 let position = input.position();
                 input.reset(checkpoint);
 
-                let err = I::Error::from_error(position, StreamError::end_of_input());
+                let err = Input::Error::from_error(position, StreamError::end_of_input());
                 if !input.is_partial() && range.is_empty() {
                     EmptyErr(err.into())
                 } else {
@@ -616,12 +609,12 @@ where
 ///
 /// See [`take_until_bytes`](../byte/fn.take_until_bytes.html) for a usecase.
 #[inline(always)]
-pub fn take_fn<F, R, I>(searcher: F) -> TakeFn<F, I>
+pub fn take_fn<F, R, Input>(searcher: F) -> TakeFn<F, Input>
 where
-    F: FnMut(I::Range) -> R,
+    F: FnMut(Input::Range) -> R,
     R: Into<TakeRange>,
-    I: FullRangeStream,
-    I::Range: ::stream::Range,
+    Input: FullRangeStream,
+    Input::Range: ::stream::Range,
 {
     TakeFn {
         searcher,
