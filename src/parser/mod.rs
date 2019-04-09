@@ -67,7 +67,7 @@ pub mod sequence;
 /// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
 /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
 /// [`add_error`]: trait.Parser.html#method.add_error
-pub trait Parser<Input: Stream> {
+pub trait Parser<Input: StreamOnce> {
     /// The type which is returned if the parser is successful.
     type Output;
 
@@ -963,6 +963,7 @@ macro_rules! forward_deref {
 
 impl<'a, Input, P> Parser<Input> for &'a mut P
 where
+    Input: StreamOnce,
     P: ?Sized + Parser<Input>,
 {
     forward_deref!(Input);
@@ -971,6 +972,7 @@ where
 #[cfg(feature = "std")]
 impl<Input, P> Parser<Input> for Box<P>
 where
+    Input: StreamOnce,
     P: ?Sized + Parser<Input>,
 {
     forward_deref!(Input);
@@ -994,6 +996,7 @@ pub trait ParseMode: Copy {
         state: &mut P::PartialState,
     ) -> ConsumedResult<P::Output, Input>
     where
+        Input: Stream,
         P: Parser<Input>,
     {
         let before = input.checkpoint();

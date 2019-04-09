@@ -71,6 +71,7 @@ where
 #[inline(always)]
 pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
 where
+    Input: Stream,
     P: Parser<Input>,
     P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
 {
@@ -160,6 +161,7 @@ where
 #[inline(always)]
 pub fn try<Input, P>(p: P) -> Try<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Try(p)
@@ -186,6 +188,7 @@ where
 #[inline(always)]
 pub fn attempt<Input, P>(p: P) -> Try<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Try(p)
@@ -233,6 +236,7 @@ where
 #[inline(always)]
 pub fn look_ahead<Input, P>(p: P) -> LookAhead<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     LookAhead(p)
@@ -277,6 +281,7 @@ where
 #[inline(always)]
 pub fn map<Input, P, F, B>(p: P, f: F) -> Map<P, F>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: FnMut(P::Output) -> B,
 {
@@ -328,6 +333,7 @@ where
 #[inline(always)]
 pub fn flat_map<Input, P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: FnMut(P::Output) -> Result<B, <Input as StreamOnce>::Error>,
 {
@@ -418,6 +424,7 @@ impl<F, P> Recognize<F, P> {
         result: ConsumedResult<P::Output, Input>,
     ) -> ConsumedResult<F, Input>
     where
+        Input: Stream,
         P: Parser<Input>,
         F: Default + Extend<<Input as StreamOnce>::Item>,
     {
@@ -480,6 +487,7 @@ impl<F, P> Recognize<F, P> {
 
 impl<Input, P, F> Parser<Input> for Recognize<F, P>
 where
+    Input: StreamOnce,
     P: Parser<Input>,
     F: Default + Extend<<Input as StreamOnce>::Item>,
 {
@@ -524,6 +532,7 @@ where
 #[inline(always)]
 pub fn recognize<Input, F, P>(parser: P) -> Recognize<F, P>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: Default + Extend<<Input as StreamOnce>::Item>,
 {
@@ -532,6 +541,7 @@ where
 
 impl<Input, L, R> Parser<Input> for Either<L, R>
 where
+    Input: StreamOnce,
     L: Parser<Input>,
     R: Parser<Input, Output = L::Output>,
 {
@@ -600,6 +610,7 @@ pub struct NoPartial<P>(P);
 
 impl<Input, P> Parser<Input> for NoPartial<P>
 where
+    Input: StreamOnce,
     P: Parser<Input>,
 {
     type Output = <P as Parser<Input>>::Output;
@@ -630,6 +641,7 @@ where
 #[inline(always)]
 pub fn no_partial<Input, P>(p: P) -> NoPartial<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     NoPartial(p)
@@ -639,6 +651,7 @@ where
 pub struct Ignore<P>(P);
 impl<Input, P> Parser<Input> for Ignore<P>
 where
+    Input: StreamOnce,
     P: Parser<Input>,
 {
     type Output = ();
@@ -669,6 +682,7 @@ where
 #[doc(hidden)]
 pub fn ignore<Input, P>(p: P) -> Ignore<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Ignore(p)
@@ -684,6 +698,7 @@ pub struct AnyPartialStateParser<P>(P);
 #[cfg(feature = "std")]
 impl<Input, P> Parser<Input> for AnyPartialStateParser<P>
 where
+    Input: StreamOnce,
     P: Parser<Input>,
     P::PartialState: 'static,
 {
@@ -763,6 +778,7 @@ where
 #[cfg(feature = "std")]
 pub fn any_partial_state<Input, P>(p: P) -> AnyPartialStateParser<P>
 where
+    Input: Stream,
     P: Parser<Input>,
     P::PartialState: 'static,
 {
@@ -779,6 +795,7 @@ pub struct AnySendPartialStateParser<P>(P);
 #[cfg(feature = "std")]
 impl<Input, P> Parser<Input> for AnySendPartialStateParser<P>
 where
+    Input: Stream,
     P: Parser<Input>,
     P::PartialState: Send + 'static,
 {
@@ -858,6 +875,7 @@ where
 #[cfg(feature = "std")]
 pub fn any_send_partial_state<Input, P>(p: P) -> AnySendPartialStateParser<P>
 where
+    Input: Stream,
     P: Parser<Input>,
     P::PartialState: Send + 'static,
 {
@@ -929,6 +947,7 @@ where
 #[inline(always)]
 pub fn lazy<Input, P, R>(p: P) -> Lazy<P>
 where
+    Input: Stream,
     P: FnMut() -> R,
     R: Parser<Input>,
 {
@@ -1007,6 +1026,7 @@ where
 #[inline(always)]
 pub fn factory<Input, P, R>(p: P) -> Factory<P, R>
 where
+    Input: Stream,
     P: FnMut() -> R,
     R: Parser<Input>,
 {

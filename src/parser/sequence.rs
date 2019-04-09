@@ -437,6 +437,7 @@ where
 #[inline(always)]
 pub fn with<Input, P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
 where
+    Input: Stream,
     P1: Parser<Input>,
     P2: Parser<Input>,
 {
@@ -474,6 +475,7 @@ where
 #[inline(always)]
 pub fn skip<Input, P1, P2>(p1: P1, p2: P2) -> Skip<P1, P2>
 where
+    Input: Stream,
     P1: Parser<Input>,
     P2: Parser<Input>,
 {
@@ -518,6 +520,7 @@ where [
 pub struct Then<P, F>(P, F);
 impl<Input, P, N, F> Parser<Input> for Then<P, F>
 where
+    Input: Stream,
     F: FnMut(P::Output) -> N,
     P: Parser<Input>,
     N: Parser<Input>,
@@ -597,6 +600,7 @@ where
 #[inline(always)]
 pub fn then<Input, P, F, N>(p: P, f: F) -> Then<P, F>
 where
+    Input: Stream,
     F: FnMut(P::Output) -> N,
     P: Parser<Input>,
     N: Parser<Input>,
@@ -608,6 +612,7 @@ where
 pub struct ThenPartial<P, F>(P, F);
 impl<Input, P, N, F> Parser<Input> for ThenPartial<P, F>
 where
+    Input: Stream,
     F: FnMut(&mut P::Output) -> N,
     P: Parser<Input>,
     N: Parser<Input>,
@@ -684,6 +689,7 @@ where
 #[inline(always)]
 pub fn then_partial<Input, P, F, N>(p: P, f: F) -> ThenPartial<P, F>
 where
+    Input: Stream,
     F: FnMut(&mut P::Output) -> N,
     P: Parser<Input>,
     N: Parser<Input>,

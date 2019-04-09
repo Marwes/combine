@@ -61,7 +61,7 @@ macro_rules! parse_mode_choice {
 /// on the input.
 ///
 /// This is an internal trait used to overload the `choice` function.
-pub trait ChoiceParser<Input> {
+pub trait ChoiceParser<Input: Stream> {
     type Output;
     type PartialState: Default;
 
@@ -92,6 +92,7 @@ pub trait ChoiceParser<Input> {
 
 impl<'a, Input, P> ChoiceParser<Input> for &'a mut P
 where
+    Input: Stream,
     P: ?Sized + ChoiceParser<Input>,
 {
     type Output = P::Output;
@@ -300,6 +301,7 @@ macro_rules! array_choice_parser {
         $(
         impl<Input, P> ChoiceParser<Input> for [P; $t]
         where
+            Input: Stream,
             P: Parser<Input>,
         {
 
@@ -346,6 +348,7 @@ pub struct Choice<P>(P);
 
 impl<Input, P> Parser<Input> for Choice<P>
 where
+    Input: Stream,
     P: ChoiceParser<Input>,
 {
     type Output = P::Output;
@@ -542,6 +545,7 @@ where
 #[inline(always)]
 pub fn choice<Input, P>(ps: P) -> Choice<P>
 where
+    Input: Stream,
     P: ChoiceParser<Input>,
 {
     Choice(ps)
@@ -614,6 +618,7 @@ where
 #[inline(always)]
 pub fn or<Input, P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
+    Input: Stream,
     P1: Parser<Input>,
     P2: Parser<Input, Output = P1::Output>,
 {
@@ -624,6 +629,7 @@ where
 pub struct Optional<P>(P);
 impl<Input, P> Parser<Input> for Optional<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     type Output = Option<P::Output>;
@@ -672,6 +678,7 @@ where
 #[inline(always)]
 pub fn optional<Input, P>(parser: P) -> Optional<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Optional(parser)

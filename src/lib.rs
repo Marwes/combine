@@ -579,6 +579,7 @@ macro_rules! combine_parser_impl {
                     <$input_type as $crate::stream::StreamOnce>::Range,
                     <$input_type as $crate::stream::StreamOnce>::Position
                     >,
+                $input_type: $crate::stream::Stream,
                 $($where_clause)*
         {
             $(pub $arg : $arg_type,)*
@@ -594,6 +595,7 @@ macro_rules! combine_parser_impl {
                         <$input_type as $crate::stream::StreamOnce>::Range,
                         <$input_type as $crate::stream::StreamOnce>::Position
                         >,
+                $input_type: $crate::stream::Stream,
                 $($where_clause)*
         {
 
@@ -655,6 +657,7 @@ macro_rules! combine_parser_impl {
                         <$input_type as $crate::stream::StreamOnce>::Range,
                         <$input_type as $crate::stream::StreamOnce>::Position
                         >,
+                $input_type: $crate::stream::Stream,
                 $($where_clause)*
         {
             $type_name {

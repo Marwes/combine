@@ -34,6 +34,7 @@ pub struct Count;
 #[inline(always)]
 pub fn count[Input, F, P](count: usize, parser: P)(Input) -> F
 where [
+    Input: Stream,
     P: Parser<Input>,
     F: Extend<P::Output> + Default,
 ]
@@ -78,6 +79,7 @@ pub struct CountMinMax<F, P> {
 
 impl<Input, P, F> Parser<Input> for CountMinMax<F, P>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
@@ -144,6 +146,7 @@ where
 #[inline(always)]
 pub fn count_min_max<Input, F, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
@@ -188,9 +191,10 @@ parser! {
     }
 }
 
-pub struct Iter<'a, Input, P: Parser<Input>, S, M>
+pub struct Iter<'a, Input, P, S, M>
 where
-    Input: 'a,
+    Input: 'a + StreamOnce,
+    P: Parser<Input>,
 {
     parser: P,
     input: &'a mut Input,
@@ -206,8 +210,10 @@ enum State<E> {
     ConsumedErr(E),
 }
 
-impl<'a, Input, P: Parser<Input>, S, M> Iter<'a, Input, P, S, M>
+impl<'a, Input, P, S, M> Iter<'a, Input, P, S, M>
 where
+    Input: Stream,
+    P: Parser<Input>,
     S: BorrowMut<P::PartialState>,
 {
     pub fn new(parser: P, mode: M, input: &'a mut Input, partial_state: S) -> Self {
@@ -281,8 +287,10 @@ where
     }
 }
 
-impl<'a, Input, P: Parser<Input>, S, M> Iterator for Iter<'a, Input, P, S, M>
+impl<'a, Input, P, S, M> Iterator for Iter<'a, Input, P, S, M>
 where
+    Input: Stream,
+    P: Parser<Input>,
     S: BorrowMut<P::PartialState>,
     M: ParseMode,
 {
@@ -321,6 +329,7 @@ pub struct Many<F, P>(P, PhantomData<F>);
 
 impl<Input, F, P> Parser<Input> for Many<F, P>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
@@ -382,6 +391,7 @@ where
 #[inline(always)]
 pub fn many<Input, F, P>(p: P) -> Many<F, P>
 where
+    Input: Stream,
     P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
@@ -392,6 +402,7 @@ where
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<Input, F, P> Parser<Input> for Many1<F, P>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
 {
@@ -469,6 +480,7 @@ where
 #[inline(always)]
 pub fn many1<Input, F, P>(p: P) -> Many1<F, P>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
 {
@@ -559,6 +571,7 @@ pub struct SepBy<F, P, S> {
 }
 impl<Input, F, P, S> Parser<Input> for SepBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -614,6 +627,7 @@ where
 #[inline(always)]
 pub fn sep_by<Input, F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -633,6 +647,7 @@ pub struct SepBy1<F, P, S> {
 }
 impl<Input, F, P, S> Parser<Input> for SepBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -720,6 +735,7 @@ where
 #[inline(always)]
 pub fn sep_by1<Input, F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -740,6 +756,7 @@ pub struct SepEndBy<F, P, S> {
 
 impl<Input, F, P, S> Parser<Input> for SepEndBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -793,6 +810,7 @@ where
 #[inline(always)]
 pub fn sep_end_by<Input, F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -813,6 +831,7 @@ pub struct SepEndBy1<F, P, S> {
 
 impl<Input, F, P, S> Parser<Input> for SepEndBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -899,6 +918,7 @@ where
 #[inline(always)]
 pub fn sep_end_by1<Input, F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
     P: Parser<Input>,
     S: Parser<Input>,
@@ -993,6 +1013,7 @@ where
 #[inline(always)]
 pub fn chainl1<Input, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
 where
+    Input: Stream,
     P: Parser<Input>,
     Op: Parser<Input>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
@@ -1065,6 +1086,7 @@ where
 #[inline(always)]
 pub fn chainr1<Input, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
 where
+    Input: Stream,
     P: Parser<Input>,
     Op: Parser<Input>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
@@ -1079,6 +1101,7 @@ pub struct TakeUntil<F, P> {
 }
 impl<Input, F, P> Parser<Input> for TakeUntil<F, P>
 where
+    Input: Stream,
     F: Extend<<Input as StreamOnce>::Item> + Default,
     P: Parser<Input>,
 {
@@ -1149,6 +1172,7 @@ where
 #[inline(always)]
 pub fn take_until<Input, F, P>(end: P) -> TakeUntil<F, P>
 where
+    Input: Stream,
     F: Extend<<Input as StreamOnce>::Item> + Default,
     P: Parser<Input>,
 {

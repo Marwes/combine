@@ -204,6 +204,7 @@ where
 pub struct Silent<P>(P);
 impl<Input, P> Parser<Input> for Silent<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     type Output = P::Output;
@@ -240,6 +241,7 @@ where
 #[inline(always)]
 pub fn silent<Input, P>(p: P) -> Silent<P>
 where
+    Input: Stream,
     P: Parser<Input>,
 {
     Silent(p)
