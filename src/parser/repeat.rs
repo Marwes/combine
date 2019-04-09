@@ -511,8 +511,10 @@ impl<A> Extend<A> for Sink {
     }
 }
 
-impl_parser! { SkipMany(P,), Ignore<Many<Sink, Ignore<P>>> }
-
+parser! {
+    #[derive(Copy, Clone)]
+    pub struct SkipMany;
+    type PartialState = <Ignore<Many<Sink, Ignore<P>>> as Parser>::PartialState;
 /// Parses `p` zero or more times ignoring the result.
 ///
 /// NOTE: If `p` can succeed without consuming any input this may hang forever as `skip_many` will
@@ -529,15 +531,19 @@ impl_parser! { SkipMany(P,), Ignore<Many<Sink, Ignore<P>>> }
 /// # }
 /// ```
 #[inline(always)]
-pub fn skip_many<P>(p: P) -> SkipMany<P>
-where
+pub fn skip_many[P](p: P)(P::Input) -> ()
+where [
     P: Parser,
+]
 {
-    SkipMany(ignore(many(ignore(p))))
+    ignore(many::<Sink, _>(ignore(p)))
+}
 }
 
-impl_parser! { SkipMany1(P,), Ignore<Many1<Sink, Ignore<P>>> }
-
+parser! {
+    #[derive(Copy, Clone)]
+    pub struct SkipMany1;
+    type PartialState = <Ignore<Many1<Sink, Ignore<P>>> as Parser>::PartialState;
 /// Parses `p` one or more times ignoring the result.
 ///
 /// NOTE: If `p` can succeed without consuming any input this may hang forever as `skip_many1` will
@@ -554,11 +560,13 @@ impl_parser! { SkipMany1(P,), Ignore<Many1<Sink, Ignore<P>>> }
 /// # }
 /// ```
 #[inline(always)]
-pub fn skip_many1<P>(p: P) -> SkipMany1<P>
-where
+pub fn skip_many1[P](p: P)(P::Input) -> ()
+where [
     P: Parser,
+]
 {
-    SkipMany1(ignore(many1(ignore(p))))
+    ignore(many1::<Sink, _>(ignore(p)))
+}
 }
 
 #[derive(Copy, Clone)]

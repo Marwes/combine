@@ -501,11 +501,10 @@ where
     Skip((p1, ignore(p2)))
 }
 
-impl_parser! {
-    Between(L, R, P),
-    Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output>
-}
-
+parser! {
+    #[derive(Copy, Clone)]
+    pub struct Between;
+    type PartialState = <Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output> as Parser>::PartialState;
 /// Parses `open` followed by `parser` followed by `close`.
 /// Returns the value of `parser`.
 ///
@@ -521,17 +520,19 @@ impl_parser! {
 /// # }
 /// ```
 #[inline(always)]
-pub fn between<I, L, R, P>(open: L, close: R, parser: P) -> Between<L, R, P>
-where
+pub fn between[I, L, R, P](open: L, close: R, parser: P)(L::Input) -> P::Output
+where [
     I: Stream,
     L: Parser<Input = I>,
     R: Parser<Input = I>,
     P: Parser<Input = I>,
+]
 {
     fn middle<T, U, V>((_, x, _): (T, U, V)) -> U {
         x
     }
-    Between((open, parser, close).map(middle))
+    (open, parser, close).map(middle)
+}
 }
 
 #[derive(Copy, Clone)]
