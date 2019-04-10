@@ -322,12 +322,11 @@ mod regex_1 {
 
 pub struct Match<R, Input>(R, PhantomData<Input>);
 
-impl<'a, Input, R, Input> Parser<Input> for Match<R, Input>
+impl<'a, Input, R> Parser<Input> for Match<R, Input>
 where
     R: Regex<Input::Range>,
     Input: FullRangeStream,
 {
-    
     type Output = Input::Range;
     type PartialState = ();
 
@@ -376,13 +375,12 @@ where
 #[derive(Clone)]
 pub struct Find<R, Input>(R, PhantomData<fn() -> Input>);
 
-impl<'a, Input, R, Input> Parser<Input> for Find<R, Input>
+impl<'a, Input, R> Parser<Input> for Find<R, Input>
 where
     R: Regex<Input::Range>,
     Input: FullRangeStream,
     Input::Range: ::stream::Range,
 {
-    
     type Output = Input::Range;
     type PartialState = ();
 
@@ -435,14 +433,13 @@ where
 #[derive(Clone)]
 pub struct FindMany<F, R, Input>(R, PhantomData<fn() -> (Input, F)>);
 
-impl<'a, Input, F, R, Input> Parser<Input> for FindMany<F, R, Input>
+impl<'a, Input, F, R> Parser<Input> for FindMany<F, R, Input>
 where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
     Input::Range: ::stream::Range,
 {
-    
     type Output = F;
     type PartialState = ();
 
@@ -491,14 +488,13 @@ where
 #[derive(Clone)]
 pub struct Captures<F, R, Input>(R, PhantomData<fn() -> (Input, F)>);
 
-impl<'a, Input, F, R, Input> Parser<Input> for Captures<F, R, Input>
+impl<'a, Input, F, R> Parser<Input> for Captures<F, R, Input>
 where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
     Input::Range: ::stream::Range,
 {
-    
     type Output = F;
     type PartialState = ();
 
@@ -557,7 +553,7 @@ where
 #[derive(Clone)]
 pub struct CapturesMany<F, G, R, Input>(R, PhantomData<fn() -> (Input, F, G)>);
 
-impl<'a, Input, F, G, R, Input> Parser<Input> for CapturesMany<F, G, R, Input>
+impl<'a, Input, F, G, R> Parser<Input> for CapturesMany<F, G, R, Input>
 where
     F: FromIterator<Input::Range>,
     G: FromIterator<F>,
@@ -565,7 +561,6 @@ where
     Input: FullRangeStream,
     Input::Range: ::stream::Range,
 {
-    
     type Output = G;
     type PartialState = ();
 

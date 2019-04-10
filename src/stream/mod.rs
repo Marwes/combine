@@ -993,8 +993,20 @@ impl PointerOffset {
 ///
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
 pub fn decode<Input, P>(
-    mut parser: P,
+    parser: P,
     mut input: Input,
+    partial_state: &mut P::PartialState,
+) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
+where
+    P: Parser<Input>,
+    Input: RangeStream,
+{
+    decode_mut(parser, &mut input, partial_state)
+}
+
+fn decode_mut<Input, P>(
+    mut parser: P,
+    mut input: &mut Input,
     partial_state: &mut P::PartialState,
 ) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
 where
@@ -1009,6 +1021,100 @@ where
                 Ok((None, input.distance(&start)))
             } else {
                 Err(err)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "tokio-codec-0-1")]
+pub mod tokio {
+    use super::*;
+
+    use std::{io, marker::PhantomData};
+
+    pub trait InputConverter<'a, Input: 'a> {
+        type Error;
+        fn convert(&mut self, bs: &'a [u8]) -> Result<Input, Self::Error>;
+    }
+
+    impl<'a, Input, Error, F> InputConverter<'a, Input> for F
+    where
+        F: FnMut(&'a [u8]) -> Result<Input, Error>,
+        Input: 'a,
+    {
+        type Error = Error;
+        fn convert(&mut self, bs: &'a [u8]) -> Result<Input, Self::Error> {
+            self(bs)
+        }
+    }
+
+    pub struct Decoder<Input, P, S, E, F, G> {
+        parser: P,
+        state: S,
+        converter: F,
+        error_converter: G,
+        _marker: PhantomData<fn(Input) -> E>,
+    }
+    impl<Input, P, S, E, F, G> tokio_codec_0_1::Decoder for Decoder<Input, P, S, E, F, G>
+    where
+        P: Parser<PartialStream<Input>, PartialState = S>,
+        S: Default,
+        Input: RangeStream,
+        E: From<io::Error>,
+        for<'a> F: InputConverter<'a, Input, Error = E>,
+        G: FnMut(Input::Error, Input) -> E,
+    {
+        type Item = P::Output;
+        type Error = E;
+
+        fn decode(
+            &mut self,
+            src: &mut bytes_0_4::BytesMut,
+        ) -> Result<Option<Self::Item>, Self::Error> {
+            let mut input = PartialStream(self.converter.convert(&src[..])?);
+            let checkpoint = input.checkpoint();
+            let (opt, removed_len) = {
+                decode_mut(&mut self.parser, &mut input, &mut self.state).map_err(|err| {
+                    input.reset(checkpoint);
+                    (self.error_converter)(err, input.0)
+                })?
+            };
+
+            src.split_to(removed_len);
+            Ok(opt)
+        }
+    }
+
+    impl<Input, P, S, O, E>
+        Decoder<Input, P, S, E, fn(&[u8]) -> Result<Input, E>, fn(Input::Error, Input) -> E>
+    where
+        P: Parser<PartialStream<Input>, PartialState = S, Output = O>,
+        S: Default,
+        Input: RangeStream,
+        for<'a> Input: From<&'a [u8]>,
+        E: From<io::Error> + From<Input::Error>,
+    {
+        pub fn new(parser: P) -> Self {
+            Self::with_converters(parser, |i| Ok(i.into()), |err, _| err.into())
+        }
+    }
+
+    impl<Input, P, S, E, F, G> Decoder<Input, P, S, E, F, G>
+    where
+        P: Parser<PartialStream<Input>, PartialState = S>,
+        S: Default,
+        Input: RangeStream,
+        E: From<io::Error>,
+        for<'a> F: InputConverter<'a, Input, Error = E>,
+        G: FnMut(Input::Error, Input) -> E,
+    {
+        pub fn with_converters(parser: P, converter: F, error_converter: G) -> Self {
+            Decoder {
+                parser,
+                state: Default::default(),
+                converter,
+                error_converter,
+                _marker: PhantomData,
             }
         }
     }

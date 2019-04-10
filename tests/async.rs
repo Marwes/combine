@@ -5,19 +5,21 @@ extern crate quick_error;
 #[macro_use]
 extern crate quickcheck;
 
-extern crate bytes;
+extern crate bytes_0_4 as bytes;
 #[macro_use]
 extern crate combine;
 
 extern crate futures;
 extern crate partial_io;
-extern crate tokio_codec;
+extern crate tokio_codec_0_1 as tokio_codec;
 extern crate tokio_io;
 
-use std::cell::Cell;
-use std::io::{self, Cursor};
-use std::rc::Rc;
-use std::str;
+use std::{
+    cell::Cell,
+    io::{self, Cursor},
+    rc::Rc,
+    str,
+};
 
 use bytes::BytesMut;
 
@@ -36,7 +38,7 @@ use combine::parser::range::{
     self, range, recognize_with_value, take, take_fn, take_until_range, take_while, take_while1,
 };
 use combine::parser::repeat;
-use combine::stream::{easy, RangeStream, StreamErrorFor};
+use combine::stream::{easy, tokio::Decoder as CombineDecoder, RangeStream, StreamErrorFor};
 use combine::{any, count_min_max, many1, skip_many, Parser};
 
 quick_error! {
@@ -127,7 +129,7 @@ use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
 
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
-    D: Decoder,
+    D: Decoder<Error = Error>,
     D::Item: ::std::fmt::Display,
     S: IntoIterator<Item = PartialOp> + 'static,
     S::IntoIter: Send,
@@ -510,11 +512,6 @@ quickcheck! {
 #[test]
 fn inner_no_partial_test() {
     let seq = vec![PartialOp::Limited(10)];
-    impl_decoder! { TestParser, String,
-        no_partial(many1(digit()))
-            .or(many1(letter()))
-            .skip(range(&"\r\n"[..]))
-    }
 
     let input = "1\r\n\
                  abcd\r\n\
@@ -522,7 +519,21 @@ fn inner_no_partial_test() {
                  abc\r\n\
                  1232751\r\n";
 
-    let result = run_decoder(input, seq, TestParser::default());
+    fn easy_stream(bs: &[u8]) -> Result<easy::Stream<&str>, Error> {
+        Ok(str::from_utf8(bs).map(combine::easy::Stream)?)
+    }
+    let decoder = CombineDecoder::with_converters(
+        no_partial(many1(digit()).map(|s: String| s))
+            .or(many1(letter()))
+            .skip(range(&"\r\n"[..])),
+        easy_stream,
+        |err, input| {
+            err.map_position(|p| p.translate_position(&input))
+                .map_range(|r: &str| -> String { r.to_string() })
+                .into()
+        },
+    );
+    let result = run_decoder(input, seq, decoder);
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
     assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"]);
