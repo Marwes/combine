@@ -7,7 +7,7 @@ use lib::str;
 
 use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use parser::ParseMode;
-use stream::{input_at_eof, Positioned, Resetable, Stream, StreamErrorFor, StreamOnce};
+use stream::{input_at_eof, Resetable, Stream, StreamErrorFor, StreamOnce};
 use Parser;
 
 use either::Either;

@@ -12,7 +12,7 @@ use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
 use parser::ParseMode;
 use stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
-    Range as StreamRange, RangeStream, RangeStreamOnce, Resetable, StreamOnce,
+    Range as StreamRange, RangeStream, StreamOnce,
 };
 use Parser;
 

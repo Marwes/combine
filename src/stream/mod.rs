@@ -1048,36 +1048,27 @@ pub mod tokio {
         }
     }
 
-    pub struct Decoder<Input, P, S, E, F, G> {
-        parser: P,
+    pub struct Decoder<S, E, F> {
         state: S,
-        converter: F,
-        error_converter: G,
-        _marker: PhantomData<fn(Input) -> E>,
+        parser: F,
+        _marker: PhantomData<fn() -> E>,
     }
-    impl<Input, P, S, E, F, G> tokio_codec_0_1::Decoder for Decoder<Input, P, S, E, F, G>
+    impl<S, O, E, F> tokio_codec_0_1::Decoder for Decoder<S, E, F>
     where
-        P: Parser<PartialStream<Input>, PartialState = S>,
         S: Default,
-        Input: RangeStream,
         E: From<io::Error>,
-        for<'a> F: InputConverter<'a, Input, Error = E>,
-        G: FnMut(Input::Error, Input) -> E,
+        F: FnMut(PartialStream<&[u8]>, &mut S) -> Result<(Option<O>, usize), E>,
     {
-        type Item = P::Output;
+        type Item = O;
         type Error = E;
 
         fn decode(
             &mut self,
             src: &mut bytes_0_4::BytesMut,
         ) -> Result<Option<Self::Item>, Self::Error> {
-            let mut input = PartialStream(self.converter.convert(&src[..])?);
-            let checkpoint = input.checkpoint();
             let (opt, removed_len) = {
-                decode_mut(&mut self.parser, &mut input, &mut self.state).map_err(|err| {
-                    input.reset(checkpoint);
-                    (self.error_converter)(err, input.0)
-                })?
+                let input = PartialStream(&src[..]);
+                (self.parser)(input, &mut self.state)?
             };
 
             src.split_to(removed_len);
@@ -1085,35 +1076,26 @@ pub mod tokio {
         }
     }
 
-    impl<Input, P, S, O, E>
-        Decoder<Input, P, S, E, fn(&[u8]) -> Result<Input, E>, fn(Input::Error, Input) -> E>
-    where
-        P: Parser<PartialStream<Input>, PartialState = S, Output = O>,
-        S: Default,
-        Input: RangeStream,
-        for<'a> Input: From<&'a [u8]>,
-        E: From<io::Error> + From<Input::Error>,
-    {
-        pub fn new(parser: P) -> Self {
-            Self::with_converters(parser, |i| Ok(i.into()), |err, _| err.into())
-        }
-    }
-
-    impl<Input, P, S, E, F, G> Decoder<Input, P, S, E, F, G>
-    where
-        P: Parser<PartialStream<Input>, PartialState = S>,
-        S: Default,
-        Input: RangeStream,
-        E: From<io::Error>,
-        for<'a> F: InputConverter<'a, Input, Error = E>,
-        G: FnMut(Input::Error, Input) -> E,
-    {
-        pub fn with_converters(parser: P, converter: F, error_converter: G) -> Self {
+    impl<S, E> Decoder<S, E, ()> {
+        pub fn with_converters<P, O, G>(
+            mut parser: P,
+            mut error_converter: G,
+        ) -> Decoder<S, E, impl FnMut(PartialStream<&[u8]>, &mut S) -> Result<(Option<O>, usize), E>>
+        where
+            P: for<'a> Parser<PartialStream<&'a [u8]>, Output = O, PartialState = S>,
+            S: Default,
+            E: From<io::Error>,
+            G: for<'a> FnMut(UnexpectedParse, &'a [u8]) -> E,
+        {
             Decoder {
-                parser,
                 state: Default::default(),
-                converter,
-                error_converter,
+                parser: move |mut input: PartialStream<&[u8]>, state: &mut S| {
+                    let checkpoint = input.checkpoint();
+                    Ok(decode_mut(&mut parser, &mut input, state).map_err(|err| {
+                        input.reset(checkpoint);
+                        error_converter(err, input.0)
+                    })?)
+                },
                 _marker: PhantomData,
             }
         }

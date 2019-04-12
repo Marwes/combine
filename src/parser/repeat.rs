@@ -9,7 +9,7 @@ use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Trac
 use parser::choice::Or;
 use parser::sequence::With;
 use parser::ParseMode;
-use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
+use stream::{uncons, Stream, StreamOnce};
 use {ErrorOffset, Parser};
 
 use error::FastResult::*;

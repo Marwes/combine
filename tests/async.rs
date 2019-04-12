@@ -526,7 +526,6 @@ fn inner_no_partial_test() {
         no_partial(many1(digit()).map(|s: String| s))
             .or(many1(letter()))
             .skip(range(&"\r\n"[..])),
-        easy_stream,
         |err, input| {
             err.map_position(|p| p.translate_position(&input))
                 .map_range(|r: &str| -> String { r.to_string() })

@@ -11,7 +11,7 @@ use combinator::{
 use error::FastResult::*;
 use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
 use parser::error::{silent, Silent};
-use stream::{Resetable, Stream, StreamOnce};
+use stream::{Stream, StreamOnce};
 use ErrorOffset;
 
 use self::choice::{or, Or};

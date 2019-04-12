@@ -3,7 +3,6 @@
 use error::FastResult::*;
 use error::{ConsumedResult, ParseError, StreamError, Tracked};
 use parser::ParseMode;
-use stream::Resetable;
 use {ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
