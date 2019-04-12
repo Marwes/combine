@@ -33,12 +33,15 @@ use combine::combinator::{
 use combine::error::{ParseError, StreamError};
 use combine::parser::byte::take_until_bytes;
 use combine::parser::char::{char, digit, letter};
+use combine::parser::combinator::input_converter;
 use combine::parser::item::item;
 use combine::parser::range::{
     self, range, recognize_with_value, take, take_fn, take_until_range, take_while, take_while1,
 };
 use combine::parser::repeat;
-use combine::stream::{easy, tokio::Decoder as CombineDecoder, RangeStream, StreamErrorFor};
+use combine::stream::{
+    easy, tokio::Decoder as CombineDecoder, PartialStream, RangeStream, StreamErrorFor,
+};
 use combine::{any, count_min_max, many1, skip_many, Parser};
 
 quick_error! {
@@ -522,15 +525,21 @@ fn inner_no_partial_test() {
     fn easy_stream(bs: &[u8]) -> Result<easy::Stream<&str>, Error> {
         Ok(str::from_utf8(bs).map(combine::easy::Stream)?)
     }
+    let parser = no_partial(many1(digit()).map(|s: String| s))
+        .or(many1(letter()))
+        .skip(range(&"\r\n"[..]));
     let decoder = CombineDecoder::with_converters(
-        no_partial(many1(digit()).map(|s: String| s))
-            .or(many1(letter()))
-            .skip(range(&"\r\n"[..])),
-        |err, input| {
-            err.map_position(|p| p.translate_position(&input))
-                .map_range(|r: &str| -> String { r.to_string() })
-                .into()
-        },
+        input_converter(
+            parser,
+            |input| {
+                str::from_utf8(input)
+                    .map(easy::Stream)
+                    .map(PartialStream)
+                    .map_err(|_| combine::error::UnexpectedParse::Unexpected)
+            },
+            |err| ParseError::into_other(err),
+        ),
+        |err, input| ParseError::into_other::<easy::Errors<_, _, _>>(err).into(),
     );
     let result = run_decoder(input, seq, decoder);
 

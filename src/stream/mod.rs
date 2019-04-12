@@ -1057,7 +1057,7 @@ pub mod tokio {
     where
         S: Default,
         E: From<io::Error>,
-        F: FnMut(PartialStream<&[u8]>, &mut S) -> Result<(Option<O>, usize), E>,
+        F: FnMut(&[u8], &mut S) -> Result<(Option<O>, usize), E>,
     {
         type Item = O;
         type Error = E;
@@ -1067,7 +1067,7 @@ pub mod tokio {
             src: &mut bytes_0_4::BytesMut,
         ) -> Result<Option<Self::Item>, Self::Error> {
             let (opt, removed_len) = {
-                let input = PartialStream(&src[..]);
+                let input = &src[..];
                 (self.parser)(input, &mut self.state)?
             };
 
@@ -1080,20 +1080,20 @@ pub mod tokio {
         pub fn with_converters<P, O, G>(
             mut parser: P,
             mut error_converter: G,
-        ) -> Decoder<S, E, impl FnMut(PartialStream<&[u8]>, &mut S) -> Result<(Option<O>, usize), E>>
+        ) -> Decoder<S, E, impl FnMut(&[u8], &mut S) -> Result<(Option<O>, usize), E>>
         where
-            P: for<'a> Parser<PartialStream<&'a [u8]>, Output = O, PartialState = S>,
+            P: for<'a> Parser<&'a [u8], Output = O, PartialState = S>,
             S: Default,
             E: From<io::Error>,
             G: for<'a> FnMut(UnexpectedParse, &'a [u8]) -> E,
         {
             Decoder {
                 state: Default::default(),
-                parser: move |mut input: PartialStream<&[u8]>, state: &mut S| {
+                parser: move |mut input: &[u8], state: &mut S| {
                     let checkpoint = input.checkpoint();
                     Ok(decode_mut(&mut parser, &mut input, state).map_err(|err| {
                         input.reset(checkpoint);
-                        error_converter(err, input.0)
+                        error_converter(err, input)
                     })?)
                 },
                 _marker: PhantomData,

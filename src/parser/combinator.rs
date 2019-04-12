@@ -1275,3 +1275,61 @@ macro_rules! opaque {
         )
     };
 }
+
+pub struct InputConverter<Input, InputInner, P>
+where
+    Input: Stream,
+    InputInner: Stream,
+{
+    parser: P,
+    convert: fn(Input) -> Result<InputInner, Input::Error>,
+    convert_error: fn(InputInner::Error) -> Input::Error,
+    _marker: PhantomData<fn(Input, InputInner)>,
+}
+impl<Input, InputInner, P> Parser<Input> for InputConverter<Input, InputInner, P>
+where
+    Input: Stream + Clone,
+    InputInner: Stream,
+    P: Parser<InputInner>,
+{
+    type Output = P::Output;
+    type PartialState = P::PartialState;
+
+    parse_mode!(Input);
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Input>
+    where
+        M: ParseMode,
+    {
+        let mut input_inner = match (self.convert)(input.clone()) {
+            Ok(x) => x,
+            Err(err) => return EmptyErr(err.into()),
+        };
+        self.parser
+            .parse_mode(mode, &mut input_inner, state)
+            .map_err(|err| (self.convert_error)(err))
+    }
+}
+
+pub fn input_converter<Input, InputInner, P>(
+    parser: P,
+    convert: fn(Input) -> Result<InputInner, Input::Error>,
+    convert_error: fn(InputInner::Error) -> Input::Error,
+) -> InputConverter<Input, InputInner, P>
+where
+    Input: Stream + Clone,
+    InputInner: Stream,
+    P: Parser<InputInner>,
+{
+    InputConverter {
+        parser,
+        convert,
+        convert_error,
+        _marker: PhantomData,
+    }
+}
