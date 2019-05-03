@@ -40,7 +40,7 @@ use combine::parser::range::{
 };
 use combine::parser::repeat;
 use combine::stream::{
-    easy, tokio::Decoder as CombineDecoder, PartialStream, RangeStream, StreamErrorFor,
+    decode, easy, tokio::Decoder as CombineDecoder, PartialStream, RangeStream, StreamErrorFor,
 };
 use combine::{any, count_min_max, many1, skip_many, Parser};
 
@@ -525,22 +525,19 @@ fn inner_no_partial_test() {
     fn easy_stream(bs: &[u8]) -> Result<easy::Stream<&str>, Error> {
         Ok(str::from_utf8(bs).map(combine::easy::Stream)?)
     }
-    let parser = no_partial(many1(digit()).map(|s: String| s))
-        .or(many1(letter()))
-        .skip(range(&"\r\n"[..]));
-    let decoder = CombineDecoder::with_converters(
-        input_converter(
-            parser,
-            |input| {
-                str::from_utf8(input)
-                    .map(easy::Stream)
-                    .map(PartialStream)
-                    .map_err(|_| combine::error::UnexpectedParse::Unexpected)
-            },
-            |err| ParseError::into_other(err),
-        ),
-        |err, input| ParseError::into_other::<easy::Errors<_, _, _>>(err).into(),
-    );
+    let decoder = CombineDecoder::new(move |input, state| {
+        let str_input = str::from_utf8(input)?;
+        let parser = no_partial(many1(digit()).map(|s: String| s))
+            .or(many1(letter()))
+            .skip(range(&"\r\n"[..]));
+        let input = easy::Stream(PartialStream(str_input));
+        Ok(decode(parser, input, state).map_err(|err| {
+            Error::from(
+                err.map_range(|range| range.to_string())
+                    .map_position(|offset| offset.translate_position(str_input)),
+            )
+        })?)
+    });
     let result = run_decoder(input, seq, decoder);
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());

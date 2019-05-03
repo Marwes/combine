@@ -1076,26 +1076,16 @@ pub mod tokio {
         }
     }
 
-    impl<S, E> Decoder<S, E, ()> {
-        pub fn with_converters<P, O, G>(
-            mut parser: P,
-            mut error_converter: G,
-        ) -> Decoder<S, E, impl FnMut(&[u8], &mut S) -> Result<(Option<O>, usize), E>>
+    impl<S, E, P> Decoder<S, E, P> {
+        pub fn new<O>(parser: P) -> Decoder<S, E, P>
         where
-            P: for<'a> Parser<&'a [u8], Output = O, PartialState = S>,
+            P: FnMut(&[u8], &mut S) -> Result<(Option<O>, usize), E>,
             S: Default,
             E: From<io::Error>,
-            G: for<'a> FnMut(UnexpectedParse, &'a [u8]) -> E,
         {
             Decoder {
                 state: Default::default(),
-                parser: move |mut input: &[u8], state: &mut S| {
-                    let checkpoint = input.checkpoint();
-                    Ok(decode_mut(&mut parser, &mut input, state).map_err(|err| {
-                        input.reset(checkpoint);
-                        error_converter(err, input)
-                    })?)
-                },
+                parser,
                 _marker: PhantomData,
             }
         }
