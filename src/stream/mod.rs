@@ -11,8 +11,7 @@
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
-use crate::lib::fmt;
-use crate::lib::str::Chars;
+use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, str::Chars};
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
@@ -573,14 +572,14 @@ where
 impl<'a> Positioned for &'a str {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        self.as_bytes().position()
+        PointerOffset::new(self.as_bytes().position().0)
     }
 }
 
 impl<'a> StreamOnce for &'a str {
     type Item = char;
     type Range = &'a str;
-    type Position = PointerOffset;
+    type Position = PointerOffset<str>;
     type Error = StringStreamError;
 
     #[inline]
@@ -602,7 +601,7 @@ where
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        PointerOffset(self.as_ptr() as usize)
+        PointerOffset::new(self.as_ptr() as usize)
     }
 }
 
@@ -612,7 +611,7 @@ where
 {
     type Item = T;
     type Range = &'a [T];
-    type Position = PointerOffset;
+    type Position = PointerOffset<[T]>;
     type Error = UnexpectedParse;
 
     #[inline]
@@ -733,7 +732,7 @@ where
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        PointerOffset(self.0.as_ptr() as usize)
+        PointerOffset::new(self.0.as_ptr() as usize)
     }
 }
 
@@ -743,7 +742,7 @@ where
 {
     type Item = &'a T;
     type Range = &'a [T];
-    type Position = PointerOffset;
+    type Position = PointerOffset<[T]>;
     type Error = UnexpectedParse;
 
     #[inline]
@@ -960,16 +959,68 @@ where
 }
 
 /// Newtype around a pointer offset into a slice stream (`&[T]`/`&str`).
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
-pub struct PointerOffset(pub usize);
+pub struct PointerOffset<T: ?Sized>(pub usize, PhantomData<T>);
 
-impl fmt::Display for PointerOffset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.0 as *const ())
+impl<T: ?Sized> Clone for PointerOffset<T> {
+    fn clone(&self) -> Self {
+        PointerOffset::new(self.0)
     }
 }
 
-impl PointerOffset {
+impl<T: ?Sized> Copy for PointerOffset<T> {}
+
+impl<T: ?Sized> Default for PointerOffset<T> {
+    fn default() -> Self {
+        PointerOffset::new(0)
+    }
+}
+
+impl<T: ?Sized> PartialEq for PointerOffset<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T: ?Sized> Eq for PointerOffset<T> {}
+
+impl<T: ?Sized> PartialOrd for PointerOffset<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl<T: ?Sized> Ord for PointerOffset<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<T> fmt::Debug for PointerOffset<T>
+where
+    T: ?Sized,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl<T> fmt::Display for PointerOffset<T>
+where
+    T: ?Sized,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PointerOffset({:?})", self.0 as *const ())
+    }
+}
+
+impl<T> PointerOffset<T>
+where
+    T: ?Sized,
+{
+    pub fn new(offset: usize) -> Self {
+        PointerOffset(offset, PhantomData)
+    }
+
     /// Converts the pointer-based position into an indexed position.
     ///
     /// ```rust
@@ -982,11 +1033,8 @@ impl PointerOffset {
     /// assert_eq!(err.map_position(|p| p.translate_position(text)).position, 0);
     /// # }
     /// ```
-    pub fn translate_position<T>(mut self, initial_string: &T) -> usize
-    where
-        T: ?Sized,
-    {
-        self.0 -= initial_string as *const T as *const () as usize;
+    pub fn translate_position(mut self, initial_slice: &T) -> usize {
+        self.0 -= initial_slice as *const T as *const () as usize;
         self.0
     }
 }

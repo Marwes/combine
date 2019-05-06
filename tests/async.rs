@@ -107,7 +107,7 @@ macro_rules! impl_decoder {
                         // returning the error and before we call `split_to` to remove the input we
                         // just consumed
                         let err = err.map_range(|r| r.to_string())
-                            .map_position(|p| p.translate_position(&src[..]));
+                            .map_position(|p| p.translate_position(&str_src[..]));
                         format!("{}\nIn input: `{}`", err, str_src)
                     })?
                 };
