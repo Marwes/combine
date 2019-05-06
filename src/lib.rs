@@ -364,7 +364,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             (pub)
             struct $name;
             type PartialState = (());
@@ -381,7 +381,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             ()
             struct $name;
             type PartialState = (());
@@ -400,7 +400,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             (pub)
             $(#[$derive])*
             struct $type_name;
@@ -420,7 +420,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             ()
             $(#[$derive])*
             struct $type_name;
@@ -469,7 +469,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             (pub)
             struct $name;
             type PartialState = ($partial_state);
@@ -487,7 +487,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             ()
             struct $name;
             type PartialState = ($partial_state);
@@ -507,7 +507,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             (pub)
             $(#[$derive])*
             struct $type_name;
@@ -528,7 +528,7 @@ macro_rules! parser {
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
-        combine_parser_impl!{
+        $crate::combine_parser_impl!{
             ()
             $(#[$derive])*
             struct $type_name;
@@ -600,7 +600,7 @@ macro_rules! combine_parser_impl {
             type Output = $output_type;
             type PartialState = $($partial_state)*;
 
-            parse_mode!();
+            $crate::parse_mode!();
             #[inline]
             fn parse_mode_impl<M>(
                 &mut self,
@@ -611,7 +611,7 @@ macro_rules! combine_parser_impl {
             where M: $crate::parser::ParseMode
             {
                 let $type_name { $( $arg: ref mut $arg,)* .. } = *self;
-                combine_parse_partial!(($($partial_state)*) mode input state $parser)
+                $crate::combine_parse_partial!(($($partial_state)*) mode input state $parser)
             }
 
             #[inline]

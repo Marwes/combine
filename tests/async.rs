@@ -1,19 +1,5 @@
 #![allow(renamed_and_removed_lints)]
 
-#[macro_use]
-extern crate quick_error;
-#[macro_use]
-extern crate quickcheck;
-
-extern crate bytes;
-#[macro_use]
-extern crate combine;
-
-extern crate futures;
-extern crate partial_io;
-extern crate tokio_codec;
-extern crate tokio_io;
-
 use std::cell::Cell;
 use std::io::{self, Cursor};
 use std::rc::Rc;
@@ -22,22 +8,33 @@ use std::str;
 use bytes::BytesMut;
 
 use futures::{Future, Stream};
+use quick_error::quick_error;
+use quickcheck::quickcheck;
 use tokio_codec::{Decoder, FramedRead};
 
-use combine::combinator::{
-    any_partial_state, any_send_partial_state, attempt, from_str, no_partial, optional, recognize,
-    skip_many1, AnyPartialState, AnySendPartialState,
+use combine::{
+    any,
+    combinator::{
+        any_partial_state, any_send_partial_state, attempt, from_str, no_partial, optional,
+        recognize, skip_many1, AnyPartialState, AnySendPartialState,
+    },
+    count_min_max,
+    error::{ParseError, StreamError},
+    many1, parser,
+    parser::{
+        byte::take_until_bytes,
+        char::{char, digit, letter},
+        item::item,
+        range::{
+            self, range, recognize_with_value, take, take_fn, take_until_range, take_while,
+            take_while1,
+        },
+        repeat,
+    },
+    skip_many,
+    stream::{easy, RangeStream, StreamErrorFor},
+    Parser,
 };
-use combine::error::{ParseError, StreamError};
-use combine::parser::byte::take_until_bytes;
-use combine::parser::char::{char, digit, letter};
-use combine::parser::item::item;
-use combine::parser::range::{
-    self, range, recognize_with_value, take, take_fn, take_until_range, take_while, take_while1,
-};
-use combine::parser::repeat;
-use combine::stream::{easy, RangeStream, StreamErrorFor};
-use combine::{any, count_min_max, many1, skip_many, Parser};
 
 quick_error! {
     #[derive(Debug)]
