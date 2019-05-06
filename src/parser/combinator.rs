@@ -1,18 +1,18 @@
 //! Various combinators which do not fit anywhere else.
 
-use lib::fmt;
-use lib::marker::PhantomData;
-use lib::mem;
-use lib::str;
+use crate::lib::fmt;
+use crate::lib::marker::PhantomData;
+use crate::lib::mem;
+use crate::lib::str;
 
-use error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
-use parser::ParseMode;
-use stream::{input_at_eof, Positioned, ResetStream, Stream, StreamErrorFor, StreamOnce};
-use Parser;
+use crate::error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
+use crate::parser::ParseMode;
+use crate::stream::{input_at_eof, Positioned, ResetStream, Stream, StreamErrorFor, StreamOnce};
+use crate::Parser;
 
 use either::Either;
 
-use error::FastResult::*;
+use crate::error::FastResult::*;
 
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
@@ -164,7 +164,7 @@ where
     note = "try is a reserved keyword in Rust 2018. Use attempt instead."
 )]
 #[inline(always)]
-pub fn try<P>(p: P) -> Try<P>
+pub fn r#try<P>(p: P) -> Try<P>
 where
     P: Parser,
 {

@@ -1,12 +1,12 @@
 //! Parsers working with single stream items.
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
-use stream::{uncons, Stream, StreamOnce};
-use Parser;
+use crate::error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
+use crate::stream::{uncons, Stream, StreamOnce};
+use crate::Parser;
 
-use error::FastResult::*;
+use crate::error::FastResult::*;
 
 #[doc(inline)]
 pub use self::token as item;
@@ -249,7 +249,7 @@ where
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
-            match ::stream::uncons(input) {
+            match crate::stream::uncons(input) {
                 ConsumedOk(other) | EmptyOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
@@ -356,7 +356,7 @@ where
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
-            match ::stream::uncons(input) {
+            match crate::stream::uncons(input) {
                 ConsumedOk(other) | EmptyOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {

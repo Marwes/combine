@@ -1,9 +1,9 @@
 //! Combinators which take one or more parsers and attempts to parse successfully with at least one
 //! of them.
-use error::{ConsumedResult, FastResult::*, ParseError, ResultExt, StreamError, Tracked};
-use parser::ParseMode;
-use stream::ResetStream;
-use {ErrorOffset, Parser, Stream, StreamOnce};
+use crate::error::{ConsumedResult, FastResult::*, ParseError, ResultExt, StreamError, Tracked};
+use crate::parser::ParseMode;
+use crate::stream::ResetStream;
+use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
@@ -168,7 +168,7 @@ macro_rules! do_choice {
     ) => { {
         let parser = $head;
         let mut state = $head::PartialState::default();
-        match parser.parse_mode(::parser::FirstMode, $input, &mut state) {
+        match parser.parse_mode(crate::parser::FirstMode, $input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => {
@@ -476,7 +476,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::parser::PartialMode::default(), input, state)
+        slice_parse_mode(self, crate::parser::PartialMode::default(), input, state)
     }
 
     #[inline(always)]
@@ -485,7 +485,7 @@ where
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::parser::FirstMode, input, state)
+        slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
     #[inline(always)]
@@ -688,7 +688,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::item::any;
+    use crate::parser::item::any;
 
     #[test]
     fn choice_single_parser() {

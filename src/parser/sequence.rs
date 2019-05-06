@@ -1,11 +1,11 @@
 //! Combinators which take multiple parsers and applies them one after another.
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use combinator::{ignore, Ignore, Map};
-use error::FastResult::*;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
-use parser::ParseMode;
-use {ErrorOffset, Parser, Stream, StreamOnce};
+use crate::combinator::{ignore, Ignore, Map};
+use crate::error::FastResult::*;
+use crate::error::{ConsumedResult, ParseError, StreamError, Tracked};
+use crate::parser::ParseMode;
+use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
 macro_rules! dispatch_on {
     ($i: expr, $f: expr;) => {
@@ -713,7 +713,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::item::any;
+    use crate::parser::item::any;
 
     #[test]
     fn sequence_single_parser() {

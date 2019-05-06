@@ -194,26 +194,26 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use error::{ConsumedResult, ParseError, ParseResult};
+pub use crate::error::{ConsumedResult, ParseError, ParseResult};
 #[doc(inline)]
-pub use parser::Parser;
+pub use crate::parser::Parser;
 #[doc(inline)]
-pub use stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
+pub use crate::stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
 #[doc(inline)]
 #[allow(deprecated)] // Needed to re-export `try`
-pub use combinator::{
+pub use crate::combinator::{
     any, attempt, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead,
     many, many1, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
     satisfy_map, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max,
-    skip_many, skip_many1, token, tokens, try, unexpected, unexpected_any, value,
+    skip_many, skip_many1, token, tokens, r#try, unexpected, unexpected_any, value,
 };
 #[doc(inline)]
-pub use parser::choice::choice;
+pub use crate::parser::choice::choice;
 #[doc(inline)]
-pub use parser::combinator::from_str;
+pub use crate::parser::combinator::from_str;
 #[doc(inline)]
-pub use parser::item::tokens2;
+pub use crate::parser::item::tokens2;
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
@@ -754,7 +754,7 @@ pub mod lib {
 
 #[cfg(feature = "std")]
 #[doc(inline)]
-pub use stream::easy;
+pub use crate::stream::easy;
 
 /// Error types and traits which define what kind of errors combine parsers may emit
 #[macro_use]
@@ -772,35 +772,35 @@ pub mod parser;
 )]
 pub mod combinator {
     #[doc(inline)]
-    pub use parser::choice::*;
+    pub use crate::parser::choice::*;
     #[doc(inline)]
-    pub use parser::combinator::*;
+    pub use crate::parser::combinator::*;
     #[doc(inline)]
-    pub use parser::error::*;
+    pub use crate::parser::error::*;
     #[doc(inline)]
-    pub use parser::function::*;
+    pub use crate::parser::function::*;
     #[doc(inline)]
-    pub use parser::item::*;
+    pub use crate::parser::item::*;
     #[doc(inline)]
-    pub use parser::repeat::*;
+    pub use crate::parser::repeat::*;
     #[doc(inline)]
-    pub use parser::sequence::*;
+    pub use crate::parser::sequence::*;
 }
 
 #[doc(hidden)]
 #[deprecated(since = "3.0.0", note = "Please use the `parser::char` module instead")]
-pub use parser::char;
+pub use crate::parser::char;
 
 #[doc(hidden)]
 #[deprecated(since = "3.0.0", note = "Please use the `parser::byte` module instead")]
-pub use parser::byte;
+pub use crate::parser::byte;
 
 #[doc(hidden)]
 #[deprecated(
     since = "3.0.0",
     note = "Please use the `parser::range` module instead"
 )]
-pub use parser::range;
+pub use crate::parser::range;
 
 #[doc(hidden)]
 #[deprecated(
@@ -808,7 +808,7 @@ pub use parser::range;
     note = "Please use the `parser::regex` module instead"
 )]
 #[cfg(any(feature = "regex", feature = "regex-1"))]
-pub use parser::regex;
+pub use crate::parser::regex;
 
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
@@ -817,7 +817,7 @@ pub struct ErrorOffset(u8);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::char::{char, string};
+    use crate::parser::char::{char, string};
 
     #[test]
     fn chainl1_error_consume() {
@@ -834,8 +834,8 @@ mod tests {
         // `attempt` is an alias for `try`. This is a small smoke test for
         // `try`, since the main functionality is tested with `attempt`
         let mut parser = choice((
-            try((string("abc"), string("def"))),
-            try((string("abc"), string("ghi"))),
+            r#try((string("abc"), string("def"))),
+            r#try((string("abc"), string("ghi"))),
         ));
         assert_eq!(parser.parse("abcghi"), Ok((("abc", "ghi"), "")));
     }
@@ -867,9 +867,9 @@ mod std_tests {
     use super::stream::IteratorStream;
     use super::*;
 
-    use parser::char::{alpha_num, char, digit, letter, spaces, string};
-    use stream::easy;
-    use stream::state::{SourcePosition, State};
+    use crate::parser::char::{alpha_num, char, digit, letter, spaces, string};
+    use crate::stream::easy;
+    use crate::stream::state::{SourcePosition, State};
 
     #[test]
     fn optional_error_consume() {
@@ -908,7 +908,7 @@ mod std_tests {
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
     {
-        let (s, input) = try!(many1::<String, _>(digit())
+        let (s, input) = r#try!(many1::<String, _>(digit())
             .expected("integer")
             .parse_stream(input));
         let mut n = 0;
@@ -1170,7 +1170,7 @@ mod std_tests {
 
         impl fmt::Display for ExtractedError {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                try!(writeln!(f, "Parse error at {}", self.0));
+                r#try!(writeln!(f, "Parse error at {}", self.0));
                 Error::fmt_errors(&(self.1).0, f)
             }
         }

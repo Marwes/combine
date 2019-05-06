@@ -37,11 +37,11 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use error::FastResult::*;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
-use parser::range::take;
-use stream::{FullRangeStream, StreamOnce};
-use Parser;
+use crate::error::FastResult::*;
+use crate::error::{ConsumedResult, ParseError, StreamError, Tracked};
+use crate::parser::range::take;
+use crate::stream::{FullRangeStream, StreamOnce};
+use crate::Parser;
 
 struct First<T>(Option<T>);
 
@@ -380,7 +380,7 @@ impl<'a, R, I> Parser for Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -427,7 +427,7 @@ pub fn find<R, I>(regex: R) -> Find<R, I>
 where
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     Find(regex, PhantomData)
 }
@@ -440,7 +440,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     type Input = I;
     type Output = F;
@@ -483,7 +483,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     FindMany(regex, PhantomData)
 }
@@ -496,7 +496,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     type Input = I;
     type Output = F;
@@ -549,7 +549,7 @@ where
     F: FromIterator<I::Range>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     Captures(regex, PhantomData)
 }
@@ -563,7 +563,7 @@ where
     G: FromIterator<F>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     type Input = I;
     type Output = G;
@@ -616,7 +616,7 @@ where
     G: FromIterator<F>,
     R: Regex<I::Range>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     CapturesMany(regex, PhantomData)
 }
@@ -624,9 +624,9 @@ where
 #[cfg(all(test, feature = "regex-1"))]
 mod tests {
 
-    use parser::regex::find;
-    use parser::regex::regex_1::regex_1::Regex;
-    use Parser;
+    use crate::parser::regex::find;
+    use crate::parser::regex::regex_1::regex_1::Regex;
+    use crate::Parser;
 
     #[test]
     fn test() {

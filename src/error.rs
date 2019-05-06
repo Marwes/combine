@@ -1,13 +1,13 @@
-use lib::fmt;
+use crate::lib::fmt;
 
 #[cfg(feature = "std")]
 use std::error::Error as StdError;
 
 use self::FastResult::*;
 
-use ErrorOffset;
+use crate::ErrorOffset;
 
-use stream::StreamOnce;
+use crate::stream::StreamOnce;
 
 pub(crate) trait ResultExt<E, T> {
     fn consumed(self) -> FastResult<E, T>;
@@ -774,7 +774,7 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
 
 #[cfg(all(feature = "std", test))]
 mod tests_std {
-    use Parser;
+    use crate::Parser;
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {
@@ -789,7 +789,7 @@ mod tests_std {
             CloneOnly { s: "y".to_string() },
         ][..];
         let result =
-            ::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
+            crate::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
         assert_eq!(
             result,
             Ok((

@@ -15,7 +15,7 @@ use std::path::Path;
 use criterion::{black_box, Bencher, Criterion};
 
 use combine::error::{Consumed, ParseError};
-use combine::stream::buffered::buffered::Stream;
+use combine::stream::buffered;
 use combine::{Parser, Stream, StreamOnce};
 
 use combine::parser::char::{char, digit, spaces, string};
@@ -107,7 +107,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     parser(|input: &mut I| {
-        let (c, consumed) = try!(any().parse_lazy(input).into());
+        let (c, consumed) = r#try!(any().parse_lazy(input).into());
         let mut back_slash_char = satisfy_map(|c| {
             Some(match c {
                 '"' => '"',

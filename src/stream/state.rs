@@ -1,13 +1,13 @@
-use lib::fmt;
+use crate::lib::fmt;
 
-use error::{FastResult, ParseError, StreamError};
-use stream::{
+use crate::error::{FastResult, ParseError, StreamError};
+use crate::stream::{
     FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream,
     StreamErrorFor, StreamOnce,
 };
 
 #[cfg(feature = "std")]
-use stream::ReadStream;
+use crate::stream::ReadStream;
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -180,7 +180,7 @@ impl IndexPositioner {
 impl<Item, Range> RangePositioner<Item, Range> for IndexPositioner
 where
     Item: PartialEq + Clone,
-    Range: PartialEq + Clone + ::stream::Range,
+    Range: PartialEq + Clone + crate::stream::Range,
 {
     fn update_range(&mut self, range: &Range) {
         self.0 += range.len()
@@ -339,12 +339,12 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
-    use Parser;
+    use crate::Parser;
 
     #[test]
     fn test_positioner() {
         let input = ["a".to_string(), "b".to_string()];
-        let mut parser = ::any();
+        let mut parser = crate::any();
         let result = parser.parse(State::new(&input[..]));
         assert_eq!(
             result,
@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn test_range_positioner() {
         let input = ["a".to_string(), "b".to_string(), "c".to_string()];
-        let mut parser = ::parser::range::take(2);
+        let mut parser = crate::parser::range::take(2);
         let result = parser.parse(State::new(&input[..]));
         assert_eq!(
             result,

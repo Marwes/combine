@@ -84,8 +84,8 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
-use stream::{
+use crate::error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
+use crate::stream::{
     FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
     StreamOnce,
 };
@@ -308,7 +308,7 @@ where
     }
 }
 
-impl<Item, Range, Position> ::error::ParseError<Item, Range, Position> for Error<Item, Range>
+impl<Item, Range, Position> crate::error::ParseError<Item, Range, Position> for Error<Item, Range>
 where
     Item: PartialEq,
     Range: PartialEq,
@@ -348,13 +348,13 @@ where
     #[inline]
     fn into_other<T>(self) -> T
     where
-        T: ::error::ParseError<Item, Range, Position>,
+        T: crate::error::ParseError<Item, Range, Position>,
     {
         T::from_error(Position::default(), StreamError::into_other(self))
     }
 }
 
-impl<Item, Range, Position> ::error::ParseError<Item, Range, Position>
+impl<Item, Range, Position> crate::error::ParseError<Item, Range, Position>
     for Errors<Item, Range, Position>
 where
     Item: PartialEq,
@@ -426,7 +426,7 @@ where
     #[inline]
     fn into_other<T>(mut self) -> T
     where
-        T: ::error::ParseError<Item, Range, Position>,
+        T: crate::error::ParseError<Item, Range, Position>,
     {
         match self.errors.pop() {
             Some(err) => T::from_error(self.position, StreamError::into_other(err)),
@@ -524,7 +524,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in unexpected {
-            try!(writeln!(f, "{}", error));
+            r#try!(writeln!(f, "{}", error));
         }
 
         // Then we print out all the things that were expected in a comma separated list
@@ -543,10 +543,10 @@ impl<T, R> Error<T, R> {
                 // Last expected message to be written
                 _ => " or",
             };
-            try!(write!(f, "{} `{}`", s, message));
+            r#try!(write!(f, "{} `{}`", s, message));
         }
         if expected_count != 0 {
-            try!(writeln!(f, ""));
+            r#try!(writeln!(f, ""));
         }
         // If there are any generic messages we print them out last
         let messages = errors.iter().filter(|e| match **e {
@@ -554,7 +554,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in messages {
-            try!(writeln!(f, "{}", error));
+            r#try!(writeln!(f, "{}", error));
         }
         Ok(())
     }
@@ -721,7 +721,7 @@ where
     R: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(writeln!(f, "Parse error at {}", self.position));
+        r#try!(writeln!(f, "Parse error at {}", self.position));
         Error::fmt_errors(&self.errors, f)
     }
 }
@@ -754,7 +754,7 @@ where
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
         self.0
             .reset(checkpoint)
-            .map_err(::error::ParseError::into_other)
+            .map_err(crate::error::ParseError::into_other)
     }
 }
 

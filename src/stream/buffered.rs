@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use error::StreamError;
-use stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamOnce};
+use crate::error::StreamError;
+use crate::stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamOnce};
 
 /// `Stream` which buffers items from an instance of `StreamOnce` into a ring buffer.
 /// Instances of `StreamOnce` which is not able to implement `ResetStream` (such as `ReadStream`) may
@@ -110,7 +110,7 @@ where
     fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
-            let item = try!(self.iter.uncons());
+            let item = r#try!(self.iter.uncons());
             self.buffer_offset += 1;
             // We want the VecDeque to only keep the last .capacity() elements so we need to remove
             // an element if it gets to large

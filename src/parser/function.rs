@@ -1,10 +1,10 @@
 //! Parsers constructor from regular functions
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use error::{ConsumedResult, ParseResult};
-use stream::Stream;
-use Parser;
+use crate::error::{ConsumedResult, ParseResult};
+use crate::stream::Stream;
+use crate::Parser;
 
 impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> ParseResult<O, I> + 'a {
     type Input = I;

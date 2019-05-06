@@ -1,18 +1,18 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
-use lib::borrow::BorrowMut;
-use lib::marker::PhantomData;
-use lib::mem;
+use crate::lib::borrow::BorrowMut;
+use crate::lib::marker::PhantomData;
+use crate::lib::mem;
 
-use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
-use error::{Consumed, ConsumedResult, ParseError, ParseResult, ResultExt, StreamError, Tracked};
-use parser::choice::Or;
-use parser::sequence::With;
-use parser::ParseMode;
-use stream::{uncons, Positioned, ResetStream, Stream, StreamOnce};
-use {ErrorOffset, Parser};
+use crate::combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
+use crate::error::{Consumed, ConsumedResult, ParseError, ParseResult, ResultExt, StreamError, Tracked};
+use crate::parser::choice::Or;
+use crate::parser::sequence::With;
+use crate::parser::ParseMode;
+use crate::stream::{uncons, Positioned, ResetStream, Stream, StreamOnce};
+use crate::{ErrorOffset, Parser};
 
-use error::FastResult::*;
+use crate::error::FastResult::*;
 
 parser! {
 #[derive(Copy, Clone)]
@@ -66,7 +66,7 @@ parser! {
         P: Parser
     ]
     {
-        ::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
+        crate::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -188,7 +188,7 @@ parser! {
         P: Parser
     ]
     {
-        ::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
+        crate::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -1278,7 +1278,7 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        use error::Info;
+        use crate::error::Info;
         self.parser.add_error(errors);
 
         errors.error.add_expected(Info::Token(self.escape.clone()));

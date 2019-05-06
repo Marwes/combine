@@ -11,19 +11,19 @@
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
-use lib::fmt;
-use lib::str::Chars;
+use crate::lib::fmt;
+use crate::lib::str::Chars;
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
 
 #[cfg(feature = "std")]
-use stream::easy::Errors;
+use crate::stream::easy::Errors;
 
-use Parser;
+use crate::Parser;
 
-use error::FastResult::*;
-use error::{
+use crate::error::FastResult::*;
+use crate::error::{
     ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
     UnexpectedParse,
 };

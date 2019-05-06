@@ -4,15 +4,15 @@
 //! implementing all combine parsers.
 use either::Either;
 
-use combinator::{
+use crate::combinator::{
     and_then, expected, flat_map, map, message, then, then_partial, AndThen, Expected, FlatMap,
     Iter, Map, Message, Then, ThenPartial,
 };
-use error::FastResult::*;
-use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, ResultExt, Tracked};
-use parser::error::{silent, Silent};
-use stream::{ResetStream, Stream, StreamOnce};
-use ErrorOffset;
+use crate::error::FastResult::*;
+use crate::error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, ResultExt, Tracked};
+use crate::parser::error::{silent, Silent};
+use crate::stream::{ResetStream, Stream, StreamOnce};
+use crate::ErrorOffset;
 
 use self::choice::{or, Or};
 use self::sequence::{skip, with, Skip, With};
@@ -139,21 +139,21 @@ pub trait Parser {
     ///
     /// [`ParseError`]: struct.ParseError.html
     #[cfg(feature = "std")]
-    fn easy_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), ::easy::ParseError<I>>
+    fn easy_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), crate::easy::ParseError<I>>
     where
         I: Stream,
-        ::easy::Stream<I>: StreamOnce<
+        crate::easy::Stream<I>: StreamOnce<
             Item = I::Item,
             Range = I::Range,
-            Error = ::easy::ParseError<::easy::Stream<I>>,
+            Error = crate::easy::ParseError<crate::easy::Stream<I>>,
             Position = I::Position,
         >,
         I::Position: Default,
         I::Item: PartialEq,
         I::Range: PartialEq,
-        Self: Sized + Parser<Input = ::easy::Stream<I>>,
+        Self: Sized + Parser<Input = crate::easy::Stream<I>>,
     {
-        let input = ::easy::Stream(input);
+        let input = crate::easy::Stream(input);
         self.parse(input).map(|(v, input)| (v, input.0))
     }
 

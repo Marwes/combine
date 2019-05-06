@@ -1,18 +1,18 @@
 //! Module containing parsers specialized on byte streams.
 extern crate ascii;
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
-use error::{ConsumedResult, Info, ParseError, Tracked};
-use parser::range::{take_fn, TakeRange};
-use parser::sequence::With;
-use stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
-use Parser;
+use crate::combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
+use crate::error::{ConsumedResult, Info, ParseError, Tracked};
+use crate::parser::range::{take_fn, TakeRange};
+use crate::parser::sequence::With;
+use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
+use crate::Parser;
 
-use error::FastResult::*;
+use crate::error::FastResult::*;
 
 /// Parses a byte and succeeds if the byte is equal to `c`.
 ///
@@ -407,7 +407,7 @@ macro_rules! take_until {
             pub fn $func_name[I]($($param : u8),*)(I) -> I::Range
                 where [
                     I: RangeStream + FullRangeStream,
-                    I::Range: AsRef<[u8]> + ::stream::Range,
+                    I::Range: AsRef<[u8]> + crate::stream::Range,
                 ]
             {
                 take_fn(move |haystack: I::Range| {
@@ -504,7 +504,7 @@ parser! {
 pub fn take_until_bytes['a, I](needle: &'a [u8])(I) -> I::Range
 where [
     I: RangeStream + FullRangeStream,
-    I::Range: AsRef<[u8]> + ::stream::Range,
+    I::Range: AsRef<[u8]> + crate::stream::Range,
 ]
 {
     take_fn(move |haystack: I::Range| {
@@ -535,11 +535,11 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
-    use stream::uncons;
+    use crate::stream::uncons;
 
     use byteorder::{ByteOrder, BE, LE};
 
-    use lib::mem::size_of;
+    use crate::lib::mem::size_of;
 
     macro_rules! integer_parser {
         (
@@ -721,9 +721,9 @@ pub mod num {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use stream::buffered;
-        use stream::state::State;
-        use stream::IteratorStream;
+        use crate::stream::buffered;
+        use crate::stream::state::State;
+        use crate::stream::IteratorStream;
 
         #[test]
         fn no_rangestream() {
