@@ -1,9 +1,9 @@
 #[macro_use]
-extern crate criterion_bencher_compat as bencher;
+extern crate criterion;
 #[macro_use]
 extern crate combine;
 
-use bencher::{black_box, Bencher};
+use criterion::{black_box, Bencher, Criterion};
 
 use std::fmt;
 
@@ -161,10 +161,14 @@ where
     });
 }
 
-benchmark_group!(
-    http,
-    http_requests_small,
-    http_requests_large,
-    http_requests_large_cheap_error
-);
-benchmark_main!(http);
+fn http_requests(c: &mut Criterion) {
+    c.bench_function("http_requests_small", http_requests_small);
+    c.bench_function("http_requests_large", http_requests_large);
+    c.bench_function(
+        "http_requests_large_cheap_error",
+        http_requests_large_cheap_error,
+    );
+}
+
+criterion_group!(http, http_requests,);
+criterion_main!(http);

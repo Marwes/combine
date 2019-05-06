@@ -31,7 +31,7 @@ combine-regex-1 = { version = "1", path = "combine-regex-1", optional = true }
 memchr = { version = "2.2", default-features = false }
 
 [dev-dependencies]
-criterion_bencher_compat = "0.2"
+criterion = "0.2"
 lazy_static = "1.0"
 
 futures = "0.1"

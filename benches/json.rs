@@ -2,7 +2,7 @@
 // significantly simplify things
 
 #[macro_use]
-extern crate criterion_bencher_compat as bencher;
+extern crate criterion;
 
 #[macro_use]
 extern crate combine;
@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use bencher::{black_box, Bencher};
+use criterion::{black_box, Bencher, Criterion};
 
 use combine::error::{Consumed, ParseError};
 use combine::stream::buffered::BufferedStream;
@@ -302,11 +302,15 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     });
 }
 
-benchmark_group!(
-    json,
-    bench_json,
-    bench_json_core_error,
-    bench_json_core_error_no_position,
-    bench_buffered_json
-);
-benchmark_main!(json);
+fn bench(c: &mut Criterion) {
+    c.bench_function("json", bench_json);
+    c.bench_function("json_core_error", bench_json_core_error);
+    c.bench_function(
+        "json_core_error_no_position",
+        bench_json_core_error_no_position,
+    );
+    c.bench_function("buffered_json", bench_buffered_json);
+}
+
+criterion_group!(json, bench);
+criterion_main!(json);
