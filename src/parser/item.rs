@@ -239,72 +239,6 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Tokens<C, T, I>
-where
-    I: Stream,
-{
-    cmp: C,
-    expected: Info<I::Item, I::Range>,
-    tokens: T,
-    _marker: PhantomData<I>,
-}
-
-impl<C, T, I> Parser for Tokens<C, T, I>
-where
-    C: FnMut(T::Item, I::Item) -> bool,
-    T: Clone + IntoIterator,
-    I: Stream,
-{
-    type Input = I;
-    type Output = T;
-    type PartialState = ();
-    #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, <I as StreamOnce>::Error> {
-        let start = input.position();
-        let mut consumed = false;
-        for c in self.tokens.clone() {
-            match crate::stream::uncons(input) {
-                ConsumedOk(other) | EmptyOk(other) => {
-                    if !(self.cmp)(c, other.clone()) {
-                        return if consumed {
-                            let mut errors = <Self::Input as StreamOnce>::Error::from_error(
-                                start,
-                                StreamError::unexpected(Info::Token(other)),
-                            );
-                            errors.add_expected(self.expected.clone());
-                            ConsumedErr(errors)
-                        } else {
-                            EmptyErr(<Self::Input as StreamOnce>::Error::empty(start).into())
-                        };
-                    }
-                    consumed = true;
-                }
-                EmptyErr(mut error) => {
-                    error.error.set_position(start);
-                    return if consumed {
-                        ConsumedErr(error.error)
-                    } else {
-                        EmptyErr(error.into())
-                    };
-                }
-                ConsumedErr(mut error) => {
-                    error.set_position(start);
-                    return ConsumedErr(error);
-                }
-            }
-        }
-        if consumed {
-            ConsumedOk(self.tokens.clone())
-        } else {
-            EmptyOk(self.tokens.clone())
-        }
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        errors.error.add_expected(self.expected.clone());
-    }
-}
-
 /// Parses multiple tokens.
 ///
 /// Consumes items from the input and compares them to the values from `tokens` using the
@@ -312,42 +246,26 @@ where
 /// stream and fails otherwise with `expected` used as part of the error.
 ///
 /// ```
-/// # extern crate combine;
 /// # use combine::*;
-/// # use combine::error::Info;
 /// # fn main() {
-/// use std::ascii::AsciiExt;
-/// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())
-///     .parse("AbC")
+/// let result = tokens("abc".chars())
+///     .parse("abc")
 ///     .map(|x| x.0.as_str());
 /// assert_eq!(result, Ok("abc"));
-/// let result = tokens(
-///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
-///     Info::Range(&b"025"[..]),
-///     &b"025"[..]
-/// )
-///     .parse(&b"123"[..])
-///     .map(|x| x.0);
-/// assert_eq!(result, Ok(&b"025"[..]));
 /// # }
 /// ```
 #[inline(always)]
-pub fn tokens<C, T, I>(cmp: C, expected: Info<I::Item, I::Range>, tokens: T) -> Tokens<C, T, I>
+pub fn tokens<T, I>(tokens: T) -> impl Parser<Input = I, Output = T>
 where
-    C: FnMut(T::Item, I::Item) -> bool,
     T: Clone + IntoIterator,
     I: Stream,
+    T::Item: PartialEq<I::Item>,
 {
-    Tokens {
-        cmp: cmp,
-        expected: expected,
-        tokens: tokens,
-        _marker: PhantomData,
-    }
+    tokens_cmp(tokens, |l, r| l == r)
 }
 
 #[derive(Clone)]
-pub struct Tokens2<C, T, I>
+pub struct TokensCmp<C, T, I>
 where
     I: Stream,
 {
@@ -356,7 +274,7 @@ where
     _marker: PhantomData<I>,
 }
 
-impl<C, T, I> Parser for Tokens2<C, T, I>
+impl<C, T, I> Parser for TokensCmp<C, T, I>
 where
     C: FnMut(T::Item, I::Item) -> bool,
     T: Clone + IntoIterator,
@@ -420,13 +338,13 @@ where
 /// # fn main() {
 /// # #[allow(deprecated)]
 /// # use std::ascii::AsciiExt;
-/// let result = tokens2(|l, r| l.eq_ignore_ascii_case(&r), "abc".chars())
+/// let result = tokens_cmp("abc".chars(), |l, r| l.eq_ignore_ascii_case(&r))
 ///     .parse("AbC")
 ///     .map(|x| x.0.as_str());
 /// assert_eq!(result, Ok("abc"));
-/// let result = tokens2(
+/// let result = tokens_cmp(
+///     &b"025"[..],
 ///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
-///     &b"025"[..]
 /// )
 ///     .parse(&b"123"[..])
 ///     .map(|x| x.0);
@@ -434,13 +352,13 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn tokens2<C, T, I>(cmp: C, tokens: T) -> Tokens2<C, T, I>
+pub fn tokens_cmp<C, T, I>(tokens: T, cmp: C) -> TokensCmp<C, T, I>
 where
     C: FnMut(T::Item, I::Item) -> bool,
     T: Clone + IntoIterator,
     I: Stream,
 {
-    Tokens2 {
+    TokensCmp {
         cmp: cmp,
         tokens: tokens,
         _marker: PhantomData,

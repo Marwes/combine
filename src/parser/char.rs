@@ -1,10 +1,11 @@
 //! Module containing parsers specialized on character streams.
 
-use crate::combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
+use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
 use crate::error::{ParseError, ParseResult, Tracked};
 use crate::lib::marker::PhantomData;
+use crate::parser::item::tokens_cmp;
 use crate::parser::sequence::With;
-use crate::stream::{Stream, StreamOnce};
+use crate::stream::Stream;
 use crate::Parser;
 
 /// Parses a character and succeeds if the character is equal to `c`.
@@ -304,38 +305,6 @@ where
     )
 }
 
-fn eq(l: char, r: char) -> bool {
-    l == r
-}
-
-#[derive(Copy, Clone)]
-pub struct Str<'a, I>(&'static str, PhantomData<(&'a str, fn(I) -> I)>)
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>;
-impl<'a, I> Parser for Str<'a, I>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    type Input = I;
-    type Output = &'a str;
-    type PartialState = ();
-
-    #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
-        tokens(eq, self.0.into(), self.0.chars())
-            .parse_lazy(input)
-            .map(|_| self.0)
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        tokens::<_, _, I>(eq, self.0.into(), self.0.chars()).add_error(errors)
-    }
-}
-
 /// Parses the string `s`.
 ///
 /// ```
@@ -350,41 +319,12 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string<'a, I>(s: &'static str) -> Str<'a, I>
+pub fn string<'a, I>(s: &'static str) -> impl Parser<Input = I, Output = &'a str>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    Str(s, PhantomData)
-}
-
-#[derive(Copy, Clone)]
-pub struct StrCmp<'a, C, I>(&'static str, C, PhantomData<(&'a str, fn(I) -> I)>)
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>;
-impl<'a, C, I> Parser for StrCmp<'a, C, I>
-where
-    C: FnMut(char, char) -> bool,
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    type Input = I;
-    type Output = &'a str;
-    type PartialState = ();
-
-    #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
-        tokens(&mut self.1, self.0.into(), self.0.chars())
-            .parse_lazy(input)
-            .map(|_| self.0)
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        tokens::<_, _, I>(&mut self.1, self.0.into(), self.0.chars()).add_error(errors)
-    }
+    string_cmp(s, |l, r| l == r)
 }
 
 /// Parses the string `s`, using `cmp` to compare each character.
@@ -402,13 +342,13 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string_cmp<'a, C, I>(s: &'static str, cmp: C) -> StrCmp<'a, C, I>
+pub fn string_cmp<'a, C, I>(s: &'static str, cmp: C) -> impl Parser<Input = I, Output = &'a str>
 where
     C: FnMut(char, char) -> bool,
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    StrCmp(s, cmp, PhantomData)
+    tokens_cmp(s.chars(), cmp).map(move |_| s).expected(s)
 }
 
 #[cfg(all(feature = "std", test))]

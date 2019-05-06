@@ -213,7 +213,7 @@ pub use crate::parser::choice::choice;
 #[doc(inline)]
 pub use crate::parser::combinator::from_str;
 #[doc(inline)]
-pub use crate::parser::item::tokens2;
+pub use crate::parser::item::tokens_cmp;
 
 macro_rules! static_fn {
     (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {

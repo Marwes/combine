@@ -5,8 +5,9 @@ use crate::lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use crate::combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
+use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
 use crate::error::{Info, ParseError, ParseResult, Tracked};
+use crate::parser::item::tokens_cmp;
 use crate::parser::range::{take_fn, TakeRange};
 use crate::parser::sequence::With;
 use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
@@ -283,35 +284,6 @@ where
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
 
-#[derive(Copy, Clone)]
-pub struct Bytes<'a, I>(&'static [u8], PhantomData<(&'a [u8], I)>)
-where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>;
-
-impl<'a, 'b, I> Parser for Bytes<'a, I>
-where
-    I: Stream<Item = u8, Range = &'b [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    type Input = I;
-    type Output = &'a [u8];
-    type PartialState = ();
-
-    #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
-        tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
-            .parse_lazy(input)
-            .map(|bytes| bytes.as_slice())
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        tokens::<_, _, I>(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
-    }
-}
-
 /// Parses the bytes `s`.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -332,42 +304,12 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes<'a, 'b, I>(s: &'static [u8]) -> Bytes<'a, I>
+pub fn bytes<'a, 'b, I>(s: &'static [u8]) -> impl Parser<Input = I, Output = &'a [u8]>
 where
     I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    Bytes(s, PhantomData)
-}
-
-#[derive(Copy, Clone)]
-pub struct BytesCmp<'a, C, I>(&'static [u8], C, PhantomData<(&'a [u8], I)>)
-where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>;
-
-impl<'a, 'b, C, I> Parser for BytesCmp<'a, C, I>
-where
-    C: FnMut(u8, u8) -> bool,
-    I: Stream<Item = u8, Range = &'b [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    type Input = I;
-    type Output = &'a [u8];
-    type PartialState = ();
-
-    #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
-        let cmp = &mut self.1;
-        tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        let cmp = &mut self.1;
-        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
-    }
+    bytes_cmp(s, |l: u8, r: u8| l == r)
 }
 
 /// Parses the bytes `s` using `cmp` to compare each token.
@@ -391,13 +333,18 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes_cmp<'a, 'b, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<'a, C, I>
+pub fn bytes_cmp<'a, 'b, C, I>(
+    s: &'static [u8],
+    cmp: C,
+) -> impl Parser<Input = I, Output = &'a [u8]>
 where
     C: FnMut(u8, u8) -> bool,
     I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    BytesCmp(s, cmp, PhantomData)
+    tokens_cmp(s.iter().cloned(), cmp)
+        .map(move |_| s)
+        .expected(Info::Range(s))
 }
 
 macro_rules! take_until {
