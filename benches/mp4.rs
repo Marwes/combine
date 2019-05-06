@@ -1,6 +1,6 @@
 #![cfg(feature = "mp4")]
 #[macro_use]
-extern crate bencher;
+extern crate criterion_bencher_compat as bencher;
 
 extern crate byteorder;
 extern crate combine;
