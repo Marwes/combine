@@ -13,8 +13,7 @@ else
     cargo test --features doc
     cargo test --features doc --examples
 
-    [ "$TRAVIS_RUST_VERSION" != "nightly" ] || cargo check --bench json
-
+    cargo check --bench json
     cargo check --bench http
     cargo check --bench mp4 --features mp4
 
