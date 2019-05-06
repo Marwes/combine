@@ -5,7 +5,9 @@ use crate::lib::marker::PhantomData;
 use crate::lib::mem;
 
 use crate::combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
-use crate::error::{Consumed, ConsumedResult, ParseError, ParseResult, ResultExt, StreamError, Tracked};
+use crate::error::{
+    Consumed, ConsumedResult, ParseError, ParseResult, ResultExt, StreamError, Tracked,
+};
 use crate::parser::choice::Or;
 use crate::parser::sequence::With;
 use crate::parser::ParseMode;
@@ -1248,7 +1250,7 @@ where
                     let checkpoint = input.checkpoint();
                     match uncons(input) {
                         ConsumedOk(ref c) | EmptyOk(ref c) if *c == self.escape => {
-                            match self.escape_parser.parse_stream_consumed(input) {
+                            match self.escape_parser.parse_stream(input) {
                                 EmptyOk(_) => {}
                                 ConsumedOk(_) => {
                                     consumed = Consumed::Consumed(());

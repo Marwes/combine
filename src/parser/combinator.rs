@@ -98,7 +98,7 @@ where
     type PartialState = P::PartialState;
 
     #[inline]
-    fn parse_stream_consumed(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_stream(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         self.parse_lazy(input)
     }
 
@@ -864,8 +864,8 @@ where
     type Output = O;
     type PartialState = R::PartialState;
 
-    fn parse_stream_consumed(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
-        (self.0)().parse_stream_consumed(input)
+    fn parse_stream(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+        (self.0)().parse_stream(input)
     }
 
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
@@ -1129,9 +1129,9 @@ where
     type Output = O;
     type PartialState = S;
 
-    fn parse_stream_consumed(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_stream(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         let mut x = None;
-        (self.0)(&mut |parser| x = Some(parser.parse_stream_consumed(input)));
+        (self.0)(&mut |parser| x = Some(parser.parse_stream(input)));
         x.expect("Parser")
     }
 

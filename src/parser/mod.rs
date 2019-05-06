@@ -9,7 +9,7 @@ use crate::combinator::{
     Iter, Map, Message, Then, ThenPartial,
 };
 use crate::error::FastResult::*;
-use crate::error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, ResultExt, Tracked};
+use crate::error::{ConsumedResult, FastResult, Info, ParseError, ResultExt, Tracked};
 use crate::parser::error::{silent, Silent};
 use crate::stream::{ResetStream, Stream, StreamOnce};
 use crate::ErrorOffset;
@@ -77,12 +77,12 @@ pub mod sequence;
 /// into the type `Output`.
 ///
 /// All methods have a default implementation but there needs to be at least an implementation of
-/// [`parse_stream`], [`parse_stream_consumed`], or [`parse_lazy`]. If the last is implemented, an
+/// [`parse_stream`], [`parse_stream`], or [`parse_lazy`]. If the last is implemented, an
 /// implementation of [`add_error`] may also be required. See the documentation for
 /// [`parse_lazy`] for details.
 ///
 /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-/// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
+/// [`parse_stream`]: trait.Parser.html#method.parse_stream
 /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
 /// [`add_error`]: trait.Parser.html#method.add_error
 pub trait Parser {
@@ -173,7 +173,7 @@ pub trait Parser {
         &mut self,
         mut input: Self::Input,
     ) -> Result<(Self::Output, Self::Input), <Self::Input as StreamOnce>::Error> {
-        match self.parse_stream(&mut input) {
+        match self.parse_stream(&mut input).into() {
             Ok((v, _)) => Ok((v, input)),
             Err(error) => Err(error.into_inner().error),
         }
@@ -189,23 +189,10 @@ pub trait Parser {
         input: &mut Self::Input,
         state: &mut Self::PartialState,
     ) -> Result<Self::Output, <Self::Input as StreamOnce>::Error> {
-        match self.parse_stream_consumed_partial(input, state).into() {
+        match self.parse_stream_partial(input, state).into() {
             Ok((v, _)) => Ok(v),
             Err(error) => Err(error.into_inner().error),
         }
-    }
-
-    /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
-    ///
-    /// On success returns `Ok((value, new_state))`, and on failure returns `Err(error)`.
-    /// Furthermore `new_state` and `error` are wrapped in [`Consumed`], providing information on
-    /// whether this parser consumed any input data or not.
-    ///
-    /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
-    /// [`Consumed`]: enum.Consumed.html
-    #[inline(always)]
-    fn parse_stream(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
-        self.parse_stream_consumed(input).into()
     }
 
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
@@ -218,7 +205,7 @@ pub trait Parser {
     /// [`Consumed`]: enum.Consumed.html
     /// [`FastResult`]: enum.FastResult.html
     #[inline]
-    fn parse_stream_consumed(
+    fn parse_stream(
         &mut self,
         input: &mut Self::Input,
     ) -> ConsumedResult<Self::Output, Self::Input> {
@@ -236,28 +223,9 @@ pub trait Parser {
         result
     }
 
-    #[inline]
-    fn parse_stream_consumed_partial(
-        &mut self,
-        input: &mut Self::Input,
-        state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        let before = input.checkpoint();
-        let mut result = self.parse_partial(input, state);
-        if let FastResult::EmptyErr(ref mut error) = result {
-            ctry!(input.reset(before.clone()).consumed());
-            if let Ok(t) = input.uncons() {
-                ctry!(input.reset(before).consumed());
-                error.error.add_unexpected(Info::Token(t));
-            }
-            self.add_error(error);
-        }
-        result
-    }
-
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
     ///
-    /// Specialized version of [`parse_stream_consumed`] which permits error value creation to be
+    /// Specialized version of [`parse_stream`] which permits error value creation to be
     /// skipped in the common case.
     ///
     /// When this parser returns `EmptyErr`, this method is allowed to return an empty
@@ -265,14 +233,12 @@ pub trait Parser {
     /// calling [`add_error`]. This allows a parent parser such as `choice` to skip the creation of
     /// an unnecessary error value, if an alternative parser succeeds.
     ///
-    /// External callers should never have to call this function directly.
-    ///
     /// Parsers should seek to implement this function instead of the above two if errors can be
     /// encountered before consuming input. The default implementation always returns all errors,
     /// with [`add_error`] being a no-op.
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
-    /// [`parse_stream_consumed`]: trait.Parser.html#method.parse_stream_consumed
+    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
     /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline(always)]
@@ -293,12 +259,44 @@ pub trait Parser {
         }
     }
 
+    /// Adds the first error that would normally be returned by this parser if it failed with an
+    /// `EmptyErr` result.
+    ///
+    /// See [`parse_lazy`] for details.
+    ///
+    /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
+    fn add_error(&mut self, _error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {}
+
+    /// Like `parse_stream` but supports partial parsing.
+    #[inline]
+    fn parse_stream_partial(
+        &mut self,
+        input: &mut Self::Input,
+        state: &mut Self::PartialState,
+    ) -> ConsumedResult<Self::Output, Self::Input> {
+        let before = input.checkpoint();
+        let mut result = self.parse_partial(input, state);
+        if let FastResult::EmptyErr(ref mut error) = result {
+            ctry!(input.reset(before.clone()).consumed());
+            if let Ok(t) = input.uncons() {
+                ctry!(input.reset(before).consumed());
+                error.error.add_unexpected(Info::Token(t));
+            }
+            self.add_error(error);
+        }
+        result
+    }
+
     /// Parses using the stream `input` and allows itself to be resumed at a later point using
     /// `parse_partial` by storing the necessary intermediate state in `state`.
     ///
     /// Unlike `parse_partial` function this is allowed to assume that there is no partial state to
     /// resume.
+    ///
+    /// Internal API. May break without a semver bump
+    /// Always overridden by the `parse_mode!` macro
     #[inline(always)]
+    #[doc(hidden)]
     fn parse_first(
         &mut self,
         input: &mut Self::Input,
@@ -309,7 +307,11 @@ pub trait Parser {
 
     /// Parses using the stream `input` and allows itself to be resumed at a later point using
     /// `parse_partial` by storing the necessary intermediate state in `state`
+    ///
+    /// Internal API. May break without a semver bump
+    /// Always overridden by the `parse_mode!` macro
     #[inline(always)]
+    #[doc(hidden)]
     fn parse_partial(
         &mut self,
         input: &mut Self::Input,
@@ -379,14 +381,6 @@ pub trait Parser {
         }
     }
 
-    /// Adds the first error that would normally be returned by this parser if it failed with an
-    /// `EmptyErr` result.
-    ///
-    /// See [`parse_lazy`] for details.
-    ///
-    /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
-    fn add_error(&mut self, _error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {}
-
     /// Returns how many parsers this parser contains
     ///
     /// Internal API: This should not be implemented explicitly outside of combine.
@@ -414,8 +408,8 @@ pub trait Parser {
     /// # use combine::parser::char::{digit, letter};
     /// fn test(input: &mut &'static str) -> ParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
-    ///     let ((d, _), consumed) = (p.by_ref(), letter()).parse_stream(input)?;
-    ///     let (d2, consumed) = consumed.combine(|_| p.parse_stream(input))?;
+    ///     let ((d, _), consumed) = (p.by_ref(), letter()).parse_stream(input).into_result()?;
+    ///     let (d2, consumed) = consumed.combine(|_| p.parse_stream(input).into_result())?;
     ///     Ok(((d, d2), consumed))
     /// }
     ///

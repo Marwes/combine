@@ -156,7 +156,7 @@ impl<T> Consumed<T> {
     ///     where I: Stream<Item = char>,
     ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
     /// {
-    ///     let (c, consumed) = satisfy(|c| c != '"').parse_stream(input)?;
+    ///     let (c, consumed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
     ///     match c {
     ///         //Since the `char` parser has already consumed some of the input `combine` is used
     ///         //propagate the consumed state to the next part of the parser
@@ -170,6 +170,7 @@ impl<T> Consumed<T> {
     ///                     }
     ///                 })
     ///                 .parse_stream(input)
+    ///                 .into_result()
     ///             }),
     ///         _ => Ok((c, consumed))
     ///     }
@@ -713,9 +714,7 @@ impl<T, E> FastResult<T, E> {
             }),
         }
     }
-}
 
-impl<T, E> FastResult<T, E> {
     pub fn map<F, T2>(self, f: F) -> FastResult<F::Output, E>
     where
         F: FnOnce(T) -> T2,
@@ -726,6 +725,12 @@ impl<T, E> FastResult<T, E> {
             ConsumedErr(e) => ConsumedErr(e),
             EmptyErr(e) => EmptyErr(e),
         }
+    }
+}
+
+impl<O, E> FastResult<O, E> {
+    pub fn into_result(self) -> ParseResult2<O, E> {
+        self.into()
     }
 }
 

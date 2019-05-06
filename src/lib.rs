@@ -910,7 +910,8 @@ mod std_tests {
     {
         let (s, input) = many1::<String, _>(digit())
             .expected("integer")
-            .parse_stream(input)?;
+            .parse_stream(input)
+            .into_result()?;
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -956,7 +957,8 @@ mod std_tests {
         let mut parsed_state = State::with_positioner(source, SourcePosition::new());
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
-            .parse_stream(&mut parsed_state);
+            .parse_stream(&mut parsed_state)
+            .into_result();
         let state = Consumed::Consumed(State {
             positioner: SourcePosition { line: 3, column: 1 },
             input: "",
@@ -1041,7 +1043,7 @@ mod std_tests {
         let mul = char('*').map(|_| times);
         let add = char('+').map(|_| plus);
         let factor = chainl1(expr(), mul);
-        chainl1(factor, add).parse_stream(input)
+        chainl1(factor, add).parse_stream(input).into()
     }
 
     #[test]
