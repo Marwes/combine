@@ -84,7 +84,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use crate::error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
+use crate::error::{ParseResult, Info as PrimitiveInfo, StreamError, Tracked};
 use crate::stream::{
     FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
     StreamOnce,
@@ -799,7 +799,7 @@ where
     }
 
     #[inline]
-    fn uncons_while1<F>(&mut self, f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {

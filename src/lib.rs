@@ -194,7 +194,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use crate::error::{ParseResult, ParseError, StdParseResult};
+pub use crate::error::{ParseError, ParseResult, StdParseResult};
 #[doc(inline)]
 pub use crate::parser::Parser;
 #[doc(inline)]
@@ -607,7 +607,7 @@ macro_rules! combine_parser_impl {
                 mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-                ) -> $crate::error::ParseResult<$output_type, $input_type>
+                ) -> $crate::error::ParseResult<$output_type, <$input_type as $crate::stream::StreamOnce>::Error>
             where M: $crate::parser::ParseMode
             {
                 let $type_name { $( $arg: ref mut $arg,)* .. } = *self;
@@ -688,7 +688,7 @@ macro_rules! forward_parser {
             mode: M,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, Self::Input>
+        ) -> ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error>
         where
             M: ParseMode,
         {
@@ -699,7 +699,7 @@ macro_rules! forward_parser {
         fn parse_lazy(
             &mut self,
             input: &mut Self::Input,
-        ) -> ParseResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
             self.$($field)+.parse_lazy(input)
         }
     };
@@ -708,7 +708,7 @@ macro_rules! forward_parser {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
             self.$($field)+.parse_first(input, state)
         }
     };
@@ -717,18 +717,18 @@ macro_rules! forward_parser {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
             self.$($field)+.parse_partial(input, state)
         }
     };
     (add_error $($field: tt)+) => {
 
-        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        fn add_error(&mut self, error: &mut Tracked<<Self::Input as $crate::StreamOnce>::Error>) {
             self.$($field)+.add_error(error)
         }
     };
     (add_consumed_expected_error $($field: tt)+) => {
-        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Self::Input as $crate::StreamOnce>::Error>) {
             self.$($field)+.add_consumed_expected_error(error)
         }
     };

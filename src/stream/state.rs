@@ -1,6 +1,6 @@
 use crate::lib::fmt;
 
-use crate::error::{FastResult, ParseError, StreamError};
+use crate::error::{ParseError, ParseResult, StreamError};
 use crate::stream::{
     FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream,
     StreamErrorFor, StreamOnce,
@@ -278,7 +278,7 @@ where
     fn uncons_while1<F>(
         &mut self,
         mut predicate: F,
-    ) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    ) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {

@@ -8,8 +8,8 @@ use crate::combinator::{
     and_then, expected, flat_map, map, message, then, then_partial, AndThen, Expected, FlatMap,
     Iter, Map, Message, Then, ThenPartial,
 };
-use crate::error::FastResult::*;
-use crate::error::{ParseResult, FastResult, Info, ParseError, ResultExt, Tracked};
+use crate::error::ParseResult::*;
+use crate::error::{Info, ParseError, ParseResult, ResultExt, Tracked};
 use crate::parser::error::{silent, Silent};
 use crate::stream::{ResetStream, Stream, StreamOnce};
 use crate::ErrorOffset;
@@ -45,7 +45,7 @@ macro_rules! parse_mode {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> $crate::error::ParseResult<Self::Output, Self::Input> {
+        ) -> $crate::error::ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
             self.parse_mode($crate::parser::PartialMode::default(), input, state)
         }
 
@@ -54,7 +54,7 @@ macro_rules! parse_mode {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> $crate::error::ParseResult<Self::Output, Self::Input> {
+        ) -> $crate::error::ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
             self.parse_mode($crate::parser::FirstMode, input, state)
         }
     }
@@ -198,21 +198,21 @@ pub trait Parser {
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
     ///
     /// Semantically equivalent to [`parse_stream`], except this method returns a flattened result
-    /// type, combining `Result` and [`Consumed`] into a single [`FastResult`].
+    /// type, combining `Result` and [`Consumed`] into a single [`ParseResult`].
     ///
     /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
     /// [`Consumed`]: enum.Consumed.html
-    /// [`FastResult`]: enum.FastResult.html
+    /// [`ParseResult`]: enum.ParseResult.html
     #[inline]
     fn parse_stream(
         &mut self,
         input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let mut state = Default::default();
         let mut result = self.parse_first(input, &mut state);
-        if let FastResult::EmptyErr(ref mut error) = result {
+        if let ParseResult::EmptyErr(ref mut error) = result {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
@@ -242,7 +242,10 @@ pub trait Parser {
     /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline(always)]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         if input.is_partial() {
             // If a partial parser were called from a non-partial parser (as it is here) we must
             // reset the input to before the partial parser were called on errors that consumed
@@ -273,10 +276,10 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let mut result = self.parse_partial(input, state);
-        if let FastResult::EmptyErr(ref mut error) = result {
+        if let ParseResult::EmptyErr(ref mut error) = result {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
@@ -301,7 +304,7 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         self.parse_partial(input, state)
     }
 
@@ -316,7 +319,7 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let _ = state;
         self.parse_lazy(input)
     }
@@ -329,7 +332,7 @@ pub trait Parser {
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized,
@@ -349,7 +352,7 @@ pub trait Parser {
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized,
@@ -369,7 +372,7 @@ pub trait Parser {
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized,
@@ -952,7 +955,7 @@ macro_rules! forward_deref {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
             (**self).parse_first(input, state)
         }
 
@@ -961,7 +964,7 @@ macro_rules! forward_deref {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
             (**self).parse_partial(input, state)
         }
 
@@ -1013,13 +1016,13 @@ pub trait ParseMode: Copy {
         parser: &mut P,
         input: &mut P::Input,
         state: &mut P::PartialState,
-    ) -> ParseResult<P::Output, P::Input>
+    ) -> ParseResult<P::Output, <P::Input as StreamOnce>::Error>
     where
         P: Parser,
     {
         let before = input.checkpoint();
         let mut result = parser.parse_mode_impl(self, input, state);
-        if let FastResult::EmptyErr(ref mut error) = result {
+        if let ParseResult::EmptyErr(ref mut error) = result {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());

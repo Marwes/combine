@@ -6,13 +6,13 @@ use crate::lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use crate::combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
-use crate::error::{ParseResult, Info, ParseError, Tracked};
+use crate::error::{Info, ParseError, ParseResult, Tracked};
 use crate::parser::range::{take_fn, TakeRange};
 use crate::parser::sequence::With;
 use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
 use crate::Parser;
 
-use crate::error::FastResult::*;
+use crate::error::ParseResult::*;
 
 /// Parses a byte and succeeds if the byte is equal to `c`.
 ///
@@ -299,7 +299,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
             .parse_lazy(input)
             .map(|bytes| bytes.as_slice())
@@ -354,7 +357,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let cmp = &mut self.1;
         tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
     }
@@ -564,7 +570,7 @@ pub mod num {
                 fn parse_lazy(
                     &mut self,
                     input: &mut Self::Input
-                    ) -> ParseResult<Self::Output, Self::Input> {
+                    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
                     let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
                     for elem in &mut *buffer {
                         *elem = ctry!(uncons(input)).0;

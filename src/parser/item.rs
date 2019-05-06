@@ -2,11 +2,11 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::error::{ParseResult, Info, ParseError, ResultExt, StreamError, Tracked};
+use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
 use crate::stream::{uncons, Stream, StreamOnce};
 use crate::Parser;
 
-use crate::error::FastResult::*;
+use crate::error::ParseResult::*;
 
 #[doc(inline)]
 pub use self::token as item;
@@ -23,7 +23,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
         uncons(input)
     }
 }
@@ -56,7 +59,10 @@ pub struct Satisfy<I, P> {
     _marker: PhantomData<I>,
 }
 
-fn satisfy_impl<I, P, R>(input: &mut I, mut predicate: P) -> ParseResult<R, I>
+fn satisfy_impl<I, P, R>(
+    input: &mut I,
+    mut predicate: P,
+) -> ParseResult<R, <I as StreamOnce>::Error>
 where
     I: Stream,
     P: FnMut(I::Item) -> Option<R>,
@@ -82,7 +88,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         satisfy_impl(input, |c| {
             if (self.predicate)(c.clone()) {
                 Some(c)
@@ -131,7 +140,10 @@ where
     type Output = R;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         satisfy_impl(input, &mut self.predicate)
     }
 }
@@ -192,7 +204,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -245,7 +260,7 @@ where
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, <I as StreamOnce>::Error> {
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
@@ -352,7 +367,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, <I as StreamOnce>::Error> {
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
@@ -449,7 +464,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Position, I> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<I::Position, <I as StreamOnce>::Error> {
         EmptyOk(input.position())
     }
 }
@@ -499,7 +517,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
         satisfy(|c| self.tokens.clone().into_iter().any(|t| t == c)).parse_lazy(input)
     }
 
@@ -554,7 +575,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
         satisfy(|c| self.tokens.clone().into_iter().all(|t| t != c)).parse_lazy(input)
     }
 }
@@ -605,7 +629,7 @@ where
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, _: &mut Self::Input) -> ParseResult<T, I> {
+    fn parse_lazy(&mut self, _: &mut Self::Input) -> ParseResult<T, <I as StreamOnce>::Error> {
         EmptyOk(self.0.clone())
     }
 }
@@ -642,7 +666,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<(), I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<(), <I as StreamOnce>::Error> {
         let before = input.checkpoint();
         match input.uncons() {
             Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),

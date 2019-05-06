@@ -5,14 +5,14 @@ use crate::lib::marker::PhantomData;
 use crate::lib::mem;
 use crate::lib::str;
 
-use crate::error::{ParseResult, Info, ParseError, ResultExt, StreamError, Tracked};
+use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::stream::{input_at_eof, Positioned, ResetStream, Stream, StreamErrorFor, StreamOnce};
 use crate::Parser;
 
 use either::Either;
 
-use crate::error::FastResult::*;
+use crate::error::ParseResult::*;
 
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
@@ -32,7 +32,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -98,7 +98,10 @@ where
     type PartialState = P::PartialState;
 
     #[inline]
-    fn parse_stream(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_stream(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<O, <I as StreamOnce>::Error> {
         self.parse_lazy(input)
     }
 
@@ -109,7 +112,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -122,7 +125,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -180,7 +183,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         let before = input.checkpoint();
         let result = self.0.parse_lazy(input);
         ctry!(input.reset(before).consumed());
@@ -236,7 +239,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -282,7 +285,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -335,7 +338,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -401,8 +404,8 @@ where
         elements: &mut F,
         before: <<Self as Parser>::Input as ResetStream>::Checkpoint,
         input: &mut <Self as Parser>::Input,
-        result: ParseResult<P::Output, P::Input>,
-    ) -> ParseResult<F, P::Input> {
+        result: ParseResult<P::Output, <P::Input as StreamOnce>::Error>,
+    ) -> ParseResult<F, <P::Input as StreamOnce>::Error> {
         match result {
             EmptyOk(_) => {
                 let last_position = input.position();
@@ -475,7 +478,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -523,7 +526,10 @@ where
     type PartialState = Option<Either<L::PartialState, R::PartialState>>;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         match *self {
             Either::Left(ref mut x) => x.parse_lazy(input),
             Either::Right(ref mut x) => x.parse_lazy(input),
@@ -537,7 +543,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -591,7 +597,10 @@ where
     type PartialState = ();
 
     #[inline(always)]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         self.0.parse_lazy(input)
     }
 
@@ -602,7 +611,7 @@ where
         _mode: M,
         input: &mut Self::Input,
         _state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -631,7 +640,10 @@ where
     type PartialState = P::PartialState;
 
     #[inline(always)]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         self.0.parse_lazy(input).map(|_| ())
     }
 
@@ -642,7 +654,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -678,7 +690,10 @@ where
     type PartialState = AnyPartialState;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         self.0.parse_lazy(input)
     }
 
@@ -689,7 +704,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -774,7 +789,10 @@ where
     type PartialState = AnySendPartialState;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         self.0.parse_lazy(input)
     }
 
@@ -785,7 +803,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -864,11 +882,14 @@ where
     type Output = O;
     type PartialState = R::PartialState;
 
-    fn parse_stream(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_stream(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.0)().parse_stream(input)
     }
 
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.0)().parse_lazy(input)
     }
 
@@ -879,7 +900,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -891,7 +912,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -960,7 +981,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -1129,13 +1150,16 @@ where
     type Output = O;
     type PartialState = S;
 
-    fn parse_stream(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_stream(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<O, <I as StreamOnce>::Error> {
         let mut x = None;
         (self.0)(&mut |parser| x = Some(parser.parse_stream(input)));
         x.expect("Parser")
     }
 
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         let mut x = None;
         (self.0)(&mut |parser| x = Some(parser.parse_lazy(input)));
         x.expect("Parser")
@@ -1148,7 +1172,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {

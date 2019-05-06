@@ -37,7 +37,7 @@
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
-use crate::error::FastResult::*;
+use crate::error::ParseResult::*;
 use crate::error::{ParseResult, ParseError, StreamError, Tracked};
 use crate::parser::range::take;
 use crate::stream::{FullRangeStream, StreamOnce};
@@ -332,7 +332,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         if self.0.is_match(input.range()) {
             EmptyOk(input.range())
         } else {
@@ -387,7 +387,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -447,7 +447,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
@@ -503,7 +503,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -570,7 +570,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }

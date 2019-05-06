@@ -2,11 +2,11 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::error::{ParseResult, Info, ParseError, StreamError, Tracked};
+use crate::error::{Info, ParseError, ParseResult, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::{Parser, Stream, StreamOnce};
 
-use crate::error::FastResult::*;
+use crate::error::ParseResult::*;
 
 #[derive(Clone)]
 pub struct Unexpected<I, T>(Info<I::Item, I::Range>, PhantomData<fn(I) -> (I, T)>)
@@ -20,7 +20,7 @@ where
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, <I as StreamOnce>::Error> {
         EmptyErr(<Self::Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -114,7 +114,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -177,7 +177,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -226,7 +226,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {

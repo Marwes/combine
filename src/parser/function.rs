@@ -3,7 +3,7 @@
 use crate::lib::marker::PhantomData;
 
 use crate::error::{ParseResult, StdParseResult};
-use crate::stream::Stream;
+use crate::stream::{Stream, StreamOnce};
 use crate::Parser;
 
 impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> StdParseResult<O, I> + 'a {
@@ -12,7 +12,7 @@ impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> StdParseResult<O, I> + 'a {
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         self(input).into()
     }
 }
@@ -75,7 +75,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.0)(input).into()
     }
 }
@@ -89,7 +89,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         self(input).into()
     }
 }
@@ -126,7 +126,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.parser)(self.env.clone(), input).into()
     }
 }

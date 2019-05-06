@@ -1,7 +1,7 @@
 //! Module containing parsers specialized on character streams.
 
 use crate::combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
-use crate::error::{ParseResult, ParseError, Tracked};
+use crate::error::{ParseError, ParseResult, Tracked};
 use crate::lib::marker::PhantomData;
 use crate::parser::sequence::With;
 use crate::stream::{Stream, StreamOnce};
@@ -323,7 +323,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         tokens(eq, self.0.into(), self.0.chars())
             .parse_lazy(input)
             .map(|_| self.0)
@@ -371,7 +374,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         tokens(&mut self.1, self.0.into(), self.0.chars())
             .parse_lazy(input)
             .map(|_| self.0)
