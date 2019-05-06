@@ -206,7 +206,7 @@ pub use crate::combinator::{
     any, attempt, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead,
     many, many1, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
     satisfy_map, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max,
-    skip_many, skip_many1, token, tokens, r#try, unexpected, unexpected_any, value,
+    skip_many, skip_many1, token, tokens, unexpected, unexpected_any, value,
 };
 #[doc(inline)]
 pub use crate::parser::choice::choice;
@@ -834,8 +834,8 @@ mod tests {
         // `attempt` is an alias for `try`. This is a small smoke test for
         // `try`, since the main functionality is tested with `attempt`
         let mut parser = choice((
-            r#try((string("abc"), string("def"))),
-            r#try((string("abc"), string("ghi"))),
+            attempt((string("abc"), string("def"))),
+            attempt((string("abc"), string("ghi"))),
         ));
         assert_eq!(parser.parse("abcghi"), Ok((("abc", "ghi"), "")));
     }
@@ -908,9 +908,9 @@ mod std_tests {
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
     {
-        let (s, input) = r#try!(many1::<String, _>(digit())
+        let (s, input) = many1::<String, _>(digit())
             .expected("integer")
-            .parse_stream(input));
+            .parse_stream(input)?;
         let mut n = 0;
         for c in s.chars() {
             n = n * 10 + (c as i64 - '0' as i64);
@@ -1170,7 +1170,7 @@ mod std_tests {
 
         impl fmt::Display for ExtractedError {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                r#try!(writeln!(f, "Parse error at {}", self.0));
+                writeln!(f, "Parse error at {}", self.0)?;
                 Error::fmt_errors(&(self.1).0, f)
             }
         }

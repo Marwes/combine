@@ -141,36 +141,6 @@ where
     forward_parser!(add_error add_consumed_expected_error parser_count, 0);
 }
 
-/// `try(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
-/// after consuming input.
-///
-/// ```
-/// # extern crate combine;
-/// # use combine::*;
-/// # use combine::parser::char::string;
-/// # fn main() {
-/// let mut p = try(string("let"))
-///     .or(string("lex"));
-/// let result = p.parse("lex").map(|x| x.0);
-/// assert_eq!(result, Ok("lex"));
-/// let result = p.parse("aet").map(|x| x.0);
-/// assert!(result.is_err());
-/// # }
-/// ```
-///
-/// Note: if you're on the 2018 edition, you'll need to either use `r#try`, or [`attempt`](fn.attempt.html)
-#[deprecated(
-    since = "3.5.2",
-    note = "try is a reserved keyword in Rust 2018. Use attempt instead."
-)]
-#[inline(always)]
-pub fn r#try<P>(p: P) -> Try<P>
-where
-    P: Parser,
-{
-    Try(p)
-}
-
 /// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
 /// after consuming input. (alias for [`try`](fn.try.html))
 ///

@@ -36,7 +36,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///     // Help type inference out
 ///     let _: &mut easy::Stream<&str> = input;
 ///     let position = input.position();
-///     let (char_digit, consumed) = try!(digit().parse_stream(input));
+///     let (char_digit, consumed) = digit().parse_stream(input)?;
 ///     let d = (char_digit as i32) - ('0' as i32);
 ///     if d % 2 == 0 {
 ///         Ok((d, consumed))

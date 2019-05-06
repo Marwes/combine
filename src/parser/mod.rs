@@ -414,8 +414,8 @@ pub trait Parser {
     /// # use combine::parser::char::{digit, letter};
     /// fn test(input: &mut &'static str) -> ParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
-    ///     let ((d, _), consumed) = try!((p.by_ref(), letter()).parse_stream(input));
-    ///     let (d2, consumed) = try!(consumed.combine(|_| p.parse_stream(input)));
+    ///     let ((d, _), consumed) = (p.by_ref(), letter()).parse_stream(input)?;
+    ///     let (d2, consumed) = consumed.combine(|_| p.parse_stream(input))?;
     ///     Ok(((d, d2), consumed))
     /// }
     ///
