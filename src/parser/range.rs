@@ -8,7 +8,7 @@
 use crate::lib::marker::PhantomData;
 
 use crate::error::FastResult::*;
-use crate::error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
+use crate::error::{ParseResult, Info, ParseError, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
@@ -30,7 +30,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         use crate::stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
@@ -90,11 +90,11 @@ fn parse_partial_range<M, F, G, S, I>(
     state: S,
     first: F,
     resume: G,
-) -> ConsumedResult<I::Range, I>
+) -> ParseResult<I::Range, I>
 where
     M: ParseMode,
-    F: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
-    G: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
+    F: FnOnce(&mut I, S) -> ParseResult<I::Range, I>,
+    G: FnOnce(&mut I, S) -> ParseResult<I::Range, I>,
     I: RangeStream,
 {
     let before = input.checkpoint();
@@ -152,7 +152,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -257,7 +257,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         uncons_range(input, self.0)
     }
 }
@@ -308,7 +308,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -368,7 +368,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -427,7 +427,7 @@ where
         &mut self,
         input: &mut Self::Input,
         to_consume: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         use crate::stream::Range;
 
         let len = self.0.len();
@@ -567,7 +567,7 @@ where
         mode: M,
         input: &mut Self::Input,
         offset: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {

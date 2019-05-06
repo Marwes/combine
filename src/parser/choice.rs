@@ -1,6 +1,6 @@
 //! Combinators which take one or more parsers and attempts to parse successfully with at least one
 //! of them.
-use crate::error::{ConsumedResult, FastResult::*, ParseError, ResultExt, StreamError, Tracked};
+use crate::error::{ParseResult, FastResult::*, ParseError, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::stream::ResetStream;
 use crate::{ErrorOffset, Parser, Stream, StreamOnce};
@@ -42,7 +42,7 @@ macro_rules! parse_mode_choice {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             self.parse_mode_choice($crate::parser::PartialMode::default(), input, state)
         }
 
@@ -50,7 +50,7 @@ macro_rules! parse_mode_choice {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             self.parse_mode_choice($crate::parser::FirstMode, input, state)
         }
     }
@@ -69,20 +69,20 @@ pub trait ChoiceParser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>;
+    ) -> ParseResult<Self::Output, Self::Input>;
 
     fn parse_partial(
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>;
+    ) -> ParseResult<Self::Output, Self::Input>;
 
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
         Self: Sized;
@@ -105,7 +105,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -241,7 +241,7 @@ macro_rules! tuple_choice_parser_inner {
                 mode: Mode,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
+            ) -> ParseResult<Self::Output, Self::Input>
             where
                 Mode: ParseMode,
             {
@@ -314,7 +314,7 @@ macro_rules! array_choice_parser {
                 mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
+            ) -> ParseResult<Self::Output, Self::Input>
             where
                 M: ParseMode,
             {
@@ -360,7 +360,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -379,7 +379,7 @@ fn slice_parse_mode<I, P, M>(
     mode: M,
     input: &mut P::Input,
     state: &mut (usize, P::PartialState),
-) -> ConsumedResult<P::Output, P::Input>
+) -> ParseResult<P::Output, P::Input>
 where
     P: Parser<Input = I>,
     I: Stream,
@@ -475,7 +475,7 @@ where
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         slice_parse_mode(self, crate::parser::PartialMode::default(), input, state)
     }
 
@@ -484,7 +484,7 @@ where
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
@@ -494,7 +494,7 @@ where
         _mode: M,
         _input: &mut Self::Input,
         _state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -572,7 +572,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -644,7 +644,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {

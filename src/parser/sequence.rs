@@ -3,7 +3,7 @@ use crate::lib::marker::PhantomData;
 
 use crate::combinator::{ignore, Ignore, Map};
 use crate::error::FastResult::*;
-use crate::error::{ConsumedResult, ParseError, StreamError, Tracked};
+use crate::error::{ParseResult, ParseError, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
@@ -87,7 +87,7 @@ macro_rules! tuple_parser {
                 first_empty_parser: usize,
                 offset: u8,
                 $h: &mut $h $(, $id : &mut $id )*
-            ) -> ConsumedResult<($h::Output, $($id::Output),*), Input>
+            ) -> ParseResult<($h::Output, $($id::Output),*), Input>
             {
                 let inner_offset = err.offset;
                 err.offset = ErrorOffset(offset);
@@ -144,7 +144,7 @@ macro_rules! tuple_parser {
                 mut mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
+            ) -> ParseResult<Self::Output, Self::Input>
             where
                 M: ParseMode,
             {
@@ -424,7 +424,7 @@ where
     type PartialState = <(Ignore<P1>, P2) as Parser>::PartialState;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         self.0.parse_lazy(input).map(|(_, b)| b)
     }
 
@@ -435,7 +435,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -479,7 +479,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -550,7 +550,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -641,7 +641,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {

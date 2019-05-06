@@ -2,7 +2,7 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
+use crate::error::{ParseResult, Info, ParseError, ResultExt, StreamError, Tracked};
 use crate::stream::{uncons, Stream, StreamOnce};
 use crate::Parser;
 
@@ -23,7 +23,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
         uncons(input)
     }
 }
@@ -56,7 +56,7 @@ pub struct Satisfy<I, P> {
     _marker: PhantomData<I>,
 }
 
-fn satisfy_impl<I, P, R>(input: &mut I, mut predicate: P) -> ConsumedResult<R, I>
+fn satisfy_impl<I, P, R>(input: &mut I, mut predicate: P) -> ParseResult<R, I>
 where
     I: Stream,
     P: FnMut(I::Item) -> Option<R>,
@@ -82,7 +82,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         satisfy_impl(input, |c| {
             if (self.predicate)(c.clone()) {
                 Some(c)
@@ -131,7 +131,7 @@ where
     type Output = R;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         satisfy_impl(input, &mut self.predicate)
     }
 }
@@ -192,7 +192,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
@@ -245,7 +245,7 @@ where
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<T, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, I> {
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
@@ -352,7 +352,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<T, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<T, I> {
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
@@ -449,7 +449,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Position, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Position, I> {
         EmptyOk(input.position())
     }
 }
@@ -499,7 +499,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
         satisfy(|c| self.tokens.clone().into_iter().any(|t| t == c)).parse_lazy(input)
     }
 
@@ -554,7 +554,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<I::Item, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<I::Item, I> {
         satisfy(|c| self.tokens.clone().into_iter().all(|t| t != c)).parse_lazy(input)
     }
 }
@@ -605,7 +605,7 @@ where
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, _: &mut Self::Input) -> ConsumedResult<T, I> {
+    fn parse_lazy(&mut self, _: &mut Self::Input) -> ParseResult<T, I> {
         EmptyOk(self.0.clone())
     }
 }
@@ -642,7 +642,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<(), I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<(), I> {
         let before = input.checkpoint();
         match input.uncons() {
             Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),

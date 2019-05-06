@@ -23,7 +23,7 @@ use crate::Parser;
 
 use crate::error::FastResult::*;
 use crate::error::{
-    ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
+    ParseResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
     UnexpectedParse,
 };
 
@@ -153,7 +153,7 @@ where
 }
 
 #[inline]
-pub fn uncons<I>(input: &mut I) -> ConsumedResult<I::Item, I>
+pub fn uncons<I>(input: &mut I) -> ParseResult<I::Item, I>
 where
     I: ?Sized + Stream,
 {
@@ -230,7 +230,7 @@ pub trait FullRangeStream: RangeStream {
 pub fn wrap_stream_error<T, I>(
     input: &I,
     err: <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError,
-) -> ConsumedResult<T, I>
+) -> ParseResult<T, I>
 where
     I: ?Sized + StreamOnce + Positioned,
 {
@@ -243,7 +243,7 @@ where
 }
 
 #[inline]
-pub fn uncons_range<I>(input: &mut I, size: usize) -> ConsumedResult<I::Range, I>
+pub fn uncons_range<I>(input: &mut I, size: usize) -> ParseResult<I::Range, I>
 where
     I: ?Sized + RangeStream,
 {
@@ -274,7 +274,7 @@ where
 
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
-pub fn uncons_while<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
+pub fn uncons_while<I, F>(input: &mut I, predicate: F) -> ParseResult<I::Range, I>
 where
     F: FnMut(I::Item) -> bool,
     I: ?Sized + RangeStream,
@@ -306,7 +306,7 @@ where
 /// # Note
 ///
 /// This may not return `EmptyOk` as it should uncons at least one item.
-pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
+pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ParseResult<I::Range, I>
 where
     F: FnMut(I::Item) -> bool,
     I: ?Sized + RangeStream,

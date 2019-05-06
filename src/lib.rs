@@ -94,7 +94,7 @@
 //! extern crate combine;
 //! use combine::parser::char::{char, letter, spaces};
 //! use combine::{between, choice, many1, parser, sep_by, Parser};
-//! use combine::error::{ParseError, ParseResult};
+//! use combine::error::{ParseError, StdParseResult};
 //! use combine::stream::{Stream, Positioned};
 //! use combine::stream::state::State;
 //!
@@ -194,7 +194,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]
-pub use crate::error::{ConsumedResult, ParseError, ParseResult};
+pub use crate::error::{ParseResult, ParseError, StdParseResult};
 #[doc(inline)]
 pub use crate::parser::Parser;
 #[doc(inline)]
@@ -607,7 +607,7 @@ macro_rules! combine_parser_impl {
                 mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-                ) -> $crate::error::ConsumedResult<$output_type, $input_type>
+                ) -> $crate::error::ParseResult<$output_type, $input_type>
             where M: $crate::parser::ParseMode
             {
                 let $type_name { $( $arg: ref mut $arg,)* .. } = *self;
@@ -688,7 +688,7 @@ macro_rules! forward_parser {
             mode: M,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input>
+        ) -> ParseResult<Self::Output, Self::Input>
         where
             M: ParseMode,
         {
@@ -699,7 +699,7 @@ macro_rules! forward_parser {
         fn parse_lazy(
             &mut self,
             input: &mut Self::Input,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             self.$($field)+.parse_lazy(input)
         }
     };
@@ -708,7 +708,7 @@ macro_rules! forward_parser {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             self.$($field)+.parse_first(input, state)
         }
     };
@@ -717,7 +717,7 @@ macro_rules! forward_parser {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             self.$($field)+.parse_partial(input, state)
         }
     };
@@ -878,7 +878,7 @@ mod std_tests {
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
-    fn follow<I>(input: &mut I) -> ParseResult<(), I>
+    fn follow<I>(input: &mut I) -> StdParseResult<(), I>
     where
         I: Stream<Item = char, Error = easy::ParseError<I>>,
         I::Item: PartialEq,
@@ -903,7 +903,7 @@ mod std_tests {
         }
     }
 
-    fn integer<'a, I>(input: &mut I) -> ParseResult<i64, I>
+    fn integer<'a, I>(input: &mut I) -> StdParseResult<i64, I>
     where
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -1029,7 +1029,7 @@ mod std_tests {
         assert_eq!(result, Err(err));
     }
 
-    fn term<I>(input: &mut I) -> ParseResult<Expr, I>
+    fn term<I>(input: &mut I) -> StdParseResult<Expr, I>
     where
         I: Stream<Item = char>,
         I::Error: ParseError<I::Item, I::Range, I::Position>,

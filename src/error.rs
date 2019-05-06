@@ -152,7 +152,7 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char<I>(input: &mut I) -> ParseResult<char, I>
+    /// fn char<I>(input: &mut I) -> StdParseResult<char, I>
     ///     where I: Stream<Item = char>,
     ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
     /// {
@@ -180,9 +180,9 @@ impl<T> Consumed<T> {
     /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
     /// }
     /// ```
-    pub fn combine<F, U, E>(self, f: F) -> ParseResult2<U, E>
+    pub fn combine<F, U, E>(self, f: F) -> StdParseResult2<U, E>
     where
-        F: FnOnce(T) -> ParseResult2<U, E>,
+        F: FnOnce(T) -> StdParseResult2<U, E>,
     {
         match self {
             Consumed::Consumed(x) => match f(x) {
@@ -213,8 +213,9 @@ impl<T> Consumed<T> {
 /// successful or not.
 /// `O` is the type that is output on success.
 /// `I` is the specific stream type used in the parser.
-pub type ParseResult<O, I> = Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
-pub type ParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
+pub type StdParseResult<O, I> =
+    Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
+pub type StdParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
 ///
@@ -729,7 +730,7 @@ impl<T, E> FastResult<T, E> {
 }
 
 impl<O, E> FastResult<O, E> {
-    pub fn into_result(self) -> ParseResult2<O, E> {
+    pub fn into_result(self) -> StdParseResult2<O, E> {
         self.into()
     }
 }
@@ -737,7 +738,7 @@ impl<O, E> FastResult<O, E> {
 /// A `Result` type which has the consumed status flattened into the result.
 /// Conversions to and from `std::result::Result` can be done using `result.into()` or
 /// `From::from(result)`
-pub type ConsumedResult<O, I> = FastResult<O, <I as StreamOnce>::Error>;
+pub type ParseResult<O, I> = FastResult<O, <I as StreamOnce>::Error>;
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> {
     #[inline(always)]
@@ -751,9 +752,9 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> 
     }
 }
 
-impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
+impl<O, E> Into<StdParseResult2<O, E>> for FastResult<O, E> {
     #[inline(always)]
-    fn into(self) -> ParseResult2<O, E> {
+    fn into(self) -> StdParseResult2<O, E> {
         use self::FastResult::*;
         match self {
             ConsumedOk(t) => Ok((t, Consumed::Consumed(()))),
@@ -764,9 +765,9 @@ impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
     }
 }
 
-impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
+impl<O, E> From<StdParseResult2<O, E>> for FastResult<O, E> {
     #[inline(always)]
-    fn from(result: ParseResult2<O, E>) -> FastResult<O, E> {
+    fn from(result: StdParseResult2<O, E>) -> FastResult<O, E> {
         use self::FastResult::*;
         match result {
             Ok((t, Consumed::Consumed(()))) => ConsumedOk(t),

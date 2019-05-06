@@ -6,7 +6,7 @@ use crate::lib::mem;
 
 use crate::combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
 use crate::error::{
-    Consumed, ConsumedResult, ParseError, ParseResult, ResultExt, StreamError, Tracked,
+    Consumed, ParseResult, ParseError, ResultExt, StdParseResult, StreamError, Tracked,
 };
 use crate::parser::choice::Or;
 use crate::parser::sequence::With;
@@ -96,7 +96,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -226,13 +226,13 @@ where
             mode,
         }
     }
-    /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
+    /// Converts the iterator to a `StdParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
+    pub fn into_result<O>(self, value: O) -> StdParseResult<O, P::Input> {
         self.into_result_(value).into()
     }
 
-    fn into_result_<O>(self, value: O) -> ConsumedResult<O, P::Input> {
+    fn into_result_<O>(self, value: O) -> ParseResult<O, P::Input> {
         match self.state {
             State::Ok | State::EmptyErr => {
                 if self.consumed {
@@ -245,7 +245,7 @@ where
         }
     }
 
-    fn into_result_fast<O>(self, value: &mut O) -> ConsumedResult<O, P::Input>
+    fn into_result_fast<O>(self, value: &mut O) -> ParseResult<O, P::Input>
     where
         O: Default,
     {
@@ -269,7 +269,7 @@ where
             <P::Input as StreamOnce>::Range,
             <P::Input as StreamOnce>::Position,
         >>::StreamError,
-    ) -> ConsumedResult<T, P::Input> {
+    ) -> ParseResult<T, P::Input> {
         match self.state {
             State::Ok | State::EmptyErr => {
                 let err = <P::Input as StreamOnce>::Error::from_error(self.input.position(), err);
@@ -343,7 +343,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -418,7 +418,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<F, P::Input>
+    ) -> ParseResult<F, P::Input>
     where
         M: ParseMode,
     {
@@ -577,7 +577,7 @@ where
     type Output = F;
     type PartialState = <Or<
         SepBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> ParseResult<F, Self::Input>>,
+        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
     > as Parser>::PartialState;
 
     parse_mode!();
@@ -587,7 +587,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<F, P::Input>
+    ) -> ParseResult<F, P::Input>
     where
         M: ParseMode,
     {
@@ -666,7 +666,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -766,7 +766,7 @@ where
     type Output = F;
     type PartialState = <Or<
         SepEndBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> ParseResult<F, Self::Input>>,
+        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
     > as Parser>::PartialState;
 
     parse_mode!();
@@ -776,7 +776,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -851,7 +851,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -953,7 +953,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -1034,7 +1034,7 @@ where
     type Output = P::Output;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<P::Output, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<P::Output, I> {
         // FIXME FastResult
         let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
         loop {
@@ -1115,7 +1115,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
     {
@@ -1238,7 +1238,7 @@ where
     type Output = ();
     type PartialState = EscapedState<P::PartialState, Q::PartialState>;
 
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         let mut consumed = Consumed::Empty(());
         loop {
             match self.parser.parse_lazy(input) {

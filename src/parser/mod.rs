@@ -9,7 +9,7 @@ use crate::combinator::{
     Iter, Map, Message, Then, ThenPartial,
 };
 use crate::error::FastResult::*;
-use crate::error::{ConsumedResult, FastResult, Info, ParseError, ResultExt, Tracked};
+use crate::error::{ParseResult, FastResult, Info, ParseError, ResultExt, Tracked};
 use crate::parser::error::{silent, Silent};
 use crate::stream::{ResetStream, Stream, StreamOnce};
 use crate::ErrorOffset;
@@ -45,7 +45,7 @@ macro_rules! parse_mode {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> $crate::error::ConsumedResult<Self::Output, Self::Input> {
+        ) -> $crate::error::ParseResult<Self::Output, Self::Input> {
             self.parse_mode($crate::parser::PartialMode::default(), input, state)
         }
 
@@ -54,7 +54,7 @@ macro_rules! parse_mode {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> $crate::error::ConsumedResult<Self::Output, Self::Input> {
+        ) -> $crate::error::ParseResult<Self::Output, Self::Input> {
             self.parse_mode($crate::parser::FirstMode, input, state)
         }
     }
@@ -208,7 +208,7 @@ pub trait Parser {
     fn parse_stream(
         &mut self,
         input: &mut Self::Input,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         let before = input.checkpoint();
         let mut state = Default::default();
         let mut result = self.parse_first(input, &mut state);
@@ -242,7 +242,7 @@ pub trait Parser {
     /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline(always)]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, Self::Input> {
         if input.is_partial() {
             // If a partial parser were called from a non-partial parser (as it is here) we must
             // reset the input to before the partial parser were called on errors that consumed
@@ -273,7 +273,7 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         let before = input.checkpoint();
         let mut result = self.parse_partial(input, state);
         if let FastResult::EmptyErr(ref mut error) = result {
@@ -301,7 +301,7 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         self.parse_partial(input, state)
     }
 
@@ -316,7 +316,7 @@ pub trait Parser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
+    ) -> ParseResult<Self::Output, Self::Input> {
         let _ = state;
         self.parse_lazy(input)
     }
@@ -329,7 +329,7 @@ pub trait Parser {
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
         Self: Sized,
@@ -349,7 +349,7 @@ pub trait Parser {
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
         Self: Sized,
@@ -369,7 +369,7 @@ pub trait Parser {
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, Self::Input>
     where
         M: ParseMode,
         Self: Sized,
@@ -406,7 +406,7 @@ pub trait Parser {
     /// # use combine::*;
     /// # use combine::error::Consumed;
     /// # use combine::parser::char::{digit, letter};
-    /// fn test(input: &mut &'static str) -> ParseResult<(char, char), &'static str> {
+    /// fn test(input: &mut &'static str) -> StdParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
     ///     let ((d, _), consumed) = (p.by_ref(), letter()).parse_stream(input).into_result()?;
     ///     let (d2, consumed) = consumed.combine(|_| p.parse_stream(input).into_result())?;
@@ -952,7 +952,7 @@ macro_rules! forward_deref {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             (**self).parse_first(input, state)
         }
 
@@ -961,7 +961,7 @@ macro_rules! forward_deref {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, Self::Input> {
             (**self).parse_partial(input, state)
         }
 
@@ -1013,7 +1013,7 @@ pub trait ParseMode: Copy {
         parser: &mut P,
         input: &mut P::Input,
         state: &mut P::PartialState,
-    ) -> ConsumedResult<P::Output, P::Input>
+    ) -> ParseResult<P::Output, P::Input>
     where
         P: Parser,
     {
