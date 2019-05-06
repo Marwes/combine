@@ -17,6 +17,8 @@ categories = ["parsing", "no-std"]
 
 license = "MIT"
 
+edition = "2018"
+
 [lib]
 name = "combine"
 path = "src/lib.rs"
