@@ -123,10 +123,14 @@ pub trait StreamOnce {
     }
 }
 
+/// A `StreamOnce` which can create checkpoints which the stream can be reset to
 pub trait ResetStream: StreamOnce {
     type Checkpoint: Clone;
 
+    /// Creates a `Checkpoint` at the current position which can be used to reset the stream
+    /// later to the current position
     fn checkpoint(&self) -> Self::Checkpoint;
+    /// Attempts to reset the stream to an earlier position.
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error>;
 }
 
@@ -136,6 +140,10 @@ clone_resetable! {('a, T) SliceStream<'a, T> }
 clone_resetable! {(T: Clone) IteratorStream<T>}
 
 /// A stream of tokens which can be duplicated
+///
+/// This is a trait over types which implement the `StreamOnce`, `ResetStream` and `Positioned`
+/// traits. If you need a custom `Stream` object then implement those traits and `Stream` is
+/// implemented automatically.
 pub trait Stream: StreamOnce + ResetStream + Positioned {}
 
 impl<I> Stream for I
