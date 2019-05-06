@@ -1,7 +1,7 @@
 extern crate combine;
 
+use combine::parser::byte::bytes_cmp;
 use combine::parser::char::{digit, letter, string, string_cmp};
-use combine::parser::byte::{bytes, bytes_cmp};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{attempt, no_partial, not_followed_by};
 use combine::parser::error::unexpected;
@@ -578,13 +578,19 @@ mod tests_std {
     fn lifetime_inference() {
         fn _string<'a>(source: &'a str) {
             range::take(1).or(string("a")).parse(source).ok();
-            range::take(1).or(string_cmp("a", |x, y| x == y)).parse(source).ok();
+            range::take(1)
+                .or(string_cmp("a", |x, y| x == y))
+                .parse(source)
+                .ok();
             let _: &'static str = string("a").parse(source).unwrap().0;
             let _: &'static str = string_cmp("a", |x, y| x == y).parse(source).unwrap().0;
         }
         fn _bytes<'a>(source: &'a [u8]) {
             range::take(1).or(bytes(&[0u8])).parse(source).ok();
-            range::take(1).or(bytes_cmp(&[0u8], |x, y| x == y)).parse(source).ok();
+            range::take(1)
+                .or(bytes_cmp(&[0u8], |x, y| x == y))
+                .parse(source)
+                .ok();
             let _: &'static [u8] = bytes(&[0u8]).parse(source).unwrap().0;
             let _: &'static [u8] = bytes_cmp(&[0u8], |x, y| x == y).parse(source).unwrap().0;
         }

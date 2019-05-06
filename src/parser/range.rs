@@ -8,11 +8,11 @@
 use lib::marker::PhantomData;
 
 use error::FastResult::*;
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
 use parser::ParseMode;
 use stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
-    Range as StreamRange, RangeStream, RangeStreamOnce, Resetable, StreamOnce,
+    Range as StreamRange, RangeStream, RangeStreamOnce, ResetStream, StreamOnce,
 };
 use Parser;
 
@@ -105,7 +105,7 @@ where
         let result = first(input, state);
         if let ConsumedErr(_) = result {
             *distance_state = input.distance(&before);
-            input.reset(before);
+            ctry!(input.reset(before).consumed());
         }
         result
     } else {
@@ -118,13 +118,13 @@ where
             EmptyErr(err) => return EmptyErr(err),
             ConsumedErr(err) => {
                 *distance_state = input.distance(&before);
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 return ConsumedErr(err);
             }
         }
 
         let distance = input.distance(&before);
-        input.reset(before);
+        ctry!(input.reset(before).consumed());
         take(distance).parse_lazy(input).map(|range| {
             *distance_state = 0;
             range
@@ -170,13 +170,13 @@ where
             EmptyErr(err) => return EmptyErr(err),
             ConsumedErr(err) => {
                 *distance_state = input.distance(&before);
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 return ConsumedErr(err);
             }
         };
 
         let distance = input.distance(&before);
-        input.reset(before);
+        ctry!(input.reset(before).consumed());
         take(distance).parse_lazy(input).map(|range| {
             *distance_state = 0;
             (range, value)
@@ -444,7 +444,7 @@ where
                 Ok(xs) => {
                     if xs == self.0 {
                         let distance = input.distance(&before) - len;
-                        input.reset(before);
+                        ctry!(input.reset(before).consumed());
 
                         if let Ok(consumed) = input.uncons_range(distance) {
                             if distance == 0 {
@@ -460,7 +460,7 @@ where
                         unreachable!();
                     } else {
                         // Reset the stream back to where it was when we entered the top of the loop
-                        input.reset(look_ahead_input);
+                        ctry!(input.reset(look_ahead_input).consumed());
 
                         // Advance the stream by one item
                         if input.uncons().is_err() {
@@ -480,14 +480,14 @@ where
                     }
 
                     // Reset the stream back to where it was when we entered the top of the loop
-                    input.reset(look_ahead_input);
+                    ctry!(input.reset(look_ahead_input).consumed());
 
                     // See if we can advance anyway
                     if input.uncons().is_err() {
                         let (first_error, first_error_distance) = first_stream_error.unwrap();
 
                         // Reset the stream
-                        input.reset(before);
+                        ctry!(input.reset(before).consumed());
                         *to_consume = first_error_distance;
 
                         // Return the original error if uncons failed
@@ -581,7 +581,7 @@ where
 
         match (self.searcher)(input.range()).into() {
             TakeRange::Found(i) => {
-                input.reset(checkpoint);
+                ctry!(input.reset(checkpoint).consumed());
                 let result = uncons_range(input, *offset + i);
                 if result.is_ok() {
                     *offset = 0;
@@ -594,7 +594,7 @@ where
                 let range = input.range();
                 let _ = input.uncons_range(range.len());
                 let position = input.position();
-                input.reset(checkpoint);
+                ctry!(input.reset(checkpoint).consumed());
 
                 let err = I::Error::from_error(position, StreamError::end_of_input());
                 if !input.is_partial() && range.is_empty() {

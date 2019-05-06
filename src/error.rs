@@ -9,6 +9,19 @@ use ErrorOffset;
 
 use stream::StreamOnce;
 
+pub(crate) trait ResultExt<E, T> {
+    fn consumed(self) -> FastResult<E, T>;
+}
+
+impl<E, T> ResultExt<E, T> for Result<E, T> {
+    fn consumed(self) -> FastResult<E, T> {
+        match self {
+            Ok(x) => ConsumedOk(x),
+            Err(x) => ConsumedErr(x),
+        }
+    }
+}
+
 #[macro_export]
 #[doc(hidden)]
 macro_rules! ctry {

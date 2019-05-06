@@ -5,16 +5,16 @@ use lib::marker::PhantomData;
 use lib::mem;
 
 use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
-use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
+use error::{Consumed, ConsumedResult, ParseError, ParseResult, ResultExt, StreamError, Tracked};
 use parser::choice::Or;
 use parser::sequence::With;
 use parser::ParseMode;
-use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
+use stream::{uncons, Positioned, ResetStream, Stream, StreamOnce};
 use {ErrorOffset, Parser};
 
 use error::FastResult::*;
 
-parser!{
+parser! {
 #[derive(Copy, Clone)]
 pub struct Count;
 
@@ -308,8 +308,10 @@ where
                 Some(v)
             }
             EmptyErr(_) => {
-                self.input.reset(before);
-                self.state = State::EmptyErr;
+                self.state = match self.input.reset(before) {
+                    Err(err) => State::ConsumedErr(err),
+                    Ok(_) => State::EmptyErr,
+                };
                 None
             }
             ConsumedErr(e) => {
@@ -980,7 +982,7 @@ where
                     return ConsumedErr(err.error);
                 }
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             }
@@ -1042,7 +1044,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             };
@@ -1054,7 +1056,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             }
@@ -1122,19 +1124,19 @@ where
             let before = input.checkpoint();
             match self.end.parse_mode(mode, input, end_state).into() {
                 Ok((_, rest)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     return match consumed.merge(rest) {
                         Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
                         Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
                     };
                 }
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     output.extend(Some(ctry!(uncons(input)).0));
                     consumed = Consumed::Consumed(());
                 }
                 Err(Consumed::Consumed(e)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     return ConsumedErr(e.error);
                 }
             };
@@ -1261,7 +1263,7 @@ where
                             return ConsumedErr(err);
                         }
                         _ => {
-                            input.reset(checkpoint);
+                            ctry!(input.reset(checkpoint).consumed());
                             return if consumed.is_empty() {
                                 EmptyOk(())
                             } else {

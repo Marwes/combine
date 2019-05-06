@@ -7,7 +7,7 @@
 //!
 //! In addition to he functionality above, a proper `Stream` usable by a `Parser` must also have a
 //! position (marked by the `Positioned` trait) and must also be resetable (marked by the
-//! `Resetable` trait). The former is used to ensure that errors at different points in the stream
+//! `ResetStream` trait). The former is used to ensure that errors at different points in the stream
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
@@ -32,15 +32,18 @@ use error::{
 #[macro_export]
 macro_rules! clone_resetable {
     (( $($params: tt)* ) $ty: ty) => {
-        impl<$($params)*> Resetable for $ty
+        impl<$($params)*> ResetStream for $ty
+            where Self: StreamOnce
         {
             type Checkpoint = Self;
 
             fn checkpoint(&self) -> Self {
                 self.clone()
             }
-            fn reset(&mut self, checkpoint: Self) {
+            #[inline(always)]
+            fn reset(&mut self, checkpoint: Self) -> Result<(), Self::Error> {
                 *self = checkpoint;
+                Ok(())
             }
         }
     }
@@ -120,11 +123,11 @@ pub trait StreamOnce {
     }
 }
 
-pub trait Resetable {
+pub trait ResetStream: StreamOnce {
     type Checkpoint: Clone;
 
     fn checkpoint(&self) -> Self::Checkpoint;
-    fn reset(&mut self, checkpoint: Self::Checkpoint);
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error>;
 }
 
 clone_resetable! {('a) &'a str}
@@ -133,11 +136,11 @@ clone_resetable! {('a, T) SliceStream<'a, T> }
 clone_resetable! {(T: Clone) IteratorStream<T>}
 
 /// A stream of tokens which can be duplicated
-pub trait Stream: StreamOnce + Resetable + Positioned {}
+pub trait Stream: StreamOnce + ResetStream + Positioned {}
 
 impl<I> Stream for I
 where
-    I: StreamOnce + Positioned + Resetable,
+    I: StreamOnce + Positioned + ResetStream,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
 }
@@ -154,7 +157,7 @@ where
 }
 
 /// A `RangeStream` is an extension of `StreamOnce` which allows for zero copy parsing.
-pub trait RangeStreamOnce: StreamOnce + Resetable {
+pub trait RangeStreamOnce: StreamOnce + ResetStream {
     /// Takes `size` elements from the stream.
     /// Fails if the length of the stream is less than `size`.
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>>;
@@ -259,8 +262,7 @@ where
         .uncons()
         .err()
         .map_or(false, |err| err.is_unexpected_end_of_input());
-    input.reset(before);
-    x
+    input.reset(before).is_ok() && x
 }
 
 /// Removes items from the input while `predicate` returns `true`.
@@ -631,9 +633,9 @@ where
     }
 }
 
-impl<S> Resetable for PartialStream<S>
+impl<S> ResetStream for PartialStream<S>
 where
-    S: Resetable,
+    S: ResetStream,
 {
     type Checkpoint = S::Checkpoint;
 
@@ -643,8 +645,8 @@ where
     }
 
     #[inline(always)]
-    fn reset(&mut self, checkpoint: Self::Checkpoint) {
-        self.0.reset(checkpoint);
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
+        self.0.reset(checkpoint)
     }
 }
 
@@ -1037,7 +1039,7 @@ mod tests {
         input.uncons().unwrap();
         assert_eq!(input.distance(&before), 2);
 
-        input.reset(before.clone());
+        input.reset(before.clone()).unwrap();
         assert_eq!(input.distance(&before), 0);
     }
 }

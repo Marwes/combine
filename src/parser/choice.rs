@@ -1,9 +1,8 @@
 //! Combinators which take one or more parsers and attempts to parse successfully with at least one
 //! of them.
-use error::FastResult::*;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
+use error::{ConsumedResult, FastResult::*, ParseError, ResultExt, StreamError, Tracked};
 use parser::ParseMode;
-use stream::Resetable;
+use stream::ResetStream;
 use {ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
@@ -182,7 +181,7 @@ macro_rules! do_choice {
                 ConsumedErr(err)
             }
             EmptyErr($head) => {
-                $input.reset($before.clone());
+                ctry!($input.reset($before.clone()).consumed());
                 do_choice!(
                     $input
                     $before_position
@@ -401,7 +400,7 @@ where
     }
 
     for i in 0..self_.len() {
-        input.reset(before.clone());
+        ctry!(input.reset(before.clone()).consumed());
 
         match self_[i].parse_mode(mode, input, child_state) {
             consumed_err @ ConsumedErr(_) => {
@@ -655,7 +654,7 @@ where
             ConsumedOk(x) => ConsumedOk(Some(x)),
             ConsumedErr(err) => ConsumedErr(err),
             EmptyErr(_) => {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 EmptyOk(None)
             }
         }

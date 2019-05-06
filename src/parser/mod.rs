@@ -9,9 +9,9 @@ use combinator::{
     Iter, Map, Message, Then, ThenPartial,
 };
 use error::FastResult::*;
-use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, Tracked};
+use error::{ConsumedResult, FastResult, Info, ParseError, ParseResult, ResultExt, Tracked};
 use parser::error::{silent, Silent};
-use stream::{Resetable, Stream, StreamOnce};
+use stream::{ResetStream, Stream, StreamOnce};
 use ErrorOffset;
 
 use self::choice::{or, Or};
@@ -226,9 +226,9 @@ pub trait Parser {
         let mut state = Default::default();
         let mut result = self.parse_first(input, &mut state);
         if let FastResult::EmptyErr(ref mut error) = result {
-            input.reset(before.clone());
+            ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 error.error.add_unexpected(Info::Token(t));
             }
             self.add_error(error);
@@ -245,9 +245,9 @@ pub trait Parser {
         let before = input.checkpoint();
         let mut result = self.parse_partial(input, state);
         if let FastResult::EmptyErr(ref mut error) = result {
-            input.reset(before.clone());
+            ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 error.error.add_unexpected(Info::Token(t));
             }
             self.add_error(error);
@@ -285,7 +285,7 @@ pub trait Parser {
             let before = input.checkpoint();
             let result = self.parse_first(input, &mut Default::default());
             if let ConsumedErr(_) = result {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
             }
             result
         } else {
@@ -1026,9 +1026,9 @@ pub trait ParseMode: Copy {
         let before = input.checkpoint();
         let mut result = parser.parse_mode_impl(self, input, state);
         if let FastResult::EmptyErr(ref mut error) = result {
-            input.reset(before.clone());
+            ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 error.error.add_unexpected(Info::Token(t));
             }
             parser.add_error(error);

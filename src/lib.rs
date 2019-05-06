@@ -884,12 +884,13 @@ mod std_tests {
         I::Item: PartialEq,
         I::Range: PartialEq,
         I::Position: Default,
+        I::Error: std::fmt::Debug,
     {
         let before = input.checkpoint();
         match input.uncons() {
             Ok(c) => {
                 if c.is_alphanumeric() {
-                    input.reset(before);
+                    input.reset(before).unwrap();
                     let e = Error::Unexpected(c.into());
                     Err(Consumed::Empty(
                         easy::Errors::new(input.position(), e).into(),

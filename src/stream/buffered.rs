@@ -1,11 +1,11 @@
 use std::collections::VecDeque;
 
 use error::StreamError;
-use stream::{Positioned, Resetable, StreamErrorFor, StreamOnce};
+use stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamOnce};
 
 /// `Stream` which buffers items from an instance of `StreamOnce` into a ring buffer.
-/// Instances of `StreamOnce` which is not able to implement `Resetable` (such as `ReadStream`) may
-/// use this as a way to implement `Resetable` and become a full `Stream` instance.
+/// Instances of `StreamOnce` which is not able to implement `ResetStream` (such as `ReadStream`) may
+/// use this as a way to implement `ResetStream` and become a full `Stream` instance.
 ///
 /// The drawback is that the buffer only stores a limited number of items which limits how many
 /// tokens that can be reset and replayed. If a `BufferedStream` is reset past this limit an error
@@ -33,16 +33,27 @@ where
     buffer: VecDeque<(I::Item, I::Position)>,
 }
 
-impl<I> Resetable for BufferedStream<I>
+impl<I> ResetStream for BufferedStream<I>
 where
     I: Positioned,
 {
     type Checkpoint = usize;
+
     fn checkpoint(&self) -> Self::Checkpoint {
         self.offset
     }
-    fn reset(&mut self, checkpoint: Self::Checkpoint) {
-        self.offset = checkpoint;
+
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
+        if checkpoint < self.buffer_offset - self.buffer.len() {
+            // We have backtracked to far
+            Err(Self::Error::from_error(
+                self.position(),
+                StreamErrorFor::<Self>::message_static_message("Backtracked to far".into()),
+            ))
+        } else {
+            self.offset = checkpoint;
+            Ok(())
+        }
     }
 }
 

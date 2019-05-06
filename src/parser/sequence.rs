@@ -117,7 +117,7 @@ macro_rules! tuple_parser {
                         true
                     }; $h $(, $id)*);
                     ConsumedErr(err.error)
-            } else {
+                } else {
                     EmptyErr(err)
                 }
             }
@@ -192,7 +192,13 @@ macro_rules! tuple_parser {
                                 x
                             }
                             EmptyErr(err) => {
-                                input.reset(before);
+                                if let Err(err) = input.reset(before) {
+                                    return if first_empty_parser != 0 {
+                                        ConsumedErr(err.into())
+                                    } else {
+                                        EmptyErr(err.into())
+                                    };
+                                }
                                 return add_errors!(err, state.offset)
                             }
                             ConsumedErr(err) => return ConsumedErr(err),

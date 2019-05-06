@@ -86,7 +86,7 @@ use std::fmt;
 
 use error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
 use stream::{
-    FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamErrorFor,
+    FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
     StreamOnce,
 };
 
@@ -740,17 +740,21 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 #[derive(Copy, Clone, Debug)]
 pub struct Stream<S>(pub S);
 
-impl<S> Resetable for Stream<S>
+impl<S> ResetStream for Stream<S>
 where
-    S: Resetable,
+    S: ResetStream + Positioned,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     type Checkpoint = S::Checkpoint;
 
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()
     }
-    fn reset(&mut self, checkpoint: Self::Checkpoint) {
-        self.0.reset(checkpoint);
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
+        self.0
+            .reset(checkpoint)
+            .map_err(::error::ParseError::into_other)
     }
 }
 

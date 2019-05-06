@@ -5,9 +5,9 @@ use lib::marker::PhantomData;
 use lib::mem;
 use lib::str;
 
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
+use error::{ConsumedResult, Info, ParseError, ResultExt, StreamError, Tracked};
 use parser::ParseMode;
-use stream::{input_at_eof, Positioned, Resetable, Stream, StreamErrorFor, StreamOnce};
+use stream::{input_at_eof, Positioned, ResetStream, Stream, StreamErrorFor, StreamOnce};
 use Parser;
 
 use either::Either;
@@ -38,7 +38,7 @@ where
     {
         let checkpoint = input.checkpoint();
         let result = self.0.parse_mode(mode, input, state);
-        input.reset(checkpoint);
+        ctry!(input.reset(checkpoint).consumed());
         match result {
             ConsumedOk(_) | EmptyOk(_) => EmptyErr(I::Error::empty(input.position()).into()),
             ConsumedErr(_) | EmptyErr(_) => EmptyOk(()),
@@ -213,7 +213,7 @@ where
     fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
         let before = input.checkpoint();
         let result = self.0.parse_lazy(input);
-        input.reset(before);
+        ctry!(input.reset(before).consumed());
         let (o, _input) = ctry!(result);
         EmptyOk(o)
     }
@@ -378,7 +378,7 @@ where
                     let err = <Self::Input as StreamOnce>::Error::from_error(position, err.into());
 
                     if input.is_partial() && input_at_eof(input) {
-                        input.reset(checkpoint);
+                        ctry!(input.reset(checkpoint).consumed());
                         ConsumedErr(err)
                     } else {
                         EmptyErr(err.into())
@@ -389,7 +389,7 @@ where
                 Ok(o) => ConsumedOk(o),
                 Err(err) => {
                     if input.is_partial() && input_at_eof(input) {
-                        input.reset(checkpoint);
+                        ctry!(input.reset(checkpoint).consumed());
                     }
                     ConsumedErr(
                         <Self::Input as StreamOnce>::Error::from_error(position, err.into()).into(),
@@ -429,14 +429,14 @@ where
     #[inline]
     fn recognize_result(
         elements: &mut F,
-        before: <<Self as Parser>::Input as Resetable>::Checkpoint,
+        before: <<Self as Parser>::Input as ResetStream>::Checkpoint,
         input: &mut <Self as Parser>::Input,
         result: ConsumedResult<P::Output, P::Input>,
     ) -> ConsumedResult<F, P::Input> {
         match result {
             EmptyOk(_) => {
                 let last_position = input.position();
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
 
                 while input.position() != last_position {
                     match input.uncons() {
@@ -453,7 +453,7 @@ where
             }
             ConsumedOk(_) => {
                 let last_position = input.position();
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
 
                 while input.position() != last_position {
                     match input.uncons() {
@@ -470,7 +470,7 @@ where
             }
             ConsumedErr(err) => {
                 let last_position = input.position();
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
 
                 while input.position() != last_position {
                     match input.uncons() {

@@ -2,7 +2,7 @@ use lib::fmt;
 
 use error::{FastResult, ParseError, StreamError};
 use stream::{
-    FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, Resetable, SliceStream,
+    FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream,
     StreamErrorFor, StreamOnce,
 };
 
@@ -150,8 +150,6 @@ where
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct IndexPositioner(usize);
 
-clone_resetable! { () IndexPositioner }
-
 impl<Item> Positioner<Item> for IndexPositioner
 where
     Item: PartialEq + Clone,
@@ -197,8 +195,6 @@ pub struct SourcePosition {
     /// Current column of the input
     pub column: i32,
 }
-
-clone_resetable! { () SourcePosition }
 
 impl Default for SourcePosition {
     fn default() -> Self {
@@ -247,7 +243,8 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 impl<I, X, S> RangeStreamOnce for State<I, X>
 where
     I: RangeStreamOnce,
-    X: Resetable + RangePositioner<I::Item, I::Range>,
+    I: ResetStream,
+    X: Clone + RangePositioner<I::Item, I::Range>,
     S: StreamError<I::Item, I::Range>,
     I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
     I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
@@ -302,32 +299,37 @@ where
     }
 }
 
-impl<I, X> Resetable for State<I, X>
+impl<I, X, S> ResetStream for State<I, X>
 where
-    I: Resetable,
-    X: Resetable,
+    I: ResetStream,
+    X: Clone + Positioner<I::Item>,
+    S: StreamError<I::Item, I::Range>,
+    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
+    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
 {
-    type Checkpoint = State<I::Checkpoint, X::Checkpoint>;
+    type Checkpoint = State<I::Checkpoint, X>;
+
     fn checkpoint(&self) -> Self::Checkpoint {
         State {
             input: self.input.checkpoint(),
-            positioner: self.positioner.checkpoint(),
+            positioner: self.positioner.clone(),
         }
     }
-    fn reset(&mut self, checkpoint: Self::Checkpoint) {
-        self.input.reset(checkpoint.input);
-        self.positioner.reset(checkpoint.positioner);
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
+        self.input.reset(checkpoint.input)?;
+        self.positioner = checkpoint.positioner;
+        Ok(())
     }
 }
 
 impl<I, X, E> FullRangeStream for State<I, X>
 where
-    I: FullRangeStream + Resetable,
+    I: FullRangeStream + ResetStream,
     I::Position: Clone + Ord,
     E: StreamError<I::Item, I::Range>,
     I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = E>,
     I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = E>,
-    X: Resetable + RangePositioner<I::Item, I::Range>,
+    X: Clone + RangePositioner<I::Item, I::Range>,
 {
     fn range(&self) -> Self::Range {
         self.input.range()
