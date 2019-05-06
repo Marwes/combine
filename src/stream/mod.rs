@@ -931,13 +931,13 @@ where
     /// use combine::*;
     /// use combine::parser::byte::*;
     /// use combine::stream::ReadStream;
-    /// use combine::stream::buffered::BufferedStream;
+    /// use combine::stream::buffered;
     /// use combine::stream::state::State;
     /// use std::io::Read;
     ///
     /// # fn main() {
     /// let input: &[u8] = b"123,";
-    /// let stream = BufferedStream::new(State::new(ReadStream::new(input)), 1);
+    /// let stream = buffered::Stream::new(State::new(ReadStream::new(input)), 1);
     /// let result = (many(digit()), byte(b','))
     ///     .parse(stream)
     ///     .map(|t| t.0);

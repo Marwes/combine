@@ -8,22 +8,22 @@ use stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamOnce};
 /// use this as a way to implement `ResetStream` and become a full `Stream` instance.
 ///
 /// The drawback is that the buffer only stores a limited number of items which limits how many
-/// tokens that can be reset and replayed. If a `BufferedStream` is reset past this limit an error
+/// tokens that can be reset and replayed. If a `buffered::Stream` is reset past this limit an error
 /// will be returned when `uncons` is next called.
 ///
 /// NOTE: If this stream is used in conjunction with an error enhancing stream such as
-/// `easy::Stream` (also via the `easy_parser` method) it is recommended that the `BufferedStream`
+/// `easy::Stream` (also via the `easy_parser` method) it is recommended that the `buffered::Stream`
 /// instance wraps the `easy::Stream` instance instead of the other way around.
 ///
 /// ```ignore
 /// // DO
-/// BufferedStream::new(easy::Stream(..), ..)
+/// buffered::Stream::new(easy::Stream(..), ..)
 /// // DON'T
-/// easy::Stream(BufferedStream::new(.., ..))
-/// parser.easy_parse(BufferedStream::new(..));
+/// easy::Stream(buffered::Stream::new(.., ..))
+/// parser.easy_parse(buffered::Stream::new(..));
 /// ```
 #[derive(Debug, PartialEq)]
-pub struct BufferedStream<I>
+pub struct Stream<I>
 where
     I: StreamOnce + Positioned,
 {
@@ -33,7 +33,7 @@ where
     buffer: VecDeque<(I::Item, I::Position)>,
 }
 
-impl<I> ResetStream for BufferedStream<I>
+impl<I> ResetStream for Stream<I>
 where
     I: Positioned,
 {
@@ -57,16 +57,16 @@ where
     }
 }
 
-impl<I> BufferedStream<I>
+impl<I> Stream<I>
 where
     I: StreamOnce + Positioned,
     I::Position: Clone,
     I::Item: Clone,
 {
-    /// Constructs a new `BufferedStream` from a `StreamOnce` instance with a `lookahead`
+    /// Constructs a new `Stream` from a `StreamOnce` instance with a `lookahead`
     /// number of elements that can be stored in the buffer.
-    pub fn new(iter: I, lookahead: usize) -> BufferedStream<I> {
-        BufferedStream {
+    pub fn new(iter: I, lookahead: usize) -> Stream<I> {
+        Stream {
             offset: 0,
             iter: iter,
             buffer_offset: 0,
@@ -75,7 +75,7 @@ where
     }
 }
 
-impl<I> Positioned for BufferedStream<I>
+impl<I> Positioned for Stream<I>
 where
     I: StreamOnce + Positioned,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<I> StreamOnce for BufferedStream<I>
+impl<I> StreamOnce for Stream<I>
 where
     I: StreamOnce + Positioned,
 {

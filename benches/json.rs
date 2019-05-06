@@ -15,7 +15,7 @@ use std::path::Path;
 use criterion::{black_box, Bencher, Criterion};
 
 use combine::error::{Consumed, ParseError};
-use combine::stream::buffered::BufferedStream;
+use combine::stream::buffered::buffered::Stream;
 use combine::{Parser, Stream, StreamOnce};
 
 use combine::parser::char::{char, digit, spaces, string};
@@ -287,7 +287,7 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher) {
 fn bench_buffered_json(bencher: &mut Bencher) {
     let data = test_data();
     bencher.iter(|| {
-        let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
+        let buffer = buffered::Stream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = json_value();
         match parser.easy_parse(State::with_positioner(buffer, SourcePosition::default())) {
             Ok((Value::Array(v), _)) => {

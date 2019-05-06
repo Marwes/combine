@@ -721,7 +721,7 @@ pub mod num {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use stream::buffered::BufferedStream;
+        use stream::buffered;
         use stream::state::State;
         use stream::IteratorStream;
 
@@ -731,7 +731,7 @@ pub mod num {
             LE::write_f64(&mut buf, 123.45);
             assert_eq!(
                 f64::<LE, _>()
-                    .parse(BufferedStream::new(
+                    .parse(buffered::Stream::new(
                         State::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
@@ -740,7 +740,7 @@ pub mod num {
             );
             assert_eq!(
                 le_f64()
-                    .parse(BufferedStream::new(
+                    .parse(buffered::Stream::new(
                         State::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
@@ -751,7 +751,7 @@ pub mod num {
             BE::write_f64(&mut buf, 123.45);
             assert_eq!(
                 be_f64()
-                    .parse(BufferedStream::new(
+                    .parse(buffered::Stream::new(
                         State::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
