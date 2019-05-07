@@ -1,18 +1,18 @@
 //! Parsers constructor from regular functions
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use error::{ConsumedResult, ParseResult};
-use stream::Stream;
-use Parser;
+use crate::error::{ParseResult, StdParseResult};
+use crate::stream::{Stream, StreamOnce};
+use crate::Parser;
 
-impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> ParseResult<O, I> + 'a {
+impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> StdParseResult<O, I> + 'a {
     type Input = I;
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         self(input).into()
     }
 }
@@ -36,7 +36,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 ///     // Help type inference out
 ///     let _: &mut easy::Stream<&str> = input;
 ///     let position = input.position();
-///     let (char_digit, consumed) = try!(digit().parse_stream(input));
+///     let (char_digit, consumed) = digit().parse_stream(input).into_result()?;
 ///     let d = (char_digit as i32) - ('0' as i32);
 ///     if d % 2 == 0 {
 ///         Ok((d, consumed))
@@ -60,7 +60,7 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
 where
     I: Stream,
-    F: FnMut(&mut I) -> ParseResult<O, I>,
+    F: FnMut(&mut I) -> StdParseResult<O, I>,
 {
     FnParser(f, PhantomData)
 }
@@ -68,19 +68,19 @@ where
 impl<I, O, F> Parser for FnParser<I, F>
 where
     I: Stream,
-    F: FnMut(&mut I) -> ParseResult<O, I>,
+    F: FnMut(&mut I) -> StdParseResult<O, I>,
 {
     type Input = I;
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.0)(input).into()
     }
 }
 
-impl<I, O> Parser for fn(&mut I) -> ParseResult<O, I>
+impl<I, O> Parser for fn(&mut I) -> StdParseResult<O, I>
 where
     I: Stream,
 {
@@ -89,7 +89,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         self(input).into()
     }
 }
@@ -100,7 +100,7 @@ where
     I: Stream,
 {
     env: E,
-    parser: fn(E, &mut I) -> ParseResult<T, I>,
+    parser: fn(E, &mut I) -> StdParseResult<T, I>,
 }
 
 impl<E, I, T> Clone for EnvParser<E, I, T>
@@ -126,7 +126,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<O, I> {
+    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
         (self.parser)(self.env.clone(), input).into()
     }
 }
@@ -143,13 +143,14 @@ where
 /// # fn main() {
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
-///     fn string<I>(&self, input: &mut I) -> ParseResult<u32, I>
+///     fn string<I>(&self, input: &mut I) -> StdParseResult<u32, I>
 ///         where I: Stream<Item=char>,
 ///               I::Error: ParseError<I::Item, I::Range, I::Position>,
 ///     {
 ///         many(letter())
 ///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
 ///             .parse_stream(input)
+///             .into_result()
 ///     }
 /// }
 ///
@@ -168,7 +169,10 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn env_parser<E, I, O>(env: E, parser: fn(E, &mut I) -> ParseResult<O, I>) -> EnvParser<E, I, O>
+pub fn env_parser<E, I, O>(
+    env: E,
+    parser: fn(E, &mut I) -> StdParseResult<O, I>,
+) -> EnvParser<E, I, O>
 where
     E: Clone,
     I: Stream,

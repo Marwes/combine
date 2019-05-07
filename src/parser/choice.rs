@@ -1,10 +1,9 @@
 //! Combinators which take one or more parsers and attempts to parse successfully with at least one
 //! of them.
-use error::FastResult::*;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
-use parser::ParseMode;
-use stream::Resetable;
-use {ErrorOffset, Parser, Stream, StreamOnce};
+use crate::error::{ParseError, ParseResult, ParseResult::*, ResultExt, StreamError, Tracked};
+use crate::parser::ParseMode;
+use crate::stream::ResetStream;
+use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
@@ -43,7 +42,7 @@ macro_rules! parse_mode_choice {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
             self.parse_mode_choice($crate::parser::PartialMode::default(), input, state)
         }
 
@@ -51,7 +50,7 @@ macro_rules! parse_mode_choice {
             &mut self,
             input: &mut Self::Input,
             state: &mut Self::PartialState,
-        ) -> ConsumedResult<Self::Output, Self::Input> {
+        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
             self.parse_mode_choice($crate::parser::FirstMode, input, state)
         }
     }
@@ -70,20 +69,20 @@ pub trait ChoiceParser {
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>;
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>;
 
     fn parse_partial(
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>;
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>;
 
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized;
@@ -106,7 +105,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -169,7 +168,7 @@ macro_rules! do_choice {
     ) => { {
         let parser = $head;
         let mut state = $head::PartialState::default();
-        match parser.parse_mode(::parser::FirstMode, $input, &mut state) {
+        match parser.parse_mode(crate::parser::FirstMode, $input, &mut state) {
             ConsumedOk(x) => ConsumedOk(x),
             EmptyOk(x) => EmptyOk(x),
             ConsumedErr(err) => {
@@ -182,7 +181,7 @@ macro_rules! do_choice {
                 ConsumedErr(err)
             }
             EmptyErr($head) => {
-                $input.reset($before.clone());
+                ctry!($input.reset($before.clone()).consumed());
                 do_choice!(
                     $input
                     $before_position
@@ -242,7 +241,7 @@ macro_rules! tuple_choice_parser_inner {
                 mode: Mode,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
+            ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
             where
                 Mode: ParseMode,
             {
@@ -315,7 +314,7 @@ macro_rules! array_choice_parser {
                 mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
+            ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
             where
                 M: ParseMode,
             {
@@ -361,7 +360,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -380,7 +379,7 @@ fn slice_parse_mode<I, P, M>(
     mode: M,
     input: &mut P::Input,
     state: &mut (usize, P::PartialState),
-) -> ConsumedResult<P::Output, P::Input>
+) -> ParseResult<P::Output, <P::Input as StreamOnce>::Error>
 where
     P: Parser<Input = I>,
     I: Stream,
@@ -401,7 +400,7 @@ where
     }
 
     for i in 0..self_.len() {
-        input.reset(before.clone());
+        ctry!(input.reset(before.clone()).consumed());
 
         match self_[i].parse_mode(mode, input, child_state) {
             consumed_err @ ConsumedErr(_) => {
@@ -476,8 +475,8 @@ where
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::parser::PartialMode::default(), input, state)
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        slice_parse_mode(self, crate::parser::PartialMode::default(), input, state)
     }
 
     #[inline(always)]
@@ -485,8 +484,8 @@ where
         &mut self,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        slice_parse_mode(self, ::parser::FirstMode, input, state)
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
     #[inline(always)]
@@ -495,7 +494,7 @@ where
         _mode: M,
         _input: &mut Self::Input,
         _state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -573,7 +572,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -645,7 +644,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -655,7 +654,7 @@ where
             ConsumedOk(x) => ConsumedOk(Some(x)),
             ConsumedErr(err) => ConsumedErr(err),
             EmptyErr(_) => {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 EmptyOk(None)
             }
         }
@@ -689,7 +688,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::item::any;
+    use crate::parser::item::any;
 
     #[test]
     fn choice_single_parser() {

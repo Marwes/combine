@@ -1,11 +1,11 @@
 //! Combinators which take multiple parsers and applies them one after another.
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use combinator::{ignore, Ignore, Map};
-use error::FastResult::*;
-use error::{ConsumedResult, ParseError, StreamError, Tracked};
-use parser::ParseMode;
-use {ErrorOffset, Parser, Stream, StreamOnce};
+use crate::combinator::{ignore, Ignore, Map};
+use crate::error::ParseResult::*;
+use crate::error::{ParseError, ParseResult, StreamError, Tracked};
+use crate::parser::ParseMode;
+use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
 macro_rules! dispatch_on {
     ($i: expr, $f: expr;) => {
@@ -87,7 +87,7 @@ macro_rules! tuple_parser {
                 first_empty_parser: usize,
                 offset: u8,
                 $h: &mut $h $(, $id : &mut $id )*
-            ) -> ConsumedResult<($h::Output, $($id::Output),*), Input>
+            ) -> ParseResult<($h::Output, $($id::Output),*), <Input as StreamOnce>::Error>
             {
                 let inner_offset = err.offset;
                 err.offset = ErrorOffset(offset);
@@ -117,7 +117,7 @@ macro_rules! tuple_parser {
                         true
                     }; $h $(, $id)*);
                     ConsumedErr(err.error)
-            } else {
+                } else {
                     EmptyErr(err)
                 }
             }
@@ -144,7 +144,7 @@ macro_rules! tuple_parser {
                 mut mode: M,
                 input: &mut Self::Input,
                 state: &mut Self::PartialState,
-            ) -> ConsumedResult<Self::Output, Self::Input>
+            ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
             where
                 M: ParseMode,
             {
@@ -192,7 +192,13 @@ macro_rules! tuple_parser {
                                 x
                             }
                             EmptyErr(err) => {
-                                input.reset(before);
+                                if let Err(err) = input.reset(before) {
+                                    return if first_empty_parser != 0 {
+                                        ConsumedErr(err.into())
+                                    } else {
+                                        EmptyErr(err.into())
+                                    };
+                                }
                                 return add_errors!(err, state.offset)
                             }
                             ConsumedErr(err) => return ConsumedErr(err),
@@ -418,7 +424,10 @@ where
     type PartialState = <(Ignore<P1>, P2) as Parser>::PartialState;
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         self.0.parse_lazy(input).map(|(_, b)| b)
     }
 
@@ -429,7 +438,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -473,7 +482,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -544,7 +553,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -635,7 +644,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -707,7 +716,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::item::any;
+    use crate::parser::item::any;
 
     #[test]
     fn sequence_single_parser() {

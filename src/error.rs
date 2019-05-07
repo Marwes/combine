@@ -1,26 +1,39 @@
-use lib::fmt;
+use crate::lib::fmt;
 
 #[cfg(feature = "std")]
 use std::error::Error as StdError;
 
-use self::FastResult::*;
+use self::ParseResult::*;
 
-use ErrorOffset;
+use crate::ErrorOffset;
 
-use stream::StreamOnce;
+use crate::stream::StreamOnce;
+
+pub(crate) trait ResultExt<E, T> {
+    fn consumed(self) -> ParseResult<E, T>;
+}
+
+impl<E, T> ResultExt<E, T> for Result<E, T> {
+    fn consumed(self) -> ParseResult<E, T> {
+        match self {
+            Ok(x) => ConsumedOk(x),
+            Err(x) => ConsumedErr(x),
+        }
+    }
+}
 
 #[macro_export]
 #[doc(hidden)]
 macro_rules! ctry {
     ($result:expr) => {
         match $result {
-            $crate::error::FastResult::ConsumedOk(x) => (x, $crate::error::Consumed::Consumed(())),
-            $crate::error::FastResult::EmptyOk(x) => (x, $crate::error::Consumed::Empty(())),
-            $crate::error::FastResult::ConsumedErr(err) => {
-                return $crate::error::FastResult::ConsumedErr(err.into())
+            $crate::error::ParseResult::ConsumedOk(x) => (x, $crate::error::Consumed::Consumed(())),
+            $crate::error::ParseResult::EmptyOk(x) => (x, $crate::error::Consumed::Empty(())),
+            $crate::error::ParseResult::ConsumedErr(err) => {
+                return $crate::error::ParseResult::ConsumedErr(err.into())
             }
-            $crate::error::FastResult::EmptyErr(err) => {
-                return $crate::error::FastResult::EmptyErr(err.into())
+            $crate::error::ParseResult::EmptyErr(err) => {
+                return $crate::error::ParseResult::EmptyErr(err.into())
             }
         }
     };
@@ -139,11 +152,11 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char<I>(input: &mut I) -> ParseResult<char, I>
+    /// fn char<I>(input: &mut I) -> StdParseResult<char, I>
     ///     where I: Stream<Item = char>,
     ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
     /// {
-    ///     let (c, consumed) = try!(satisfy(|c| c != '"').parse_stream(input));
+    ///     let (c, consumed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
     ///     match c {
     ///         //Since the `char` parser has already consumed some of the input `combine` is used
     ///         //propagate the consumed state to the next part of the parser
@@ -157,6 +170,7 @@ impl<T> Consumed<T> {
     ///                     }
     ///                 })
     ///                 .parse_stream(input)
+    ///                 .into_result()
     ///             }),
     ///         _ => Ok((c, consumed))
     ///     }
@@ -166,9 +180,9 @@ impl<T> Consumed<T> {
     /// assert_eq!(result, Ok((r#"abc"\"#.to_string(), "")));
     /// }
     /// ```
-    pub fn combine<F, U, E>(self, f: F) -> ParseResult2<U, E>
+    pub fn combine<F, U, E>(self, f: F) -> StdParseResult2<U, E>
     where
-        F: FnOnce(T) -> ParseResult2<U, E>,
+        F: FnOnce(T) -> StdParseResult2<U, E>,
     {
         match self {
             Consumed::Consumed(x) => match f(x) {
@@ -179,11 +193,11 @@ impl<T> Consumed<T> {
             Consumed::Empty(x) => f(x),
         }
     }
-    pub fn combine_consumed<F, U, E>(self, f: F) -> FastResult<U, E>
+    pub fn combine_consumed<F, U, E>(self, f: F) -> ParseResult<U, E>
     where
-        F: FnOnce(T) -> FastResult<U, E>,
+        F: FnOnce(T) -> ParseResult<U, E>,
     {
-        use self::FastResult::*;
+        use self::ParseResult::*;
         match self {
             Consumed::Consumed(x) => match f(x) {
                 EmptyOk(v) => ConsumedOk(v),
@@ -199,14 +213,15 @@ impl<T> Consumed<T> {
 /// successful or not.
 /// `O` is the type that is output on success.
 /// `I` is the specific stream type used in the parser.
-pub type ParseResult<O, I> = Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
-pub type ParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
+pub type StdParseResult<O, I> =
+    Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
+pub type StdParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
 ///
 /// Usually multiple instances of `StreamError` is composed into a `ParseError` to build the final
 /// error value.
-pub trait StreamError<Item, Range>: Sized + PartialEq {
+pub trait StreamError<Item, Range>: Sized {
     fn unexpected_token(token: Item) -> Self;
     fn unexpected_range(token: Range) -> Self;
     fn unexpected_message<T>(msg: T) -> Self
@@ -266,6 +281,8 @@ pub trait StreamError<Item, Range>: Sized + PartialEq {
     fn end_of_input() -> Self {
         Self::unexpected_static_message("end of input")
     }
+
+    fn is_unexpected_end_of_input(&self) -> bool;
 
     /// Converts `self` into a different `StreamError` type.
     ///
@@ -407,6 +424,11 @@ impl<Item, Range> StreamError<Item, Range> for UnexpectedParse {
     #[inline]
     fn end_of_input() -> Self {
         UnexpectedParse::Eoi
+    }
+
+    #[inline]
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == UnexpectedParse::Eoi
     }
 
     #[inline]
@@ -552,6 +574,10 @@ impl<Item, Range> StreamError<Item, Range> for StringStreamError {
         StringStreamError::Eoi
     }
     #[inline]
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == StringStreamError::Eoi
+    }
+    #[inline]
     fn into_other<T>(self) -> T
     where
         T: StreamError<Item, Range>,
@@ -631,15 +657,18 @@ impl<E> From<E> for Tracked<E> {
     }
 }
 
+/// A `Result` type which has the consumed status flattened into the result.
+/// Conversions to and from `std::result::Result` can be done using `result.into()` or
+/// `From::from(result)`
 #[derive(Clone, PartialEq, Debug, Copy)]
-pub enum FastResult<T, E> {
+pub enum ParseResult<T, E> {
     ConsumedOk(T),
     EmptyOk(T),
     ConsumedErr(E),
     EmptyErr(Tracked<E>),
 }
 
-impl<T, E> FastResult<T, E> {
+impl<T, E> ParseResult<T, E> {
     #[inline]
     pub fn is_ok(&self) -> bool {
         match *self {
@@ -647,7 +676,7 @@ impl<T, E> FastResult<T, E> {
             ConsumedErr(_) | EmptyErr(_) => false,
         }
     }
-    pub fn as_ref(&self) -> FastResult<&T, &E> {
+    pub fn as_ref(&self) -> ParseResult<&T, &E> {
         match *self {
             ConsumedOk(ref t) => ConsumedOk(t),
             EmptyOk(ref t) => EmptyOk(t),
@@ -661,7 +690,7 @@ impl<T, E> FastResult<T, E> {
 
     pub fn and_then<F, T2>(self, f: F) -> F::Output
     where
-        F: FnOnce(T) -> FastResult<T2, E>,
+        F: FnOnce(T) -> ParseResult<T2, E>,
     {
         match self {
             ConsumedOk(t) => match f(t) {
@@ -675,7 +704,7 @@ impl<T, E> FastResult<T, E> {
         }
     }
 
-    pub fn map_err<F, E2>(self, f: F) -> FastResult<T, F::Output>
+    pub fn map_err<F, E2>(self, f: F) -> ParseResult<T, F::Output>
     where
         F: FnOnce(E) -> E2,
     {
@@ -689,10 +718,8 @@ impl<T, E> FastResult<T, E> {
             }),
         }
     }
-}
 
-impl<T, E> FastResult<T, E> {
-    pub fn map<F, T2>(self, f: F) -> FastResult<F::Output, E>
+    pub fn map<F, T2>(self, f: F) -> ParseResult<F::Output, E>
     where
         F: FnOnce(T) -> T2,
     {
@@ -705,12 +732,13 @@ impl<T, E> FastResult<T, E> {
     }
 }
 
-/// A `Result` type which has the consumed status flattened into the result.
-/// Conversions to and from `std::result::Result` can be done using `result.into()` or
-/// `From::from(result)`
-pub type ConsumedResult<O, I> = FastResult<O, <I as StreamOnce>::Error>;
+impl<O, E> ParseResult<O, E> {
+    pub fn into_result(self) -> StdParseResult2<O, E> {
+        self.into()
+    }
+}
 
-impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> {
+impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E> {
     #[inline(always)]
     fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
         match self {
@@ -722,10 +750,10 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for FastResult<T, E> 
     }
 }
 
-impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
+impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
     #[inline(always)]
-    fn into(self) -> ParseResult2<O, E> {
-        use self::FastResult::*;
+    fn into(self) -> StdParseResult2<O, E> {
+        use self::ParseResult::*;
         match self {
             ConsumedOk(t) => Ok((t, Consumed::Consumed(()))),
             EmptyOk(t) => Ok((t, Consumed::Empty(()))),
@@ -735,10 +763,10 @@ impl<O, E> Into<ParseResult2<O, E>> for FastResult<O, E> {
     }
 }
 
-impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
+impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
     #[inline(always)]
-    fn from(result: ParseResult2<O, E>) -> FastResult<O, E> {
-        use self::FastResult::*;
+    fn from(result: StdParseResult2<O, E>) -> ParseResult<O, E> {
+        use self::ParseResult::*;
         match result {
             Ok((t, Consumed::Consumed(()))) => ConsumedOk(t),
             Ok((t, Consumed::Empty(()))) => EmptyOk(t),
@@ -750,7 +778,7 @@ impl<O, E> From<ParseResult2<O, E>> for FastResult<O, E> {
 
 #[cfg(all(feature = "std", test))]
 mod tests_std {
-    use Parser;
+    use crate::Parser;
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {
@@ -765,7 +793,7 @@ mod tests_std {
             CloneOnly { s: "y".to_string() },
         ][..];
         let result =
-            ::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
+            crate::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
         assert_eq!(
             result,
             Ok((

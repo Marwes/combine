@@ -1,3 +1,31 @@
+<a name="4.0.0-alpha.1"></a>
+## 4.0.0-alpha.1 (2019-05-07)
+
+
+#### Breaking Changes
+
+*   Drop support for regex 0.2 ([bf6aeb06](https://github.com/Marwes/combine/commit/bf6aeb06494abe2f1890c5bf90db86ac01ec9772), closes [#247](https://github.com/Marwes/combine/issues/247), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Rename tokens2 to tokens and tokens to tokens_cmp ([3dadbb4f](https://github.com/Marwes/combine/commit/3dadbb4f2adb0447c883ea56bdbfcfd53c58d384), closes [#166](https://github.com/Marwes/combine/issues/166), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Remove the std::result::Result returning parse functions ([6ec094ef](https://github.com/Marwes/combine/commit/6ec094efd2eecefeb2281fb99687143e7a5580e8), closes [#244](https://github.com/Marwes/combine/issues/244), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Make PointerOffset easier to understand and use ([5f6d65b3](https://github.com/Marwes/combine/commit/5f6d65b30679d39c4c8a41ef0877bca8dc199095), closes [#238](https://github.com/Marwes/combine/issues/238), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Allow reset to return errors ([3055c810](https://github.com/Marwes/combine/commit/3055c810fd4904d2eba3f51ea232ef0232f8fbe7), closes [#231](https://github.com/Marwes/combine/issues/231), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Remove the PartialEq bound from Item and Range ([24e1087c](https://github.com/Marwes/combine/commit/24e1087cbff4938d48ae3e5947e2eb0dcbb8cc87), closes [#219](https://github.com/Marwes/combine/issues/219), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Features
+
+*   Drop support for regex 0.2 ([bf6aeb06](https://github.com/Marwes/combine/commit/bf6aeb06494abe2f1890c5bf90db86ac01ec9772), closes [#247](https://github.com/Marwes/combine/issues/247), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Rename tokens2 to tokens and tokens to tokens_cmp ([3dadbb4f](https://github.com/Marwes/combine/commit/3dadbb4f2adb0447c883ea56bdbfcfd53c58d384), closes [#166](https://github.com/Marwes/combine/issues/166), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Remove the std::result::Result returning parse functions ([6ec094ef](https://github.com/Marwes/combine/commit/6ec094efd2eecefeb2281fb99687143e7a5580e8), closes [#244](https://github.com/Marwes/combine/issues/244), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Allow reset to return errors ([3055c810](https://github.com/Marwes/combine/commit/3055c810fd4904d2eba3f51ea232ef0232f8fbe7), closes [#231](https://github.com/Marwes/combine/issues/231), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Remove the PartialEq bound from Item and Range ([24e1087c](https://github.com/Marwes/combine/commit/24e1087cbff4938d48ae3e5947e2eb0dcbb8cc87), closes [#219](https://github.com/Marwes/combine/issues/219), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Bug Fixes
+
+*   Don't require macro_use when using parser! in rust 2018 ([72e4c70f](https://github.com/Marwes/combine/commit/72e4c70fda2f283e1feadfd926ed9bb0d384cb59), closes [#241](https://github.com/Marwes/combine/issues/241))
+*   Make PointerOffset easier to understand and use ([5f6d65b3](https://github.com/Marwes/combine/commit/5f6d65b30679d39c4c8a41ef0877bca8dc199095), closes [#238](https://github.com/Marwes/combine/issues/238), breaks [#](https://github.com/Marwes/combine/issues/))
+
+
+
 <a name="3.8.1"></a>
 ### 3.8.1 (2019-03-13)
 

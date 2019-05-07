@@ -5,16 +5,16 @@
 //! [`RangeStream`]: ../../stream/trait.RangeStream.html
 //! [`Stream`]: ../../stream/trait.Stream.html
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use error::FastResult::*;
-use error::{ConsumedResult, Info, ParseError, StreamError, Tracked};
-use parser::ParseMode;
-use stream::{
+use crate::error::ParseResult::*;
+use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
+use crate::parser::ParseMode;
+use crate::stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
-    Range as StreamRange, RangeStream, RangeStreamOnce, Resetable, StreamOnce,
+    Range as StreamRange, RangeStream, RangeStreamOnce, ResetStream, StreamOnce,
 };
-use Parser;
+use crate::Parser;
 
 pub struct Range<I>(I::Range)
 where
@@ -23,15 +23,18 @@ where
 impl<I> Parser for Range<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::stream::Range,
+    I::Range: PartialEq + crate::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        use stream::Range;
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        use crate::stream::Range;
         let position = input.position();
         match input.uncons_range(self.0.len()) {
             Ok(other) => {
@@ -75,7 +78,7 @@ parser! {
     where [
         P: Parser,
         P::Input: RangeStream,
-        <P::Input as StreamOnce>::Range: ::stream::Range,
+        <P::Input as StreamOnce>::Range: crate::stream::Range,
     ]
     {
         recognize_with_value(parser).map(|(range, _)| range)
@@ -90,11 +93,11 @@ fn parse_partial_range<M, F, G, S, I>(
     state: S,
     first: F,
     resume: G,
-) -> ConsumedResult<I::Range, I>
+) -> ParseResult<I::Range, <I as StreamOnce>::Error>
 where
     M: ParseMode,
-    F: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
-    G: FnOnce(&mut I, S) -> ConsumedResult<I::Range, I>,
+    F: FnOnce(&mut I, S) -> ParseResult<I::Range, <I as StreamOnce>::Error>,
+    G: FnOnce(&mut I, S) -> ParseResult<I::Range, <I as StreamOnce>::Error>,
     I: RangeStream,
 {
     let before = input.checkpoint();
@@ -105,7 +108,7 @@ where
         let result = first(input, state);
         if let ConsumedErr(_) = result {
             *distance_state = input.distance(&before);
-            input.reset(before);
+            ctry!(input.reset(before).consumed());
         }
         result
     } else {
@@ -118,13 +121,13 @@ where
             EmptyErr(err) => return EmptyErr(err),
             ConsumedErr(err) => {
                 *distance_state = input.distance(&before);
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 return ConsumedErr(err);
             }
         }
 
         let distance = input.distance(&before);
-        input.reset(before);
+        ctry!(input.reset(before).consumed());
         take(distance).parse_lazy(input).map(|range| {
             *distance_state = 0;
             range
@@ -139,7 +142,7 @@ impl<P> Parser for RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::stream::Range,
+    <P::Input as StreamOnce>::Range: crate::stream::Range,
 {
     type Input = P::Input;
     type Output = (<P::Input as StreamOnce>::Range, P::Output);
@@ -152,7 +155,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -170,13 +173,13 @@ where
             EmptyErr(err) => return EmptyErr(err),
             ConsumedErr(err) => {
                 *distance_state = input.distance(&before);
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 return ConsumedErr(err);
             }
         };
 
         let distance = input.distance(&before);
-        input.reset(before);
+        ctry!(input.reset(before).consumed());
         take(distance).parse_lazy(input).map(|range| {
             *distance_state = 0;
             (range, value)
@@ -215,7 +218,7 @@ pub fn recognize_with_value<P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser,
     P::Input: RangeStream,
-    <P::Input as StreamOnce>::Range: ::stream::Range,
+    <P::Input as StreamOnce>::Range: crate::stream::Range,
 {
     RecognizeWithValue(parser)
 }
@@ -257,7 +260,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         uncons_range(input, self.0)
     }
 }
@@ -294,7 +300,7 @@ pub struct TakeWhile<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile<I, F>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
@@ -308,7 +314,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -344,7 +350,7 @@ where
 pub fn take_while<I, F>(f: F) -> TakeWhile<I, F>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     TakeWhile(f, PhantomData)
@@ -354,7 +360,7 @@ pub struct TakeWhile1<I, F>(F, PhantomData<fn(I) -> I>);
 impl<I, F> Parser for TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     type Input = I;
@@ -368,7 +374,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -404,7 +410,7 @@ where
 pub fn take_while1<I, F>(f: F) -> TakeWhile1<I, F>
 where
     I: RangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
     F: FnMut(I::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)
@@ -416,7 +422,7 @@ where
 impl<I> Parser for TakeUntilRange<I>
 where
     I: RangeStream,
-    I::Range: PartialEq + ::stream::Range,
+    I::Range: PartialEq + crate::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -427,8 +433,8 @@ where
         &mut self,
         input: &mut Self::Input,
         to_consume: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input> {
-        use stream::Range;
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        use crate::stream::Range;
 
         let len = self.0.len();
         let before = input.checkpoint();
@@ -444,7 +450,7 @@ where
                 Ok(xs) => {
                     if xs == self.0 {
                         let distance = input.distance(&before) - len;
-                        input.reset(before);
+                        ctry!(input.reset(before).consumed());
 
                         if let Ok(consumed) = input.uncons_range(distance) {
                             if distance == 0 {
@@ -460,7 +466,7 @@ where
                         unreachable!();
                     } else {
                         // Reset the stream back to where it was when we entered the top of the loop
-                        input.reset(look_ahead_input);
+                        ctry!(input.reset(look_ahead_input).consumed());
 
                         // Advance the stream by one item
                         if input.uncons().is_err() {
@@ -480,14 +486,14 @@ where
                     }
 
                     // Reset the stream back to where it was when we entered the top of the loop
-                    input.reset(look_ahead_input);
+                    ctry!(input.reset(look_ahead_input).consumed());
 
                     // See if we can advance anyway
                     if input.uncons().is_err() {
                         let (first_error, first_error_distance) = first_stream_error.unwrap();
 
                         // Reset the stream
-                        input.reset(before);
+                        ctry!(input.reset(before).consumed());
                         *to_consume = first_error_distance;
 
                         // Return the original error if uncons failed
@@ -554,7 +560,7 @@ where
     F: FnMut(I::Range) -> R,
     R: Into<TakeRange>,
     I: RangeStream + FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     type Input = I;
     type Output = I::Range;
@@ -567,7 +573,7 @@ where
         mode: M,
         input: &mut Self::Input,
         offset: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -581,7 +587,7 @@ where
 
         match (self.searcher)(input.range()).into() {
             TakeRange::Found(i) => {
-                input.reset(checkpoint);
+                ctry!(input.reset(checkpoint).consumed());
                 let result = uncons_range(input, *offset + i);
                 if result.is_ok() {
                     *offset = 0;
@@ -594,7 +600,7 @@ where
                 let range = input.range();
                 let _ = input.uncons_range(range.len());
                 let position = input.position();
-                input.reset(checkpoint);
+                ctry!(input.reset(checkpoint).consumed());
 
                 let err = I::Error::from_error(position, StreamError::end_of_input());
                 if !input.is_partial() && range.is_empty() {
@@ -621,7 +627,7 @@ where
     F: FnMut(I::Range) -> R,
     R: Into<TakeRange>,
     I: FullRangeStream,
-    I::Range: ::stream::Range,
+    I::Range: crate::stream::Range,
 {
     TakeFn {
         searcher,
@@ -632,7 +638,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Parser;
+    use crate::Parser;
 
     #[test]
     fn take_while_test() {

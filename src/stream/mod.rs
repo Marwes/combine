@@ -7,40 +7,41 @@
 //!
 //! In addition to he functionality above, a proper `Stream` usable by a `Parser` must also have a
 //! position (marked by the `Positioned` trait) and must also be resetable (marked by the
-//! `Resetable` trait). The former is used to ensure that errors at different points in the stream
+//! `ResetStream` trait). The former is used to ensure that errors at different points in the stream
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
-use lib::fmt;
-use lib::str::Chars;
+use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, str::Chars};
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
 
 #[cfg(feature = "std")]
-use stream::easy::Errors;
+use crate::stream::easy::Errors;
 
-use Parser;
+use crate::Parser;
 
-use error::FastResult::*;
-use error::{
-    ConsumedResult, FastResult, ParseError, StreamError, StringStreamError, Tracked,
-    UnexpectedParse,
+use crate::error::ParseResult::*;
+use crate::error::{
+    ParseError, ParseResult, StreamError, StringStreamError, Tracked, UnexpectedParse,
 };
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! clone_resetable {
     (( $($params: tt)* ) $ty: ty) => {
-        impl<$($params)*> Resetable for $ty
+        impl<$($params)*> ResetStream for $ty
+            where Self: StreamOnce
         {
             type Checkpoint = Self;
 
             fn checkpoint(&self) -> Self {
                 self.clone()
             }
-            fn reset(&mut self, checkpoint: Self) {
+            #[inline(always)]
+            fn reset(&mut self, checkpoint: Self) -> Result<(), Self::Error> {
                 *self = checkpoint;
+                Ok(())
             }
         }
     }
@@ -96,12 +97,12 @@ pub type StreamErrorFor<I> = <<I as StreamOnce>::Error as ParseError<
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {
     /// The type of items which is yielded from this stream.
-    type Item: Clone + PartialEq;
+    type Item: Clone;
 
     /// The type of a range of items yielded from this stream.
     /// Types which do not a have a way of yielding ranges of items should just use the
     /// `Self::Item` for this type.
-    type Range: Clone + PartialEq;
+    type Range: Clone;
 
     /// Type which represents the position in a stream.
     /// `Ord` is required to allow parsers to determine which of two positions are further ahead.
@@ -120,11 +121,15 @@ pub trait StreamOnce {
     }
 }
 
-pub trait Resetable {
+/// A `StreamOnce` which can create checkpoints which the stream can be reset to
+pub trait ResetStream: StreamOnce {
     type Checkpoint: Clone;
 
+    /// Creates a `Checkpoint` at the current position which can be used to reset the stream
+    /// later to the current position
     fn checkpoint(&self) -> Self::Checkpoint;
-    fn reset(&mut self, checkpoint: Self::Checkpoint);
+    /// Attempts to reset the stream to an earlier position.
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error>;
 }
 
 clone_resetable! {('a) &'a str}
@@ -133,17 +138,21 @@ clone_resetable! {('a, T) SliceStream<'a, T> }
 clone_resetable! {(T: Clone) IteratorStream<T>}
 
 /// A stream of tokens which can be duplicated
-pub trait Stream: StreamOnce + Resetable + Positioned {}
+///
+/// This is a trait over types which implement the `StreamOnce`, `ResetStream` and `Positioned`
+/// traits. If you need a custom `Stream` object then implement those traits and `Stream` is
+/// implemented automatically.
+pub trait Stream: StreamOnce + ResetStream + Positioned {}
 
 impl<I> Stream for I
 where
-    I: StreamOnce + Positioned + Resetable,
+    I: StreamOnce + Positioned + ResetStream,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
 }
 
 #[inline]
-pub fn uncons<I>(input: &mut I) -> ConsumedResult<I::Item, I>
+pub fn uncons<I>(input: &mut I) -> ParseResult<I::Item, <I as StreamOnce>::Error>
 where
     I: ?Sized + Stream,
 {
@@ -154,7 +163,7 @@ where
 }
 
 /// A `RangeStream` is an extension of `StreamOnce` which allows for zero copy parsing.
-pub trait RangeStreamOnce: StreamOnce + Resetable {
+pub trait RangeStreamOnce: StreamOnce + ResetStream {
     /// Takes `size` elements from the stream.
     /// Fails if the length of the stream is less than `size`.
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>>;
@@ -172,7 +181,7 @@ pub trait RangeStreamOnce: StreamOnce + Resetable {
     /// # Note
     ///
     /// This may not return `EmptyOk` as it should uncons at least one item.
-    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
@@ -220,7 +229,7 @@ pub trait FullRangeStream: RangeStream {
 pub fn wrap_stream_error<T, I>(
     input: &I,
     err: <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError,
-) -> ConsumedResult<T, I>
+) -> ParseResult<T, <I as StreamOnce>::Error>
 where
     I: ?Sized + StreamOnce + Positioned,
 {
@@ -233,7 +242,10 @@ where
 }
 
 #[inline]
-pub fn uncons_range<I>(input: &mut I, size: usize) -> ConsumedResult<I::Range, I>
+pub fn uncons_range<I>(
+    input: &mut I,
+    size: usize,
+) -> ParseResult<I::Range, <I as StreamOnce>::Error>
 where
     I: ?Sized + RangeStream,
 {
@@ -255,14 +267,19 @@ where
     I: ?Sized + Stream,
 {
     let before = input.checkpoint();
-    let x = input.uncons() == Err(StreamError::end_of_input());
-    input.reset(before);
-    x
+    let x = input
+        .uncons()
+        .err()
+        .map_or(false, |err| err.is_unexpected_end_of_input());
+    input.reset(before).is_ok() && x
 }
 
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
-pub fn uncons_while<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
+pub fn uncons_while<I, F>(
+    input: &mut I,
+    predicate: F,
+) -> ParseResult<I::Range, <I as StreamOnce>::Error>
 where
     F: FnMut(I::Item) -> bool,
     I: ?Sized + RangeStream,
@@ -294,7 +311,10 @@ where
 /// # Note
 ///
 /// This may not return `EmptyOk` as it should uncons at least one item.
-pub fn uncons_while1<I, F>(input: &mut I, predicate: F) -> ConsumedResult<I::Range, I>
+pub fn uncons_while1<I, F>(
+    input: &mut I,
+    predicate: F,
+) -> ParseResult<I::Range, <I as StreamOnce>::Error>
 where
     F: FnMut(I::Item) -> bool,
     I: ?Sized + RangeStream,
@@ -397,7 +417,7 @@ impl<'a> RangeStreamOnce for &'a str {
     }
 
     #[inline]
-    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
@@ -531,7 +551,7 @@ where
     }
 
     #[inline]
-    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
@@ -560,14 +580,14 @@ where
 impl<'a> Positioned for &'a str {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        self.as_bytes().position()
+        PointerOffset::new(self.as_bytes().position().0)
     }
 }
 
 impl<'a> StreamOnce for &'a str {
     type Item = char;
     type Range = &'a str;
-    type Position = PointerOffset;
+    type Position = PointerOffset<str>;
     type Error = StringStreamError;
 
     #[inline]
@@ -589,7 +609,7 @@ where
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        PointerOffset(self.as_ptr() as usize)
+        PointerOffset::new(self.as_ptr() as usize)
     }
 }
 
@@ -599,7 +619,7 @@ where
 {
     type Item = T;
     type Range = &'a [T];
-    type Position = PointerOffset;
+    type Position = PointerOffset<[T]>;
     type Error = UnexpectedParse;
 
     #[inline]
@@ -628,9 +648,9 @@ where
     }
 }
 
-impl<S> Resetable for PartialStream<S>
+impl<S> ResetStream for PartialStream<S>
 where
-    S: Resetable,
+    S: ResetStream,
 {
     type Checkpoint = S::Checkpoint;
 
@@ -640,8 +660,8 @@ where
     }
 
     #[inline(always)]
-    fn reset(&mut self, checkpoint: Self::Checkpoint) {
-        self.0.reset(checkpoint);
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
+        self.0.reset(checkpoint)
     }
 }
 
@@ -681,7 +701,7 @@ where
         self.0.uncons_while(f)
     }
 
-    fn uncons_while1<F>(&mut self, f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
@@ -720,7 +740,7 @@ where
 {
     #[inline(always)]
     fn position(&self) -> Self::Position {
-        PointerOffset(self.0.as_ptr() as usize)
+        PointerOffset::new(self.0.as_ptr() as usize)
     }
 }
 
@@ -730,7 +750,7 @@ where
 {
     type Item = &'a T;
     type Range = &'a [T];
-    type Position = PointerOffset;
+    type Position = PointerOffset<[T]>;
     type Error = UnexpectedParse;
 
     #[inline]
@@ -811,7 +831,7 @@ where
     }
 
     #[inline]
-    fn uncons_while1<F>(&mut self, mut f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
@@ -926,13 +946,13 @@ where
     /// use combine::*;
     /// use combine::parser::byte::*;
     /// use combine::stream::ReadStream;
-    /// use combine::stream::buffered::BufferedStream;
+    /// use combine::stream::buffered;
     /// use combine::stream::state::State;
     /// use std::io::Read;
     ///
     /// # fn main() {
     /// let input: &[u8] = b"123,";
-    /// let stream = BufferedStream::new(State::new(ReadStream::new(input)), 1);
+    /// let stream = buffered::Stream::new(State::new(ReadStream::new(input)), 1);
     /// let result = (many(digit()), byte(b','))
     ///     .parse(stream)
     ///     .map(|t| t.0);
@@ -947,16 +967,68 @@ where
 }
 
 /// Newtype around a pointer offset into a slice stream (`&[T]`/`&str`).
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
-pub struct PointerOffset(pub usize);
+pub struct PointerOffset<T: ?Sized>(pub usize, PhantomData<T>);
 
-impl fmt::Display for PointerOffset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.0 as *const ())
+impl<T: ?Sized> Clone for PointerOffset<T> {
+    fn clone(&self) -> Self {
+        PointerOffset::new(self.0)
     }
 }
 
-impl PointerOffset {
+impl<T: ?Sized> Copy for PointerOffset<T> {}
+
+impl<T: ?Sized> Default for PointerOffset<T> {
+    fn default() -> Self {
+        PointerOffset::new(0)
+    }
+}
+
+impl<T: ?Sized> PartialEq for PointerOffset<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T: ?Sized> Eq for PointerOffset<T> {}
+
+impl<T: ?Sized> PartialOrd for PointerOffset<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl<T: ?Sized> Ord for PointerOffset<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<T> fmt::Debug for PointerOffset<T>
+where
+    T: ?Sized,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl<T> fmt::Display for PointerOffset<T>
+where
+    T: ?Sized,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PointerOffset({:?})", self.0 as *const ())
+    }
+}
+
+impl<T> PointerOffset<T>
+where
+    T: ?Sized,
+{
+    pub fn new(offset: usize) -> Self {
+        PointerOffset(offset, PhantomData)
+    }
+
     /// Converts the pointer-based position into an indexed position.
     ///
     /// ```rust
@@ -969,11 +1041,8 @@ impl PointerOffset {
     /// assert_eq!(err.map_position(|p| p.translate_position(text)).position, 0);
     /// # }
     /// ```
-    pub fn translate_position<T>(mut self, initial_string: &T) -> usize
-    where
-        T: ?Sized,
-    {
-        self.0 -= initial_string as *const T as *const () as usize;
+    pub fn translate_position(mut self, initial_slice: &T) -> usize {
+        self.0 -= initial_slice as *const T as *const () as usize;
         self.0
     }
 }
@@ -1034,7 +1103,7 @@ mod tests {
         input.uncons().unwrap();
         assert_eq!(input.distance(&before), 2);
 
-        input.reset(before.clone());
+        input.reset(before.clone()).unwrap();
         assert_eq!(input.distance(&before), 0);
     }
 }

@@ -1,11 +1,11 @@
 #![cfg(feature = "mp4")]
 #[macro_use]
-extern crate bencher;
+extern crate criterion;
 
 extern crate byteorder;
 extern crate combine;
 
-use bencher::{black_box, Bencher};
+use criterion::{black_box, Bencher, Criterion};
 
 use std::fs::File;
 use std::io::Read;
@@ -76,13 +76,14 @@ fn run_test(b: &mut Bencher, data: &[u8]) {
     });
 }
 
-fn mp4_small_test(b: &mut Bencher) {
+fn mp4_small_test(c: &mut Criterion) {
     let mut mp4_small = Vec::new();
     File::open("benches/small.mp4")
         .and_then(|mut f| f.read_to_end(&mut mp4_small))
         .expect("Unable to read benches/small.mp4");
-    run_test(b, &mp4_small)
+
+    c.bench_function("mp4_small", move |b| run_test(b, &mp4_small));
 }
 
-benchmark_group!(mp4, mp4_small_test);
-benchmark_main!(mp4);
+criterion_group!(mp4, mp4_small_test);
+criterion_main!(mp4);

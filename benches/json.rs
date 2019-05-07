@@ -2,7 +2,7 @@
 // significantly simplify things
 
 #[macro_use]
-extern crate bencher;
+extern crate criterion;
 
 #[macro_use]
 extern crate combine;
@@ -12,10 +12,10 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use bencher::{black_box, Bencher};
+use criterion::{black_box, Bencher, Criterion};
 
 use combine::error::{Consumed, ParseError};
-use combine::stream::buffered::BufferedStream;
+use combine::stream::buffered;
 use combine::{Parser, Stream, StreamOnce};
 
 use combine::parser::char::{char, digit, spaces, string};
@@ -107,7 +107,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     parser(|input: &mut I| {
-        let (c, consumed) = try!(any().parse_lazy(input).into());
+        let (c, consumed) = r#try!(any().parse_lazy(input).into());
         let mut back_slash_char = satisfy_map(|c| {
             Some(match c {
                 '"' => '"',
@@ -122,7 +122,7 @@ where
             })
         });
         match c {
-            '\\' => consumed.combine(|_| back_slash_char.parse_stream(input)),
+            '\\' => consumed.combine(|_| back_slash_char.parse_stream(input).into_result()),
             '"' => Err(Consumed::Empty(I::Error::empty(input.position()).into())),
             _ => Ok((c, consumed)),
         }
@@ -160,7 +160,7 @@ where
 
 // We need to use `parser!` to break the recursive use of `value` to prevent the returned parser
 // from containing itself
-parser!{
+parser! {
     #[inline(always)]
     fn json_value_[I]()(I) -> Value
         where [ I: Stream<Item = char> ]
@@ -287,7 +287,7 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher) {
 fn bench_buffered_json(bencher: &mut Bencher) {
     let data = test_data();
     bencher.iter(|| {
-        let buffer = BufferedStream::new(State::new(IteratorStream::new(data.chars())), 1);
+        let buffer = buffered::Stream::new(State::new(IteratorStream::new(data.chars())), 1);
         let mut parser = json_value();
         match parser.easy_parse(State::with_positioner(buffer, SourcePosition::default())) {
             Ok((Value::Array(v), _)) => {
@@ -302,11 +302,15 @@ fn bench_buffered_json(bencher: &mut Bencher) {
     });
 }
 
-benchmark_group!(
-    json,
-    bench_json,
-    bench_json_core_error,
-    bench_json_core_error_no_position,
-    bench_buffered_json
-);
-benchmark_main!(json);
+fn bench(c: &mut Criterion) {
+    c.bench_function("json", bench_json);
+    c.bench_function("json_core_error", bench_json_core_error);
+    c.bench_function(
+        "json_core_error_no_position",
+        bench_json_core_error_no_position,
+    );
+    c.bench_function("buffered_json", bench_buffered_json);
+}
+
+criterion_group!(json, bench);
+criterion_main!(json);

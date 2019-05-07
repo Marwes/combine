@@ -1,20 +1,22 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
-use lib::borrow::BorrowMut;
-use lib::marker::PhantomData;
-use lib::mem;
+use crate::lib::borrow::BorrowMut;
+use crate::lib::marker::PhantomData;
+use crate::lib::mem;
 
-use combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
-use error::{Consumed, ConsumedResult, ParseError, ParseResult, StreamError, Tracked};
-use parser::choice::Or;
-use parser::sequence::With;
-use parser::ParseMode;
-use stream::{uncons, Positioned, Resetable, Stream, StreamOnce};
-use {ErrorOffset, Parser};
+use crate::combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
+use crate::error::{
+    Consumed, ParseError, ParseResult, ResultExt, StdParseResult, StreamError, Tracked,
+};
+use crate::parser::choice::Or;
+use crate::parser::sequence::With;
+use crate::parser::ParseMode;
+use crate::stream::{uncons, Positioned, ResetStream, Stream, StreamOnce};
+use crate::{ErrorOffset, Parser};
 
-use error::FastResult::*;
+use crate::error::ParseResult::*;
 
-parser!{
+parser! {
 #[derive(Copy, Clone)]
 pub struct Count;
 
@@ -66,7 +68,7 @@ parser! {
         P: Parser
     ]
     {
-        ::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
+        crate::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -94,7 +96,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -188,7 +190,7 @@ parser! {
         P: Parser
     ]
     {
-        ::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
+        crate::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -224,13 +226,13 @@ where
             mode,
         }
     }
-    /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
+    /// Converts the iterator to a `StdParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> ParseResult<O, P::Input> {
+    pub fn into_result<O>(self, value: O) -> StdParseResult<O, P::Input> {
         self.into_result_(value).into()
     }
 
-    fn into_result_<O>(self, value: O) -> ConsumedResult<O, P::Input> {
+    fn into_result_<O>(self, value: O) -> ParseResult<O, <P::Input as StreamOnce>::Error> {
         match self.state {
             State::Ok | State::EmptyErr => {
                 if self.consumed {
@@ -243,7 +245,7 @@ where
         }
     }
 
-    fn into_result_fast<O>(self, value: &mut O) -> ConsumedResult<O, P::Input>
+    fn into_result_fast<O>(self, value: &mut O) -> ParseResult<O, <P::Input as StreamOnce>::Error>
     where
         O: Default,
     {
@@ -267,7 +269,7 @@ where
             <P::Input as StreamOnce>::Range,
             <P::Input as StreamOnce>::Position,
         >>::StreamError,
-    ) -> ConsumedResult<T, P::Input> {
+    ) -> ParseResult<T, <P::Input as StreamOnce>::Error> {
         match self.state {
             State::Ok | State::EmptyErr => {
                 let err = <P::Input as StreamOnce>::Error::from_error(self.input.position(), err);
@@ -308,8 +310,10 @@ where
                 Some(v)
             }
             EmptyErr(_) => {
-                self.input.reset(before);
-                self.state = State::EmptyErr;
+                self.state = match self.input.reset(before) {
+                    Err(err) => State::ConsumedErr(err),
+                    Ok(_) => State::EmptyErr,
+                };
                 None
             }
             ConsumedErr(e) => {
@@ -339,7 +343,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -414,7 +418,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<F, P::Input>
+    ) -> ParseResult<F, <P::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -573,7 +577,7 @@ where
     type Output = F;
     type PartialState = <Or<
         SepBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> ParseResult<F, Self::Input>>,
+        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
     > as Parser>::PartialState;
 
     parse_mode!();
@@ -583,7 +587,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<F, P::Input>
+    ) -> ParseResult<F, <P::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -662,7 +666,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -762,7 +766,7 @@ where
     type Output = F;
     type PartialState = <Or<
         SepEndBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> ParseResult<F, Self::Input>>,
+        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
     > as Parser>::PartialState;
 
     parse_mode!();
@@ -772,7 +776,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -847,7 +851,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -949,7 +953,7 @@ where
         mut mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -980,7 +984,7 @@ where
                     return ConsumedErr(err.error);
                 }
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             }
@@ -1030,8 +1034,11 @@ where
     type Output = P::Output;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<P::Output, I> {
-        // FIXME FastResult
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<P::Output, <I as StreamOnce>::Error> {
+        // FIXME ParseResult
         let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
         loop {
             let before = input.checkpoint();
@@ -1042,7 +1049,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             };
@@ -1054,7 +1061,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             }
@@ -1111,7 +1118,7 @@ where
         mode: M,
         input: &mut Self::Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Self::Input>
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -1122,19 +1129,19 @@ where
             let before = input.checkpoint();
             match self.end.parse_mode(mode, input, end_state).into() {
                 Ok((_, rest)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     return match consumed.merge(rest) {
                         Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
                         Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
                     };
                 }
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     output.extend(Some(ctry!(uncons(input)).0));
                     consumed = Consumed::Consumed(());
                 }
                 Err(Consumed::Consumed(e)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     return ConsumedErr(e.error);
                 }
             };
@@ -1234,7 +1241,10 @@ where
     type Output = ();
     type PartialState = EscapedState<P::PartialState, Q::PartialState>;
 
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let mut consumed = Consumed::Empty(());
         loop {
             match self.parser.parse_lazy(input) {
@@ -1246,7 +1256,7 @@ where
                     let checkpoint = input.checkpoint();
                     match uncons(input) {
                         ConsumedOk(ref c) | EmptyOk(ref c) if *c == self.escape => {
-                            match self.escape_parser.parse_stream_consumed(input) {
+                            match self.escape_parser.parse_stream(input) {
                                 EmptyOk(_) => {}
                                 ConsumedOk(_) => {
                                     consumed = Consumed::Consumed(());
@@ -1261,7 +1271,7 @@ where
                             return ConsumedErr(err);
                         }
                         _ => {
-                            input.reset(checkpoint);
+                            ctry!(input.reset(checkpoint).consumed());
                             return if consumed.is_empty() {
                                 EmptyOk(())
                             } else {
@@ -1276,7 +1286,7 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        use error::Info;
+        use crate::error::Info;
         self.parser.add_error(errors);
 
         errors.error.add_expected(Info::Token(self.escape.clone()));

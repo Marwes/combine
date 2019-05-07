@@ -1,18 +1,19 @@
 //! Module containing parsers specialized on byte streams.
 extern crate ascii;
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use combinator::{satisfy, skip_many, token, tokens, Expected, Satisfy, SkipMany, Token};
-use error::{ConsumedResult, Info, ParseError, Tracked};
-use parser::range::{take_fn, TakeRange};
-use parser::sequence::With;
-use stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
-use Parser;
+use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
+use crate::error::{Info, ParseError, ParseResult, Tracked};
+use crate::parser::item::tokens_cmp;
+use crate::parser::range::{take_fn, TakeRange};
+use crate::parser::sequence::With;
+use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
+use crate::Parser;
 
-use error::FastResult::*;
+use crate::error::ParseResult::*;
 
 /// Parses a byte and succeeds if the byte is equal to `c`.
 ///
@@ -283,32 +284,6 @@ where
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
 
-#[derive(Copy, Clone)]
-pub struct Bytes<I>(&'static [u8], PhantomData<I>)
-where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>;
-
-impl<'a, I> Parser for Bytes<I>
-where
-    I: Stream<Item = u8, Range = &'a [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    type Input = I;
-    type Output = &'static [u8];
-    type PartialState = ();
-
-    #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        tokens(|&l, r| l == r, Info::Range(self.0), self.0.iter())
-            .parse_lazy(input)
-            .map(|bytes| bytes.as_slice())
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        tokens::<_, _, I>(|&l, r| l == r, Info::Range(self.0), self.0.iter()).add_error(errors)
-    }
-}
-
 /// Parses the bytes `s`.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -329,39 +304,12 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes<'a, I>(s: &'static [u8]) -> Bytes<I>
+pub fn bytes<'a, 'b, I>(s: &'static [u8]) -> impl Parser<Input = I, Output = &'a [u8]>
 where
-    I: Stream<Item = u8, Range = &'a [u8]>,
+    I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    Bytes(s, PhantomData)
-}
-
-#[derive(Copy, Clone)]
-pub struct BytesCmp<C, I>(&'static [u8], C, PhantomData<I>)
-where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>;
-
-impl<'a, C, I> Parser for BytesCmp<C, I>
-where
-    C: FnMut(u8, u8) -> bool,
-    I: Stream<Item = u8, Range = &'a [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    type Input = I;
-    type Output = &'static [u8];
-    type PartialState = ();
-
-    #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ConsumedResult<Self::Output, Self::Input> {
-        let cmp = &mut self.1;
-        tokens(|&l, r| cmp(l, r), Info::Range(self.0), self.0).parse_lazy(input)
-    }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
-        let cmp = &mut self.1;
-        tokens::<_, _, I>(|&l, r| cmp(l, r), Info::Range(self.0), self.0.iter()).add_error(errors)
-    }
+    bytes_cmp(s, |l: u8, r: u8| l == r)
 }
 
 /// Parses the bytes `s` using `cmp` to compare each token.
@@ -385,13 +333,18 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes_cmp<'a, C, I>(s: &'static [u8], cmp: C) -> BytesCmp<C, I>
+pub fn bytes_cmp<'a, 'b, C, I>(
+    s: &'static [u8],
+    cmp: C,
+) -> impl Parser<Input = I, Output = &'a [u8]>
 where
     C: FnMut(u8, u8) -> bool,
-    I: Stream<Item = u8, Range = &'a [u8]>,
+    I: Stream<Item = u8, Range = &'b [u8]>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    BytesCmp(s, cmp, PhantomData)
+    tokens_cmp(s.iter().cloned(), cmp)
+        .map(move |_| s)
+        .expected(Info::Range(s))
 }
 
 macro_rules! take_until {
@@ -407,7 +360,7 @@ macro_rules! take_until {
             pub fn $func_name[I]($($param : u8),*)(I) -> I::Range
                 where [
                     I: RangeStream + FullRangeStream,
-                    I::Range: AsRef<[u8]> + ::stream::Range,
+                    I::Range: AsRef<[u8]> + crate::stream::Range,
                 ]
             {
                 take_fn(move |haystack: I::Range| {
@@ -504,7 +457,7 @@ parser! {
 pub fn take_until_bytes['a, I](needle: &'a [u8])(I) -> I::Range
 where [
     I: RangeStream + FullRangeStream,
-    I::Range: AsRef<[u8]> + ::stream::Range,
+    I::Range: AsRef<[u8]> + crate::stream::Range,
 ]
 {
     take_fn(move |haystack: I::Range| {
@@ -535,11 +488,11 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
-    use stream::uncons;
+    use crate::stream::uncons;
 
     use byteorder::{ByteOrder, BE, LE};
 
-    use lib::mem::size_of;
+    use crate::lib::mem::size_of;
 
     macro_rules! integer_parser {
         (
@@ -564,7 +517,7 @@ pub mod num {
                 fn parse_lazy(
                     &mut self,
                     input: &mut Self::Input
-                    ) -> ConsumedResult<Self::Output, Self::Input> {
+                    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
                     let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
                     for elem in &mut *buffer {
                         *elem = ctry!(uncons(input)).0;
@@ -721,9 +674,9 @@ pub mod num {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use stream::buffered::BufferedStream;
-        use stream::state::State;
-        use stream::IteratorStream;
+        use crate::stream::buffered;
+        use crate::stream::state::State;
+        use crate::stream::IteratorStream;
 
         #[test]
         fn no_rangestream() {
@@ -731,7 +684,7 @@ pub mod num {
             LE::write_f64(&mut buf, 123.45);
             assert_eq!(
                 f64::<LE, _>()
-                    .parse(BufferedStream::new(
+                    .parse(buffered::Stream::new(
                         State::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
@@ -740,7 +693,7 @@ pub mod num {
             );
             assert_eq!(
                 le_f64()
-                    .parse(BufferedStream::new(
+                    .parse(buffered::Stream::new(
                         State::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
@@ -751,7 +704,7 @@ pub mod num {
             BE::write_f64(&mut buf, 123.45);
             assert_eq!(
                 be_f64()
-                    .parse(BufferedStream::new(
+                    .parse(buffered::Stream::new(
                         State::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))

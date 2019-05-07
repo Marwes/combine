@@ -26,7 +26,9 @@
 //!                 I::Range,
 //!                 I::Position,
 //!                 StreamError = easy::Error<I::Item, I::Range>
-//!             >
+//!             >,
+//!             I::Item: PartialEq,
+//!             I::Range: PartialEq,
 //!         ]
 //!         {
 //!             many1(letter()).and_then(|word: String| {
@@ -82,9 +84,9 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use error::{FastResult, Info as PrimitiveInfo, StreamError, Tracked};
-use stream::{
-    FullRangeStream, Positioned, RangeStream, RangeStreamOnce, Resetable, StreamErrorFor,
+use crate::error::{ParseResult, Info as PrimitiveInfo, StreamError, Tracked};
+use crate::stream::{
+    FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
     StreamOnce,
 };
 
@@ -265,6 +267,10 @@ where
         Error::Message(Info::Range(token))
     }
 
+    fn is_unexpected_end_of_input(&self) -> bool {
+        *self == Self::end_of_input()
+    }
+
     #[inline]
     fn other<E>(err: E) -> Self
     where
@@ -302,7 +308,7 @@ where
     }
 }
 
-impl<Item, Range, Position> ::error::ParseError<Item, Range, Position> for Error<Item, Range>
+impl<Item, Range, Position> crate::error::ParseError<Item, Range, Position> for Error<Item, Range>
 where
     Item: PartialEq,
     Range: PartialEq,
@@ -342,13 +348,13 @@ where
     #[inline]
     fn into_other<T>(self) -> T
     where
-        T: ::error::ParseError<Item, Range, Position>,
+        T: crate::error::ParseError<Item, Range, Position>,
     {
         T::from_error(Position::default(), StreamError::into_other(self))
     }
 }
 
-impl<Item, Range, Position> ::error::ParseError<Item, Range, Position>
+impl<Item, Range, Position> crate::error::ParseError<Item, Range, Position>
     for Errors<Item, Range, Position>
 where
     Item: PartialEq,
@@ -412,13 +418,15 @@ where
     }
 
     fn is_unexpected_end_of_input(&self) -> bool {
-        self.errors.iter().any(|err| *err == Error::end_of_input())
+        self.errors
+            .iter()
+            .any(StreamError::is_unexpected_end_of_input)
     }
 
     #[inline]
     fn into_other<T>(mut self) -> T
     where
-        T: ::error::ParseError<Item, Range, Position>,
+        T: crate::error::ParseError<Item, Range, Position>,
     {
         match self.errors.pop() {
             Some(err) => T::from_error(self.position, StreamError::into_other(err)),
@@ -516,7 +524,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in unexpected {
-            try!(writeln!(f, "{}", error));
+            r#try!(writeln!(f, "{}", error));
         }
 
         // Then we print out all the things that were expected in a comma separated list
@@ -535,10 +543,10 @@ impl<T, R> Error<T, R> {
                 // Last expected message to be written
                 _ => " or",
             };
-            try!(write!(f, "{} `{}`", s, message));
+            r#try!(write!(f, "{} `{}`", s, message));
         }
         if expected_count != 0 {
-            try!(writeln!(f, ""));
+            r#try!(writeln!(f, ""));
         }
         // If there are any generic messages we print them out last
         let messages = errors.iter().filter(|e| match **e {
@@ -546,7 +554,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in messages {
-            try!(writeln!(f, "{}", error));
+            r#try!(writeln!(f, "{}", error));
         }
         Ok(())
     }
@@ -713,7 +721,7 @@ where
     R: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(writeln!(f, "Parse error at {}", self.position));
+        r#try!(writeln!(f, "Parse error at {}", self.position));
         Error::fmt_errors(&self.errors, f)
     }
 }
@@ -732,23 +740,29 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 #[derive(Copy, Clone, Debug)]
 pub struct Stream<S>(pub S);
 
-impl<S> Resetable for Stream<S>
+impl<S> ResetStream for Stream<S>
 where
-    S: Resetable,
+    S: ResetStream + Positioned,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     type Checkpoint = S::Checkpoint;
 
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()
     }
-    fn reset(&mut self, checkpoint: Self::Checkpoint) {
-        self.0.reset(checkpoint);
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
+        self.0
+            .reset(checkpoint)
+            .map_err(crate::error::ParseError::into_other)
     }
 }
 
 impl<S> StreamOnce for Stream<S>
 where
     S: StreamOnce + Positioned,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     type Item = S::Item;
     type Range = S::Range;
@@ -768,6 +782,8 @@ where
 impl<S> RangeStreamOnce for Stream<S>
 where
     S: RangeStream,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
@@ -783,7 +799,7 @@ where
     }
 
     #[inline]
-    fn uncons_while1<F>(&mut self, f: F) -> FastResult<Self::Range, StreamErrorFor<Self>>
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
     {
@@ -799,6 +815,8 @@ where
 impl<S> Positioned for Stream<S>
 where
     S: StreamOnce + Positioned,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     fn position(&self) -> S::Position {
         self.0.position()
@@ -808,6 +826,8 @@ where
 impl<S> FullRangeStream for Stream<S>
 where
     S: FullRangeStream,
+    S::Item: PartialEq,
+    S::Range: PartialEq,
 {
     fn range(&self) -> Self::Range {
         self.0.range()

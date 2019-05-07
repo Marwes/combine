@@ -1,7 +1,7 @@
 #![cfg(feature = "std")]
 extern crate combine;
 use combine::parser::char::{char, digit, spaces, string};
-use combine::stream::buffered::BufferedStream;
+use combine::stream::buffered;
 use combine::stream::easy::{self, Error};
 use combine::stream::state::State;
 use combine::stream::IteratorStream;
@@ -17,7 +17,7 @@ fn shared_stream_buffer() {
             c
         }
     });
-    let buffer = BufferedStream::new(State::new(IteratorStream::new(text)), 1);
+    let buffer = buffered::Stream::new(State::new(IteratorStream::new(text)), 1);
     let int: &mut Parser<Input = _, Output = _, PartialState = _> =
         &mut many(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = sep_by(int, char(',')).parse(buffer).map(|t| t.0);
@@ -29,7 +29,7 @@ fn shared_stream_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
     // Iterator that can't be cloned
-    let stream = BufferedStream::new(State::new(IteratorStream::new(&mut iter)), 2);
+    let stream = buffered::Stream::new(State::new(IteratorStream::new(&mut iter)), 2);
 
     let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
         attempt(string("apple")),
@@ -46,7 +46,7 @@ fn shared_stream_insufficent_backtrack() {
     let text = "apple,apple,ananas,orangeblah";
     let mut iter = text.chars();
     // Iterator that can't be cloned
-    let stream = BufferedStream::new(easy::Stream(State::new(IteratorStream::new(&mut iter))), 1);
+    let stream = buffered::Stream::new(easy::Stream(State::new(IteratorStream::new(&mut iter))), 1);
 
     let value: &mut Parser<Input = _, Output = _, PartialState = _> = &mut choice([
         attempt(string("apple")),
@@ -73,7 +73,7 @@ fn shared_stream_insufficent_backtrack() {
 #[test]
 fn always_output_end_of_input_after_end_of_input() {
     let text = "10".chars();
-    let buffer = BufferedStream::new(State::new(IteratorStream::new(text)), 1);
+    let buffer = buffered::Stream::new(State::new(IteratorStream::new(text)), 1);
     let int = many1(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = many(spaces().with(int)).parse(buffer).map(|t| t.0);
     assert_eq!(result, Ok(vec![10]));
@@ -82,7 +82,7 @@ fn always_output_end_of_input_after_end_of_input() {
 #[test]
 fn position() {
     let text = "10abc".chars();
-    let stream = BufferedStream::new(State::new(IteratorStream::new(text)), 3);
+    let stream = buffered::Stream::new(State::new(IteratorStream::new(text)), 3);
     assert_eq!(stream.position(), 0);
     let result = many1::<Vec<_>, _>(digit()).parse(stream);
     assert!(result.is_ok());
