@@ -346,14 +346,14 @@ at https://marwes.github.io/2018/02/08/combine-3.html and https://www.reddit.com
 *   Remove depreceated items ([9107342a](https://github.com/Marwes/combine/commit/9107342a89a5efc664bac9c2919a93a992ca6809), breaks [#](https://github.com/Marwes/combine/issues/))
 *   Don't forward tuple parsers to frunk to prevent a performance loss ([7e27c523](https://github.com/Marwes/combine/commit/7e27c523da46828b254ee4fc7c1f9750623e5aff))
 *   Add the correct errors after sequencing has returned EmptyOk ([54fecc62](https://github.com/Marwes/combine/commit/54fecc62938445aae15373a6b1ec7c4419582025), closes [#95](https://github.com/Marwes/combine/issues/95))
-*   Renamed SharedBufferedStream and buffered::Stream to be less confusing ([3add407e](https://github.com/Marwes/combine/commit/3add407eecf886cc72ce05414d58a2b3b19a0bb9), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Renamed SharedBufferedStream and BufferedStream to be less confusing ([3add407e](https://github.com/Marwes/combine/commit/3add407eecf886cc72ce05414d58a2b3b19a0bb9), breaks [#](https://github.com/Marwes/combine/issues/))
 *   Add From<u8> for Info ([4cf8cff6](https://github.com/Marwes/combine/commit/4cf8cff64466519bf2d4a4dc1dcbe8deb449e004))
 *   Make the positions of slice streams harder to misuse ([f50ab9e2](https://github.com/Marwes/combine/commit/f50ab9e2f42ec2465368bfb11a60b2339b699fc4), closes [#104](https://github.com/Marwes/combine/issues/104), breaks [#](https://github.com/Marwes/combine/issues/))
 
 #### Breaking Changes
 
 *   Remove depreceated items ([9107342a](https://github.com/Marwes/combine/commit/9107342a89a5efc664bac9c2919a93a992ca6809), breaks [#](https://github.com/Marwes/combine/issues/))
-*   Renamed SharedBufferedStream and buffered::Stream to be less confusing ([3add407e](https://github.com/Marwes/combine/commit/3add407eecf886cc72ce05414d58a2b3b19a0bb9), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Renamed SharedBufferedStream and BufferedStream to be less confusing ([3add407e](https://github.com/Marwes/combine/commit/3add407eecf886cc72ce05414d58a2b3b19a0bb9), breaks [#](https://github.com/Marwes/combine/issues/))
 *   Remove the old State type and Positioner trait ([ae43f8ae](https://github.com/Marwes/combine/commit/ae43f8ae2b303aca3b5ae9fbb1a87475349f2745), breaks [#](https://github.com/Marwes/combine/issues/))
 *   Teach the choice parser to take tuples ([96da7ee0](https://github.com/Marwes/combine/commit/96da7ee0cf8a112e60747a0be8a4dbd90efbecba), breaks [#](https://github.com/Marwes/combine/issues/))
 *   Add the range_of parser ([7e692086](https://github.com/Marwes/combine/commit/7e69208650f7fdc75279370b193030b09ccdbc7a), closes [#83](https://github.com/Marwes/combine/issues/83), breaks [#](https://github.com/Marwes/combine/issues/))
@@ -465,10 +465,10 @@ at https://marwes.github.io/2018/02/08/combine-3.html and https://www.reddit.com
 *   Avoid storing the position in primitives::uncons_while ([9912507a](https://github.com/Marwes/combine/commit/9912507a80e178737e16d4ff3d19d7a1fee9fbc8))
 *   Calling uncons_range with the same size as is remaining should succeed ([cce6214e](https://github.com/Marwes/combine/commit/cce6214ed4722880881c8c6998e00f4509a22588))
 *   Add Sync to to the Error::Other variant ([22add3ec](https://github.com/Marwes/combine/commit/22add3eca62ff5e6f4d58122a4b366290b1d9385))
-*   Fix positions of buffered::Stream being for the next token ([66eab92a](https://github.com/Marwes/combine/commit/66eab92a7dd63269f48cf0fbd0722a6eeea9135d))
-*   Fix the position handling of buffered::Stream ([f21148b3](https://github.com/Marwes/combine/commit/f21148b3c4c5c6f10d8b6d90ce4a7925596879b3))
+*   Fix positions of BufferedStream being for the next token ([66eab92a](https://github.com/Marwes/combine/commit/66eab92a7dd63269f48cf0fbd0722a6eeea9135d))
+*   Fix the position handling of BufferedStream ([f21148b3](https://github.com/Marwes/combine/commit/f21148b3c4c5c6f10d8b6d90ce4a7925596879b3))
 *   Remove the Positioner bound from Stream::Item an Stream::Range ([fba3f1e7](https://github.com/Marwes/combine/commit/fba3f1e760505305b6a586b6ff5a53eff645e1d1))
-* **buffered_stream:**  buffered::Stream no longer emits the last token after EOF ([6532884c](https://github.com/Marwes/combine/commit/6532884cc16307e1753584dd40b2b59e3daa6267))
+* **buffered_stream:**  BufferedStream no longer emits the last token after EOF ([6532884c](https://github.com/Marwes/combine/commit/6532884cc16307e1753584dd40b2b59e3daa6267))
 * **travis:**
   *  Dont pass the test feature to travis ([382a608d](https://github.com/Marwes/combine/commit/382a608da2851c5cc2d3477025951e9a133732bc))
   *  Add travis_wait so travis does not time out the beta builds ([a3f0792a](https://github.com/Marwes/combine/commit/a3f0792ab347805e3f0ce619997a2c154f5e8c87))
