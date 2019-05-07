@@ -38,7 +38,7 @@ use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use crate::error::ParseResult::*;
-use crate::error::{ParseResult, ParseError, StreamError, Tracked};
+use crate::error::{ParseError, ParseResult, StreamError, Tracked};
 use crate::parser::range::take;
 use crate::stream::{FullRangeStream, StreamOnce};
 use crate::Parser;
@@ -217,109 +217,6 @@ mod regex {
     }
 }
 
-#[cfg(feature = "regex-1")]
-mod regex_1 {
-    pub extern crate combine_regex_1 as regex_1;
-
-    use std::iter::FromIterator;
-
-    pub use self::regex_1::*;
-
-    use super::{find_iter, MatchFind, Regex};
-
-    impl<'t> MatchFind for regex_1::Match<'t> {
-        type Range = &'t str;
-        fn end(&self) -> usize {
-            regex_1::Match::end(self)
-        }
-        fn as_match(&self) -> Self::Range {
-            self.as_str()
-        }
-    }
-
-    impl<'t> MatchFind for regex_1::bytes::Match<'t> {
-        type Range = &'t [u8];
-        fn end(&self) -> usize {
-            regex_1::bytes::Match::end(self)
-        }
-        fn as_match(&self) -> Self::Range {
-            self.as_bytes()
-        }
-    }
-
-    impl<'a> Regex<&'a str> for regex_1::Regex {
-        fn is_match(&self, range: &'a str) -> bool {
-            regex_1::Regex::is_match(self, range)
-        }
-        fn find_iter<F>(&self, range: &'a str) -> (usize, F)
-        where
-            F: FromIterator<&'a str>,
-        {
-            find_iter(regex_1::Regex::find_iter(self, range))
-        }
-        fn captures<F, G>(&self, range: &'a str) -> (usize, G)
-        where
-            F: FromIterator<&'a str>,
-            G: FromIterator<F>,
-        {
-            let mut end = 0;
-            let value = regex_1::Regex::captures_iter(self, range)
-                .map(|captures| {
-                    let mut captures_iter = captures.iter();
-                    // The first group is the match on the entire regex
-                    let first_match = captures_iter.next().unwrap().unwrap();
-                    end = first_match.end();
-                    Some(Some(first_match))
-                        .into_iter()
-                        .chain(captures_iter)
-                        .filter_map(|match_| match_.map(|m| m.as_match()))
-                        .collect()
-                })
-                .collect();
-            (end, value)
-        }
-        fn as_str(&self) -> &str {
-            regex_1::Regex::as_str(self)
-        }
-    }
-
-    impl<'a> Regex<&'a [u8]> for regex_1::bytes::Regex {
-        fn is_match(&self, range: &'a [u8]) -> bool {
-            regex_1::bytes::Regex::is_match(self, range)
-        }
-        fn find_iter<F>(&self, range: &'a [u8]) -> (usize, F)
-        where
-            F: FromIterator<&'a [u8]>,
-        {
-            find_iter(regex_1::bytes::Regex::find_iter(self, range))
-        }
-        fn captures<F, G>(&self, range: &'a [u8]) -> (usize, G)
-        where
-            F: FromIterator<&'a [u8]>,
-            G: FromIterator<F>,
-        {
-            let mut end = 0;
-            let value = regex_1::bytes::Regex::captures_iter(self, range)
-                .map(|captures| {
-                    let mut captures_iter = captures.iter();
-                    // The first group is the match on the entire regex
-                    let first_match = captures_iter.next().unwrap().unwrap();
-                    end = first_match.end();
-                    Some(Some(first_match))
-                        .into_iter()
-                        .chain(captures_iter)
-                        .filter_map(|match_| match_.map(|m| m.as_match()))
-                        .collect()
-                })
-                .collect();
-            (end, value)
-        }
-        fn as_str(&self) -> &str {
-            regex_1::bytes::Regex::as_str(self)
-        }
-    }
-}
-
 pub struct Match<R, I>(R, PhantomData<I>);
 
 impl<'a, R, I> Parser for Match<R, I>
@@ -332,7 +229,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         if self.0.is_match(input.range()) {
             EmptyOk(input.range())
         } else {
@@ -387,7 +287,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -447,7 +350,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, value) = self.0.find_iter(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
@@ -503,7 +409,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
@@ -570,7 +479,10 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    fn parse_lazy(
+        &mut self,
+        input: &mut Self::Input,
+    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
         let (end, value) = self.0.captures(input.range());
         take(end).parse_lazy(input).map(|_| value)
     }
@@ -621,11 +533,11 @@ where
     CapturesMany(regex, PhantomData)
 }
 
-#[cfg(all(test, feature = "regex-1"))]
+#[cfg(test)]
 mod tests {
+    use regex::Regex;
 
     use crate::parser::regex::find;
-    use crate::parser::regex::regex_1::regex_1::Regex;
     use crate::Parser;
 
     #[test]

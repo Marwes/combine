@@ -28,8 +28,7 @@ ascii = { version = "0.9.1", default-features = false }
 byteorder = { version = "1.1.0", default-features = false }
 either = { version = "1", default-features = false }
 unreachable = "1.0.0"
-regex = { version = "0.2.0", optional = true }
-combine-regex-1 = { version = "1", path = "combine-regex-1", optional = true }
+regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 
 [dev-dependencies]
@@ -48,9 +47,7 @@ quick-error = "1.0"
 default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
-# Enables use of regex version 1 in the regex parsers
-regex-1 = ["combine-regex-1"]
-doc = ["regex", "regex-1"]
+doc = ["regex"]
 std = ["memchr/use_std", "either/use_std", "byteorder/std", "ascii/std"]
 
 [[bench]]
