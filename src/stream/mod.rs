@@ -916,9 +916,9 @@ pub struct ReadStream<R> {
 #[cfg(feature = "std")]
 impl<R: Read> StreamOnce for ReadStream<R> {
     type Item = u8;
-    type Range = u8;
+    type Range = &'static [u8];
     type Position = usize;
-    type Error = Errors<u8, u8, usize>;
+    type Error = Errors<Self::Item, Self::Range, usize>;
 
     #[inline]
     fn uncons(&mut self) -> Result<u8, StreamErrorFor<Self>> {
