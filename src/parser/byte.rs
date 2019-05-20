@@ -718,6 +718,8 @@ pub mod num {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stream::{buffered, state::State, ReadStream};
+
     #[test]
     fn memslice_basic() {
         let haystack = b"abc123";
@@ -732,5 +734,15 @@ mod tests {
 
         let haystack3 = b"aaabaaaa";
         assert_eq!(memslice(b"aaaa", haystack3), Some(4));
+    }
+
+    #[test]
+    fn bytes_read_stream() {
+        assert!(bytes(b"abc")
+            .parse(buffered::Stream::new(
+                State::new(ReadStream::new("abc".as_bytes())),
+                1
+            ))
+            .is_ok());
     }
 }
