@@ -7,21 +7,25 @@ use criterion::{black_box, Bencher, Criterion};
 
 use std::fmt;
 
-use combine::range::{range, take_while1};
-use combine::stream::easy;
-use combine::{many, many1, token, ParseError, Parser, RangeStream};
+use combine::{
+    easy, many, one_of,
+    parser::combinator::no_partial,
+    range::{range, take_while1},
+    stream::FullRangeStream,
+    token, ParseError, Parser, RangeStream,
+};
 
 #[derive(Debug)]
 struct Request<'a> {
     method: &'a [u8],
     uri: &'a [u8],
-    version: &'a [u8],
+    version: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Header<'a> {
     name: &'a [u8],
-    value: Vec<&'a [u8]>,
+    value: &'a [u8],
 }
 
 fn is_token(c: u8) -> bool {
@@ -50,68 +54,72 @@ fn is_token(c: u8) -> bool {
     }
 }
 
+fn is_header_value_token(c: u8) -> bool {
+    return c == '\t' as u8 || (c > 31 && c != 127);
+}
+
+fn is_url_token(c: u8) -> bool {
+    c > 0x20 && c < 0x7F
+}
+
 fn is_horizontal_space(c: u8) -> bool {
     c == b' ' || c == b'\t'
 }
-fn is_space(c: u8) -> bool {
-    c == b' '
-}
-fn is_not_space(c: u8) -> bool {
-    c != b' '
-}
-fn is_http_version(c: u8) -> bool {
-    c >= b'0' && c <= b'9' || c == b'.'
-}
 
-fn end_of_line<'a, I>() -> impl Parser<Output = u8, Input = I>
+fn end_of_line<'a, I>() -> impl Parser<Output = (), Input = I> + 'a
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'))
+    range(b"\r\n" as &[u8])
+        .or(range(b"\n" as &[u8]))
+        .map(|_| ())
 }
 
 fn message_header<'a, I>() -> impl Parser<Output = Header<'a>, Input = I>
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I: FullRangeStream<Item = u8, Range = &'a [u8]> + 'a,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let message_header_line = (
+    let header_value = no_partial((
         take_while1(is_horizontal_space),
-        take_while1(|c| c != b'\r' && c != b'\n'),
+        take_while1(is_header_value_token),
         end_of_line(),
-    )
-        .map(|(_, line, _)| line);
+    ))
+    .map(|(_, line, _)| line);
 
-    struct_parser!(Header {
-        name: take_while1(is_token),
-        _: token(b':'),
-        value: many1(message_header_line),
-    })
+    no_partial((take_while1(is_token), token(b':'), header_value))
+        .map(|(name, _, value)| Header { name, value })
 }
 
 fn parse_http_request<'a, I>(input: I) -> Result<((Request<'a>, Vec<Header<'a>>), I), I::Error>
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]>,
+    I: FullRangeStream<Item = u8, Range = &'a [u8]> + 'a,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
+    let http_version = range(&b"HTTP/1."[..]).with(one_of(b"01".iter().cloned()).map(|c| {
+        if c == b'0' {
+            0
+        } else {
+            1
+        }
+    }));
 
-    let request_line = struct_parser!(Request {
+    let request_line = no_partial(struct_parser!(Request {
         method: take_while1(is_token),
-        _: take_while1(is_space),
-        uri: take_while1(is_not_space),
-        _: take_while1(is_space),
+        _: token(b' '),
+        uri: take_while1(is_url_token),
+        _: token(b' '),
         version: http_version,
-    });
+    }));
 
-    let mut request = (
+    let mut request = no_partial((
         request_line,
         end_of_line(),
         many(message_header()),
         end_of_line(),
-    )
-        .map(|(request, _, headers, _)| (request, headers));
+    ))
+    .map(|(request, _, headers, _)| (request, headers));
 
     request.parse(input)
 }
@@ -144,7 +152,7 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
 
 fn http_requests_bench<'a, I>(b: &mut Bencher, buffer: I)
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]> + Clone,
+    I: FullRangeStream<Item = u8, Range = &'a [u8]> + Clone + 'a,
     I::Error: ParseError<I::Item, I::Range, I::Position> + fmt::Debug,
 {
     b.iter(|| {
