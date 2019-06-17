@@ -108,7 +108,7 @@ dependencies = [
 
 [[package]]
 name = "combine"
-version = "4.0.0-alpha.1"
+version = "4.0.0-alpha.2"
 dependencies = [
  "ascii 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
