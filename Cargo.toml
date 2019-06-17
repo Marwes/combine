@@ -32,7 +32,7 @@ regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 
 [dev-dependencies]
-criterion = "0.2"
+criterion = { version = "0.2", default-features = false }
 lazy_static = "1.0"
 
 futures = "0.1"
