@@ -84,7 +84,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use crate::error::{ParseResult, Info as PrimitiveInfo, StreamError, Tracked};
+use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
 use crate::stream::{
     FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
     StreamOnce,
@@ -739,6 +739,12 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Stream<S>(pub S);
+
+impl<S> From<S> for Stream<S> {
+    fn from(stream: S) -> Self {
+        Stream(stream)
+    }
+}
 
 impl<S> ResetStream for Stream<S>
 where

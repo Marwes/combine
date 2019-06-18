@@ -1,3 +1,15 @@
+<a name="4.1.0-alpha.1"></a>
+## 4.0.0-alpha.2 (2019-06-17)
+
+
+#### Features
+
+*   impl Stream* for &mut T ([51e7e2b7](https://github.com/Marwes/combine/commit/51e7e2b736f3b3ab8d9ec9877e2afa8fc31f5207))
+*   Add From<S> for easy::Stream<S> ([8f695cc6](https://github.com/Marwes/combine/commit/8f695cc62268a855c3c3847661f6ffe8308b745e))
+*   Allow ReadStream parsers to use &[u8] in errors ([6b62a857](https://github.com/Marwes/combine/commit/6b62a857f441ab930e2f595aff3e87f992c769b8), closes [#249](https://github.com/Marwes/combine/issues/249))
+
+
+
 <a name="4.0.0-alpha.1"></a>
 ## 4.0.0-alpha.1 (2019-05-07)
 
