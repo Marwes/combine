@@ -795,7 +795,7 @@ macro_rules! dispatch {
         {
             $crate::dispatch_parser_impl!{ Dispatch [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] [] $($expr,)+ }
 
-            fn check_parser<P>(p: P) -> P where P: $crate::Parser { p }
+            fn check_parser<Input, P>(p: P) -> P where P: $crate::Parser<Input>, Input: $crate::Stream { p }
 
             let e = $match_expr;
             let parser = $crate::dispatch_inner!(e [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] []
