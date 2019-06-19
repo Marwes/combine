@@ -7,18 +7,18 @@ use std::{
     str,
 };
 
-use bytes::BytesMut;
+use bytes_0_4::BytesMut;
 
 use futures::{Future, Stream};
 use quick_error::quick_error;
 use quickcheck::quickcheck;
-use tokio_codec::{Decoder, FramedRead};
+use tokio_codec_0_1::{Decoder, FramedRead};
 
 use combine::{
     any,
     combinator::{
-        any_partial_state, any_send_partial_state, attempt, from_str, no_partial, optional,
-        recognize, skip_many1, AnyPartialState, AnySendPartialState,
+        any_partial_state, any_send_partial_state, attempt, from_str, optional, recognize,
+        skip_many1, AnyPartialState, AnySendPartialState,
     },
     count_min_max,
     error::{ParseError, StreamError},
@@ -504,41 +504,6 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(result.unwrap(), sizes);
     }
-}
-
-#[test]
-fn inner_no_partial_test() {
-    let seq = vec![PartialOp::Limited(10)];
-
-    let input = "1\r\n\
-                 abcd\r\n\
-                 123\r\n\
-                 abc\r\n\
-                 1232751\r\n";
-
-    fn easy_stream(bs: &[u8]) -> Result<easy::Stream<&str>, Error> {
-        Ok(str::from_utf8(bs).map(combine::easy::Stream)?)
-    }
-    let parser = no_partial(many1(digit()).map(|s: String| s))
-        .or(many1(letter()))
-        .skip(range(&"\r\n"[..]));
-    let decoder = CombineDecoder::with_converters(
-        input_converter(
-            parser,
-            |input| {
-                str::from_utf8(input)
-                    .map(easy::Stream)
-                    .map(PartialStream)
-                    .map_err(|_| combine::error::UnexpectedParse::Unexpected)
-            },
-            |err| ParseError::into_other(err),
-        ),
-        |err, input| ParseError::into_other::<easy::Errors<_, _, _>>(err).into(),
-    );
-    let result = run_decoder(input, seq, decoder);
-
-    assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
-    assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"]);
 }
 
 #[test]

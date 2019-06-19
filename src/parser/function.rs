@@ -2,9 +2,13 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::{error::ParseResult, stream::Stream, Parser};
+use crate::{
+    error::{ParseResult, StdParseResult},
+    stream::Stream,
+    Parser,
+};
 
-impl<'a, Input: Stream, O> Parser<Input> for FnMut(&mut Input) -> ParseResult<O, Input> + 'a {
+impl<'a, Input: Stream, O> Parser<Input> for FnMut(&mut Input) -> StdParseResult<O, Input> + 'a {
     type Output = O;
     type PartialState = ();
 
@@ -57,7 +61,7 @@ pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 pub fn parser<Input, O, F>(f: F) -> FnParser<Input, F>
 where
     Input: Stream,
-    F: FnMut(&mut Input) -> ParseResult<O, Input>,
+    F: FnMut(&mut Input) -> StdParseResult<O, Input>,
 {
     FnParser(f, PhantomData)
 }
@@ -65,7 +69,7 @@ where
 impl<Input, O, F> Parser<Input> for FnParser<Input, F>
 where
     Input: Stream,
-    F: FnMut(&mut Input) -> ParseResult<O, Input>,
+    F: FnMut(&mut Input) -> StdParseResult<O, Input>,
 {
     type Output = O;
     type PartialState = ();
@@ -76,7 +80,7 @@ where
     }
 }
 
-impl<Input, O> Parser<Input> for fn(&mut Input) -> ParseResult<O, Input>
+impl<Input, O> Parser<Input> for fn(&mut Input) -> StdParseResult<O, Input>
 where
     Input: Stream,
 {
@@ -95,7 +99,7 @@ where
     Input: Stream,
 {
     env: E,
-    parser: fn(E, &mut Input) -> ParseResult<T, Input>,
+    parser: fn(E, &mut Input) -> StdParseResult<T, Input>,
 }
 
 impl<E, Input, T> Clone for EnvParser<E, Input, T>
@@ -164,14 +168,11 @@ where
 #[inline(always)]
 pub fn env_parser<E, Input, O>(
     env: E,
-    parser: fn(E, &mut Input) -> ParseResult<O, Input>,
+    parser: fn(E, &mut Input) -> StdParseResult<O, Input>,
 ) -> EnvParser<E, Input, O>
 where
     E: Clone,
     Input: Stream,
 {
-    EnvParser {
-        env: env,
-        parser: parser,
-    }
+    EnvParser { env, parser }
 }

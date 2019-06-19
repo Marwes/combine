@@ -604,7 +604,7 @@ macro_rules! combine_parser_impl {
             type Output = $output_type;
             type PartialState = $($partial_state)*;
 
-            parse_mode!(Input);
+            $crate::parse_mode!(Input);
             #[inline]
             fn parse_mode_impl<M>(
                 &mut self,
@@ -872,6 +872,7 @@ mod std_tests {
     use super::stream::IteratorStream;
     use super::*;
 
+    use crate::error::StdParseResult;
     use crate::parser::char::{alpha_num, char, digit, letter, spaces, string};
     use crate::stream::easy;
     use crate::stream::state::{SourcePosition, State};
@@ -883,11 +884,13 @@ mod std_tests {
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
-    fn follow<Input>(input: &mut Input) -> ParseResult<(), Input>
+    fn follow<Input>(input: &mut Input) -> StdParseResult<(), Input>
     where
         Input: Stream<Item = char, Error = easy::ParseError<Input>>,
         Input::Position: Default,
-        I::Error: std::fmt::Debug,
+        Input::Error: std::fmt::Debug,
+        Input::Item: PartialEq,
+        Input::Range: PartialEq,
     {
         let before = input.checkpoint();
         match input.uncons() {
@@ -906,12 +909,12 @@ mod std_tests {
         }
     }
 
-    fn integer<'a, Input>(input: &mut Input) -> ParseResult<i64, Input>
+    fn integer<'a, Input>(input: &mut Input) -> StdParseResult<i64, Input>
     where
         Input: Stream<Item = char>,
         Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
     {
-        let (s, input) = many1::<String, _>(digit())
+        let (s, input) = many1::<String, _, _>(digit())
             .expected("integer")
             .parse_stream(input)
             .into_result()?;

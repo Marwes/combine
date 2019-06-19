@@ -4,8 +4,8 @@ use crate::lib::{borrow::BorrowMut, marker::PhantomData, mem};
 
 use crate::{
     combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value},
-    error::{Consumed, ParseError, ParseResult, StreamError, Tracked},
-    parser::{choice::Or, sequence::With, ParseMode},
+    error::{Consumed, ParseError, ParseResult, ResultExt, StdParseResult, StreamError, Tracked},
+    parser::{choice::Or, sequence::With, FirstMode, ParseMode},
     stream::{uncons, Stream, StreamOnce},
     ErrorOffset, Parser,
 };
@@ -310,7 +310,10 @@ where
                 Some(v)
             }
             EmptyErr(_) => {
-                self.input.reset(before);
+                self.state = match self.input.reset(before) {
+                    Err(err) => State::ConsumedErr(err),
+                    Ok(_) => State::EmptyErr,
+                };
                 self.state = State::EmptyErr;
                 None
             }
@@ -577,7 +580,7 @@ where
     type Output = F;
     type PartialState = <Or<
         SepBy1<F, P, S>,
-        FnParser<Input, fn(&mut Input) -> ParseResult<F, Input>>,
+        FnParser<Input, fn(&mut Input) -> StdParseResult<F, Input>>,
     > as Parser<Input>>::PartialState;
 
     parse_mode!(Input);
@@ -762,7 +765,7 @@ where
     type Output = F;
     type PartialState = <Or<
         SepEndBy1<F, P, S>,
-        FnParser<Input, fn(&mut Input) -> ParseResult<F, Input>>,
+        FnParser<Input, fn(&mut Input) -> StdParseResult<F, Input>>,
     > as Parser<Input>>::PartialState;
 
     parse_mode!(Input);
@@ -981,7 +984,7 @@ where
                     return ConsumedErr(err.error);
                 }
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             }
@@ -1043,7 +1046,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             };
@@ -1055,7 +1058,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     break;
                 }
             }
@@ -1124,19 +1127,19 @@ where
             let before = input.checkpoint();
             match self.end.parse_mode(mode, input, end_state).into() {
                 Ok((_, rest)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     return match consumed.merge(rest) {
                         Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
                         Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
                     };
                 }
                 Err(Consumed::Empty(_)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     output.extend(Some(ctry!(uncons(input)).0));
                     consumed = Consumed::Consumed(());
                 }
                 Err(Consumed::Consumed(e)) => {
-                    input.reset(before);
+                    ctry!(input.reset(before).consumed());
                     return ConsumedErr(e.error);
                 }
             };
@@ -1245,7 +1248,11 @@ where
                     let checkpoint = input.checkpoint();
                     match uncons(input) {
                         ConsumedOk(ref c) | EmptyOk(ref c) if *c == self.escape => {
-                            match self.escape_parser.parse_stream_consumed(input) {
+                            match self.escape_parser.parse_consumed_mode(
+                                FirstMode,
+                                input,
+                                &mut Default::default(),
+                            ) {
                                 EmptyOk(_) => {}
                                 ConsumedOk(_) => {
                                     consumed = Consumed::Consumed(());
@@ -1260,7 +1267,7 @@ where
                             return ConsumedErr(err);
                         }
                         _ => {
-                            input.reset(checkpoint);
+                            ctry!(input.reset(checkpoint).consumed());
                             return if consumed.is_empty() {
                                 EmptyOk(())
                             } else {

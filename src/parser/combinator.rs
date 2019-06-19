@@ -7,7 +7,7 @@ use crate::lib::str;
 
 use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
-use crate::stream::{input_at_eof, Positioned, ResetStream, Stream, StreamErrorFor, StreamOnce};
+use crate::stream::{input_at_eof, ResetStream, Stream, StreamErrorFor, StreamOnce};
 use crate::Parser;
 
 use either::Either;
@@ -391,7 +391,12 @@ impl<F, P> Recognize<F, P> {
         before: <Input as ResetStream>::Checkpoint,
         input: &mut Input,
         result: ParseResult<P::Output, <Input as StreamOnce>::Error>,
-    ) -> ParseResult<F, <Input as StreamOnce>::Error> {
+    ) -> ParseResult<F, <Input as StreamOnce>::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream,
+        F: Default + Extend<Input::Item>,
+    {
         match result {
             EmptyOk(_) => {
                 let last_position = input.position();
@@ -1131,13 +1136,13 @@ where
     type Output = O;
     type PartialState = S;
 
-    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         let mut x = None;
         (self.0)(&mut |parser| x = Some(parser.parse_stream(input)));
         x.expect("Parser")
     }
 
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         let mut x = None;
         (self.0)(&mut |parser| x = Some(parser.parse_lazy(input)));
         x.expect("Parser")
@@ -1281,7 +1286,7 @@ where
         mode: M,
         input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ConsumedResult<Self::Output, Input>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {

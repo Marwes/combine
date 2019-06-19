@@ -100,7 +100,7 @@ where
 impl<Input> StreamOnce for Stream<Input>
 where
     Input: StreamOnce + Positioned,
-    Input::Item: Clone + PartialEq,
+    Input::Item: Clone,
 {
     type Item = Input::Item;
     type Range = Input::Range;

@@ -2,7 +2,6 @@
 //! of them.
 use crate::error::{ParseError, ParseResult, ParseResult::*, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
-use crate::stream::ResetStream;
 use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
@@ -37,7 +36,7 @@ macro_rules! choice {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! parse_mode_choice {
-    () => {
+    (Input) => {
         fn parse_partial(
             &mut self,
             input: &mut Input,
@@ -79,6 +78,7 @@ pub trait ChoiceParser<Input: Stream> {
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
+        input: &mut Input,
         state: &mut Self::PartialState,
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
@@ -96,11 +96,12 @@ where
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    parse_mode_choice!();
+    parse_mode_choice!(Input);
     #[inline(always)]
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
+        input: &mut Input,
         state: &mut Self::PartialState,
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
@@ -231,7 +232,7 @@ macro_rules! tuple_choice_parser_inner {
             type Output = Output;
             type PartialState = self::$partial_state<$($id::PartialState),+>;
 
-            parse_mode_choice!();
+            parse_mode_choice!(Input);
             #[inline]
             fn parse_mode_choice<Mode>(
                 &mut self,
@@ -305,7 +306,7 @@ macro_rules! array_choice_parser {
             type Output = P::Output;
             type PartialState = <[P] as ChoiceParser<Input>>::PartialState;
 
-            parse_mode_choice!();
+            parse_mode_choice!(Input);
             #[inline(always)]
             fn parse_mode_choice<M>(
                 &mut self,

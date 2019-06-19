@@ -57,7 +57,7 @@ pub struct Satisfy<Input, P> {
     _marker: PhantomData<Input>,
 }
 
-fn satisfy_impl<Input, P, R>(input: &mut Input, mut predicate: P) -> ParseResult<R, Input>
+fn satisfy_impl<Input, P, R>(input: &mut Input, mut predicate: P) -> ParseResult<R, Input::Error>
 where
     Input: Stream,
     P: FnMut(Input::Item) -> Option<R>,
@@ -640,7 +640,7 @@ where
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<(), Input::Error> {
         let before = input.checkpoint();
         match input.uncons() {
-            Err(ref err) if *err == StreamError::end_of_input() => EmptyOk(()),
+            Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),
             _ => {
                 input.reset(before);
                 EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())

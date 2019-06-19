@@ -304,9 +304,9 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes<'a, 'b, Input>(s: &'static [u8]) -> impl Parser<Input = Input, Output = &'a [u8]>
+pub fn bytes<'a, 'b, Input>(s: &'static [u8]) -> impl Parser<Input, Output = &'a [u8]> + 'b
 where
-    Input: Stream<Item = u8, Range = &'a [u8]>,
+    Input: Stream<Item = u8, Range = &'b [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     bytes_cmp(s, |l: u8, r: u8| l == r)
@@ -333,13 +333,13 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes_cmp<'a, C, Input>(
+pub fn bytes_cmp<'a, 'b, C, Input>(
     s: &'static [u8],
     cmp: C,
-) -> impl Parser<Input = Input, Output = &'a [u8]>
+) -> impl Parser<Input, Output = &'a [u8]> + 'b
 where
     C: FnMut(u8, u8) -> bool,
-    Input: Stream<Item = u8, Range = &'a [u8]>,
+    Input: Stream<Item = u8, Range = &'b [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     tokens_cmp(s.iter().cloned(), cmp)

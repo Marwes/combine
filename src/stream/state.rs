@@ -243,7 +243,7 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 impl<Input, X, S> RangeStreamOnce for State<Input, X>
 where
     Input: RangeStreamOnce,
-    X: ResetStream + RangePositioner<Input::Item, Input::Range>,
+    X: Clone + RangePositioner<Input::Item, Input::Range>,
     S: StreamError<Input::Item, Input::Range>,
     Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
@@ -298,12 +298,15 @@ where
     }
 }
 
-impl<Input, X> ResetStream for State<Input, X>
+impl<Input, X, S> ResetStream for State<Input, X>
 where
     Input: ResetStream,
-    X: ResetStream,
+    X: Clone + Positioner<Input::Item>,
+    S: StreamError<Input::Item, Input::Range>,
+    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
 {
-    type Checkpoint = State<Input::Checkpoint, X::Checkpoint>;
+    type Checkpoint = State<Input::Checkpoint, X>;
     fn checkpoint(&self) -> Self::Checkpoint {
         State {
             input: self.input.checkpoint(),
@@ -324,7 +327,7 @@ where
     E: StreamError<Input::Item, Input::Range>,
     Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = E>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = E>,
-    X: ResetStream + RangePositioner<Input::Item, Input::Range>,
+    X: Clone + RangePositioner<Input::Item, Input::Range>,
 {
     fn range(&self) -> Self::Range {
         self.input.range()

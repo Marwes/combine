@@ -319,7 +319,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string<'a, Input>(s: &'static str) -> impl Parser<Input = Input, Output = &'a str>
+pub fn string<'a, Input>(s: &'static str) -> impl Parser<Input, Output = &'a str>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -342,10 +342,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string_cmp<'a, C, Input>(
-    s: &'static str,
-    cmp: C,
-) -> impl Parser<Input = Input, Output = &'a str>
+pub fn string_cmp<'a, C, Input>(s: &'static str, cmp: C) -> impl Parser<Input, Output = &'a str>
 where
     C: FnMut(char, char) -> bool,
     Input: Stream<Item = char>,

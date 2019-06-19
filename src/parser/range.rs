@@ -12,7 +12,7 @@ use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracke
 use crate::parser::ParseMode;
 use crate::stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
-    Range as StreamRange, RangeStream, RangeStreamOnce, ResetStream, StreamOnce,
+    Range as StreamRange, RangeStream, StreamOnce,
 };
 use crate::Parser;
 
@@ -23,7 +23,7 @@ where
 impl<Input> Parser<Input> for Range<Input>
 where
     Input: RangeStream,
-    Input::Range: PartialEq + ::stream::Range,
+    Input::Range: PartialEq + crate::stream::Range,
 {
     type Output = Input::Range;
     type PartialState = ();
@@ -77,7 +77,7 @@ parser! {
     where [
         P: Parser<Input>,
         Input: RangeStream,
-        <Input as StreamOnce>::Range: ::stream::Range,
+        <Input as StreamOnce>::Range: crate::stream::Range,
     ]
     {
         recognize_with_value(parser).map(|(range, _)| range)
@@ -141,7 +141,7 @@ impl<Input, P> Parser<Input> for RecognizeWithValue<P>
 where
     P: Parser<Input>,
     Input: RangeStream,
-    <Input as StreamOnce>::Range: ::stream::Range,
+    <Input as StreamOnce>::Range: crate::stream::Range,
 {
     type Output = (<Input as StreamOnce>::Range, P::Output);
     type PartialState = (usize, P::PartialState);
@@ -216,7 +216,7 @@ pub fn recognize_with_value<Input, P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser<Input>,
     Input: RangeStream,
-    <Input as StreamOnce>::Range: ::stream::Range,
+    <Input as StreamOnce>::Range: crate::stream::Range,
 {
     RecognizeWithValue(parser)
 }
@@ -297,7 +297,7 @@ pub struct TakeWhile<Input, F>(F, PhantomData<fn(Input) -> Input>);
 impl<Input, F> Parser<Input> for TakeWhile<Input, F>
 where
     Input: RangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
     F: FnMut(Input::Item) -> bool,
 {
     type Output = Input::Range;
@@ -346,7 +346,7 @@ where
 pub fn take_while<Input, F>(f: F) -> TakeWhile<Input, F>
 where
     Input: RangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
     F: FnMut(Input::Item) -> bool,
 {
     TakeWhile(f, PhantomData)
@@ -356,7 +356,7 @@ pub struct TakeWhile1<Input, F>(F, PhantomData<fn(Input) -> Input>);
 impl<Input, F> Parser<Input> for TakeWhile1<Input, F>
 where
     Input: RangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
     F: FnMut(Input::Item) -> bool,
 {
     type Output = Input::Range;
@@ -405,7 +405,7 @@ where
 pub fn take_while1<Input, F>(f: F) -> TakeWhile1<Input, F>
 where
     Input: RangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
     F: FnMut(Input::Item) -> bool,
 {
     TakeWhile1(f, PhantomData)
@@ -417,7 +417,7 @@ where
 impl<Input> Parser<Input> for TakeUntilRange<Input>
 where
     Input: RangeStream,
-    Input::Range: PartialEq + ::stream::Range,
+    Input::Range: PartialEq + crate::stream::Range,
 {
     type Output = Input::Range;
     type PartialState = usize;
