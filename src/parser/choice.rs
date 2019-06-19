@@ -721,12 +721,11 @@ macro_rules! dispatch_parser_impl {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Output, $($id),*> $crate::Parser for $parser_name<$($id),*>
+        impl<Input, Output, $($id),*> $crate::Parser<Input> for $parser_name<$($id),*>
             where
-                $( $id: $crate::Parser<Input = Input, Output = Output>, )*
+                $( $id: $crate::Parser<Input, Output = Output>, )*
                 Input: $crate::Stream,
         {
-            type Input = Input;
             type Output = Output;
             type PartialState = Option<$parser_name<$($id::PartialState),*>>;
 
