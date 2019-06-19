@@ -18,7 +18,7 @@ fn shared_stream_buffer() {
         }
     });
     let buffer = buffered::Stream::new(State::new(IteratorStream::new(text)), 1);
-    let int: &mut Parser< _, Output = _, PartialState = _> =
+    let int: &mut dyn Parser<_, Output = _, PartialState = _> =
         &mut many(digit()).map(|s: String| s.parse::<i64>().unwrap());
     let result = sep_by(int, char(',')).parse(buffer).map(|t| t.0);
     assert_eq!(result, Ok(vec![21, 333, 4, 55]));
@@ -31,7 +31,7 @@ fn shared_stream_backtrack() {
     // Iterator that can't be cloned
     let stream = buffered::Stream::new(State::new(IteratorStream::new(&mut iter)), 2);
 
-    let value: &mut Parser< _, Output = _, PartialState = _> = &mut choice([
+    let value: &mut dyn Parser<_, Output = _, PartialState = _> = &mut choice([
         attempt(string("apple")),
         attempt(string("orange")),
         attempt(string("ananas")),
@@ -48,7 +48,7 @@ fn shared_stream_insufficent_backtrack() {
     // Iterator that can't be cloned
     let stream = buffered::Stream::new(easy::Stream(State::new(IteratorStream::new(&mut iter))), 1);
 
-    let value: &mut Parser< _, Output = _, PartialState = _> = &mut choice([
+    let value: &mut dyn Parser<_, Output = _, PartialState = _> = &mut choice([
         attempt(string("apple")),
         attempt(string("orange")),
         attempt(string("ananas")),
@@ -84,7 +84,7 @@ fn position() {
     let text = "10abc".chars();
     let stream = buffered::Stream::new(State::new(IteratorStream::new(text)), 3);
     assert_eq!(stream.position(), 0);
-    let result = many1::<Vec<_>, _>(digit()).parse(stream);
+    let result = many1::<Vec<_>, _, _>(digit()).parse(stream);
     assert!(result.is_ok());
     assert_eq!(result.unwrap().1.position(), 2);
 }

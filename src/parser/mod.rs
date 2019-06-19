@@ -782,7 +782,7 @@ pub trait Parser<Input: Stream> {
     #[cfg(feature = "std")]
     fn boxed<'a>(
         self,
-    ) -> Box<Parser<Input, Output = Self::Output, PartialState = Self::PartialState> + 'a>
+    ) -> Box<dyn Parser<Input, Output = Self::Output, PartialState = Self::PartialState> + 'a>
     where
         Self: Sized + 'a,
     {

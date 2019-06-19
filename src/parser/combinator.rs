@@ -668,7 +668,7 @@ where
 
 #[cfg(feature = "std")]
 #[derive(Default)]
-pub struct AnyPartialState(Option<Box<::std::any::Any>>);
+pub struct AnyPartialState(Option<Box<dyn std::any::Any>>);
 
 #[cfg(feature = "std")]
 pub struct AnyPartialStateParser<P>(P);
@@ -768,7 +768,7 @@ where
 
 #[cfg(feature = "std")]
 #[derive(Default)]
-pub struct AnySendPartialState(Option<Box<::std::any::Any + Send>>);
+pub struct AnySendPartialState(Option<Box<dyn std::any::Any + Send>>);
 
 #[cfg(feature = "std")]
 pub struct AnySendPartialStateParser<P>(P);
@@ -1131,7 +1131,7 @@ impl<Input, F, O, S> Parser<Input> for Opaque<F, Input, O, S>
 where
     Input: Stream,
     S: Default,
-    F: FnMut(&mut FnMut(&mut Parser<Input, Output = O, PartialState = S>)),
+    F: FnMut(&mut dyn FnMut(&mut dyn Parser<Input, Output = O, PartialState = S>)),
 {
     type Output = O;
     type PartialState = S;
@@ -1182,7 +1182,7 @@ where
 /// Alias over `Opaque` where the function can be a plain function pointer (does not need to
 /// capture any values)
 pub type FnOpaque<Input, O, S = ()> =
-    Opaque<fn(&mut FnMut(&mut Parser<Input, Output = O, PartialState = S>)), Input, O, S>;
+    Opaque<fn(&mut dyn FnMut(&mut dyn Parser<Input, Output = O, PartialState = S>)), Input, O, S>;
 
 /// Creates a parser from a function which takes a function that are given the actual parser.
 /// Though convoluted this makes it possible to hide the concrete parser type without `Box` or
@@ -1240,7 +1240,7 @@ pub fn opaque<Input, F, O, S>(f: F) -> Opaque<F, Input, O, S>
 where
     Input: Stream,
     S: Default,
-    F: FnMut(&mut FnMut(&mut Parser<Input, Output = O, PartialState = S>)),
+    F: FnMut(&mut dyn FnMut(&mut dyn Parser<Input, Output = O, PartialState = S>)),
 {
     Opaque(f, PhantomData)
 }
@@ -1255,7 +1255,9 @@ macro_rules! opaque {
     };
     ($e: expr,) => {
         $crate::parser::combinator::opaque(
-            move |f: &mut FnMut(&mut $crate::Parser<_, Output = _, PartialState = _>)| f(&mut $e),
+            move |f: &mut dyn FnMut(&mut $crate::Parser<_, Output = _, PartialState = _>)| {
+                f(&mut $e)
+            },
         )
     };
 }

@@ -82,7 +82,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use crate::error::{ParseResult, Info as PrimitiveInfo, StreamError, Tracked};
+use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
 use crate::stream::{
     FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
     StreamOnce,
@@ -197,7 +197,7 @@ pub enum Error<T, R> {
     /// Generic message
     Message(Info<T, R>),
     /// Variant for containing other types of errors
-    Other(Box<StdError + Send + Sync>),
+    Other(Box<dyn StdError + Send + Sync>),
 }
 
 impl<Item, Range> StreamError<Item, Range> for Error<Item, Range>

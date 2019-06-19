@@ -1,5 +1,3 @@
-extern crate combine;
-
 use combine::parser::byte::bytes_cmp;
 use combine::parser::char::{digit, letter, string, string_cmp};
 use combine::parser::choice::{choice, optional};
@@ -14,7 +12,7 @@ use combine::{EasyParser, Parser};
 
 #[test]
 fn choice_empty() {
-    let mut parser = choice::<&mut [Token<&str>]>(&mut []);
+    let mut parser = choice::<_, &mut [Token<&str>]>(&mut []);
     let result_err = parser.parse("a");
     assert!(result_err.is_err());
 }
@@ -359,7 +357,7 @@ mod tests_std {
         let mut p1 = char('1');
         let mut p2 = no_partial((optional(char('b')), char('2')).map(|t| t.1));
         let mut parser =
-            choice::<[&mut Parser<_, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
+            choice::<_, [&mut dyn Parser<_, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
@@ -493,7 +491,7 @@ mod tests_std {
             char('|'),
             x,
         ));
-        sequence_many_test!(repeat::many1::<Vec<_>, _>, |l, x| sequence::between(
+        sequence_many_test!(repeat::many1::<Vec<_>, _, _>, |l, x| sequence::between(
             l,
             char('|'),
             x,

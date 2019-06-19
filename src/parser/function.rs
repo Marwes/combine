@@ -8,7 +8,9 @@ use crate::{
     Parser,
 };
 
-impl<'a, Input: Stream, O> Parser<Input> for FnMut(&mut Input) -> StdParseResult<O, Input> + 'a {
+impl<'a, Input: Stream, O> Parser<Input>
+    for dyn FnMut(&mut Input) -> StdParseResult<O, Input> + 'a
+{
     type Output = O;
     type PartialState = ();
 

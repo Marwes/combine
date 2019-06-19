@@ -3,7 +3,7 @@
 use crate::lib::marker::PhantomData;
 
 use crate::{
-    error::{Info, ParseError, ParseResult, StreamError, Tracked},
+    error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked},
     stream::{uncons, Stream, StreamOnce},
     Parser,
 };
@@ -642,7 +642,7 @@ where
         match input.uncons() {
             Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),
             _ => {
-                input.reset(before);
+                ctry!(input.reset(before).consumed());
                 EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
             }
         }

@@ -284,6 +284,7 @@ where
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
 
+parser! {
 /// Parses the bytes `s`.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -304,14 +305,17 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes<'a, 'b, Input>(s: &'static [u8]) -> impl Parser<Input, Output = &'a [u8]> + 'b
-where
+pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
+where [
     Input: Stream<Item = u8, Range = &'b [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+]
 {
     bytes_cmp(s, |l: u8, r: u8| l == r)
 }
+}
 
+parser! {
 /// Parses the bytes `s` using `cmp` to compare each token.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -333,18 +337,18 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes_cmp<'a, 'b, C, Input>(
-    s: &'static [u8],
-    cmp: C,
-) -> impl Parser<Input, Output = &'a [u8]> + 'b
-where
+pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
+where [
     C: FnMut(u8, u8) -> bool,
     Input: Stream<Item = u8, Range = &'b [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+]
 {
+    let s = *s;
     tokens_cmp(s.iter().cloned(), cmp)
         .map(move |_| s)
         .expected(Info::Range(s))
+}
 }
 
 macro_rules! take_until {

@@ -10,7 +10,7 @@ use std::io::{self, Read};
 use combine::error::ParseError;
 use combine::parser::char::{char, digit};
 use combine::stream::state::State;
-use combine::{choice, many, optional, Parser, Stream};
+use combine::{choice, many, optional, EasyParser, Parser, Stream};
 
 #[cfg(feature = "std")]
 use combine::stream::easy;
@@ -55,7 +55,7 @@ pub struct DateTime {
     pub time: Time,
 }
 
-fn two_digits<Input>() -> impl Parser< Input, Output = i32>
+fn two_digits<Input>() -> impl Parser<Input, Output = i32>
 where
     Input: Stream<Item = char>,
     // Necessary due to rust-lang/rust#24159
@@ -73,7 +73,7 @@ where
 /// -06:30
 /// -01
 /// Z
-fn time_zone<Input>() -> impl Parser< Input, Output = i32>
+fn time_zone<Input>() -> impl Parser<Input, Output = i32>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -98,13 +98,13 @@ where
 
 /// Parses a date
 /// 2010-01-30
-fn date<Input>() -> impl Parser< Input, Output = Date>
+fn date<Input>() -> impl Parser<Input, Output = Date>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     (
-        many::<String, _>(digit()),
+        many::<String, _, _>(digit()),
         char('-'),
         two_digits(),
         char('-'),
@@ -122,7 +122,7 @@ where
 
 /// Parses a time
 /// 12:30:02
-fn time<Input>() -> impl Parser< Input, Output = Time>
+fn time<Input>() -> impl Parser<Input, Output = Time>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -148,7 +148,7 @@ where
 
 /// Parses a date time according to ISO8601
 /// 2015-08-02T18:54:42+02
-fn date_time<Input>() -> impl Parser< Input, Output = DateTime>
+fn date_time<Input>() -> impl Parser<Input, Output = DateTime>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,

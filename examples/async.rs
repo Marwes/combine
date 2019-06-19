@@ -1,11 +1,11 @@
 #![cfg(feature = "std")]
 
-extern crate bytes;
+extern crate bytes_0_4 as bytes;
 extern crate combine;
 
 extern crate futures;
 extern crate partial_io;
-extern crate tokio_codec;
+extern crate tokio_codec_0_1 as tokio_codec;
 extern crate tokio_io;
 
 use std::cell::Cell;
@@ -50,7 +50,7 @@ impl LanguageServerDecoder {
 // gets parsed once per message
 fn decode_parser<'a, Input>(
     content_length_parses: Rc<Cell<i32>>,
-) -> impl Parser< Input, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
+) -> impl Parser<Input, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
 where
     Input: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
     // Necessary due to rust-lang/rust#24159
@@ -85,7 +85,7 @@ where
 
 impl Decoder for LanguageServerDecoder {
     type Item = String;
-    type Error = Box<::std::error::Error + Send + Sync>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         println!("Decoding `{:?}`", str::from_utf8(src).unwrap_or("NOT UTF8"));

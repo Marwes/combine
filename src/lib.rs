@@ -85,7 +85,7 @@
 //! [`parser!`] macro can be used. In effect it makes it possible to return a parser without naming
 //! the type of the parser (which can be very large due to combine's trait based approach). While
 //! it is possible to do avoid naming the type without the macro those solutions require either allocation
-//! (`Box<Parser< Input, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
+//! (`Box<dyn Parser< Input, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
 //! macro thus threads the needle and makes it possible to have non-allocating, anonymous parsers
 //! on stable rust.
 //!
@@ -628,7 +628,7 @@ macro_rules! combine_parser_impl {
                 let $type_name { $( $arg : ref mut $arg,)*  .. } = *self;
                 let mut parser = $parser;
                 {
-                    let _: &mut $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                    let _: &mut dyn $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
                 }
                 parser.add_error(errors)
             }
@@ -642,7 +642,7 @@ macro_rules! combine_parser_impl {
                 let $type_name { $( $arg : ref mut $arg,)*  .. } = *self;
                 let mut parser = $parser;
                 {
-                    let _: &mut $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
+                    let _: &mut dyn $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
                 }
                 parser.add_consumed_expected_error(errors)
             }
@@ -701,41 +701,41 @@ macro_rules! forward_parser {
     ($input: ty, parse_lazy $($field: tt)+) => {
         fn parse_lazy(
             &mut self,
-            input: &mut Input,
-        ) -> ParseResult<Self::Output, <Input as $crate::StreamOnce>::Error> {
+            input: &mut $input,
+        ) -> ParseResult<Self::Output, <$input as $crate::StreamOnce>::Error> {
             self.$($field)+.parse_lazy(input)
         }
     };
-    (parse_first $($field: tt)+) => {
+    ($input: ty, parse_first $($field: tt)+) => {
         fn parse_first(
             &mut self,
-            input: &mut Input,
+            input: &mut $input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, <Input as $crate::StreamOnce>::Error> {
+        ) -> ParseResult<Self::Output, <$input as $crate::StreamOnce>::Error> {
             self.$($field)+.parse_first(input, state)
         }
     };
-    (parse_partial $($field: tt)+) => {
+    ($input: ty, parse_partial $($field: tt)+) => {
         fn parse_partial(
             &mut self,
-            input: &mut Input,
+            input: &mut $input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, <Input as $crate::StreamOnce>::Error> {
+        ) -> ParseResult<Self::Output, <$input as $crate::StreamOnce>::Error> {
             self.$($field)+.parse_partial(input, state)
         }
     };
     ($input: ty, add_error $($field: tt)+) => {
 
-        fn add_error(&mut self, error: &mut Tracked<<Input as $crate::StreamOnce>::Error>) {
+        fn add_error(&mut self, error: &mut Tracked<<$input as $crate::StreamOnce>::Error>) {
             self.$($field)+.add_error(error)
         }
     };
-    (add_consumed_expected_error $($field: tt)+) => {
-        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Input as $crate::StreamOnce>::Error>) {
+    ($input: ty, add_consumed_expected_error $($field: tt)+) => {
+        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<$input as $crate::StreamOnce>::Error>) {
             self.$($field)+.add_consumed_expected_error(error)
         }
     };
-    (parser_count $($field: tt)+) => {
+    ($input: ty, parser_count $($field: tt)+) => {
         fn parser_count(&self) -> $crate::ErrorOffset {
             self.$($field)+.parser_count()
         }
@@ -1105,7 +1105,7 @@ mod std_tests {
 
     #[test]
     fn unsized_parser() {
-        let mut parser: Box<Parser<_, Output = char, PartialState = _>> = Box::new(digit());
+        let mut parser: Box<dyn Parser<_, Output = char, PartialState = _>> = Box::new(digit());
         let borrow_parser = &mut *parser;
         assert_eq!(borrow_parser.parse("1"), Ok(('1', "")));
     }
@@ -1131,7 +1131,7 @@ mod std_tests {
         assert!(result.is_err());
         // Test that ParseError can be coerced to a StdError
         let _ = result.map_err(|err| {
-            let err: Box<StdError> = Box::new(err);
+            let err: Box<dyn StdError> = Box::new(err);
             err
         });
     }
@@ -1205,7 +1205,7 @@ mod std_tests {
             let s = format!("{}", err);
             assert!(s.starts_with("Parse error at 0"));
             assert!(s.contains("Expected"));
-            let err: Box<StdError> = Box::new(err);
+            let err: Box<dyn StdError> = Box::new(err);
             err
         });
     }
