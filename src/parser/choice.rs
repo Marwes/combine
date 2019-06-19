@@ -721,12 +721,11 @@ macro_rules! dispatch_parser_impl {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Output, $($id),*> $crate::Parser for $parser_name<$($id),*>
+        impl<Input, Output, $($id),*> $crate::Parser<Input> for $parser_name<$($id),*>
             where
-                $( $id: $crate::Parser<Input = Input, Output = Output>, )*
+                $( $id: $crate::Parser<Input, Output = Output>, )*
                 Input: $crate::Stream,
         {
-            type Input = Input;
             type Output = Output;
             type PartialState = Option<$parser_name<$($id::PartialState),*>>;
 
@@ -796,7 +795,7 @@ macro_rules! dispatch {
         {
             $crate::dispatch_parser_impl!{ Dispatch [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] [] $($expr,)+ }
 
-            fn check_parser<P>(p: P) -> P where P: $crate::Parser { p }
+            fn check_parser<Input, P>(p: P) -> P where P: $crate::Parser<Input>, Input: $crate::Stream { p }
 
             let e = $match_expr;
             let parser = $crate::dispatch_inner!(e [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] []
