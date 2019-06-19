@@ -517,7 +517,6 @@ where [
     R: Parser< Input>,
     P: Parser< Input>,
 ]
-]
 {
     fn middle<T, U, V>((_, x, _): (T, U, V)) -> U {
         x
@@ -709,7 +708,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use parser::{item::any, EasyParser};
+    use crate::parser::{item::any, EasyParser};
 
     #[test]
     fn sequence_single_parser() {

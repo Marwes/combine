@@ -333,7 +333,10 @@ where
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
 #[inline(always)]
-pub fn bytes_cmp<'a, C, Input>(s: &'static [u8], cmp: C) -> impl Parser<Input = Input, Output = &'a [u8]>
+pub fn bytes_cmp<'a, C, Input>(
+    s: &'static [u8],
+    cmp: C,
+) -> impl Parser<Input = Input, Output = &'a [u8]>
 where
     C: FnMut(u8, u8) -> bool,
     Input: Stream<Item = u8, Range = &'a [u8]>,
@@ -454,7 +457,7 @@ parser! {
 pub fn take_until_bytes['a, Input](needle: &'a [u8])(Input) -> Input::Range
 where [
     Input: RangeStream + FullRangeStream,
-    Input::Range: AsRef<[u8]> + ::stream::Range,
+    Input::Range: AsRef<[u8]> + crate::stream::Range,
 ]
 {
     take_fn(move |haystack: Input::Range| {

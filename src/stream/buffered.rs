@@ -33,7 +33,7 @@ where
     buffer: VecDeque<(Input::Item, Input::Position)>,
 }
 
-impl<Input> Resetable for Stream<Input>
+impl<Input> ResetStream for Stream<Input>
 where
     Input: Positioned,
 {
@@ -51,9 +51,9 @@ where
                 StreamErrorFor::<Self>::message_static_message("Backtracked to far".into()),
             ))
         } else {
-        self.offset = checkpoint;
+            self.offset = checkpoint;
             Ok(())
-    }
+        }
     }
 }
 

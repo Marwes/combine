@@ -1,17 +1,15 @@
 //! Parsers constructor from regular functions
 
-use lib::marker::PhantomData;
+use crate::lib::marker::PhantomData;
 
-use error::{ConsumedResult, ParseResult};
-use stream::Stream;
-use Parser;
+use crate::{error::ParseResult, stream::Stream, Parser};
 
 impl<'a, Input: Stream, O> Parser<Input> for FnMut(&mut Input) -> ParseResult<O, Input> + 'a {
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         self(input).into()
     }
 }
@@ -73,7 +71,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         (self.0)(input).into()
     }
 }
@@ -86,7 +84,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         self(input).into()
     }
 }
@@ -122,7 +120,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ConsumedResult<O, Input> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         (self.parser)(self.env.clone(), input).into()
     }
 }

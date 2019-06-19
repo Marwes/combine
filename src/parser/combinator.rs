@@ -175,7 +175,7 @@ where
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let result = self.0.parse_lazy(input);
         ctry!(input.reset(before).consumed());
@@ -591,7 +591,6 @@ where
         self.0.parse_lazy(input)
     }
 
-    parse_mode!();
     parse_mode!(Input);
     #[inline(always)]
     fn parse_mode_impl<M>(
@@ -873,11 +872,11 @@ where
     type Output = O;
     type PartialState = R::PartialState;
 
-    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_stream(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         (self.0)().parse_stream(input)
     }
 
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         (self.0)().parse_lazy(input)
     }
 

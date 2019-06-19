@@ -12,15 +12,14 @@ use crate::error::ParseResult::*;
 pub struct Unexpected<I, T>(Info<I::Item, I::Range>, PhantomData<fn(I) -> (I, T)>)
 where
     I: Stream;
-impl<I, T> Parser for Unexpected<I, T>
+impl<Input, T> Parser<Input> for Unexpected<I, T>
 where
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, <Input as StreamOnce>::Error> {
         EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -92,22 +91,16 @@ where
 }
 
 #[derive(Clone)]
-pub struct Message<P>(
-    P,
-    Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
-)
+pub struct Message<P, I, R>(P, Info<I, R>);
+impl<Input, P> Parser<Input> for Message<P, I::Item, I::Range>
 where
-    P: Parser;
-impl<I, P> Parser for Message<P>
-where
-    I: Stream,
-    P: Parser<Input = I>,
+    Input: Stream,
+    P: Parser<Input>,
 {
-    type Input = I;
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
@@ -145,9 +138,9 @@ where
 ///
 /// [`p1.message(msg)`]: ../parser/trait.Parser.html#method.message
 #[inline(always)]
-pub fn message<P>(
+pub fn message<Input, P>(
     p: P,
-    msg: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
+    msg: Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
 ) -> Message<P>
 where
     P: Parser,
@@ -156,21 +149,15 @@ where
 }
 
 #[derive(Clone)]
-pub struct Expected<P>(
-    P,
-    Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
-)
-where
-    P: Parser;
-impl<P> Parser for Expected<P>
+pub struct Expected<P, I, R>(P, Info<I, R>);
+impl<Input, P> Parser<Input> for Expected<P, Input::Item, Input::Range>
 where
     P: Parser,
 {
-    type Input = P::Input;
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline(always)]
     fn parse_mode_impl<M>(
         &mut self,
@@ -197,29 +184,27 @@ where
 ///
 /// [`p.expected(info)`]: ../parser/trait.Parser.html#method.expected
 #[inline(always)]
-pub fn expected<P>(
+pub fn expected<Input, P>(
     p: P,
-    info: Info<<P::Input as StreamOnce>::Item, <P::Input as StreamOnce>::Range>,
-) -> Expected<P>
+    info: Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
+) -> Expected<P, Input::Item, Input::Range>
 where
     P: Parser,
+    Input: Stream,
 {
     Expected(p, info)
 }
 
 #[derive(Clone)]
-pub struct Silent<P>(P)
-where
-    P: Parser;
-impl<P> Parser for Silent<P>
+pub struct Silent<P>(P);
+impl<Input, P> Parser<Input> for Silent<P>
 where
     P: Parser,
 {
-    type Input = P::Input;
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline(always)]
     fn parse_mode_impl<M>(
         &mut self,
@@ -238,10 +223,7 @@ where
 
     fn add_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
-    fn add_consumed_expected_error(
-        &mut self,
-        _errors: &mut Tracked<<Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {
     }
 
     forward_parser!(parser_count, 0);

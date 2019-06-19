@@ -319,7 +319,7 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string<Input>(s: &'static str) -> impl Parser<Input = Input, Output = &'a str>
+pub fn string<'a, Input>(s: &'static str) -> impl Parser<Input = Input, Output = &'a str>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -342,7 +342,10 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn string_cmp<C, Input>(s: &'static str, cmp: C) -> impl Parser<Input = Input, Output = &'a str>
+pub fn string_cmp<'a, C, Input>(
+    s: &'static str,
+    cmp: C,
+) -> impl Parser<Input = Input, Output = &'a str>
 where
     C: FnMut(char, char) -> bool,
     Input: Stream<Item = char>,
@@ -354,9 +357,14 @@ where
 #[cfg(all(feature = "std", test))]
 mod tests {
     use super::*;
-    use parser::EasyParser;
-    use stream::easy::{Error, Errors};
-    use stream::state::{SourcePosition, State};
+
+    use crate::{
+        parser::EasyParser,
+        stream::{
+            easy::{Error, Errors},
+            state::{SourcePosition, State},
+        },
+    };
 
     #[test]
     fn space_error() {

@@ -2,9 +2,11 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
-use crate::stream::{uncons, Stream, StreamOnce};
-use crate::Parser;
+use crate::{
+    error::{Info, ParseError, ParseResult, StreamError, Tracked},
+    stream::{uncons, Stream, StreamOnce},
+    Parser,
+};
 
 use crate::error::ParseResult::*;
 
@@ -12,21 +14,17 @@ use crate::error::ParseResult::*;
 pub use self::token as item;
 
 #[derive(Copy, Clone)]
-pub struct Any<I>(PhantomData<fn(I) -> I>);
+pub struct Any<Input>(PhantomData<fn(Input) -> Input>);
 
-impl<I> Parser for Any<I>
+impl<Input> Parser<Input> for Any<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
-    type Output = I::Item;
+    type Output = Input::Item;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Input::Item, Input::Error> {
         uncons(input)
     }
 }
@@ -46,52 +44,45 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn any<I>() -> Any<I>
+pub fn any<Input>() -> Any<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
     Any(PhantomData)
 }
 
 #[derive(Copy, Clone)]
-pub struct Satisfy<I, P> {
+pub struct Satisfy<Input, P> {
     predicate: P,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<Input>,
 }
 
-fn satisfy_impl<I, P, R>(
-    input: &mut I,
-    mut predicate: P,
-) -> ParseResult<R, <I as StreamOnce>::Error>
+fn satisfy_impl<Input, P, R>(input: &mut Input, mut predicate: P) -> ParseResult<R, Input>
 where
-    I: Stream,
-    P: FnMut(I::Item) -> Option<R>,
+    Input: Stream,
+    P: FnMut(Input::Item) -> Option<R>,
 {
     let position = input.position();
     match uncons(input) {
         EmptyOk(c) | ConsumedOk(c) => match predicate(c.clone()) {
             Some(c) => ConsumedOk(c),
-            None => EmptyErr(I::Error::empty(position).into()),
+            None => EmptyErr(Input::Error::empty(position).into()),
         },
         EmptyErr(err) => EmptyErr(err),
         ConsumedErr(err) => ConsumedErr(err),
     }
 }
 
-impl<I, P> Parser for Satisfy<I, P>
+impl<Input, P> Parser<Input> for Satisfy<Input, P>
 where
-    I: Stream,
-    P: FnMut(I::Item) -> bool,
+    Input: Stream,
+    P: FnMut(Input::Item) -> bool,
 {
-    type Input = I;
-    type Output = I::Item;
+    type Output = Input::Item;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Self::Output, Input::Error> {
         satisfy_impl(input, |c| {
             if (self.predicate)(c.clone()) {
                 Some(c)
@@ -114,10 +105,10 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn satisfy<I, P>(predicate: P) -> Satisfy<I, P>
+pub fn satisfy<Input, P>(predicate: P) -> Satisfy<Input, P>
 where
-    I: Stream,
-    P: FnMut(I::Item) -> bool,
+    Input: Stream,
+    P: FnMut(Input::Item) -> bool,
 {
     Satisfy {
         predicate: predicate,
@@ -126,24 +117,20 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct SatisfyMap<I, P> {
+pub struct SatisfyMap<Input, P> {
     predicate: P,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<Input>,
 }
 
-impl<I, P, R> Parser for SatisfyMap<I, P>
+impl<Input, P, R> Parser<Input> for SatisfyMap<Input, P>
 where
-    I: Stream,
-    P: FnMut(I::Item) -> Option<R>,
+    Input: Stream,
+    P: FnMut(Input::Item) -> Option<R>,
 {
-    type Input = I;
     type Output = R;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Self::Output, Input::Error> {
         satisfy_impl(input, &mut self.predicate)
     }
 }
@@ -173,10 +160,10 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn satisfy_map<I, P, R>(predicate: P) -> SatisfyMap<I, P>
+pub fn satisfy_map<Input, P, R>(predicate: P) -> SatisfyMap<Input, P>
 where
-    I: Stream,
-    P: FnMut(I::Item) -> Option<R>,
+    Input: Stream,
+    P: FnMut(Input::Item) -> Option<R>,
 {
     SatisfyMap {
         predicate: predicate,
@@ -185,29 +172,25 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct Token<I>
+pub struct Token<Input>
 where
-    I: Stream,
-    I::Item: PartialEq,
+    Input: Stream,
+    Input::Item: PartialEq,
 {
-    c: I::Item,
-    _marker: PhantomData<I>,
+    c: Input::Item,
+    _marker: PhantomData<Input>,
 }
 
-impl<I> Parser for Token<I>
+impl<Input> Parser<Input> for Token<Input>
 where
-    I: Stream,
-    I::Item: PartialEq + Clone,
+    Input: Stream,
+    Input::Item: PartialEq + Clone,
 {
-    type Input = I;
-    type Output = I::Item;
+    type Output = Input::Item;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Input::Item, Input::Error> {
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -228,14 +211,79 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn token<I>(c: I::Item) -> Token<I>
+pub fn token<Input>(c: Input::Item) -> Token<Input>
 where
-    I: Stream,
-    I::Item: PartialEq,
+    Input: Stream,
+    Input::Item: PartialEq,
 {
     Token {
         c: c,
         _marker: PhantomData,
+    }
+}
+
+#[derive(Clone)]
+pub struct Tokens<C, T, Input>
+where
+    Input: Stream,
+{
+    cmp: C,
+    expected: Info<Input::Item, Input::Range>,
+    tokens: T,
+    _marker: PhantomData<Input>,
+}
+
+impl<Input, C, T> Parser<Input> for Tokens<C, T, Input>
+where
+    C: FnMut(T::Item, Input::Item) -> bool,
+    T: Clone + IntoIterator,
+    Input: Stream,
+{
+    type Output = T;
+    type PartialState = ();
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, Input::Error> {
+        let start = input.position();
+        let mut consumed = false;
+        for c in self.tokens.clone() {
+            match crate::stream::uncons(input) {
+                ConsumedOk(other) | EmptyOk(other) => {
+                    if !(self.cmp)(c, other.clone()) {
+                        return if consumed {
+                            let mut errors = <Input as StreamOnce>::Error::from_error(
+                                start,
+                                StreamError::unexpected(Info::Token(other)),
+                            );
+                            errors.add_expected(self.expected.clone());
+                            ConsumedErr(errors)
+                        } else {
+                            EmptyErr(<Input as StreamOnce>::Error::empty(start).into())
+                        };
+                    }
+                    consumed = true;
+                }
+                EmptyErr(mut error) => {
+                    error.error.set_position(start);
+                    return if consumed {
+                        ConsumedErr(error.error)
+                    } else {
+                        EmptyErr(error.into())
+                    };
+                }
+                ConsumedErr(mut error) => {
+                    error.set_position(start);
+                    return ConsumedErr(error);
+                }
+            }
+        }
+        if consumed {
+            ConsumedOk(self.tokens.clone())
+        } else {
+            EmptyOk(self.tokens.clone())
+        }
+    }
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
+        errors.error.add_expected(self.expected.clone());
     }
 }
 
@@ -246,46 +294,65 @@ where
 /// stream and fails otherwise with `expected` used as part of the error.
 ///
 /// ```
+/// # extern crate combine;
 /// # use combine::*;
+/// # use combine::error::Info;
 /// # fn main() {
-/// let result = tokens("abc".chars())
-///     .parse("abc")
+/// use std::ascii::AsciiExt;
+/// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())
+///     .parse("AbC")
 ///     .map(|x| x.0.as_str());
 /// assert_eq!(result, Ok("abc"));
+/// let result = tokens(
+///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
+///     Info::Range(&b"025"[..]),
+///     &b"025"[..]
+/// )
+///     .parse(&b"123"[..])
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(&b"025"[..]));
 /// # }
 /// ```
 #[inline(always)]
-pub fn tokens<T, I>(tokens: T) -> impl Parser<Input = I, Output = T>
+pub fn tokens<C, T, Input>(
+    cmp: C,
+    expected: Info<Input::Item, Input::Range>,
+    tokens: T,
+) -> Tokens<C, T, Input>
 where
+    C: FnMut(T::Item, Input::Item) -> bool,
     T: Clone + IntoIterator,
-    I: Stream,
-    T::Item: PartialEq<I::Item>,
+    Input: Stream,
 {
-    tokens_cmp(tokens, |l, r| l == r)
+    Tokens {
+        cmp: cmp,
+        expected: expected,
+        tokens: tokens,
+        _marker: PhantomData,
+    }
 }
 
 #[derive(Clone)]
-pub struct TokensCmp<C, T, I>
+pub struct TokensCmp<C, T, Input>
 where
-    I: Stream,
+    Input: Stream,
 {
     cmp: C,
     tokens: T,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<Input>,
 }
 
-impl<C, T, I> Parser for TokensCmp<C, T, I>
+impl<Input, C, T> Parser<Input> for TokensCmp<C, T, Input>
 where
-    C: FnMut(T::Item, I::Item) -> bool,
+    C: FnMut(T::Item, Input::Item) -> bool,
     T: Clone + IntoIterator,
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
     type Output = T;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, Input::Error> {
         let start = input.position();
         let mut consumed = false;
         for c in self.tokens.clone() {
@@ -366,26 +433,22 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct Position<I>
+pub struct Position<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
-    _marker: PhantomData<I>,
+    _marker: PhantomData<Input>,
 }
 
-impl<I> Parser for Position<I>
+impl<Input> Parser<Input> for Position<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
-    type Output = I::Position;
+    type Output = Input::Position;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<I::Position, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Input::Position, Input::Error> {
         EmptyOk(input.position())
     }
 }
@@ -406,9 +469,9 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn position<I>() -> Position<I>
+pub fn position<Input>() -> Position<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
     Position {
         _marker: PhantomData,
@@ -416,29 +479,25 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct OneOf<T, I>
+pub struct OneOf<T, Input>
 where
-    I: Stream,
+    Input: Stream,
 {
     tokens: T,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<Input>,
 }
 
-impl<T, I> Parser for OneOf<T, I>
+impl<Input, T> Parser<Input> for OneOf<T, Input>
 where
-    T: Clone + IntoIterator<Item = I::Item>,
-    I: Stream,
-    I::Item: PartialEq,
+    T: Clone + IntoIterator<Item = Input::Item>,
+    Input: Stream,
+    Input::Item: PartialEq,
 {
-    type Input = I;
-    type Output = I::Item;
+    type Output = Input::Item;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Input::Item, Input::Error> {
         satisfy(|c| self.tokens.clone().into_iter().any(|t| t == c)).parse_lazy(input)
     }
 
@@ -461,11 +520,11 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn one_of<T, I>(tokens: T) -> OneOf<T, I>
+pub fn one_of<T, Input>(tokens: T) -> OneOf<T, Input>
 where
     T: Clone + IntoIterator,
-    I: Stream,
-    I::Item: PartialEq<T::Item>,
+    Input: Stream,
+    Input::Item: PartialEq<T::Item>,
 {
     OneOf {
         tokens: tokens,
@@ -474,29 +533,25 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct NoneOf<T, I>
+pub struct NoneOf<T, Input>
 where
-    I: Stream,
+    Input: Stream,
 {
     tokens: T,
-    _marker: PhantomData<I>,
+    _marker: PhantomData<Input>,
 }
 
-impl<T, I> Parser for NoneOf<T, I>
+impl<Input, T> Parser<Input> for NoneOf<T, Input>
 where
-    T: Clone + IntoIterator<Item = I::Item>,
-    I: Stream,
-    I::Item: PartialEq,
+    T: Clone + IntoIterator<Item = Input::Item>,
+    Input: Stream,
+    Input::Item: PartialEq,
 {
-    type Input = I;
-    type Output = I::Item;
+    type Output = Input::Item;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Input,
-    ) -> ParseResult<I::Item, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Input::Item, Input::Error> {
         satisfy(|c| self.tokens.clone().into_iter().all(|t| t != c)).parse_lazy(input)
     }
 }
@@ -524,11 +579,11 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn none_of<T, I>(tokens: T) -> NoneOf<T, I>
+pub fn none_of<T, Input>(tokens: T) -> NoneOf<T, Input>
 where
     T: Clone + IntoIterator,
-    I: Stream,
-    I::Item: PartialEq<T::Item>,
+    Input: Stream,
+    Input::Item: PartialEq<T::Item>,
 {
     NoneOf {
         tokens: tokens,
@@ -537,17 +592,16 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct Value<I, T>(T, PhantomData<fn(I) -> I>);
-impl<I, T> Parser for Value<I, T>
+pub struct Value<Input, T>(T, PhantomData<fn(Input) -> Input>);
+impl<Input, T> Parser<Input> for Value<Input, T>
 where
-    I: Stream,
+    Input: Stream,
     T: Clone,
 {
-    type Input = I;
     type Output = T;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(&mut self, _: &mut Input) -> ParseResult<T, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, _: &mut Input) -> ParseResult<T, Input::Error> {
         EmptyOk(self.0.clone())
     }
 }
@@ -565,31 +619,30 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn value<I, T>(v: T) -> Value<I, T>
+pub fn value<Input, T>(v: T) -> Value<Input, T>
 where
-    I: Stream,
+    Input: Stream,
     T: Clone,
 {
     Value(v, PhantomData)
 }
 
 #[derive(Copy, Clone)]
-pub struct Eof<I>(PhantomData<I>);
-impl<I> Parser for Eof<I>
+pub struct Eof<Input>(PhantomData<Input>);
+impl<Input> Parser<Input> for Eof<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
     type Output = ();
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<(), <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<(), Input::Error> {
         let before = input.checkpoint();
         match input.uncons() {
-            Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),
+            Err(ref err) if *err == StreamError::end_of_input() => EmptyOk(()),
             _ => {
-                ctry!(input.reset(before).consumed());
+                input.reset(before);
                 EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
             }
         }
@@ -620,9 +673,9 @@ where
 /// # }
 /// ```
 #[inline(always)]
-pub fn eof<I>() -> Eof<I>
+pub fn eof<Input>() -> Eof<Input>
 where
-    I: Stream,
+    Input: Stream,
 {
     Eof(PhantomData)
 }

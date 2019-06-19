@@ -775,7 +775,7 @@ pub trait Parser<Input: Stream> {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter(self, input: &mut <Self as Parser>::Input) -> Iter<Self, Self::PartialState, FirstMode>
+    fn iter(self, input: &mut Input) -> Iter<Self, Self::PartialState, FirstMode>
     where
         Self: Parser + Sized,
     {
@@ -808,7 +808,7 @@ pub trait Parser<Input: Stream> {
     fn partial_iter<'a, 's, M>(
         self,
         mode: M,
-        input: &'a mut <Self as Parser>::Input,
+        input: &'a mut Input,
         partial_state: &'s mut Self::PartialState,
     ) -> Iter<'a, Self, &'s mut Self::PartialState, M>
     where
@@ -918,8 +918,7 @@ pub trait Parser<Input: Stream> {
 }
 
 macro_rules! forward_deref {
-    () => {
-        type Input = P::Input;
+    (Input) => {
         type Output = P::Output;
         type PartialState = P::PartialState;
 
@@ -958,19 +957,19 @@ macro_rules! forward_deref {
     }
 }
 
-impl<'a, P> Parser for &'a mut P
+impl<'a, P, Input> Parser<Input> for &'a mut P
 where
-    P: ?Sized + Parser,
+    P: ?Sized + Parser<Input>,
 {
-    forward_deref!();
+    forward_deref!(Input);
 }
 
 #[cfg(feature = "std")]
-impl<P> Parser for Box<P>
+impl<P, Input> Parser<Input> for Box<P>
 where
-    P: ?Sized + Parser,
+    P: ?Sized + Parser<Input>,
 {
-    forward_deref!();
+    forward_deref!(Input);
 }
 
 /// Internal API. May break without a semver bump

@@ -684,8 +684,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::item::any;
-    use parser::EasyParser;
+    use crate::parser::{item::any, EasyParser};
 
     #[test]
     fn choice_single_parser() {

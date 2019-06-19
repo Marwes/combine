@@ -92,11 +92,11 @@ fn parse_partial_range<M, F, G, S, Input>(
     state: S,
     first: F,
     resume: G,
-) -> ConsumedResult<Input::Range, Input>
+) -> ParseResult<Input::Range, Input::Error>
 where
     M: ParseMode,
-    F: FnOnce(&mut Input, S) -> ParseResult<I::Range, <I as StreamOnce>::Error>,
-    G: FnOnce(&mut Input, S) -> ParseResult<I::Range, <I as StreamOnce>::Error>,
+    F: FnOnce(&mut Input, S) -> ParseResult<Input::Range, <Input as StreamOnce>::Error>,
+    G: FnOnce(&mut Input, S) -> ParseResult<Input::Range, <Input as StreamOnce>::Error>,
     Input: RangeStream,
 {
     let before = input.checkpoint();
