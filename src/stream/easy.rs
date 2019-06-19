@@ -738,6 +738,12 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
 #[derive(Copy, Clone, Debug)]
 pub struct Stream<S>(pub S);
 
+impl<S> From<S> for Stream<S> {
+    fn from(stream: S) -> Self {
+        Stream(stream)
+    }
+}
+
 impl<S> ResetStream for Stream<S>
 where
     S: ResetStream + Positioned,

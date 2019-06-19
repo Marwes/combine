@@ -372,6 +372,126 @@ pub trait Range {
     }
 }
 
+impl<'a, I> StreamOnce for &'a mut I
+where
+    I: StreamOnce + ?Sized,
+{
+    type Item = I::Item;
+
+    type Range = I::Range;
+
+    type Position = I::Position;
+
+    type Error = I::Error;
+    fn uncons(&mut self) -> Result<Self::Item, StreamErrorFor<Self>> {
+        (**self).uncons()
+    }
+
+    fn is_partial(&self) -> bool {
+        (**self).is_partial()
+    }
+}
+
+impl<'a, I> Positioned for &'a mut I
+where
+    I: Positioned + ?Sized,
+{
+    #[inline]
+    fn position(&self) -> Self::Position {
+        (**self).position()
+    }
+}
+
+impl<'a, I> ResetStream for &'a mut I
+where
+    I: ResetStream + ?Sized,
+{
+    type Checkpoint = I::Checkpoint;
+
+    fn checkpoint(&self) -> Self::Checkpoint {
+        (**self).checkpoint()
+    }
+
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
+        (**self).reset(checkpoint)
+    }
+}
+
+impl<'a, I> RangeStreamOnce for &'a mut I
+where
+    I: RangeStreamOnce + ?Sized,
+{
+    #[inline]
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        (**self).uncons_while(f)
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        (**self).uncons_while1(f)
+    }
+
+    #[inline]
+    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
+        (**self).uncons_range(size)
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
+        (**self).distance(end)
+    }
+}
+
+impl<'a, I> FullRangeStream for &'a mut I
+where
+    I: FullRangeStream + ?Sized,
+{
+    fn range(&self) -> Self::Range {
+        (**self).range()
+    }
+}
+
+impl<'a, I> Range for &'a mut I
+where
+    I: Range + ?Sized,
+{
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+}
+
+impl<'a> StreamOnce for &'a str {
+    type Item = char;
+    type Range = &'a str;
+    type Position = PointerOffset<str>;
+    type Error = StringStreamError;
+
+    #[inline]
+    fn uncons(&mut self) -> Result<char, StreamErrorFor<Self>> {
+        let mut chars = self.chars();
+        match chars.next() {
+            Some(c) => {
+                *self = chars.as_str();
+                Ok(c)
+            }
+            None => Err(StringStreamError::Eoi),
+        }
+    }
+}
+
+impl<'a> Positioned for &'a str {
+    #[inline(always)]
+    fn position(&self) -> Self::Position {
+        PointerOffset::new(self.as_bytes().position().0)
+    }
+}
+
 fn str_uncons_while<'a, F>(slice: &mut &'a str, mut chars: Chars<'a>, mut f: F) -> &'a str
 where
     F: FnMut(char) -> bool,
@@ -574,32 +694,6 @@ where
 {
     fn range(&self) -> Self::Range {
         self
-    }
-}
-
-impl<'a> Positioned for &'a str {
-    #[inline(always)]
-    fn position(&self) -> Self::Position {
-        PointerOffset::new(self.as_bytes().position().0)
-    }
-}
-
-impl<'a> StreamOnce for &'a str {
-    type Item = char;
-    type Range = &'a str;
-    type Position = PointerOffset<str>;
-    type Error = StringStreamError;
-
-    #[inline]
-    fn uncons(&mut self) -> Result<char, StreamErrorFor<Self>> {
-        let mut chars = self.chars();
-        match chars.next() {
-            Some(c) => {
-                *self = chars.as_str();
-                Ok(c)
-            }
-            None => Err(StringStreamError::Eoi),
-        }
     }
 }
 

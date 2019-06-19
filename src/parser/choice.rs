@@ -682,13 +682,155 @@ where
     Optional(parser)
 }
 
+#[macro_export]
+#[doc(hidden)]
+macro_rules! parse_mode_dispatch {
+    () => {
+        fn parse_partial(
+            &mut self,
+            input: &mut Input,
+            state: &mut Self::PartialState,
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+            self.parse_mode_dispatch($crate::parser::PartialMode::default(), input, state)
+        }
+
+        fn parse_first(
+            &mut self,
+            input: &mut Input,
+            state: &mut Self::PartialState,
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+            self.parse_mode_dispatch($crate::parser::FirstMode, input, state)
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! dispatch_parser_impl {
+    ($parser_name: ident [$first_ident: ident $($id: ident)*] [$($collected_idents: ident)*] $expr: expr, $($rest: expr,)*) => {
+        $crate::dispatch_parser_impl!{ $parser_name [ $($id)* ] [$($collected_idents)* $first_ident] $($rest,)*}
+    };
+    ($parser_name: ident [$($id: ident)*] [$($collected_idents: ident)*]) => {
+        $crate::dispatch_parser_impl!{ $parser_name; $($collected_idents)* }
+    };
+
+    ($parser_name: ident; $($id: ident)*) => {
+        pub enum $parser_name<$($id),*> {
+            $(
+                $id($id),
+            )*
+        }
+
+        #[allow(non_snake_case)]
+        impl<Input, Output, $($id),*> $crate::Parser for $parser_name<$($id),*>
+            where
+                $( $id: $crate::Parser<Input = Input, Output = Output>, )*
+                Input: $crate::Stream,
+        {
+            type Input = Input;
+            type Output = Output;
+            type PartialState = Option<$parser_name<$($id::PartialState),*>>;
+
+            $crate::parse_mode!();
+            fn parse_mode<Mode>(
+                &mut self,
+                mode: Mode,
+                input: &mut Input,
+                state: &mut Self::PartialState,
+            ) -> $crate::error::ParseResult<Self::Output, <Input as $crate::StreamOnce>::Error>
+            where
+                Mode: $crate::parser::ParseMode,
+            {
+                match self {
+                    $(
+                    $parser_name::$id($id) => {
+                        let state = match state {
+                            Some($parser_name::$id(s)) => s,
+                            _ => {
+                                *state = Some($parser_name::$id(Default::default()));
+                                match state {
+                                    Some($parser_name::$id(s)) => s,
+                                    _ => unreachable!(),
+                                }
+                            }
+                        };
+                        $id.parse_mode(mode, input, state)
+                    }
+                    )*
+                }
+            }
+
+            fn add_error(&mut self, error: &mut $crate::error::Tracked<<Input as $crate::StreamOnce>::Error>) {
+                match self {
+                    $(
+                    $parser_name::$id($id) => $id.add_error(error),
+                    )*
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! dispatch_inner {
+    ($expr_ident: ident [$first_ident: ident $($id: ident)*] [$($collected: tt)*] $($pat: pat)|+ => $expr: expr, $($rest_alt: tt)*) => {
+        $crate::dispatch_inner!{ $expr_ident [ $($id)* ] [$($collected)* $first_ident $($pat)|+ => $expr,] $($rest_alt)*}
+    };
+    ($expr_ident: ident [$($id: ident)*] [$($collected: tt)*]) => {
+        $crate::dispatch_inner!{ $expr_ident $($collected)* }
+    };
+    ($expr_ident: ident [$($ident_tt: tt)*]) => {
+        unreachable!()
+    };
+    ($expr_ident: ident $( $ident: ident $($pat: pat)|+ => $expr: expr,)+ ) => {
+        match $expr_ident {
+            $(
+                $($pat)|+ => Dispatch::$ident(check_parser($expr)),
+            )+
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! dispatch {
+    ($match_expr: expr; $( $($pat: pat)|+ => $expr: expr ),+ $(,)? ) => {
+        {
+            $crate::dispatch_parser_impl!{ Dispatch [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] [] $($expr,)+ }
+
+            fn check_parser<P>(p: P) -> P where P: $crate::Parser { p }
+
+            let e = $match_expr;
+            let parser = $crate::dispatch_inner!(e [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] []
+                $(
+                    $($pat)|+ => $expr,
+                )*
+            );
+            parser
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::{item::any, EasyParser};
+    use crate::parser::{
+        item::{any, item},
+        EasyParser,
+    };
 
     #[test]
     fn choice_single_parser() {
         assert!(choice((any(),),).easy_parse("a").is_ok());
+    }
+
+    #[test]
+    fn dispatch() {
+        let mut parser = any.then(|e| {
+            dispatch!(e;
+                'a' => item('a'),
+                'b' => item('b'),
+                _ => item('c')
+            )
+        });
+        assert_eq!(parser.easy_parse("aa"), Ok(('a', "")));
     }
 }
