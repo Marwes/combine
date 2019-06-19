@@ -30,9 +30,6 @@ pub struct SequenceState<T, U> {
     pub state: U,
 }
 
-#[doc(hidden)]
-pub type ParserSequenceState<P> = SequenceState<<P as Parser>::Output, <P as Parser>::PartialState>;
-
 impl<T, U: Default> Default for SequenceState<T, U> {
     fn default() -> Self {
         SequenceState {
@@ -74,20 +71,19 @@ macro_rules! tuple_parser {
 
 
         #[allow(non_snake_case)]
-        impl<Input, $h $(, $id)*> $partial_state<$h $(, $id)*>
-        where Input: Stream,
-              Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
-              $h: Parser<Input=Input>,
-              $($id: Parser<Input=Input>),*
-        {
+        impl<$h $(, $id)*> $partial_state<$h $(, $id)*> {
             #[allow(dead_code)]
-            fn add_errors(
+            fn add_errors<Input>(
                 input: &mut Input,
                 mut err: Tracked<Input::Error>,
                 first_empty_parser: usize,
                 offset: u8,
                 $h: &mut $h $(, $id : &mut $id )*
             ) -> ParseResult<($h::Output, $($id::Output),*), <Input as StreamOnce>::Error>
+                where Input: Stream,
+                      Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+                      $h: Parser<Input>,
+                      $($id: Parser<Input>),*
             {
                 let inner_offset = err.offset;
                 err.offset = ErrorOffset(offset);
@@ -124,20 +120,20 @@ macro_rules! tuple_parser {
         }
 
         #[allow(non_snake_case)]
-        impl <Input: Stream, $h:, $($id:),*> Parser for ($h, $($id),*)
+        impl <Input: Stream, $h:, $($id:),*> Parser<Input> for ($h, $($id),*)
             where Input: Stream,
                   Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
-                  $h: Parser<Input=Input>,
-                  $($id: Parser<Input=Input>),*
+                  $h: Parser<Input>,
+                  $($id: Parser<Input>),*
         {
-            type Input = Input;
+
             type Output = ($h::Output, $($id::Output),*);
             type PartialState = $partial_state<
                 SequenceState<$h::Output, $h::PartialState>
                 $(, SequenceState<$id::Output, $id::PartialState>)*
             >;
 
-            parse_mode!();
+            parse_mode!(Input);
             #[inline]
             fn parse_mode_impl<M>(
                 &mut self,
@@ -409,19 +405,15 @@ macro_rules! struct_parser {
 }
 
 #[derive(Copy, Clone)]
-pub struct With<P1, P2>((Ignore<P1>, P2))
+pub struct With<P1, P2>((Ignore<P1>, P2));
+impl<Input, P1, P2> Parser<Input> for With<P1, P2>
 where
-    P1: Parser,
-    P2: Parser;
-impl<I, P1, P2> Parser for With<P1, P2>
-where
-    I: Stream,
-    P1: Parser<Input = I>,
-    P2: Parser<Input = I>,
+    Input: Stream,
+    P1: Parser<Input>,
+    P2: Parser<Input>,
 {
-    type Input = I;
     type Output = P2::Output;
-    type PartialState = <(Ignore<P1>, P2) as Parser>::PartialState;
+    type PartialState = <(Ignore<P1>, P2) as Parser<Input>>::PartialState;
 
     #[inline]
     fn parse_lazy(
@@ -431,7 +423,7 @@ where
         self.0.parse_lazy(input).map(|(_, b)| b)
     }
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
@@ -445,37 +437,34 @@ where
         self.0.parse_mode(mode, input, state).map(|(_, b)| b)
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p1.with(p2)`].
 ///
 /// [`p1.with(p2)`]: ../parser/trait.Parser.html#method.with
 #[inline(always)]
-pub fn with<P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
+pub fn with<Input, P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
 where
-    P1: Parser,
-    P2: Parser<Input = P1::Input>,
+    Input: Stream,
+    P1: Parser<Input>,
+    P2: Parser<Input>,
 {
     With((ignore(p1), p2))
 }
 
 #[derive(Copy, Clone)]
-pub struct Skip<P1, P2>((P1, Ignore<P2>))
+pub struct Skip<P1, P2>((P1, Ignore<P2>));
+impl<Input, P1, P2> Parser<Input> for Skip<P1, P2>
 where
-    P1: Parser,
-    P2: Parser;
-impl<I, P1, P2> Parser for Skip<P1, P2>
-where
-    I: Stream,
-    P1: Parser<Input = I>,
-    P2: Parser<Input = I>,
+    Input: Stream,
+    P1: Parser<Input>,
+    P2: Parser<Input>,
 {
-    type Input = I;
     type Output = P1::Output;
-    type PartialState = <(P1, Ignore<P2>) as Parser>::PartialState;
+    type PartialState = <(P1, Ignore<P2>) as Parser<Input>>::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
@@ -489,14 +478,15 @@ where
         self.0.parse_mode(mode, input, state).map(|(a, _)| a)
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 #[inline(always)]
-pub fn skip<P1, P2>(p1: P1, p2: P2) -> Skip<P1, P2>
+pub fn skip<Input, P1, P2>(p1: P1, p2: P2) -> Skip<P1, P2>
 where
-    P1: Parser,
-    P2: Parser<Input = P1::Input>,
+    Input: Stream,
+    P1: Parser<Input>,
+    P2: Parser<Input>,
 {
     Skip((p1, ignore(p2)))
 }
@@ -504,7 +494,7 @@ where
 parser! {
     #[derive(Copy, Clone)]
     pub struct Between;
-    type PartialState = <Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output> as Parser>::PartialState;
+    type PartialState = <Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output> as Parser<Input>>::PartialState;
 /// Parses `open` followed by `parser` followed by `close`.
 /// Returns the value of `parser`.
 ///
@@ -520,12 +510,13 @@ parser! {
 /// # }
 /// ```
 #[inline(always)]
-pub fn between[I, L, R, P](open: L, close: R, parser: P)(L::Input) -> P::Output
+pub fn between[Input, L, R, P](open: L, close: R, parser: P)(Input) -> P::Output
 where [
-    I: Stream,
-    L: Parser<Input = I>,
-    R: Parser<Input = I>,
-    P: Parser<Input = I>,
+    Input: Stream,
+    L: Parser< Input>,
+    R: Parser< Input>,
+    P: Parser< Input>,
+]
 ]
 {
     fn middle<T, U, V>((_, x, _): (T, U, V)) -> U {
@@ -537,17 +528,17 @@ where [
 
 #[derive(Copy, Clone)]
 pub struct Then<P, F>(P, F);
-impl<P, N, F> Parser for Then<P, F>
+impl<Input, P, N, F> Parser<Input> for Then<P, F>
 where
+    Input: Stream,
     F: FnMut(P::Output) -> N,
-    P: Parser,
-    N: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    N: Parser<Input>,
 {
-    type Input = N::Input;
     type Output = N::Output;
     type PartialState = (P::PartialState, Option<(bool, N)>, N::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
@@ -617,28 +608,29 @@ where
 ///
 /// [`p.then(f)`]: ../parser/trait.Parser.html#method.then
 #[inline(always)]
-pub fn then<P, F, N>(p: P, f: F) -> Then<P, F>
+pub fn then<Input, P, F, N>(p: P, f: F) -> Then<P, F>
 where
+    Input: Stream,
     F: FnMut(P::Output) -> N,
-    P: Parser,
-    N: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    N: Parser<Input>,
 {
     Then(p, f)
 }
 
 #[derive(Copy, Clone)]
 pub struct ThenPartial<P, F>(P, F);
-impl<P, N, F> Parser for ThenPartial<P, F>
+impl<Input, P, N, F> Parser<Input> for ThenPartial<P, F>
 where
+    Input: Stream,
     F: FnMut(&mut P::Output) -> N,
-    P: Parser,
-    N: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    N: Parser<Input>,
 {
-    type Input = N::Input;
     type Output = N::Output;
     type PartialState = (P::PartialState, Option<(bool, P::Output)>, N::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
@@ -705,19 +697,19 @@ where
 ///
 /// [`p.then_partial(f)`]: ../parser/trait.Parser.html#method.then_partial
 #[inline(always)]
-pub fn then_partial<P, F, N>(p: P, f: F) -> ThenPartial<P, F>
+pub fn then_partial<Input, P, F, N>(p: P, f: F) -> ThenPartial<P, F>
 where
+    Input: Stream,
     F: FnMut(&mut P::Output) -> N,
-    P: Parser,
-    N: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    N: Parser<Input>,
 {
     ThenPartial(p, f)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::parser::item::any;
+    use parser::{item::any, EasyParser};
 
     #[test]
     fn sequence_single_parser() {

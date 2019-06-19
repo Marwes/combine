@@ -242,8 +242,8 @@ where
 }
 
 #[inline]
-pub fn uncons_range<I>(
-    input: &mut I,
+pub fn uncons_range<Input>(
+    input: &mut Input,
     size: usize,
 ) -> ParseResult<Input::Range, <Input as StreamOnce>::Error>
 where

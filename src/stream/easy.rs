@@ -26,9 +26,7 @@
 //!                 Input::Range,
 //!                 Input::Position,
 //!                 StreamError = easy::Error<Input::Item, Input::Range>
-//!             >,
-//!             I::Item: PartialEq,
-//!             I::Range: PartialEq,
+//!             >
 //!         ]
 //!         {
 //!             many1(letter()).and_then(|word: String| {
