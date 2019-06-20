@@ -258,27 +258,24 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct MapInput<P, F>(P, F)
+pub struct MapInput<P, F>(P, F);
+impl<Input, A, B, P, F> Parser<Input> for MapInput<P, F>
 where
-    P: Parser;
-impl<I, A, B, P, F> Parser for MapInput<P, F>
-where
-    I: Stream,
-    P: Parser<Input = I, Output = A>,
-    F: FnMut(A, &mut I) -> B,
+    Input: Stream,
+    P: Parser<Input, Output = A>,
+    F: FnMut(A, &mut Input) -> B,
 {
-    type Input = I;
     type Output = B;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -290,17 +287,18 @@ where
         }
     }
 
-    forward_parser!(add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.map_input(f)`].
 ///
 /// [`p.map_input(f)`]: ../parser/trait.Parser.html#method.map_input
 #[inline(always)]
-pub fn map_input<P, F, B>(p: P, f: F) -> MapInput<P, F>
+pub fn map_input<Input, P, F, B>(p: P, f: F) -> MapInput<P, F>
 where
-    P: Parser,
-    F: FnMut(P::Output, &mut P::Input) -> B,
+    Input: Stream,
+    P: Parser<Input>,
+    F: FnMut(P::Output, &mut Input) -> B,
 {
     MapInput(p, f)
 }

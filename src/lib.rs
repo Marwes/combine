@@ -604,12 +604,12 @@ macro_rules! combine_parser_impl {
             type Output = $output_type;
             type PartialState = $($partial_state)*;
 
-            $crate::parse_mode!(Input);
+            $crate::parse_mode!($input_type);
             #[inline]
             fn parse_mode_impl<M>(
                 &mut self,
                 mode: M,
-                input: &mut Input,
+                input: &mut $input_type,
                 state: &mut Self::PartialState,
                 ) -> $crate::error::ParseResult<$output_type, <$input_type as $crate::stream::StreamOnce>::Error>
             where M: $crate::parser::ParseMode

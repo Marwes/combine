@@ -555,7 +555,7 @@ pub trait Parser<Input: Stream> {
     fn map_input<F, B>(self, f: F) -> MapInput<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output, &mut Self::Input) -> B,
+        F: FnMut(Self::Output, &mut Input) -> B,
     {
         map_input(self, f)
     }
