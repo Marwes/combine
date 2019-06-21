@@ -53,7 +53,7 @@ where
     }
 
     fn is_partial(&self) -> bool {
-        true
+        self.stream.is_partial()
     }
 }
 
