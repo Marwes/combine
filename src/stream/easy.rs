@@ -9,7 +9,7 @@
 //! ```
 //! #[macro_use]
 //! extern crate combine;
-//! use combine::{easy, Parser, Stream, many1};
+//! use combine::{easy, Parser, EasyParser, Stream, many1};
 //! use combine::parser::char::letter;
 //! use combine::stream::StreamErrorFor;
 //! use combine::error::{ParseError, StreamError};
@@ -19,6 +19,7 @@
 //!        fn parser[Input]()(Input) -> String
 //!         where [
 //!             Input: Stream<Item=char, Error = easy::ParseError<Input>>,
+//!             Input::Range: PartialEq,
 //!             // If we want to use the error type explicitly we need to help rustc infer
 //!             // `StreamError` to `easy::Error` (rust-lang/rust#24159)
 //!             Input::Error: ParseError<
@@ -677,7 +678,7 @@ impl<Input, R, P> Errors<Input, R, P> {
     /// Maps all range variants to a new value.
     ///
     /// ```
-    /// use combine::Parser;
+    /// use combine::*;
     /// use combine::parser::range::range;
     /// println!(
     ///     "{}",
