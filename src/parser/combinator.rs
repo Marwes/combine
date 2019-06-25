@@ -1308,19 +1308,25 @@ macro_rules! opaque {
     };
 }
 
-pub struct InputConverter<Input, InputInner, P>
+pub struct InputConverter<InputInner, P, C>
 where
-    Input: Stream,
     InputInner: Stream,
 {
     parser: P,
-    convert: fn(Input) -> Result<InputInner, Input::Error>,
-    convert_error: fn(InputInner::Error) -> Input::Error,
-    _marker: PhantomData<fn(Input, InputInner)>,
+    converter: C,
+    _marker: PhantomData<fn(InputInner)>,
 }
-impl<Input, InputInner, P> Parser<Input> for InputConverter<Input, InputInner, P>
+impl<Input, InputInner, P> Parser<Input>
+    for InputConverter<
+        InputInner,
+        P,
+        (
+            fn(&mut Input) -> Result<InputInner, Input::Error>,
+            fn(&mut Input, InputInner::Error) -> Input::Error,
+        ),
+    >
 where
-    Input: Stream + Clone,
+    Input: Stream,
     InputInner: Stream,
     P: Parser<InputInner>,
 {
@@ -1338,30 +1344,37 @@ where
     where
         M: ParseMode,
     {
-        let mut input_inner = match (self.convert)(input.clone()) {
+        let (convert, convert_error) = self.converter;
+        let mut input_inner = match convert(input) {
             Ok(x) => x,
             Err(err) => return EmptyErr(err.into()),
         };
         self.parser
             .parse_mode(mode, &mut input_inner, state)
-            .map_err(|err| (self.convert_error)(err))
+            .map_err(|err| (convert_error)(input, err))
     }
 }
 
 pub fn input_converter<Input, InputInner, P>(
     parser: P,
-    convert: fn(Input) -> Result<InputInner, Input::Error>,
-    convert_error: fn(InputInner::Error) -> Input::Error,
-) -> InputConverter<Input, InputInner, P>
+    convert: fn(&mut Input) -> Result<InputInner, Input::Error>,
+    convert_error: fn(&mut Input, InputInner::Error) -> Input::Error,
+) -> InputConverter<
+    InputInner,
+    P,
+    (
+        fn(&mut Input) -> Result<InputInner, Input::Error>,
+        fn(&mut Input, InputInner::Error) -> Input::Error,
+    ),
+>
 where
-    Input: Stream + Clone,
+    Input: Stream,
     InputInner: Stream,
     P: Parser<InputInner>,
 {
     InputConverter {
         parser,
-        convert,
-        convert_error,
+        converter: (convert, convert_error),
         _marker: PhantomData,
     }
 }
