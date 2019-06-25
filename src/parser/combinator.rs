@@ -1135,7 +1135,7 @@ type PartialState = P::PartialState;
 /// # use combine::char;
 /// # use combine::*;
 /// # fn main() {
-/// let mut parser = from_str(many1::<String, _>(char::digit()));
+/// let mut parser = from_str(many1::<String, _, _>(char::digit()));
 /// let result = parser.parse("12345\r\n");
 /// assert_eq!(result, Ok((12345i32, "\r\n")));
 ///
@@ -1264,7 +1264,7 @@ pub type FnOpaque<Input, O, S = ()> =
 ///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
 ///         // letting us avoid naming that type
 ///         no_partial(choice((
-///             from_str(many1::<String, _>(digit()))
+///             from_str(many1::<String, _, _>(digit()))
 ///                 .map(Expr::Number),
 ///             (char('('), expr(), char(','), expr(), char(')'))
 ///                 .map(|(_, l, _, r, _)| Expr::Pair(Box::new(l), Box::new(r)))

@@ -225,7 +225,7 @@ where
     }
     /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> ParseResult<O, Input::Error> {
+    pub fn into_result<O>(self, value: O) -> StdParseResult<O, Input> {
         self.into_result_(value).into()
     }
 
@@ -472,7 +472,7 @@ where
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # fn main() {
-/// let result = many1::<Vec<_>, _>(digit())
+/// let result = many1::<Vec<_>, _, _>(digit())
 ///     .parse("A123");
 /// assert!(result.is_err());
 /// # }

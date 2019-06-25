@@ -777,7 +777,7 @@ pub trait Parser<Input: Stream> {
     /// fn test<'input, F>(
     ///     c: char,
     ///     f: F)
-    ///     -> Box<Parser<&'input str, Output = (char, char), PartialState = ()>>
+    ///     -> Box<dyn Parser<&'input str, Output = (char, char), PartialState = ()> + 'input>
     ///     where F: FnMut(char) -> bool + 'static
     /// {
     ///     ::combine::combinator::no_partial((token(c), satisfy(f))).boxed()
@@ -883,7 +883,7 @@ where
     /// # #[macro_use]
     /// # extern crate combine;
     ///
-    /// use combine::{Parser, Stream};
+    /// use combine::*;
     /// use combine::parser::repeat::many1;
     /// use combine::parser::char::letter;
     ///
@@ -892,13 +892,14 @@ where
     /// fn my_parser[Input]()(Input) -> String
     ///     where [Input: Stream<Item=char>]
     /// {
-    ///     many1(letter())
+    ///     many1::<String, _, _>(letter())
     /// }
     /// }
     ///
     /// // Won't compile with `easy_parse` since it is specialized on `&str`
     /// parser!{
     /// fn my_parser2['a]()(&'a str) -> String
+    ///     where [&'a str: Stream<Item = char, Range = &'a str>]
     /// {
     ///     many1(letter())
     /// }

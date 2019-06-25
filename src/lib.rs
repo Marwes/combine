@@ -20,7 +20,7 @@
 //!
 //! ```rust
 //! extern crate combine;
-//! use combine::Parser;
+//! use combine::{Parser, EasyParser};
 //! use combine::stream::state::State;
 //! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
@@ -58,7 +58,7 @@
 //! ```
 //! extern crate combine;
 //! use combine::parser::char::{spaces, digit, char};
-//! use combine::{many1, sep_by, Parser};
+//! use combine::{many1, sep_by, Parser, EasyParser};
 //! use combine::stream::easy;
 //!
 //! fn main() {
@@ -93,7 +93,7 @@
 //! #[macro_use]
 //! extern crate combine;
 //! use combine::parser::char::{char, letter, spaces};
-//! use combine::{between, choice, many1, parser, sep_by, Parser};
+//! use combine::{between, choice, many1, parser, sep_by, Parser, EasyParser};
 //! use combine::error::{ParseError, StdParseResult};
 //! use combine::stream::{Stream, Positioned};
 //! use combine::stream::state::State;
@@ -259,7 +259,7 @@ macro_rules! impl_token_parser {
 /// #[macro_use]
 /// extern crate combine;
 /// use combine::parser::char::digit;
-/// use combine::{any, choice, from_str, many1, Parser, Stream};
+/// use combine::{any, choice, from_str, many1, Parser, EasyParser, Stream};
 /// use combine::error::ParseError;
 ///
 /// parser!{
@@ -308,7 +308,7 @@ macro_rules! impl_token_parser {
 ///     // Give the created type a unique name
 ///     #[derive(Clone)]
 ///     pub struct Twice;
-///     pub fn twice[F, P](f: F)(Input) -> (P::Output, P::Output)
+///     pub fn twice[Input, F, P](f: F)(Input) -> (P::Output, P::Output)
 ///         where [P: Parser<Input>,
 ///                F: FnMut() -> P]
 ///     {

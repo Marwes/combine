@@ -57,7 +57,7 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// ```
 /// # #![cfg(feature = "std")]
 /// # extern crate combine;
-/// # use combine::{token, Parser};
+/// # use combine::*;
 /// # use combine::stream::easy;
 /// # use combine::stream::state::State;
 /// # fn main() {
