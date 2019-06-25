@@ -823,7 +823,7 @@ mod tests {
 
     #[test]
     fn dispatch() {
-        let mut parser = any.then(|e| {
+        let mut parser = any().then(|e| {
             dispatch!(e;
                 'a' => item('a'),
                 'b' => item('b'),
