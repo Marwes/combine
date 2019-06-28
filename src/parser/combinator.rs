@@ -1312,16 +1312,16 @@ pub struct InputConverter<InputInner, P, C>
 where
     InputInner: Stream,
 {
-    parser: P,
-    converter: C,
-    _marker: PhantomData<fn(InputInner)>,
+    pub parser: P,
+    pub converter: C,
+    pub _marker: PhantomData<fn(InputInner)>,
 }
 impl<Input, InputInner, P, C> Parser<Input> for InputConverter<InputInner, P, C>
 where
     Input: Stream,
     InputInner: Stream,
     P: Parser<InputInner>,
-    for<'a> C: Converter<'a, Input, InputInner>,
+    for<'c> C: Converter<'c, Input, InputInner = InputInner>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -1347,16 +1347,20 @@ where
     }
 }
 
-pub trait Converter<'a, Input, InputInner>
+pub trait Converter<'a, Input>
 where
     Input: Stream,
-    InputInner: Stream + 'a,
 {
-    fn convert(&mut self, input: &'a mut Input) -> Result<InputInner, Input::Error>;
-    fn convert_error(&mut self, input: &'a mut Input, error: InputInner::Error) -> Input::Error;
+    type InputInner: Stream + 'a;
+    fn convert(&mut self, input: &'a mut Input) -> Result<Self::InputInner, Input::Error>;
+    fn convert_error(
+        &mut self,
+        input: &'a mut Input,
+        error: <Self::InputInner as StreamOnce>::Error,
+    ) -> Input::Error;
 }
 
-impl<'a, Input, InputInner> Converter<'a, Input, InputInner>
+impl<'a, Input, InputInner> Converter<'a, Input>
     for (
         fn(&'a mut Input) -> Result<InputInner, Input::Error>,
         fn(&'a mut Input, InputInner::Error) -> Input::Error,
@@ -1365,6 +1369,7 @@ where
     Input: Stream,
     InputInner: Stream + 'a,
 {
+    type InputInner = InputInner;
     fn convert(&mut self, input: &'a mut Input) -> Result<InputInner, Input::Error> {
         (self.0)(input)
     }
@@ -1373,26 +1378,19 @@ where
     }
 }
 
-pub fn input_converter<'a, Input, InputInner, P>(
+pub fn input_converter<Input, InputInner, P, C>(
     parser: P,
-    convert: fn(&'a mut Input) -> Result<InputInner, Input::Error>,
-    convert_error: fn(&'a mut Input, InputInner::Error) -> Input::Error,
-) -> InputConverter<
-    InputInner,
-    P,
-    (
-        fn(&'a mut Input) -> Result<InputInner, Input::Error>,
-        fn(&'a mut Input, InputInner::Error) -> Input::Error,
-    ),
->
+    converter: C,
+) -> InputConverter<InputInner, P, C>
 where
     Input: Stream,
-    InputInner: Stream + 'a,
+    InputInner: Stream,
     P: Parser<InputInner>,
+    for<'c> C: Converter<'c, Input, InputInner = InputInner>,
 {
     InputConverter {
         parser,
-        converter: (convert, convert_error),
+        converter,
         _marker: PhantomData,
     }
 }

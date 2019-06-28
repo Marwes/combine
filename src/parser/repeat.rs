@@ -1330,3 +1330,110 @@ where
         escape_parser,
     }
 }
+
+pub struct Iterate<F, I, P> {
+    parser: P,
+    iterable: I,
+    _marker: PhantomData<fn() -> F>,
+}
+impl<'s, 'a, P, Q, I, J, F> Parser<I> for Iterate<F, J, P>
+where
+    P: FnMut(&J::Item) -> Q,
+    Q: Parser<I>,
+    I: Stream,
+    J: IntoIterator + Clone,
+    F: Extend<Q::Output> + Default,
+{
+    type Output = F;
+    type PartialState = (
+        Option<std::iter::Peekable<J::IntoIter>>,
+        bool,
+        F,
+        Q::PartialState,
+    );
+
+    parse_mode!(I);
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut I,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, I::Error>
+    where
+        M: ParseMode,
+    {
+        let (opt_iter, consumed, buf, next) = state;
+        let iter = match opt_iter {
+            Some(iter) => iter,
+            None => {
+                *opt_iter = Some(self.iterable.clone().into_iter().peekable());
+                opt_iter.as_mut().unwrap()
+            }
+        };
+
+        while let Some(elem) = iter.peek() {
+            let mut parser = (self.parser)(elem);
+            let before = input.checkpoint();
+            match parser.parse_mode(mode, input, next) {
+                EmptyOk(v) => {
+                    mode.set_first();
+                    buf.extend(Some(v));
+                }
+                ConsumedOk(v) => {
+                    mode.set_first();
+                    *consumed = true;
+                    buf.extend(Some(v));
+                }
+                EmptyErr(err) => {
+                    match input.reset(before) {
+                        Err(err) => return ConsumedErr(err),
+                        Ok(_) => (),
+                    };
+                    return if *consumed {
+                        ConsumedErr(err.error)
+                    } else {
+                        EmptyErr(err)
+                    };
+                }
+                ConsumedErr(err) => return ConsumedErr(err),
+            }
+            iter.next();
+        }
+
+        opt_iter.take();
+
+        let value = mem::replace(buf, F::default());
+        if *consumed {
+            *consumed = false;
+            ConsumedOk(value)
+        } else {
+            EmptyOk(value)
+        }
+    }
+}
+
+///
+/// ```
+/// # use combine::parser::repeat::{count_min_max, iterate};
+/// # use combine::*;
+///
+/// assert_eq!(
+///     iterate(0..3, |&i| count_min_max(i, i, any())).parse("abbccc"),
+///     Ok((vec!["".to_string(), "a".to_string(), "bb".to_string()], "ccc")),
+/// );
+/// ```
+pub fn iterate<F, J, P, I, Q>(iterable: J, parser: P) -> Iterate<F, J, P>
+where
+    P: FnMut(&J::Item) -> Q,
+    Q: Parser<I>,
+    I: Stream,
+    J: IntoIterator + Clone,
+    F: Extend<Q::Output> + Default,
+{
+    Iterate {
+        parser,
+        iterable,
+        _marker: PhantomData,
+    }
+}
