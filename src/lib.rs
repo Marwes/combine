@@ -334,209 +334,77 @@ macro_rules! impl_token_parser {
 #[macro_export]
 macro_rules! parser {
     (
+        type PartialState = $partial_state: ty;
         $(#[$attr:meta])*
-        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-        $parser: block
-    ) => {
-        parser!{
-            $(#[$attr])*
-            pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
-                where []
-            $parser
-        }
-    };
-    (
-        $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-        $parser: block
-    ) => {
-        parser!{
-            $(#[$attr])*
-            fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
-                where []
-            $parser
-        }
-    };
-    (
-        $(#[$attr:meta])*
-        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+        $fn_vis: vis fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
         $crate::combine_parser_impl!{
-            (pub)
-            struct $name;
-            type PartialState = (());
+            #[allow(non_camel_case_types)]
+            #[doc(hidden)]
+            $fn_vis struct $name;
+            (type PartialState = ($partial_state);)
             $(#[$attr])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
-                where [$($where_clause)*]
-            $parser
-        }
-    };
-    (
-        $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
-            ($input_type: ty) -> $output_type: ty
-            where [$($where_clause: tt)*]
-        $parser: block
-    ) => {
-        $crate::combine_parser_impl!{
-            ()
-            struct $name;
-            type PartialState = (());
-            $(#[$attr])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            $fn_vis fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             $parser
         }
     };
     (
         $(#[$derive:meta])*
-        pub struct $type_name: ident;
+        $struct_vis: vis struct $type_name: ident;
+        type PartialState = $partial_state: ty;
         $(#[$attr:meta])*
-        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
+        $fn_vis: vis fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
         $crate::combine_parser_impl!{
-            (pub)
             $(#[$derive])*
-            struct $type_name;
-            type PartialState = (());
+            $struct_vis struct $type_name;
+            (type PartialState = ($partial_state);)
             $(#[$attr])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            $fn_vis fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+                where [$($where_clause)*]
+            $parser
+        }
+    };
+    (
+        $(#[$attr:meta])*
+        $fn_vis: vis fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+            ($input_type: ty) -> $output_type: ty
+            where [$($where_clause: tt)*]
+        $parser: block
+    ) => {
+        $crate::combine_parser_impl!{
+            #[allow(non_camel_case_types)]
+            #[doc(hidden)]
+            $fn_vis struct $name;
+            (type PartialState = (());)
+            $(#[$attr])*
+            $fn_vis fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             $parser
         }
     };
     (
         $(#[$derive:meta])*
-        struct $type_name: ident;
+        $struct_vis: vis struct $type_name: ident;
         $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+        $fn_vis: vis fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
         $crate::combine_parser_impl!{
-            ()
             $(#[$derive])*
-            struct $type_name;
-            type PartialState = (());
-            $(#[$attr:meta])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
-                where [$($where_clause)*]
-            $parser
-        }
-    };
-    (
-        type PartialState = $partial_state: ty;
-        $(#[$attr:meta])*
-        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-            $parser: block
-    ) => {
-        parser!{
-            type PartialState = $partial_state;
+            $struct_vis struct $type_name;
+            (type PartialState = (());)
             $(#[$attr])*
-            pub fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
-                where []
-            $parser
-        }
-    };
-    (
-        type PartialState = $partial_state: ty;
-        $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-            $parser: block
-    ) => {
-        parser!{
-            type PartialState = $partial_state;
-            $(#[$attr])*
-            fn $name [$($type_params)*]( $($arg : $arg_type),* )($input_type) -> $output_type
-                where []
-            $parser
-        }
-    };
-    (
-        type PartialState = $partial_state: ty;
-        $(#[$attr:meta])*
-        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-            where [$($where_clause: tt)*]
-        $parser: block
-    ) => {
-        $crate::combine_parser_impl!{
-            (pub)
-            struct $name;
-            type PartialState = ($partial_state);
-            $(#[$attr])*
-            pub fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
-                where [$($where_clause)*]
-            $parser
-        }
-    };
-    (
-        type PartialState = $partial_state: ty;
-        $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
-            ($input_type: ty) -> $output_type: ty
-            where [$($where_clause: tt)*]
-        $parser: block
-    ) => {
-        $crate::combine_parser_impl!{
-            ()
-            struct $name;
-            type PartialState = ($partial_state);
-            $(#[$attr])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
-                where [$($where_clause)*]
-            $parser
-        }
-    };
-    (
-        $(#[$derive:meta])*
-        pub struct $type_name: ident;
-        type PartialState = $partial_state: ty;
-        $(#[$attr:meta])*
-        pub fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),* )
-            ($input_type: ty) -> $output_type: ty
-            where [$($where_clause: tt)*]
-        $parser: block
-    ) => {
-        $crate::combine_parser_impl!{
-            (pub)
-            $(#[$derive])*
-            struct $type_name;
-            type PartialState = ($partial_state);
-            $(#[$attr])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
-                where [$($where_clause)*]
-            $parser
-        }
-    };
-    (
-        $(#[$derive:meta])*
-        struct $type_name: ident;
-        type PartialState = $partial_state: ty;
-        $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
-            ($input_type: ty) -> $output_type: ty
-            where [$($where_clause: tt)*]
-        $parser: block
-    ) => {
-        $crate::combine_parser_impl!{
-            ()
-            $(#[$derive])*
-            struct $type_name;
-            type PartialState = ($partial_state);
-            $(#[$attr:meta])*
-            fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
+            $fn_vis fn $name [$($type_params)*]($($arg : $arg_type),*)($input_type) -> $output_type
                 where [$($where_clause)*]
             $parser
         }
@@ -561,20 +429,18 @@ macro_rules! combine_parse_partial {
 #[macro_export]
 macro_rules! combine_parser_impl {
     (
-        ( $($pub_: tt)* )
         $(#[$derive:meta])*
-        struct $type_name: ident;
-        type PartialState = ($($partial_state: tt)*);
+        $struct_vis: vis struct $type_name: ident;
+        (type PartialState = ($($partial_state: tt)*);)
         $(#[$attr:meta])*
-        fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
+        $fn_vis: vis fn $name: ident [$($type_params: tt)*]( $($arg: ident :  $arg_type: ty),*)
             ($input_type: ty) -> $output_type: ty
             where [$($where_clause: tt)*]
         $parser: block
     ) => {
 
         $(#[$derive])*
-        #[allow(non_camel_case_types)]
-        $($pub_)* struct $type_name<$($type_params)*>
+        $struct_vis struct $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
                 $crate::error::ParseError<
                     <$input_type as $crate::stream::StreamOnce>::Item,
@@ -650,7 +516,7 @@ macro_rules! combine_parser_impl {
 
         $(#[$attr])*
         #[inline(always)]
-        $($pub_)* fn $name< $($type_params)* >(
+        $fn_vis fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
             ) -> $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
