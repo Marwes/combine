@@ -1338,7 +1338,7 @@ pub struct Iterate<F, I, P> {
 }
 impl<'s, 'a, P, Q, I, J, F> Parser<I> for Iterate<F, J, P>
 where
-    P: FnMut(&J::Item) -> Q,
+    P: FnMut(&J::Item, &mut I) -> Q,
     Q: Parser<I>,
     I: Stream,
     J: IntoIterator + Clone,
@@ -1373,7 +1373,7 @@ where
         };
 
         while let Some(elem) = iter.peek() {
-            let mut parser = (self.parser)(elem);
+            let mut parser = (self.parser)(elem, input);
             let before = input.checkpoint();
             match parser.parse_mode(mode, input, next) {
                 EmptyOk(v) => {
@@ -1419,13 +1419,13 @@ where
 /// # use combine::*;
 ///
 /// assert_eq!(
-///     iterate(0..3, |&i| count_min_max(i, i, any())).parse("abbccc"),
+///     iterate(0..3, |&i, _| count_min_max(i, i, any())).parse("abbccc"),
 ///     Ok((vec!["".to_string(), "a".to_string(), "bb".to_string()], "ccc")),
 /// );
 /// ```
 pub fn iterate<F, J, P, I, Q>(iterable: J, parser: P) -> Iterate<F, J, P>
 where
-    P: FnMut(&J::Item) -> Q,
+    P: FnMut(&J::Item, &mut I) -> Q,
     Q: Parser<I>,
     I: Stream,
     J: IntoIterator + Clone,
