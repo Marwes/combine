@@ -987,15 +987,15 @@ where
 #[derive(Copy, Clone)]
 pub struct Factory<P, R>(P, Option<R>);
 
-impl<P, R> Factory<P, R>
-where
-    P: FnMut() -> R,
-{
-    fn parser(&mut self) -> &mut R {
+impl<P, R> Factory<P, R> {
+    fn parser<Input>(&mut self, input: &mut Input) -> &mut R
+    where
+        P: FnMut(&mut Input) -> R,
+    {
         if let Some(ref mut r) = self.1 {
             return r;
         }
-        self.1 = Some((self.0)());
+        self.1 = Some((self.0)(input));
         self.1.as_mut().unwrap()
     }
 }
@@ -1003,7 +1003,7 @@ where
 impl<Input, O, P, R> Parser<Input> for Factory<P, R>
 where
     Input: Stream,
-    P: FnMut() -> R,
+    P: FnMut(&mut Input) -> R,
     R: Parser<Input, Output = O>,
 {
     type Output = O;
@@ -1025,21 +1025,25 @@ where
         if mode.is_first() {
             self.1 = None;
         }
-        self.parser().parse_mode_impl(mode, input, state)
+        self.parser(input).parse_mode_impl(mode, input, state)
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        self.parser().add_error(errors);
+        if let Some(parser) = &mut self.1 {
+            parser.add_error(errors);
+        }
     }
 
     fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        self.parser().add_consumed_expected_error(errors);
+        if let Some(parser) = &mut self.1 {
+            parser.add_consumed_expected_error(errors);
+        }
     }
 }
 
 /// Constructs the parser lazily on each `parse_*` call. This is similar to [`lazy`][] but it
-/// allows different parsers to be returned on each call to `p` while still reporting the correct
-/// errors.
+/// takes `Input` as an argument and allows different parsers to be returned on each call to
+/// `p` while still reporting the correct errors.
 ///
 /// [`lazy`]: fn.lazy.html
 ///
@@ -1050,14 +1054,14 @@ where
 ///
 /// let mut parsers: Vec<FnOpaque<_, _>> = vec![opaque(|f| f(&mut digit())), opaque(|f| f(&mut letter()))];
 /// let mut iter = parsers.into_iter().cycle();
-/// let mut parser = many(factory(move || iter.next().unwrap()));
+/// let mut parser = many(factory(move |_| iter.next().unwrap()));
 /// assert_eq!(parser.parse("1a2b3cd"), Ok(("1a2b3c".to_string(), "d")));
 /// ```
 #[inline(always)]
 pub fn factory<Input, P, R>(p: P) -> Factory<P, R>
 where
     Input: Stream,
-    P: FnMut() -> R,
+    P: FnMut(&mut Input) -> R,
     R: Parser<Input>,
 {
     Factory(p, None)
