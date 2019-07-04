@@ -91,11 +91,12 @@ where
 }
 
 #[derive(Clone)]
-pub struct Message<P, I, R>(P, Info<I, R>);
-impl<Input, P> Parser<Input> for Message<P, Input::Item, Input::Range>
+pub struct Message<P, S>(P, S);
+impl<Input, P, S> Parser<Input> for Message<P, S>
 where
     Input: Stream,
     P: Parser<Input>,
+    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -117,7 +118,7 @@ where
 
             // The message should always be added even if some input was consumed before failing
             ConsumedErr(mut err) => {
-                err.add_message(self.1.clone());
+                err.add_message(self.1.clone().into());
                 ConsumedErr(err)
             }
 
@@ -128,7 +129,7 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors);
-        errors.error.add_message(self.1.clone());
+        errors.error.add_message(self.1.clone().into());
     }
 
     forward_parser!(Input, parser_count add_consumed_expected_error, 0);
@@ -138,23 +139,22 @@ where
 ///
 /// [`p1.message(msg)`]: ../parser/trait.Parser.html#method.message
 #[inline(always)]
-pub fn message<Input, P>(
-    p: P,
-    msg: Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
-) -> Message<P, Input::Item, Input::Range>
+pub fn message<Input, P, S>(p: P, msg: S) -> Message<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
+    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
 {
     Message(p, msg)
 }
 
 #[derive(Clone)]
-pub struct Expected<P, I, R>(P, Info<I, R>);
-impl<Input, P> Parser<Input> for Expected<P, Input::Item, Input::Range>
+pub struct Expected<P, S>(P, S);
+impl<Input, P, S> Parser<Input> for Expected<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
+    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -174,9 +174,13 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        ParseError::set_expected(errors, StreamError::expected(self.1.clone()), |errors| {
-            self.0.add_error(errors);
-        })
+        ParseError::set_expected(
+            errors,
+            StreamError::expected(self.1.clone().into()),
+            |errors| {
+                self.0.add_error(errors);
+            },
+        )
     }
 
     forward_parser!(Input, parser_count add_consumed_expected_error, 0);
@@ -186,13 +190,11 @@ where
 ///
 /// [`p.expected(info)`]: ../parser/trait.Parser.html#method.expected
 #[inline(always)]
-pub fn expected<Input, P>(
-    p: P,
-    info: Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>,
-) -> Expected<P, Input::Item, Input::Range>
+pub fn expected<Input, P, S>(p: P, info: S) -> Expected<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
+    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
 {
     Expected(p, info)
 }

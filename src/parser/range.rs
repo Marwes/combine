@@ -248,7 +248,7 @@ where
     Range(i)
 }
 
-pub struct Take<Input>(usize, PhantomData<fn(Input) -> Input>);
+pub struct Take<Input>(usize, PhantomData<fn(Input)>);
 impl<Input> Parser<Input> for Take<Input>
 where
     Input: RangeStream,

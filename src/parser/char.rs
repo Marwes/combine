@@ -44,7 +44,7 @@ parser! {
     }
 }
 
-impl_token_parser! { Space(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Space(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parse a single whitespace according to [`std::char::is_whitespace`].
 ///
@@ -70,7 +70,7 @@ where
     Space(satisfy(f).expected("whitespace"), PhantomData)
 }
 
-impl_token_parser! { Spaces(), char, Expected<SkipMany<Input, Space<Input>>, Input::Item, Input::Range> }
+impl_token_parser! { Spaces(), char, Expected<SkipMany<Input, Space<Input>>, &'static str> }
 
 /// Skips over zero or more spaces according to [`std::char::is_whitespace`].
 ///
@@ -93,7 +93,7 @@ where
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
 
-impl_token_parser! { Newline(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Newline(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses a newline character (`'\n'`).
 ///
@@ -115,7 +115,7 @@ where
     )
 }
 
-impl_token_parser! { CrLf(), char, Expected<With<Satisfy<Input, fn (char) -> bool>, Newline<Input>>, Input::Item, Input::Range> }
+impl_token_parser! { CrLf(), char, Expected<With<Satisfy<Input, fn (char) -> bool>, Newline<Input>>, &'static str> }
 
 /// Parses carriage return and newline (`"\r\n"`), returning the newline character.
 ///
@@ -140,7 +140,7 @@ where
     )
 }
 
-impl_token_parser! { Tab(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Tab(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses a tab character (`'\t'`).
 ///
@@ -162,7 +162,7 @@ where
     )
 }
 
-impl_token_parser! { Upper(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Upper(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an uppercase letter according to [`std::char::is_uppercase`].
 ///
@@ -186,7 +186,7 @@ where
     )
 }
 
-impl_token_parser! { Lower(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Lower(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an lowercase letter according to [`std::char::is_lowercase`].
 ///
@@ -210,7 +210,7 @@ where
     )
 }
 
-impl_token_parser! { AlphaNum(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { AlphaNum(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses either an alphabet letter or digit according to [`std::char::is_alphanumeric`].
 ///
@@ -236,7 +236,7 @@ where
     )
 }
 
-impl_token_parser! { Letter(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Letter(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an alphabet letter according to [`std::char::is_alphabetic`].
 ///
@@ -261,7 +261,7 @@ where
     )
 }
 
-impl_token_parser! { OctDigit(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { OctDigit(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an octal digit.
 ///
@@ -283,7 +283,7 @@ where
     )
 }
 
-impl_token_parser! { HexDigit(), char, Expected<Satisfy<Input, fn (char) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { HexDigit(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses a hexdecimal digit with uppercase and lowercase.
 ///
