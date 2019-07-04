@@ -1365,8 +1365,8 @@ where
     {
         let (opt_iter, consumed, buf, next) = state;
         let iter = match opt_iter {
-            Some(iter) => iter,
-            None => {
+            Some(iter) if !mode.is_first() => iter,
+            _ => {
                 *opt_iter = Some(self.iterable.clone().into_iter().peekable());
                 opt_iter.as_mut().unwrap()
             }

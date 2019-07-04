@@ -33,7 +33,7 @@ where
     token(c)
 }
 
-impl_token_parser! { Digit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Digit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f:ident) => {{
@@ -61,7 +61,7 @@ where
     byte_parser!(digit, Digit, is_digit)
 }
 
-impl_token_parser! { Space(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Space(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 ///
@@ -82,7 +82,7 @@ where
     byte_parser!(space, Space, is_whitespace)
 }
 
-impl_token_parser! { Spaces(), u8, Expected<SkipMany<Input, Space<Input>>, Input::Item, Input::Range> }
+impl_token_parser! { Spaces(), u8, Expected<SkipMany<Input, Space<Input>>, &'static str> }
 /// Skips over [`space`] zero or more times
 ///
 /// [`space`]: fn.space.html
@@ -102,7 +102,7 @@ where
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
 
-impl_token_parser! { Newline(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Newline(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses a newline byte (`b'\n'`).
 ///
@@ -124,7 +124,7 @@ where
     )
 }
 
-impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<Input, fn (u8) -> bool>, Newline<Input>>, Input::Item, Input::Range> }
+impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<Input, fn (u8) -> bool>, Newline<Input>>, &'static str> }
 
 /// Parses carriage return and newline (`&b"\r\n"`), returning the newline byte.
 ///
@@ -149,7 +149,7 @@ where
     )
 }
 
-impl_token_parser! { Tab(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Tab(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses a tab byte (`b'\t'`).
 ///
 /// ```
@@ -170,7 +170,7 @@ where
     )
 }
 
-impl_token_parser! { Upper(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Upper(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an uppercase ASCII letter (A–Z).
 ///
 /// ```
@@ -188,7 +188,7 @@ where
     byte_parser!(upper, Upper, is_uppercase)
 }
 
-impl_token_parser! { Lower(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Lower(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an lowercase ASCII letter (a–z).
 ///
 /// ```
@@ -206,7 +206,7 @@ where
     byte_parser!(lower, Lower, is_lowercase)
 }
 
-impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
 ///
 /// ```
@@ -225,7 +225,7 @@ where
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
 
-impl_token_parser! { Letter(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { Letter(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
 ///
 /// ```
@@ -244,7 +244,7 @@ where
     byte_parser!(letter, Letter, is_alphabetic)
 }
 
-impl_token_parser! { OctDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { OctDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses an octal digit.
 ///
@@ -266,7 +266,7 @@ where
     )
 }
 
-impl_token_parser! { HexDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, Input::Item, Input::Range> }
+impl_token_parser! { HexDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
 ///
 /// ```

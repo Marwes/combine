@@ -734,6 +734,12 @@ where
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct PartialStream<S>(pub S);
 
+impl<S> From<S> for PartialStream<S> {
+    fn from(t: S) -> Self {
+        PartialStream(t)
+    }
+}
+
 impl<S> Positioned for PartialStream<S>
 where
     S: Positioned,

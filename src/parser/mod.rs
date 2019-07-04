@@ -604,12 +604,12 @@ pub trait Parser<Input: Stream> {
     /// }));
     /// # }
     /// ```
-    fn message<S>(self, msg: S) -> Message<Self, Input::Item, Input::Range>
+    fn message<S>(self, msg: S) -> Message<Self, S>
     where
         Self: Sized,
-        S: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+        S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
     {
-        message(self, msg.into())
+        message(self, msg)
     }
 
     /// Parses with `self` and if it fails without consuming any input any expected errors are
@@ -634,12 +634,12 @@ pub trait Parser<Input: Stream> {
     /// }));
     /// # }
     /// ```
-    fn expected<S>(self, msg: S) -> Expected<Self, Input::Item, Input::Range>
+    fn expected<S>(self, msg: S) -> Expected<Self, S>
     where
         Self: Sized,
-        S: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+        S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
     {
-        expected(self, msg.into())
+        expected(self, msg)
     }
 
     /// Parses with `self`, if it fails without consuming any input any expected errors that would
