@@ -49,7 +49,7 @@ where
     unsafe fn unwrap_value(&mut self) -> T {
         match self.value.take() {
             Some(t) => t,
-            None => std::hint::unreachable_unchecked(),
+            None => core::hint::unreachable_unchecked(),
         }
     }
 }
