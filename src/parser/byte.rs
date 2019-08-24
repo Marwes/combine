@@ -7,9 +7,12 @@ use self::ascii::AsciiChar;
 
 use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
 use crate::error::{Info, ParseError, ParseResult, Tracked};
-use crate::parser::item::tokens_cmp;
-use crate::parser::range::{take_fn, TakeRange};
-use crate::parser::sequence::With;
+use crate::parser::{
+    item::tokens_cmp,
+    range::{take_fn, TakeRange},
+    sequence::With,
+    ParseMode,
+};
 use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
 use crate::Parser;
 
@@ -492,6 +495,7 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
+    use crate::error::ResultExt;
     use crate::stream::uncons;
 
     use byteorder::{ByteOrder, BE, LE};
@@ -517,16 +521,28 @@ pub mod num {
                 type Output = $func_name;
                 type PartialState = ();
 
-                #[inline]
-                fn parse_lazy(
+                parse_mode!(Input);
+                fn parse_mode_impl<M>(
                     &mut self,
-                    input: &mut Input
-                    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
-                    let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
-                    for elem in &mut *buffer {
-                        *elem = ctry!(uncons(input)).0;
+                    _mode: M,
+                    input: &mut Input,
+                    _state: &mut Self::PartialState,
+                ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+                where
+                    M: ParseMode,
+                {
+                    let checkpoint = input.checkpoint();
+                    let result = (|| {
+                        let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
+                        for elem in &mut *buffer {
+                            *elem = ctry!(uncons(input)).0;
+                        }
+                        ConsumedOk(B::$read_name(buffer))
+                    })();
+                    if result.is_err() {
+                        ctry!(input.reset(checkpoint).consumed());
                     }
-                    ConsumedOk(B::$read_name(buffer))
+                    result
                 }
             }
 

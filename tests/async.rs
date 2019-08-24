@@ -24,7 +24,7 @@ use combine::{
     error::{ParseError, StreamError},
     many1, parser,
     parser::{
-        byte::take_until_bytes,
+        byte::{num, take_until_bytes},
         char::{char, digit, letter},
         item::item,
         range::{
@@ -108,6 +108,60 @@ macro_rules! impl_decoder {
                         let err = err.map_range(|r| r.to_string())
                             .map_position(|p| p.translate_position(&str_src[..]));
                         format!("{}\nIn input: `{}`", err, str_src)
+                    })?
+                };
+
+                src.split_to(removed_len);
+                match opt {
+                    None => println!("Need more input!"),
+                    Some(_) => (),
+                }
+                Ok(opt)
+            }
+        }
+    }
+}
+
+macro_rules! impl_byte_decoder {
+    ($typ: ident, $item: ty, $parser: expr, $custom_state: ty) => {
+        #[derive(Default)]
+        struct $typ(AnyPartialState, $custom_state);
+        impl_byte_decoder!{$typ, $item, $parser; ($custom_state)}
+    };
+    ($typ: ident, $item: ty, $parser: expr) => {
+        #[derive(Default)]
+        struct $typ(AnyPartialState);
+        impl_byte_decoder!{$typ, $item, $parser; ()}
+    };
+    ($typ: ident, $item: ty, $parser: expr; ( $($custom_state: tt)* )) => {
+        impl Decoder for $typ {
+            type Item = $item;
+            type Error = Error;
+
+            fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                (&mut &mut *self).decode(src)
+            }
+        }
+
+        impl<'a> Decoder for &'a mut $typ {
+            type Item = $item;
+            type Error = Error;
+
+            fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                let (opt, removed_len) = {
+                    let str_src = &src[..];
+                    println!("Decoding `{:?}`", str_src);
+                    combine::stream::decode(
+                        any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
+                        easy::Stream(combine::stream::PartialStream(str_src)),
+                        &mut self.0,
+                    ).map_err(|err| {
+                        // Since err contains references into `src` we must remove these before
+                        // returning the error and before we call `split_to` to remove the input we
+                        // just consumed
+                        let err = err.map_range(|r| format!("{:?}", r))
+                            .map_position(|p| p.translate_position(&str_src[..]));
+                        format!("{}\nIn input: `{:?}`", err, str_src)
                     })?
                 };
 
@@ -503,6 +557,27 @@ quickcheck! {
 
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(result.unwrap(), sizes);
+    }
+
+    fn num_test(ints: Vec<u16>, seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_byte_decoder!{ TestParser, u16,
+            num::be_u16()
+                .skip(take(2))
+        }
+
+        let input: Vec<u8> = ints.iter()
+            .flat_map(|i| {
+                let mut v = Vec::new();
+                v.extend_from_slice(&i.to_be_bytes());
+                v.extend_from_slice(b"\r\n");
+                v
+            })
+            .collect();
+
+        let result = run_decoder(&input, seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), ints);
     }
 }
 
