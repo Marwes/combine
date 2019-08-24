@@ -1231,43 +1231,51 @@ where
     E: Parser<Input>,
 {
     type Output = F;
-    type PartialState = (F, P::PartialState, E::PartialState);
+    type PartialState = (F, bool, P::PartialState, E::PartialState);
 
     parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
-        mode: M,
+        mut mode: M,
         input: &mut Input,
         state: &mut Self::PartialState,
     ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
-        let (output, parse_state, end_state) = state;
+        let (output, is_parse, parse_state, end_state) = state;
 
         let mut consumed = Consumed::Empty(());
         loop {
-            let before = input.checkpoint();
-            match self.end.parse_mode(mode, input, end_state).into() {
-                Ok((_, rest)) => {
-                    ctry!(input.reset(before).consumed());
-                    return match consumed.merge(rest) {
-                        Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
-                        Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
-                    };
+            if *is_parse {
+                let (item, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
+                output.extend(Some(item));
+                consumed = consumed.merge(c);
+                *is_parse = false;
+            } else {
+                let before = input.checkpoint();
+                match self.end.parse_mode(mode, input, end_state).into() {
+                    Ok((_, rest)) => {
+                        ctry!(input.reset(before).consumed());
+                        return match consumed.merge(rest) {
+                            Consumed::Consumed(()) => {
+                                ConsumedOk(mem::replace(output, F::default()))
+                            }
+                            Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
+                        };
+                    }
+                    Err(Consumed::Empty(_)) => {
+                        ctry!(input.reset(before).consumed());
+                        mode.set_first();
+                        *is_parse = true;
+                    }
+                    Err(Consumed::Consumed(e)) => {
+                        ctry!(input.reset(before).consumed());
+                        return ConsumedErr(e.error);
+                    }
                 }
-                Err(Consumed::Empty(_)) => {
-                    ctry!(input.reset(before).consumed());
-                    let (item, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
-                    output.extend(Some(item));
-                    consumed = consumed.merge(c);
-                }
-                Err(Consumed::Consumed(e)) => {
-                    ctry!(input.reset(before).consumed());
-                    return ConsumedErr(e.error);
-                }
-            };
+            }
         }
     }
 }
