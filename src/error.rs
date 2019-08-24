@@ -676,6 +676,12 @@ impl<T, E> ParseResult<T, E> {
             ConsumedErr(_) | EmptyErr(_) => false,
         }
     }
+
+    #[inline]
+    pub fn is_err(&self) -> bool {
+        !self.is_ok()
+    }
+
     pub fn as_ref(&self) -> ParseResult<&T, &E> {
         match *self {
             ConsumedOk(ref t) => ConsumedOk(t),
