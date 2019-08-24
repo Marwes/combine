@@ -1217,6 +1217,112 @@ parser! {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct RepeatUntil<F, P, E> {
+    parser: P,
+    end: E,
+    _marker: PhantomData<fn() -> F>,
+}
+impl<F, Input, P, E> Parser<Input> for RepeatUntil<F, P, E>
+where
+    Input: Stream,
+    F: Extend<P::Output> + Default,
+    P: Parser<Input>,
+    E: Parser<Input>,
+{
+    type Output = F;
+    type PartialState = (F, P::PartialState, E::PartialState);
+
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, Input::Error>
+    where
+        M: ParseMode,
+    {
+        let (output, parse_state, end_state) = state;
+
+        let mut consumed = Consumed::Empty(());
+        loop {
+            let before = input.checkpoint();
+            match self.end.parse_mode(mode, input, end_state).into() {
+                Ok((_, rest)) => {
+                    ctry!(input.reset(before).consumed());
+                    return match consumed.merge(rest) {
+                        Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
+                        Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
+                    };
+                }
+                Err(Consumed::Empty(_)) => {
+                    ctry!(input.reset(before).consumed());
+                    let (item, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
+                    output.extend(Some(item));
+                    consumed = consumed.merge(c);
+                }
+                Err(Consumed::Consumed(e)) => {
+                    ctry!(input.reset(before).consumed());
+                    return ConsumedErr(e.error);
+                }
+            };
+        }
+    }
+}
+
+#[inline(always)]
+pub fn repeat_until<F, Input, P, E>(parser: P, end: E) -> RepeatUntil<F, P, E>
+where
+    Input: Stream,
+    F: Extend<P::Output> + Default,
+    P: Parser<Input>,
+    E: Parser<Input>,
+{
+    RepeatUntil {
+        parser,
+        end,
+        _marker: PhantomData,
+    }
+}
+
+parser! {
+    pub struct SkipRepeatUntil;
+    type PartialState = <With<RepeatUntil<Sink, P, E>, Value<Input, ()>> as Parser<Input>>::PartialState;
+    /// Skips input until `end` is encountered or `end` indicates that it has consumed input before
+    /// failing (`attempt` can be used to make it look like it has not consumed any input)
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::parser::char;
+    /// # use combine::parser::byte;
+    /// # use combine::parser::combinator::attempt;
+    /// # use combine::parser::repeat::skip_until;
+    /// # fn main() {
+    ///     let mut char_parser = skip_until(char::digit());
+    ///     assert_eq!(char_parser.parse("abc123"), Ok(((), "123")));
+    ///
+    ///     let mut byte_parser = skip_until(byte::bytes(&b"TAG"[..]));
+    ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
+    ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
+    ///
+    ///     // `attempt` must be used if the `end` should be consume input before failing
+    ///     let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
+    ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
+    /// }
+    /// ```
+    pub fn repeat_skip_until[Input, P, E](parser: P, end: E)(Input) -> ()
+    where [
+        P: Parser<Input>,
+        E: Parser<Input>,
+    ]
+    {
+        repeat_until::<Sink, _, _, _>(parser, end).with(value(()))
+    }
+}
+
 #[derive(Default)]
 pub struct EscapedState<T, U>(PhantomData<(T, U)>);
 

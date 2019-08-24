@@ -11,7 +11,7 @@
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
-use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, str::Chars};
+use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, mem, str::Chars};
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
@@ -817,6 +817,113 @@ where
 }
 
 impl<S> FullRangeStream for PartialStream<S>
+where
+    S: FullRangeStream,
+{
+    #[inline(always)]
+    fn range(&self) -> Self::Range {
+        self.0.range()
+    }
+}
+
+/// Stream type which indicates that the stream is complete if end of input is reached
+///
+/// For most streams this is already the default but this wrapper can be used to override a nested
+/// `PartialStream`
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[repr(transparent)]
+pub struct CompleteStream<S>(pub S);
+
+impl<S> From<S> for CompleteStream<S> {
+    fn from(t: S) -> Self {
+        CompleteStream(t)
+    }
+}
+
+impl<'s, S> From<&'s mut S> for &'s mut CompleteStream<S> {
+    fn from(t: &'s mut S) -> Self {
+        // SAFETY repr(transparent) is specified on CompleteStream
+        unsafe { mem::transmute(t) }
+    }
+}
+
+impl<S> Positioned for CompleteStream<S>
+where
+    S: Positioned,
+{
+    #[inline(always)]
+    fn position(&self) -> Self::Position {
+        self.0.position()
+    }
+}
+
+impl<S> ResetStream for CompleteStream<S>
+where
+    S: ResetStream,
+{
+    type Checkpoint = S::Checkpoint;
+
+    #[inline(always)]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.0.checkpoint()
+    }
+
+    #[inline(always)]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
+        self.0.reset(checkpoint)
+    }
+}
+
+impl<S> StreamOnce for CompleteStream<S>
+where
+    S: StreamOnce,
+{
+    type Item = S::Item;
+    type Range = S::Range;
+    type Position = S::Position;
+    type Error = S::Error;
+
+    #[inline(always)]
+    fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
+        self.0.uncons()
+    }
+
+    fn is_partial(&self) -> bool {
+        false
+    }
+}
+
+impl<S> RangeStreamOnce for CompleteStream<S>
+where
+    S: RangeStreamOnce,
+{
+    #[inline(always)]
+    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
+        self.0.uncons_range(size)
+    }
+
+    #[inline(always)]
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while(f)
+    }
+
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while1(f)
+    }
+
+    #[inline(always)]
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
+        self.0.distance(end)
+    }
+}
+
+impl<S> FullRangeStream for CompleteStream<S>
 where
     S: FullRangeStream,
 {
