@@ -48,7 +48,7 @@ where
 /// );
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn unexpected<I, S>(message: S) -> Unexpected<I, ()>
 where
     I: Stream,
@@ -81,7 +81,7 @@ where
 /// );
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn unexpected_any<I, S, T>(message: S) -> Unexpected<I, T>
 where
     I: Stream,
@@ -138,7 +138,7 @@ where
 /// Equivalent to [`p1.message(msg)`].
 ///
 /// [`p1.message(msg)`]: ../parser/trait.Parser.html#method.message
-#[inline(always)]
+#[inline]
 pub fn message<Input, P, S>(p: P, msg: S) -> Message<P, S>
 where
     P: Parser<Input>,
@@ -160,7 +160,7 @@ where
     type PartialState = P::PartialState;
 
     parse_mode!(Input);
-    #[inline(always)]
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
@@ -189,7 +189,7 @@ where
 /// Equivalent to [`p.expected(info)`].
 ///
 /// [`p.expected(info)`]: ../parser/trait.Parser.html#method.expected
-#[inline(always)]
+#[inline]
 pub fn expected<Input, P, S>(p: P, info: S) -> Expected<P, S>
 where
     P: Parser<Input>,
@@ -210,7 +210,7 @@ where
     type PartialState = P::PartialState;
 
     parse_mode!(Input);
-    #[inline(always)]
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
@@ -237,7 +237,7 @@ where
 /// Equivalent to [`p.silent()`].
 ///
 /// [`p.silent()`]: ../trait.Parser.html#method.silent
-#[inline(always)]
+#[inline]
 pub fn silent<Input, P>(p: P) -> Silent<P>
 where
     P: Parser<Input>,

@@ -38,7 +38,7 @@ macro_rules! clone_resetable {
             fn checkpoint(&self) -> Self {
                 self.clone()
             }
-            #[inline(always)]
+            #[inline]
             fn reset(&mut self, checkpoint: Self) -> Result<(), Self::Error> {
                 *self = checkpoint;
                 Ok(())
@@ -488,7 +488,7 @@ impl<'a> StreamOnce for &'a str {
 }
 
 impl<'a> Positioned for &'a str {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         PointerOffset::new(self.as_bytes().position().0)
     }
@@ -703,7 +703,7 @@ impl<'a, T> Positioned for &'a [T]
 where
     T: Clone + PartialEq,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         PointerOffset::new(self.as_ptr() as usize)
     }
@@ -744,7 +744,7 @@ impl<S> Positioned for PartialStream<S>
 where
     S: Positioned,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         self.0.position()
     }
@@ -756,12 +756,12 @@ where
 {
     type Checkpoint = S::Checkpoint;
 
-    #[inline(always)]
+    #[inline]
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()
     }
 
-    #[inline(always)]
+    #[inline]
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
         self.0.reset(checkpoint)
     }
@@ -776,7 +776,7 @@ where
     type Position = S::Position;
     type Error = S::Error;
 
-    #[inline(always)]
+    #[inline]
     fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
         self.0.uncons()
     }
@@ -790,12 +790,12 @@ impl<S> RangeStreamOnce for PartialStream<S>
 where
     S: RangeStreamOnce,
 {
-    #[inline(always)]
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
         self.0.uncons_range(size)
     }
 
-    #[inline(always)]
+    #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
@@ -810,7 +810,7 @@ where
         self.0.uncons_while1(f)
     }
 
-    #[inline(always)]
+    #[inline]
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
     }
@@ -820,7 +820,7 @@ impl<S> FullRangeStream for PartialStream<S>
 where
     S: FullRangeStream,
 {
-    #[inline(always)]
+    #[inline]
     fn range(&self) -> Self::Range {
         self.0.range()
     }
@@ -851,7 +851,7 @@ impl<S> Positioned for CompleteStream<S>
 where
     S: Positioned,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         self.0.position()
     }
@@ -863,12 +863,12 @@ where
 {
     type Checkpoint = S::Checkpoint;
 
-    #[inline(always)]
+    #[inline]
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()
     }
 
-    #[inline(always)]
+    #[inline]
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
         self.0.reset(checkpoint)
     }
@@ -883,7 +883,7 @@ where
     type Position = S::Position;
     type Error = S::Error;
 
-    #[inline(always)]
+    #[inline]
     fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
         self.0.uncons()
     }
@@ -897,12 +897,12 @@ impl<S> RangeStreamOnce for CompleteStream<S>
 where
     S: RangeStreamOnce,
 {
-    #[inline(always)]
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
         self.0.uncons_range(size)
     }
 
-    #[inline(always)]
+    #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
@@ -917,7 +917,7 @@ where
         self.0.uncons_while1(f)
     }
 
-    #[inline(always)]
+    #[inline]
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
     }
@@ -927,7 +927,7 @@ impl<S> FullRangeStream for CompleteStream<S>
 where
     S: FullRangeStream,
 {
-    #[inline(always)]
+    #[inline]
     fn range(&self) -> Self::Range {
         self.0.range()
     }
@@ -947,7 +947,7 @@ impl<'a, T> Positioned for SliceStream<'a, T>
 where
     T: PartialEq + 'a,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         PointerOffset::new(self.0.as_ptr() as usize)
     }

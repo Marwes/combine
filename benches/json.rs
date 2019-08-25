@@ -149,7 +149,7 @@ where
         .expected("object")
 }
 
-#[inline(always)]
+#[inline]
 fn json_value<Input>() -> impl Parser< Input, Output = Value>
 where
     Input: Stream<Item = char>,
@@ -161,7 +161,7 @@ where
 // We need to use `parser!` to break the recursive use of `value` to prevent the returned parser
 // from containing itself
 parser! {
-    #[inline(always)]
+    #[inline]
     fn json_value_[Input]()(Input) -> Value
         where [ Input: Stream<Item = char> ]
     {

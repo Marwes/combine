@@ -43,7 +43,7 @@ where
 /// assert!(byte_parser.parse(&b""[..]).is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn any<Input>() -> Any<Input>
 where
     Input: Stream,
@@ -104,7 +104,7 @@ where
 /// assert_eq!(parser.parse("?").map(|x| x.0), Ok('?'));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn satisfy<Input, P>(predicate: P) -> Satisfy<Input, P>
 where
     Input: Stream,
@@ -159,7 +159,7 @@ where
 /// assert!(parser.parse("A").map(|x| x.0).is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn satisfy_map<Input, P, R>(predicate: P) -> SatisfyMap<Input, P>
 where
     Input: Stream,
@@ -210,7 +210,7 @@ where
 /// assert_eq!(result, Ok('!'));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn token<Input>(c: Input::Item) -> Token<Input>
 where
     Input: Stream,
@@ -313,7 +313,7 @@ where
 /// assert_eq!(result, Ok(&b"025"[..]));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn tokens<C, T, Input>(
     cmp: C,
     expected: Info<Input::Item, Input::Range>,
@@ -418,7 +418,7 @@ where
 /// assert_eq!(result, Ok(&b"025"[..]));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn tokens_cmp<C, T, I>(tokens: T, cmp: C) -> TokensCmp<C, T, I>
 where
     C: FnMut(T::Item, I::Item) -> bool,
@@ -468,7 +468,7 @@ where
 ///                        SourcePosition { line: 1, column: 2 })));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn position<Input>() -> Position<Input>
 where
     Input: Stream,
@@ -519,7 +519,7 @@ where
 /// assert_eq!(result, Ok((String::from("ab"), "d")));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn one_of<T, Input>(tokens: T) -> OneOf<T, Input>
 where
     T: Clone + IntoIterator,
@@ -578,7 +578,7 @@ where
 /// }));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn none_of<T, Input>(tokens: T) -> NoneOf<T, Input>
 where
     T: Clone + IntoIterator,
@@ -618,7 +618,7 @@ where
 /// assert_eq!(result, Ok(42));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn value<Input, T>(v: T) -> Value<Input, T>
 where
     Input: Stream,
@@ -672,7 +672,7 @@ where
 /// }));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn eof<Input>() -> Eof<Input>
 where
     Input: Stream,

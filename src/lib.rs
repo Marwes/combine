@@ -185,7 +185,7 @@
 //! [`Parser`]: parser/trait.Parser.html
 //! [fn parser]: parser/function/fn.parser.html
 //! [`parser!`]: macro.parser.html
-// inline(always) is only used on trivial functions returning parsers
+// inline is only used on trivial functions returning parsers
 #![cfg_attr(
     feature = "cargo-clippy",
     allow(inline_always, type_complexity, too_many_arguments)
@@ -515,7 +515,7 @@ macro_rules! combine_parser_impl {
         }
 
         $(#[$attr])*
-        #[inline(always)]
+        #[inline]
         $fn_vis fn $name< $($type_params)* >(
                 $($arg : $arg_type),*
             ) -> $type_name<$($type_params)*>

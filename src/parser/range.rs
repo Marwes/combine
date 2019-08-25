@@ -72,7 +72,7 @@ parser! {
     /// assert!(parser.parse("!").is_err());
     /// # }
     /// ```
-    #[inline(always)]
+    #[inline]
     pub fn recognize[Input, P](parser: P)(Input) -> <Input as StreamOnce>::Range
     where [
         P: Parser<Input>,
@@ -211,7 +211,7 @@ where
 /// assert!(parser.parse("1234.").is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn recognize_with_value<Input, P>(parser: P) -> RecognizeWithValue<P>
 where
     P: Parser<Input>,
@@ -239,7 +239,7 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn range<Input>(i: Input::Range) -> Range<Input>
 where
     Input: RangeStream,
@@ -285,7 +285,7 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn take<Input>(n: usize) -> Take<Input>
 where
     Input: RangeStream,
@@ -342,7 +342,7 @@ where
 /// assert_eq!(result, Ok(("", "abc")));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn take_while<Input, F>(f: F) -> TakeWhile<Input, F>
 where
     Input: RangeStream,
@@ -401,7 +401,7 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn take_while1<Input, F>(f: F) -> TakeWhile1<Input, F>
 where
     Input: RangeStream,
@@ -519,7 +519,7 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn take_until_range<Input>(r: Input::Range) -> TakeUntilRange<Input>
 where
     Input: RangeStream,
@@ -614,7 +614,7 @@ where
 /// when parsing is next resumed.
 ///
 /// See [`take_until_bytes`](../byte/fn.take_until_bytes.html) for a usecase.
-#[inline(always)]
+#[inline]
 pub fn take_fn<F, R, Input>(searcher: F) -> TakeFn<F, Input>
 where
     F: FnMut(Input::Range) -> R,

@@ -745,7 +745,7 @@ impl<O, E> ParseResult<O, E> {
 }
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E> {
-    #[inline(always)]
+    #[inline]
     fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
         match self {
             ConsumedOk(t) => Ok(Consumed::Consumed(t)),
@@ -757,7 +757,7 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E>
 }
 
 impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
-    #[inline(always)]
+    #[inline]
     fn into(self) -> StdParseResult2<O, E> {
         use self::ParseResult::*;
         match self {
@@ -770,7 +770,7 @@ impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
 }
 
 impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
-    #[inline(always)]
+    #[inline]
     fn from(result: StdParseResult2<O, E>) -> ParseResult<O, E> {
         use self::ParseResult::*;
         match result {

@@ -22,7 +22,7 @@ use self::sequence::{skip, with, Skip, With};
 #[doc(hidden)]
 macro_rules! parse_mode {
     ($input_type: ty) => {
-        #[inline(always)]
+        #[inline]
         fn parse_partial(
             &mut self,
             input: &mut $input_type,
@@ -31,7 +31,7 @@ macro_rules! parse_mode {
             self.parse_mode($crate::parser::PartialMode::default(), input, state)
         }
 
-        #[inline(always)]
+        #[inline]
         fn parse_first(
             &mut self,
             input: &mut $input_type,
@@ -160,7 +160,7 @@ pub trait Parser<Input: Stream> {
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
     /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
-    #[inline(always)]
+    #[inline]
     fn parse_lazy(
         &mut self,
         input: &mut Input,
@@ -217,7 +217,7 @@ pub trait Parser<Input: Stream> {
     ///
     /// Internal API. May break without a semver bump
     /// Always overridden by the `parse_mode!` macro
-    #[inline(always)]
+    #[inline]
     #[doc(hidden)]
     fn parse_first(
         &mut self,
@@ -232,7 +232,7 @@ pub trait Parser<Input: Stream> {
     ///
     /// Internal API. May break without a semver bump
     /// Always overridden by the `parse_mode!` macro
-    #[inline(always)]
+    #[inline]
     #[doc(hidden)]
     fn parse_partial(
         &mut self,
@@ -245,7 +245,7 @@ pub trait Parser<Input: Stream> {
 
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
-    #[inline(always)]
+    #[inline]
     fn parse_mode<M>(
         &mut self,
         mode: M,
@@ -265,7 +265,7 @@ pub trait Parser<Input: Stream> {
 
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
-    #[inline(always)]
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
@@ -285,7 +285,7 @@ pub trait Parser<Input: Stream> {
 
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
-    #[inline(always)]
+    #[inline]
     fn parse_consumed_mode<M>(
         &mut self,
         mode: M,
@@ -951,7 +951,7 @@ macro_rules! forward_deref {
         type Output = P::Output;
         type PartialState = P::PartialState;
 
-        #[inline(always)]
+        #[inline]
         fn parse_first(
             &mut self,
             input: &mut Input,
@@ -960,7 +960,7 @@ macro_rules! forward_deref {
             (**self).parse_first(input, state)
         }
 
-        #[inline(always)]
+        #[inline]
         fn parse_partial(
             &mut self,
             input: &mut Input,
@@ -969,17 +969,17 @@ macro_rules! forward_deref {
             (**self).parse_partial(input, state)
         }
 
-        #[inline(always)]
+        #[inline]
         fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
             (**self).add_error(error)
         }
 
-        #[inline(always)]
+        #[inline]
         fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
             (**self).add_consumed_expected_error(error)
         }
 
-        #[inline(always)]
+        #[inline]
         fn parser_count(&self) -> ErrorOffset {
             (**self).parser_count()
         }
@@ -1043,11 +1043,11 @@ pub trait ParseMode: Copy {
 #[derive(Copy, Clone)]
 pub struct FirstMode;
 impl ParseMode for FirstMode {
-    #[inline(always)]
+    #[inline]
     fn is_first(self) -> bool {
         true
     }
-    #[inline(always)]
+    #[inline]
     fn set_first(&mut self) {}
 }
 
@@ -1058,12 +1058,12 @@ pub struct PartialMode {
     pub first: bool,
 }
 impl ParseMode for PartialMode {
-    #[inline(always)]
+    #[inline]
     fn is_first(self) -> bool {
         self.first
     }
 
-    #[inline(always)]
+    #[inline]
     fn set_first(&mut self) {
         self.first = true;
     }

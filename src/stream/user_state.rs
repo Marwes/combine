@@ -15,7 +15,7 @@ impl<S, U> Positioned for StateStream<S, U>
 where
     S: Positioned,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         self.stream.position()
     }
@@ -27,12 +27,12 @@ where
 {
     type Checkpoint = S::Checkpoint;
 
-    #[inline(always)]
+    #[inline]
     fn checkpoint(&self) -> Self::Checkpoint {
         self.stream.checkpoint()
     }
 
-    #[inline(always)]
+    #[inline]
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
         self.stream.reset(checkpoint)
     }
@@ -47,7 +47,7 @@ where
     type Position = S::Position;
     type Error = S::Error;
 
-    #[inline(always)]
+    #[inline]
     fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
         self.stream.uncons()
     }
@@ -61,12 +61,12 @@ impl<S, U> RangeStreamOnce for StateStream<S, U>
 where
     S: RangeStreamOnce,
 {
-    #[inline(always)]
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
         self.stream.uncons_range(size)
     }
 
-    #[inline(always)]
+    #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
@@ -81,7 +81,7 @@ where
         self.stream.uncons_while1(f)
     }
 
-    #[inline(always)]
+    #[inline]
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.stream.distance(end)
     }
@@ -91,7 +91,7 @@ impl<S, U> FullRangeStream for StateStream<S, U>
 where
     S: FullRangeStream,
 {
-    #[inline(always)]
+    #[inline]
     fn range(&self) -> Self::Range {
         self.stream.range()
     }
