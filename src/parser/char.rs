@@ -16,7 +16,7 @@ use crate::Parser;
 /// assert_eq!(char('!').parse("!"), Ok(('!', "")));
 /// assert!(char('A').parse("!").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn char<Input>(c: char) -> Token<Input>
 where
     Input: Stream<Item = char>,
@@ -60,7 +60,7 @@ impl_token_parser! { Space(), char, Expected<Satisfy<Input, fn (char) -> bool>, 
 /// assert!(space().parse("!").is_err());
 /// assert!(space().parse("").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn space<Input>() -> Space<Input>
 where
     Input: Stream<Item = char>,
@@ -84,7 +84,7 @@ impl_token_parser! { Spaces(), char, Expected<SkipMany<Input, Space<Input>>, &'s
 /// assert_eq!(spaces().parse(""), Ok(((), "")));
 /// assert_eq!(spaces().parse("   "), Ok(((), "")));
 /// ```
-#[inline(always)]
+#[inline]
 pub fn spaces<Input>() -> Spaces<Input>
 where
     Input: Stream<Item = char>,
@@ -103,7 +103,7 @@ impl_token_parser! { Newline(), char, Expected<Satisfy<Input, fn (char) -> bool>
 /// assert_eq!(newline().parse("\n"), Ok(('\n', "")));
 /// assert!(newline().parse("\r").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn newline<Input>() -> Newline<Input>
 where
     Input: Stream<Item = char>,
@@ -126,7 +126,7 @@ impl_token_parser! { CrLf(), char, Expected<With<Satisfy<Input, fn (char) -> boo
 /// assert!(crlf().parse("\r").is_err());
 /// assert!(crlf().parse("\n").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn crlf<Input>() -> CrLf<Input>
 where
     Input: Stream<Item = char>,
@@ -150,7 +150,7 @@ impl_token_parser! { Tab(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'
 /// assert_eq!(tab().parse("\t"), Ok(('\t', "")));
 /// assert!(tab().parse(" ").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn tab<Input>() -> Tab<Input>
 where
     Input: Stream<Item = char>,
@@ -174,7 +174,7 @@ impl_token_parser! { Upper(), char, Expected<Satisfy<Input, fn (char) -> bool>, 
 /// assert_eq!(upper().parse("A"), Ok(('A', "")));
 /// assert!(upper().parse("a").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn upper<Input>() -> Upper<Input>
 where
     Input: Stream<Item = char>,
@@ -198,7 +198,7 @@ impl_token_parser! { Lower(), char, Expected<Satisfy<Input, fn (char) -> bool>, 
 /// assert_eq!(lower().parse("a"), Ok(('a', "")));
 /// assert!(lower().parse("A").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn lower<Input>() -> Lower<Input>
 where
     Input: Stream<Item = char>,
@@ -223,7 +223,7 @@ impl_token_parser! { AlphaNum(), char, Expected<Satisfy<Input, fn (char) -> bool
 /// assert_eq!(alpha_num().parse("1"), Ok(('1', "")));
 /// assert!(alpha_num().parse("!").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn alpha_num<Input>() -> AlphaNum<Input>
 where
     Input: Stream<Item = char>,
@@ -249,7 +249,7 @@ impl_token_parser! { Letter(), char, Expected<Satisfy<Input, fn (char) -> bool>,
 /// assert_eq!(letter().parse("A"), Ok(('A', "")));
 /// assert!(letter().parse("9").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn letter<Input>() -> Letter<Input>
 where
     Input: Stream<Item = char>,
@@ -271,7 +271,7 @@ impl_token_parser! { OctDigit(), char, Expected<Satisfy<Input, fn (char) -> bool
 /// assert_eq!(oct_digit().parse("7"), Ok(('7', "")));
 /// assert!(oct_digit().parse("8").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn oct_digit<Input>() -> OctDigit<Input>
 where
     Input: Stream<Item = char>,
@@ -293,7 +293,7 @@ impl_token_parser! { HexDigit(), char, Expected<Satisfy<Input, fn (char) -> bool
 /// assert_eq!(hex_digit().parse("F"), Ok(('F', "")));
 /// assert!(hex_digit().parse("H").is_err());
 /// ```
-#[inline(always)]
+#[inline]
 pub fn hex_digit<Input>() -> HexDigit<Input>
 where
     Input: Stream<Item = char>,
@@ -318,7 +318,7 @@ where
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn string<'a, Input>(s: &'static str) -> impl Parser<Input, Output = &'a str>
 where
     Input: Stream<Item = char>,
@@ -341,7 +341,7 @@ where
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn string_cmp<'a, C, Input>(s: &'static str, cmp: C) -> impl Parser<Input, Output = &'a str>
 where
     C: FnMut(char, char) -> bool,

@@ -112,7 +112,7 @@ where
     Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = E>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = E>,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         self.positioner.position()
     }
@@ -156,7 +156,7 @@ where
 {
     type Position = usize;
 
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> usize {
         self.0
     }
@@ -217,7 +217,7 @@ impl SourcePosition {
 impl Positioner<char> for SourcePosition {
     type Position = SourcePosition;
 
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> SourcePosition {
         self.clone()
     }

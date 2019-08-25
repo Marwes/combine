@@ -219,13 +219,13 @@ macro_rules! tuple_parser {
                 }
             }
 
-            #[inline(always)]
+            #[inline]
             fn parser_count(&self) -> ErrorOffset {
                 let (ref $h, $(ref $id),*) = *self;
                 ErrorOffset($h.parser_count().0 $( + $id.parser_count().0)*)
             }
 
-            #[inline(always)]
+            #[inline]
             fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
                 let (ref mut $h, $(ref mut $id),*) = *self;
                 let prev = errors.offset;
@@ -443,7 +443,7 @@ where
 /// Equivalent to [`p1.with(p2)`].
 ///
 /// [`p1.with(p2)`]: ../parser/trait.Parser.html#method.with
-#[inline(always)]
+#[inline]
 pub fn with<Input, P1, P2>(p1: P1, p2: P2) -> With<P1, P2>
 where
     Input: Stream,
@@ -481,7 +481,7 @@ where
     forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
-#[inline(always)]
+#[inline]
 pub fn skip<Input, P1, P2>(p1: P1, p2: P2) -> Skip<P1, P2>
 where
     Input: Stream,
@@ -509,7 +509,7 @@ parser! {
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn between[Input, L, R, P](open: L, close: R, parser: P)(Input) -> P::Output
 where [
     Input: Stream,
@@ -606,7 +606,7 @@ where
 /// Equivalent to [`p.then(f)`].
 ///
 /// [`p.then(f)`]: ../parser/trait.Parser.html#method.then
-#[inline(always)]
+#[inline]
 pub fn then<Input, P, F, N>(p: P, f: F) -> Then<P, F>
 where
     Input: Stream,
@@ -695,7 +695,7 @@ where
 /// Equivalent to [`p.then_partial(f)`].
 ///
 /// [`p.then_partial(f)`]: ../parser/trait.Parser.html#method.then_partial
-#[inline(always)]
+#[inline]
 pub fn then_partial<Input, P, F, N>(p: P, f: F) -> ThenPartial<P, F>
 where
     Input: Stream,

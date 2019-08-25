@@ -79,7 +79,7 @@ impl<Input> Positioned for Stream<Input>
 where
     Input: StreamOnce + Positioned,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         if self.offset >= self.buffer_offset {
             self.iter.position()

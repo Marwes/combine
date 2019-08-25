@@ -59,7 +59,7 @@ pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 /// assert_eq!(result, Ok(8));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn parser<Input, O, F>(f: F) -> FnParser<Input, F>
 where
     Input: Stream,
@@ -168,7 +168,7 @@ where
 /// assert_eq!(result, Ok((0, "")));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn env_parser<E, Input, O>(
     env: E,
     parser: fn(E, &mut Input) -> StdParseResult<O, Input>,

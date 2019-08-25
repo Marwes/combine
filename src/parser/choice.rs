@@ -97,7 +97,7 @@ where
     type PartialState = P::PartialState;
 
     parse_mode_choice!(Input);
-    #[inline(always)]
+    #[inline]
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
@@ -307,7 +307,7 @@ macro_rules! array_choice_parser {
             type PartialState = <[P] as ChoiceParser<Input>>::PartialState;
 
             parse_mode_choice!(Input);
-            #[inline(always)]
+            #[inline]
             fn parse_mode_choice<M>(
                 &mut self,
                 mode: M,
@@ -353,7 +353,7 @@ where
     type PartialState = P::PartialState;
 
     parse_mode!(Input);
-    #[inline(always)]
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
@@ -468,7 +468,7 @@ where
     type Output = O;
     type PartialState = (usize, P::PartialState);
 
-    #[inline(always)]
+    #[inline]
     fn parse_partial(
         &mut self,
         input: &mut Input,
@@ -477,7 +477,7 @@ where
         slice_parse_mode(self, crate::parser::PartialMode::default(), input, state)
     }
 
-    #[inline(always)]
+    #[inline]
     fn parse_first(
         &mut self,
         input: &mut Input,
@@ -486,7 +486,7 @@ where
         slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
-    #[inline(always)]
+    #[inline]
     fn parse_mode_choice<M>(
         &mut self,
         _mode: M,
@@ -540,7 +540,7 @@ where
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn choice<Input, P>(ps: P) -> Choice<P>
 where
     Input: Stream,
@@ -561,7 +561,7 @@ where
     type PartialState = <Choice<(P1, P2)> as Parser<Input>>::PartialState;
 
     parse_mode!(Input);
-    #[inline(always)]
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
@@ -613,7 +613,7 @@ where
 ///
 /// [`choice!`]: ../macro.choice.html
 /// [`p1.or(p2)`]: ../parser/trait.Parser.html#method.or
-#[inline(always)]
+#[inline]
 pub fn or<Input, P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
     Input: Stream,
@@ -673,7 +673,7 @@ where
 /// assert!(parser.parse("heya").is_err());
 /// # }
 /// ```
-#[inline(always)]
+#[inline]
 pub fn optional<Input, P>(parser: P) -> Optional<P>
 where
     Input: Stream,
