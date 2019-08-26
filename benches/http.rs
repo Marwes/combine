@@ -26,8 +26,8 @@ struct Header<'a> {
 
 fn is_token(c: u8) -> bool {
     match c {
-        128...255
-        | 0...31
+        128..=255
+        | 0..=31
         | b'('
         | b')'
         | b'<'
