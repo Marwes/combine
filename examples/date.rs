@@ -1,21 +1,26 @@
 //! Parser example for ISO8601 dates. This does not handle the entire specification but it should
 //! show the gist of it and be easy to extend to parse additional forms.
-extern crate combine;
 
-use std::env;
-use std::fmt;
-use std::fs::File;
-use std::io::{self, Read};
+use std::{
+    env, fmt,
+    fs::File,
+    io::{self, Read},
+};
 
-use combine::error::ParseError;
-use combine::parser::char::{char, digit};
-use combine::stream::state::State;
-use combine::{choice, many, optional, EasyParser, Parser, Stream};
+use combine::{
+    choice,
+    error::ParseError,
+    many, optional,
+    parser::char::{char, digit},
+    stream::state::State,
+    Parser, Stream,
+};
 
 #[cfg(feature = "std")]
-use combine::stream::easy;
-#[cfg(feature = "std")]
-use combine::stream::state::SourcePosition;
+use combine::{
+    stream::{easy, state::SourcePosition},
+    EasyParser,
+};
 
 enum Error<E> {
     Io(io::Error),

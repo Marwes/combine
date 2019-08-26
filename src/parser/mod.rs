@@ -866,6 +866,7 @@ pub trait Parser<Input: Stream> {
     }
 }
 
+#[cfg(feature = "std")]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where
     Input::Item: PartialEq,
@@ -937,6 +938,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<Input, P> EasyParser<Input> for P
 where
     P: ?Sized + Parser<crate::easy::Stream<Input>>,

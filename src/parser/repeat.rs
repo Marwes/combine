@@ -1,6 +1,6 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
-use crate::lib::{borrow::BorrowMut, marker::PhantomData, mem};
+use crate::lib::{borrow::BorrowMut, iter, marker::PhantomData, mem};
 
 use crate::{
     combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value},
@@ -1460,7 +1460,7 @@ where
 {
     type Output = F;
     type PartialState = (
-        Option<std::iter::Peekable<J::IntoIter>>,
+        Option<iter::Peekable<J::IntoIter>>,
         bool,
         F,
         Q::PartialState,

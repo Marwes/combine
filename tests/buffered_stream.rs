@@ -94,7 +94,7 @@ fn position() {
 
 #[test]
 fn buffered_stream_recognize_issue_256() {
-    let mut parser = recognize::<String, _>(skip_many1(digit()));
+    let mut parser = recognize::<String, _, _>(skip_many1(digit()));
     let input = "12 ";
     assert_eq!(
         parser

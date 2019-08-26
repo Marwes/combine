@@ -545,7 +545,7 @@ where
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
 /// ```
 #[inline]
-pub fn recognize<Input, F, P>(parser: P) -> Recognize<F, P>
+pub fn recognize<F, Input, P>(parser: P) -> Recognize<F, P>
 where
     Input: Stream,
     P: Parser<Input>,
