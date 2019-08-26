@@ -203,7 +203,7 @@ impl Default for SourcePosition {
 }
 
 impl fmt::Display for SourcePosition {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "line: {}, column: {}", self.line, self.column)
     }
 }
