@@ -542,7 +542,6 @@ extern crate bytes;
 pub extern crate either;
 
 extern crate memchr;
-extern crate unreachable;
 
 /// Internal API. May break without a semver bump
 macro_rules! forward_parser {

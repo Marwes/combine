@@ -2,10 +2,13 @@
 extern crate combine;
 use combine::parser::char::{char, digit, spaces, string};
 use combine::stream::buffered;
-use combine::stream::easy::{self, Error};
+use combine::stream::easy::{self, Error, Errors};
 use combine::stream::state::State;
 use combine::stream::IteratorStream;
-use combine::{attempt, choice, many, many1, sep_by, Parser, Positioned};
+use combine::{
+    attempt, choice, many, many1, parser::combinator::recognize, sep_by, skip_many1, Parser,
+    Positioned,
+};
 
 #[test]
 fn shared_stream_buffer() {
@@ -87,4 +90,19 @@ fn position() {
     let result = many1::<Vec<_>, _, _>(digit()).parse(stream);
     assert!(result.is_ok());
     assert_eq!(result.unwrap().1.position(), 2);
+}
+
+#[test]
+fn buffered_stream_recognize_issue_256() {
+    let mut parser = recognize::<String, _>(skip_many1(digit()));
+    let input = "12 ";
+    assert_eq!(
+        parser
+            .parse(buffered::Stream::new(easy::Stream(input), 1))
+            .map_err(|err| err.map_position(|pos| pos.translate_position(input))),
+        Err(Errors {
+            position: 2,
+            errors: vec![easy::Error::Message("Backtracked to far".into())]
+        })
+    );
 }

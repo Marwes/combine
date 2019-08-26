@@ -46,7 +46,7 @@ where
     unsafe fn unwrap_value(&mut self) -> T {
         match self.value.take() {
             Some(t) => t,
-            None => ::unreachable::unreachable(),
+            None => core::hint::unreachable_unchecked(),
         }
     }
 }
