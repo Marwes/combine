@@ -111,7 +111,7 @@ where
     fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
-            let item = r#try!(self.iter.uncons());
+            let item = self.iter.uncons()?;
             self.buffer_offset += 1;
             // We want the VecDeque to only keep the last .capacity() elements so we need to remove
             // an element if it gets to large
