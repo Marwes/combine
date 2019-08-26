@@ -1216,7 +1216,7 @@ impl<T> fmt::Debug for PointerOffset<T>
 where
     T: ?Sized,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -1225,7 +1225,7 @@ impl<T> fmt::Display for PointerOffset<T>
 where
     T: ?Sized,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "PointerOffset({:?})", self.0 as *const ())
     }
 }

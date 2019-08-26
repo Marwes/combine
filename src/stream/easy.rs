@@ -155,7 +155,7 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
     }
 }
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Info<T, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Info::Token(ref c) => write!(f, "{}", c),
             Info::Range(ref c) => write!(f, "{}", c),
@@ -510,7 +510,7 @@ impl<T, R> Error<T, R> {
     /// assert_eq!(m, expected);
     /// # }
     /// ```
-    pub fn fmt_errors(errors: &[Error<T, R>], f: &mut fmt::Formatter) -> fmt::Result
+    pub fn fmt_errors(errors: &[Error<T, R>], f: &mut fmt::Formatter<'_>) -> fmt::Result
     where
         T: fmt::Display,
         R: fmt::Display,
@@ -719,14 +719,14 @@ where
     Input: fmt::Display,
     R: fmt::Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         r#try!(writeln!(f, "Parse error at {}", self.position));
         Error::fmt_errors(&self.errors, f)
     }
 }
 
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::Unexpected(ref c) => write!(f, "Unexpected `{}`", c),
             Error::Expected(ref s) => write!(f, "Expected `{}`", s),
