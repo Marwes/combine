@@ -99,7 +99,7 @@ macro_rules! impl_decoder {
                     println!("Decoding `{}`", str_src);
                     combine::stream::decode(
                         any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
-                        easy::Stream(combine::stream::PartialStream(str_src)),
+                        &mut easy::Stream(combine::stream::PartialStream(str_src)),
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
@@ -153,7 +153,7 @@ macro_rules! impl_byte_decoder {
                     println!("Decoding `{:?}`", str_src);
                     combine::stream::decode(
                         any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
-                        easy::Stream(combine::stream::PartialStream(str_src)),
+                        &mut easy::Stream(combine::stream::PartialStream(str_src)),
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before

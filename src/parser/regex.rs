@@ -279,7 +279,7 @@ impl<'a, Input, R> Parser<Input> for Find<R, Input>
 where
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     type Output = Input::Range;
     type PartialState = ();
@@ -328,7 +328,7 @@ pub fn find<R, Input>(regex: R) -> Find<R, Input>
 where
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     Find(regex, PhantomData)
 }
@@ -341,7 +341,7 @@ where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     type Output = F;
     type PartialState = ();
@@ -386,7 +386,7 @@ where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     FindMany(regex, PhantomData)
 }
@@ -399,7 +399,7 @@ where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     type Output = F;
     type PartialState = ();
@@ -454,7 +454,7 @@ where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     Captures(regex, PhantomData)
 }
@@ -468,7 +468,7 @@ where
     G: FromIterator<F>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     type Output = G;
     type PartialState = ();
@@ -523,7 +523,7 @@ where
     G: FromIterator<F>,
     R: Regex<Input::Range>,
     Input: FullRangeStream,
-    Input::Range: ::stream::Range,
+    Input::Range: crate::stream::Range,
 {
     CapturesMany(regex, PhantomData)
 }
