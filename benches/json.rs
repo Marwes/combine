@@ -16,7 +16,7 @@ use criterion::{black_box, Bencher, Criterion};
 
 use combine::error::{Consumed, ParseError};
 use combine::stream::buffered;
-use combine::{Parser, Stream, StreamOnce};
+use combine::{EasyParser, Parser, Stream, StreamOnce};
 
 use combine::parser::char::{char, digit, spaces, string};
 use combine::parser::choice::{choice, optional};
@@ -38,7 +38,7 @@ enum Value {
     Array(Vec<Value>),
 }
 
-fn lex<P>(p: P) -> impl Parser< Input, Output = P::Output>
+fn lex<Input, P>(p: P) -> impl Parser<Input, Output = P::Output>
 where
     P: Parser<Input>,
     Input: Stream<Item = char>,
@@ -51,7 +51,7 @@ where
     p.skip(spaces())
 }
 
-fn integer<Input>() -> impl Parser< Input, Output = i64>
+fn integer<Input>() -> impl Parser<Input, Output = i64>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -67,7 +67,7 @@ where
         .expected("integer")
 }
 
-fn number<Input>() -> impl Parser< Input, Output = f64>
+fn number<Input>() -> impl Parser<Input, Output = f64>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -101,7 +101,7 @@ where
     .expected("number")
 }
 
-fn json_char<Input>() -> impl Parser< Input, Output = char>
+fn json_char<Input>() -> impl Parser<Input, Output = char>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -123,13 +123,15 @@ where
         });
         match c {
             '\\' => consumed.combine(|_| back_slash_char.parse_stream(input).into_result()),
-            '"' => Err(Consumed::Empty(Input::Error::empty(input.position()).into())),
+            '"' => Err(Consumed::Empty(
+                Input::Error::empty(input.position()).into(),
+            )),
             _ => Ok((c, consumed)),
         }
     })
 }
 
-fn json_string<Input>() -> impl Parser< Input, Output = String>
+fn json_string<Input>() -> impl Parser<Input, Output = String>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -137,7 +139,7 @@ where
     between(char('"'), lex(char('"')), many(json_char())).expected("string")
 }
 
-fn object<Input>() -> impl Parser< Input, Output = Value>
+fn object<Input>() -> impl Parser<Input, Output = Value>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -150,7 +152,7 @@ where
 }
 
 #[inline]
-fn json_value<Input>() -> impl Parser< Input, Output = Value>
+fn json_value<Input>() -> impl Parser<Input, Output = Value>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -307,7 +309,7 @@ fn bench(c: &mut Criterion) {
     c.bench_function("json_core_error", bench_json_core_error);
     c.bench_function(
         "json_core_error_no_position",
-    bench_json_core_error_no_position,
+        bench_json_core_error_no_position,
     );
     c.bench_function("buffered_json", bench_buffered_json);
 }

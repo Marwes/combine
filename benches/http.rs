@@ -63,7 +63,7 @@ fn is_http_version(c: u8) -> bool {
     c >= b'0' && c <= b'9' || c == b'.'
 }
 
-fn end_of_line<'a, Input>() -> impl Parser<Output = u8, Input = Input>
+fn end_of_line<'a, Input>() -> impl Parser<Input, Output = u8>
 where
     Input: RangeStream<Item = u8, Range = &'a [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -71,7 +71,7 @@ where
     (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'))
 }
 
-fn message_header<'a, Input>() -> impl Parser<Output = Header<'a>, Input = Input>
+fn message_header<'a, Input>() -> impl Parser<Input, Output = Header<'a>>
 where
     Input: RangeStream<Item = u8, Range = &'a [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -90,7 +90,9 @@ where
     })
 }
 
-fn parse_http_request<'a, Input>(input: Input) -> Result<((Request<'a>, Vec<Header<'a>>), Input), Input::Error>
+fn parse_http_request<'a, Input>(
+    input: Input,
+) -> Result<((Request<'a>, Vec<Header<'a>>), Input), Input::Error>
 where
     Input: RangeStream<Item = u8, Range = &'a [u8]>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
