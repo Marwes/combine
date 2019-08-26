@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate combine;
 
-parser!{
+parser! {
     pub fn test[Input]()(Input) -> ()
         where [Input: ::combine::Stream<Item = char>]
     {
@@ -16,7 +16,7 @@ parser!{
     }
 }
 
-parser!{
+parser! {
     pub fn test_that_parsers_with_unnamed_types_can_be_in_same_scope[Input]()(Input) -> ()
         where [Input: ::combine::Stream<Item = char>]
     {

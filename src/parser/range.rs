@@ -686,11 +686,7 @@ mod tests {
 
     #[test]
     fn take_until_range_unicode_2() {
-        let result = take_until_range("⁘⁙/⁘")
-            .parse("⚙️🛠️🦀=🏎️⁘⁙⁘⁘⁙/⁘⁘⁙/⁘");
-        assert_eq!(
-            result,
-            Ok(("⚙️🛠️🦀=🏎️⁘⁙⁘", "⁘⁙/⁘⁘⁙/⁘"))
-        );
+        let result = take_until_range("⁘⁙/⁘").parse("⚙️🛠️🦀=🏎️⁘⁙⁘⁘⁙/⁘⁘⁙/⁘");
+        assert_eq!(result, Ok(("⚙️🛠️🦀=🏎️⁘⁙⁘", "⁘⁙/⁘⁘⁙/⁘")));
     }
 }
