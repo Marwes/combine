@@ -360,7 +360,7 @@ pub enum UnexpectedParse {
 }
 
 impl fmt::Display for UnexpectedParse {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::UnexpectedParse::*;
         write!(
             f,
@@ -501,7 +501,7 @@ pub enum StringStreamError {
 pub(crate) const CHAR_BOUNDARY_ERROR_MESSAGE: &str = "unexpected slice on character boundary";
 
 impl fmt::Display for StringStreamError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::StringStreamError::*;
         write!(
             f,
