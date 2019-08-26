@@ -523,7 +523,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in unexpected {
-            r#try!(writeln!(f, "{}", error));
+            writeln!(f, "{}", error)?;
         }
 
         // Then we print out all the things that were expected in a comma separated list
@@ -542,10 +542,10 @@ impl<T, R> Error<T, R> {
                 // Last expected message to be written
                 _ => " or",
             };
-            r#try!(write!(f, "{} `{}`", s, message));
+            write!(f, "{} `{}`", s, message)?;
         }
         if expected_count != 0 {
-            r#try!(writeln!(f, ""));
+            writeln!(f, "")?;
         }
         // If there are any generic messages we print them out last
         let messages = errors.iter().filter(|e| match **e {
@@ -553,7 +553,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in messages {
-            r#try!(writeln!(f, "{}", error));
+            writeln!(f, "{}", error)?;
         }
         Ok(())
     }
@@ -720,7 +720,7 @@ where
     R: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        r#try!(writeln!(f, "Parse error at {}", self.position));
+        writeln!(f, "Parse error at {}", self.position)?;
         Error::fmt_errors(&self.errors, f)
     }
 }

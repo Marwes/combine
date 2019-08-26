@@ -1352,7 +1352,7 @@ pub mod tokio {
                 parser: move |mut input: &[u8], state: &mut S| {
                     let checkpoint = input.checkpoint();
                     Ok(decode(&mut parser, &mut input, state).map_err(|err| {
-                        input.reset(checkpoint);
+                        let _ = input.reset(checkpoint);
                         error_converter(err, input)
                     })?)
                 },
