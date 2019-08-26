@@ -1265,18 +1265,6 @@ where
 ///
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
 pub fn decode<Input, P>(
-    parser: P,
-    mut input: Input,
-    partial_state: &mut P::PartialState,
-) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
-where
-    P: Parser<Input>,
-    Input: RangeStream,
-{
-    decode_mut(parser, &mut input, partial_state)
-}
-
-fn decode_mut<Input, P>(
     mut parser: P,
     mut input: &mut Input,
     partial_state: &mut P::PartialState,
@@ -1363,7 +1351,7 @@ pub mod tokio {
                 state: Default::default(),
                 parser: move |mut input: &[u8], state: &mut S| {
                     let checkpoint = input.checkpoint();
-                    Ok(decode_mut(&mut parser, &mut input, state).map_err(|err| {
+                    Ok(decode(&mut parser, &mut input, state).map_err(|err| {
                         input.reset(checkpoint);
                         error_converter(err, input)
                     })?)

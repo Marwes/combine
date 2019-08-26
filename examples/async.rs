@@ -96,7 +96,7 @@ impl Decoder for LanguageServerDecoder {
             // (the same error messages that combine has had since its inception)
             // PartialStream lets the parser know that more input should be
             // expected if end of input is unexpectedly reached
-            easy::Stream(PartialStream(&src[..])),
+            &mut easy::Stream(PartialStream(&src[..])),
             &mut self.state,
         )
         .map_err(|err| {
