@@ -1,28 +1,30 @@
 #![allow(renamed_and_removed_lints)]
 
-use std::cell::Cell;
-use std::io::{self, Cursor};
-use std::rc::Rc;
-use std::str;
+use std::{
+    cell::Cell,
+    io::{self, Cursor},
+    rc::Rc,
+    str,
+};
 
-use bytes::BytesMut;
+use bytes_0_4::BytesMut;
 
 use futures::{Future, Stream};
 use quick_error::quick_error;
 use quickcheck::quickcheck;
-use tokio_codec::{Decoder, FramedRead};
+use tokio_codec_0_1::{Decoder, FramedRead};
 
 use combine::{
     any,
     combinator::{
-        any_partial_state, any_send_partial_state, attempt, from_str, no_partial, optional,
-        recognize, skip_many1, AnyPartialState, AnySendPartialState,
+        any_partial_state, any_send_partial_state, attempt, from_str, optional, recognize,
+        skip_many1, AnyPartialState, AnySendPartialState,
     },
     count_min_max,
     error::{ParseError, StreamError},
     many1, parser,
     parser::{
-        byte::take_until_bytes,
+        byte::{num, take_until_bytes},
         char::{char, digit, letter},
         item::item,
         range::{
@@ -97,7 +99,7 @@ macro_rules! impl_decoder {
                     println!("Decoding `{}`", str_src);
                     combine::stream::decode(
                         any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
-                        easy::Stream(combine::stream::PartialStream(str_src)),
+                        &mut easy::Stream(combine::stream::PartialStream(str_src)),
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
@@ -120,11 +122,65 @@ macro_rules! impl_decoder {
     }
 }
 
+macro_rules! impl_byte_decoder {
+    ($typ: ident, $item: ty, $parser: expr, $custom_state: ty) => {
+        #[derive(Default)]
+        struct $typ(AnyPartialState, $custom_state);
+        impl_byte_decoder!{$typ, $item, $parser; ($custom_state)}
+    };
+    ($typ: ident, $item: ty, $parser: expr) => {
+        #[derive(Default)]
+        struct $typ(AnyPartialState);
+        impl_byte_decoder!{$typ, $item, $parser; ()}
+    };
+    ($typ: ident, $item: ty, $parser: expr; ( $($custom_state: tt)* )) => {
+        impl Decoder for $typ {
+            type Item = $item;
+            type Error = Error;
+
+            fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                (&mut &mut *self).decode(src)
+            }
+        }
+
+        impl<'a> Decoder for &'a mut $typ {
+            type Item = $item;
+            type Error = Error;
+
+            fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                let (opt, removed_len) = {
+                    let str_src = &src[..];
+                    println!("Decoding `{:?}`", str_src);
+                    combine::stream::decode(
+                        any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
+                        &mut easy::Stream(combine::stream::PartialStream(str_src)),
+                        &mut self.0,
+                    ).map_err(|err| {
+                        // Since err contains references into `src` we must remove these before
+                        // returning the error and before we call `split_to` to remove the input we
+                        // just consumed
+                        let err = err.map_range(|r| format!("{:?}", r))
+                            .map_position(|p| p.translate_position(&str_src[..]));
+                        format!("{}\nIn input: `{:?}`", err, str_src)
+                    })?
+                };
+
+                src.split_to(removed_len);
+                match opt {
+                    None => println!("Need more input!"),
+                    Some(_) => (),
+                }
+                Ok(opt)
+            }
+        }
+    }
+}
+
 use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
 
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
-    D: Decoder,
+    D: Decoder<Error = Error>,
     D::Item: ::std::fmt::Display,
     S: IntoIterator<Item = PartialOp> + 'static,
     S::IntoIter: Send,
@@ -143,8 +199,8 @@ where
 
 parser! {
     type PartialState = AnyPartialState;
-    fn basic_parser['a, I]()(I) -> String
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    fn basic_parser['a, Input]()(Input) -> String
+        where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
         any_partial_state(
             many1(digit()).skip(range(&"\r\n"[..])),
@@ -167,10 +223,10 @@ fn many1_skip_no_errors() {
 
 parser! {
     type PartialState = AnyPartialState;
-    fn prefix_many_then_parser['a, I]()(I) -> String
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    fn prefix_many_then_parser['a, Input]()(Input) -> String
+        where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
-        let integer = from_str(many1::<String, _>(digit()));
+        let integer = from_str(many1::<String, _, _>(digit()));
         any_partial_state((char('#'), skip_many(char(' ')), integer)
             .then_partial(|t| {
                 let c = t.2;
@@ -182,8 +238,8 @@ parser! {
 
 parser! {
     type PartialState = AnyPartialState;
-    fn choice_parser['a, I]()(I) -> String
-        where [ I: RangeStream<Item = char, Range = &'a str> ]
+    fn choice_parser['a, Input]()(Input) -> String
+        where [ Input: RangeStream<Item = char, Range = &'a str> ]
     {
         any_partial_state(
             many1(digit())
@@ -193,17 +249,19 @@ parser! {
     }
 }
 
-fn content_length<'a, I>(
-) -> impl Parser<Input = I, Output = String, PartialState = AnySendPartialState> + 'a
+fn content_length<'a, Input>(
+) -> impl Parser<Input, Output = String, PartialState = AnySendPartialState> + 'a
 where
-    I: RangeStream<Item = char, Range = &'a str> + 'a,
+    Input: RangeStream<Item = char, Range = &'a str> + 'a,
     // Necessary due to rust-lang/rust#24159
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let content_length = range("Content-Length: ").with(
         range::recognize(skip_many1(digit())).and_then(|digits: &str| {
             // Convert the error from `.parse` into an error combine understands
-            digits.parse::<usize>().map_err(StreamErrorFor::<I>::other)
+            digits
+                .parse::<usize>()
+                .map_err(StreamErrorFor::<Input>::other)
         }),
     );
 
@@ -500,27 +558,27 @@ quickcheck! {
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(result.unwrap(), sizes);
     }
-}
 
-#[test]
-fn inner_no_partial_test() {
-    let seq = vec![PartialOp::Limited(10)];
-    impl_decoder! { TestParser, String,
-        no_partial(many1(digit()))
-            .or(many1(letter()))
-            .skip(range(&"\r\n"[..]))
+    fn num_test(ints: Vec<u16>, seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_byte_decoder!{ TestParser, u16,
+            num::be_u16()
+                .skip(take(2))
+        }
+
+        let input: Vec<u8> = ints.iter()
+            .flat_map(|i| {
+                let mut v = Vec::new();
+                v.extend_from_slice(&i.to_be_bytes());
+                v.extend_from_slice(b"\r\n");
+                v
+            })
+            .collect();
+
+        let result = run_decoder(&input, seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), ints);
     }
-
-    let input = "1\r\n\
-                 abcd\r\n\
-                 123\r\n\
-                 abc\r\n\
-                 1232751\r\n";
-
-    let result = run_decoder(input, seq, TestParser::default());
-
-    assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
-    assert_eq!(result.unwrap(), ["1", "abcd", "123", "abc", "1232751"]);
 }
 
 #[test]

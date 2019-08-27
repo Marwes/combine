@@ -1,5 +1,3 @@
-extern crate combine;
-
 use combine::parser::byte::bytes_cmp;
 use combine::parser::char::{digit, letter, string, string_cmp};
 use combine::parser::choice::{choice, optional};
@@ -10,11 +8,11 @@ use combine::parser::range::{self, range};
 use combine::parser::repeat::{
     count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until,
 };
-use combine::Parser;
+use combine::{EasyParser, Parser};
 
 #[test]
 fn choice_empty() {
-    let mut parser = choice::<&mut [Token<&str>]>(&mut []);
+    let mut parser = choice::<_, &mut [Token<&str>]>(&mut []);
     let result_err = parser.parse("a");
     assert!(result_err.is_err());
 }
@@ -359,7 +357,7 @@ mod tests_std {
         let mut p1 = char('1');
         let mut p2 = no_partial((optional(char('b')), char('2')).map(|t| t.1));
         let mut parser =
-            choice::<[&mut Parser<Input = _, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
+            choice::<_, [&mut dyn Parser<_, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
 
         assert_eq!(
             parser.easy_parse(State::new("c")),
@@ -392,7 +390,7 @@ mod tests_std {
     #[test]
     fn sequence_parser_resets_partial_state_issue_168() {
         assert_eq!(
-            take_until::<String, _>(attempt((char('a'), char('b')))).parse("aaab"),
+            take_until::<String, _, _>(attempt((char('a'), char('b')))).parse("aaab"),
             Ok((String::from("aa"), "ab"))
         );
     }
@@ -484,16 +482,16 @@ mod tests_std {
     fn sequence_in_many_report_delayed_error() {
         use combine::parser::{repeat, sequence};
 
-        sequence_many_test!(repeat::many::<Vec<_>, _>, sequence::skip);
-        sequence_many_test!(repeat::many1::<Vec<_>, _>, sequence::skip);
-        sequence_many_test!(repeat::many::<Vec<_>, _>, sequence::with);
-        sequence_many_test!(repeat::many1::<Vec<_>, _>, sequence::with);
-        sequence_many_test!(repeat::many::<Vec<_>, _>, |l, x| sequence::between(
+        sequence_many_test!(repeat::many::<Vec<_>, _, _>, sequence::skip);
+        sequence_many_test!(repeat::many1::<Vec<_>, _, _>, sequence::skip);
+        sequence_many_test!(repeat::many::<Vec<_>, _, _>, sequence::with);
+        sequence_many_test!(repeat::many1::<Vec<_>, _, _>, sequence::with);
+        sequence_many_test!(repeat::many::<Vec<_>, _, _>, |l, x| sequence::between(
             l,
             char('|'),
             x,
         ));
-        sequence_many_test!(repeat::many1::<Vec<_>, _>, |l, x| sequence::between(
+        sequence_many_test!(repeat::many1::<Vec<_>, _, _>, |l, x| sequence::between(
             l,
             char('|'),
             x,
@@ -519,10 +517,10 @@ mod tests_std {
     fn sequence_in_sep_by_report_delayed_error() {
         use combine::parser::{repeat, sequence};
 
-        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::skip);
-        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::skip);
-        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _>, sequence::with);
-        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _>, sequence::with);
+        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _, _>, sequence::skip);
+        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _, _>, sequence::skip);
+        sequence_sep_by_test!(repeat::sep_by::<Vec<_>, _, _, _>, sequence::with);
+        sequence_sep_by_test!(repeat::sep_by1::<Vec<_>, _, _, _>, sequence::with);
     }
 
     #[test]
@@ -544,7 +542,7 @@ mod tests_std {
     #[test]
     fn choice_compose_issue_175() {
         let ident = |s| attempt(string(s));
-        let mut parser = many::<Vec<_>, _>(position().and(choice((
+        let mut parser = many::<Vec<_>, _, _>(position().and(choice((
             ident("aa").skip(string(";")),
             choice((ident("bb"), ident("cc"))),
         ))))
@@ -598,12 +596,12 @@ mod tests_std {
 
     #[test]
     fn test_nested_count_overflow() {
-        let key = || count::<Vec<_>, _>(64, alpha_num());
+        let key = || count::<Vec<_>, _, _>(64, alpha_num());
         let value_bytes =
-            || be_u32().then_partial(|&mut size| count::<Vec<_>, _>(size as usize, any()));
+            || be_u32().then_partial(|&mut size| count::<Vec<_>, _, _>(size as usize, any()));
         let value_messages =
             (be_u32(), be_u32()).then_partial(|&mut (_body_size, message_count)| {
-                count::<Vec<_>, _>(message_count as usize, value_bytes())
+                count::<Vec<_>, _, _>(message_count as usize, value_bytes())
             });
         let put = (bytes(b"PUT"), key())
             .map(|(_, key)| key)

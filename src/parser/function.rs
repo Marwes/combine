@@ -2,23 +2,26 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::error::{ParseResult, StdParseResult};
-use crate::stream::{Stream, StreamOnce};
-use crate::Parser;
+use crate::{
+    error::{ParseResult, StdParseResult},
+    stream::Stream,
+    Parser,
+};
 
-impl<'a, I: Stream, O> Parser for FnMut(&mut I) -> StdParseResult<O, I> + 'a {
-    type Input = I;
+impl<'a, Input: Stream, O> Parser<Input>
+    for dyn FnMut(&mut Input) -> StdParseResult<O, Input> + 'a
+{
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         self(input).into()
     }
 }
 
 #[derive(Copy, Clone)]
-pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
+pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 
 /// Wraps a function, turning it into a parser.
 ///
@@ -56,56 +59,54 @@ pub struct FnParser<I, F>(F, PhantomData<fn(I) -> I>);
 /// assert_eq!(result, Ok(8));
 /// # }
 /// ```
-#[inline(always)]
-pub fn parser<I, O, F>(f: F) -> FnParser<I, F>
+#[inline]
+pub fn parser<Input, O, F>(f: F) -> FnParser<Input, F>
 where
-    I: Stream,
-    F: FnMut(&mut I) -> StdParseResult<O, I>,
+    Input: Stream,
+    F: FnMut(&mut Input) -> StdParseResult<O, Input>,
 {
     FnParser(f, PhantomData)
 }
 
-impl<I, O, F> Parser for FnParser<I, F>
+impl<Input, O, F> Parser<Input> for FnParser<Input, F>
 where
-    I: Stream,
-    F: FnMut(&mut I) -> StdParseResult<O, I>,
+    Input: Stream,
+    F: FnMut(&mut Input) -> StdParseResult<O, Input>,
 {
-    type Input = I;
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         (self.0)(input).into()
     }
 }
 
-impl<I, O> Parser for fn(&mut I) -> StdParseResult<O, I>
+impl<Input, O> Parser<Input> for fn(&mut Input) -> StdParseResult<O, Input>
 where
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         self(input).into()
     }
 }
 
 #[derive(Copy)]
-pub struct EnvParser<E, I, T>
+pub struct EnvParser<E, Input, T>
 where
-    I: Stream,
+    Input: Stream,
 {
     env: E,
-    parser: fn(E, &mut I) -> StdParseResult<T, I>,
+    parser: fn(E, &mut Input) -> StdParseResult<T, Input>,
 }
 
-impl<E, I, T> Clone for EnvParser<E, I, T>
+impl<E, Input, T> Clone for EnvParser<E, Input, T>
 where
-    I: Stream,
+    Input: Stream,
     E: Clone,
 {
     fn clone(&self) -> Self {
@@ -116,17 +117,16 @@ where
     }
 }
 
-impl<E, I, O> Parser for EnvParser<E, I, O>
+impl<Input, E, O> Parser<Input> for EnvParser<E, Input, O>
 where
     E: Clone,
-    I: Stream,
+    Input: Stream,
 {
-    type Input = I;
     type Output = O;
     type PartialState = ();
 
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Self::Input) -> ParseResult<O, <I as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, Input::Error> {
         (self.parser)(self.env.clone(), input).into()
     }
 }
@@ -143,9 +143,9 @@ where
 /// # fn main() {
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
-///     fn string<I>(&self, input: &mut I) -> StdParseResult<u32, I>
-///         where I: Stream<Item=char>,
-///               I::Error: ParseError<I::Item, I::Range, I::Position>,
+///     fn string<Input>(&self, input: &mut Input) -> StdParseResult<u32, Input>
+///         where Input: Stream<Item=char>,
+///               Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 ///     {
 ///         many(letter())
 ///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))
@@ -168,17 +168,14 @@ where
 /// assert_eq!(result, Ok((0, "")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn env_parser<E, I, O>(
+#[inline]
+pub fn env_parser<E, Input, O>(
     env: E,
-    parser: fn(E, &mut I) -> StdParseResult<O, I>,
-) -> EnvParser<E, I, O>
+    parser: fn(E, &mut Input) -> StdParseResult<O, Input>,
+) -> EnvParser<E, Input, O>
 where
     E: Clone,
-    I: Stream,
+    Input: Stream,
 {
-    EnvParser {
-        env: env,
-        parser: parser,
-    }
+    EnvParser { env, parser }
 }

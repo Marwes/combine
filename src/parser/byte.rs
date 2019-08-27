@@ -7,9 +7,12 @@ use self::ascii::AsciiChar;
 
 use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
 use crate::error::{Info, ParseError, ParseResult, Tracked};
-use crate::parser::item::tokens_cmp;
-use crate::parser::range::{take_fn, TakeRange};
-use crate::parser::sequence::With;
+use crate::parser::{
+    item::tokens_cmp,
+    range::{take_fn, TakeRange},
+    sequence::With,
+    ParseMode,
+};
 use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
 use crate::Parser;
 
@@ -24,16 +27,16 @@ use crate::error::ParseResult::*;
 /// assert!(byte(b'A').parse(&b""[..]).is_err());
 /// assert!(byte(b'A').parse(&b"!"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn byte<I>(c: u8) -> Token<I>
+#[inline]
+pub fn byte<Input>(c: u8) -> Token<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     token(c)
 }
 
-impl_token_parser! { Digit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Digit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f:ident) => {{
@@ -52,16 +55,16 @@ macro_rules! byte_parser {
 /// assert_eq!(digit().parse(&b"9"[..]), Ok((b'9', &b""[..])));
 /// assert!(digit().parse(&b"A"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn digit<I>() -> Digit<I>
+#[inline]
+pub fn digit<Input>() -> Digit<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(digit, Digit, is_digit)
 }
 
-impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Space(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 ///
@@ -73,16 +76,16 @@ impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert!(space().parse(&b"!"[..]).is_err());
 /// assert!(space().parse(&b""[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn space<I>() -> Space<I>
+#[inline]
+pub fn space<Input>() -> Space<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(space, Space, is_whitespace)
 }
 
-impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
+impl_token_parser! { Spaces(), u8, Expected<SkipMany<Input, Space<Input>>, &'static str> }
 /// Skips over [`space`] zero or more times
 ///
 /// [`space`]: fn.space.html
@@ -93,16 +96,16 @@ impl_token_parser! { Spaces(), u8, Expected<SkipMany<Space<I>>> }
 /// assert_eq!(spaces().parse(&b""[..]), Ok(((), &b""[..])));
 /// assert_eq!(spaces().parse(&b"   "[..]), Ok(((), &b""[..])));
 /// ```
-#[inline(always)]
-pub fn spaces<I>() -> Spaces<I>
+#[inline]
+pub fn spaces<Input>() -> Spaces<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
 }
 
-impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Newline(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses a newline byte (`b'\n'`).
 ///
@@ -112,11 +115,11 @@ impl_token_parser! { Newline(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(newline().parse(&b"\n"[..]), Ok((b'\n', &b""[..])));
 /// assert!(newline().parse(&b"\r"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn newline<I>() -> Newline<I>
+#[inline]
+pub fn newline<Input>() -> Newline<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     Newline(
         satisfy(static_fn!((ch, u8) -> bool { ch == b'\n' })).expected("lf newline"),
@@ -124,7 +127,7 @@ where
     )
 }
 
-impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newline<I>>> }
+impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<Input, fn (u8) -> bool>, Newline<Input>>, &'static str> }
 
 /// Parses carriage return and newline (`&b"\r\n"`), returning the newline byte.
 ///
@@ -135,11 +138,11 @@ impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<I, fn (u8) -> bool>, Newl
 /// assert!(crlf().parse(&b"\r"[..]).is_err());
 /// assert!(crlf().parse(&b"\n"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn crlf<I>() -> CrLf<I>
+#[inline]
+pub fn crlf<Input>() -> CrLf<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     CrLf(
         satisfy(static_fn!((ch, u8) -> bool { ch == b'\r' }))
@@ -149,7 +152,7 @@ where
     )
 }
 
-impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Tab(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses a tab byte (`b'\t'`).
 ///
 /// ```
@@ -158,11 +161,11 @@ impl_token_parser! { Tab(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(tab().parse(&b"\t"[..]), Ok((b'\t', &b""[..])));
 /// assert!(tab().parse(&b" "[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn tab<I>() -> Tab<I>
+#[inline]
+pub fn tab<Input>() -> Tab<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     Tab(
         satisfy(static_fn!((ch, u8) -> bool { ch == b'\t' })).expected("tab"),
@@ -170,7 +173,7 @@ where
     )
 }
 
-impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Upper(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an uppercase ASCII letter (A–Z).
 ///
 /// ```
@@ -179,16 +182,16 @@ impl_token_parser! { Upper(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(upper().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(upper().parse(&b"a"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn upper<I>() -> Upper<I>
+#[inline]
+pub fn upper<Input>() -> Upper<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(upper, Upper, is_uppercase)
 }
 
-impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Lower(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an lowercase ASCII letter (a–z).
 ///
 /// ```
@@ -197,16 +200,16 @@ impl_token_parser! { Lower(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(lower().parse(&b"a"[..]), Ok((b'a', &b""[..])));
 /// assert!(lower().parse(&b"A"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn lower<I>() -> Lower<I>
+#[inline]
+pub fn lower<Input>() -> Lower<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(lower, Lower, is_lowercase)
 }
 
-impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
 ///
 /// ```
@@ -216,16 +219,16 @@ impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(alpha_num().parse(&b"1"[..]), Ok((b'1', &b""[..])));
 /// assert!(alpha_num().parse(&b"!"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn alpha_num<I>() -> AlphaNum<I>
+#[inline]
+pub fn alpha_num<Input>() -> AlphaNum<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
 
-impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { Letter(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
 ///
 /// ```
@@ -235,16 +238,16 @@ impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(letter().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(letter().parse(&b"9"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn letter<I>() -> Letter<I>
+#[inline]
+pub fn letter<Input>() -> Letter<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(letter, Letter, is_alphabetic)
 }
 
-impl_token_parser! { OctDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { OctDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses an octal digit.
 ///
@@ -254,11 +257,11 @@ impl_token_parser! { OctDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(oct_digit().parse(&b"7"[..]), Ok((b'7', &b""[..])));
 /// assert!(oct_digit().parse(&b"8"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn oct_digit<I>() -> OctDigit<I>
+#[inline]
+pub fn oct_digit<Input>() -> OctDigit<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     OctDigit(
         satisfy(static_fn!((ch, u8) -> bool { ch >= b'0' && ch <= b'7' })).expected("octal digit"),
@@ -266,7 +269,7 @@ where
     )
 }
 
-impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
+impl_token_parser! { HexDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
 ///
 /// ```
@@ -275,15 +278,16 @@ impl_token_parser! { HexDigit(), u8, Expected<Satisfy<I, fn (u8) -> bool>> }
 /// assert_eq!(hex_digit().parse(&b"F"[..]), Ok((b'F', &b""[..])));
 /// assert!(hex_digit().parse(&b"H"[..]).is_err());
 /// ```
-#[inline(always)]
-pub fn hex_digit<I>() -> HexDigit<I>
+#[inline]
+pub fn hex_digit<Input>() -> HexDigit<Input>
 where
-    I: Stream<Item = u8>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
 
+parser! {
 /// Parses the bytes `s`.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -303,15 +307,18 @@ where
 ///
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
-#[inline(always)]
-pub fn bytes<'a, 'b, I>(s: &'static [u8]) -> impl Parser<Input = I, Output = &'a [u8]>
-where
-    I: Stream<Item = u8, Range = &'b [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+#[inline]
+pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
+where [
+    Input: Stream<Item = u8, Range = &'b [u8]>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+]
 {
     bytes_cmp(s, |l: u8, r: u8| l == r)
 }
+}
 
+parser! {
 /// Parses the bytes `s` using `cmp` to compare each token.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -332,19 +339,19 @@ where
 ///
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
-#[inline(always)]
-pub fn bytes_cmp<'a, 'b, C, I>(
-    s: &'static [u8],
-    cmp: C,
-) -> impl Parser<Input = I, Output = &'a [u8]>
-where
+#[inline]
+pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
+where [
     C: FnMut(u8, u8) -> bool,
-    I: Stream<Item = u8, Range = &'b [u8]>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: Stream<Item = u8, Range = &'b [u8]>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+]
 {
+    let s = *s;
     tokens_cmp(s.iter().cloned(), cmp)
         .map(move |_| s)
         .expected(Info::Range(s))
+}
 }
 
 macro_rules! take_until {
@@ -355,15 +362,15 @@ macro_rules! take_until {
         parser!{
             #[derive(Clone)]
             pub struct $type_name;
-            #[inline(always)]
+            #[inline]
             $(#[$attr])*
-            pub fn $func_name[I]($($param : u8),*)(I) -> I::Range
+            pub fn $func_name[Input]($($param : u8),*)(Input) -> Input::Range
                 where [
-                    I: RangeStream + FullRangeStream,
-                    I::Range: AsRef<[u8]> + crate::stream::Range,
+                    Input: RangeStream + FullRangeStream,
+                    Input::Range: AsRef<[u8]> + crate::stream::Range,
                 ]
             {
-                take_fn(move |haystack: I::Range| {
+                take_fn(move |haystack: Input::Range| {
                     let haystack = haystack.as_ref();
                     match ::memchr::$memchr( $(*$param),+ , haystack) {
                         Some(i) => TakeRange::Found(i),
@@ -453,14 +460,14 @@ parser! {
 ///     Ok(("abc"))
 /// );
 /// ```
-#[inline(always)]
-pub fn take_until_bytes['a, I](needle: &'a [u8])(I) -> I::Range
+#[inline]
+pub fn take_until_bytes['a, Input](needle: &'a [u8])(Input) -> Input::Range
 where [
-    I: RangeStream + FullRangeStream,
-    I::Range: AsRef<[u8]> + crate::stream::Range,
+    Input: RangeStream + FullRangeStream,
+    Input::Range: AsRef<[u8]> + crate::stream::Range,
 ]
 {
-    take_fn(move |haystack: I::Range| {
+    take_fn(move |haystack: Input::Range| {
         let haystack = haystack.as_ref();
         match memslice(needle, haystack) {
             Some(i) => TakeRange::Found(i),
@@ -488,6 +495,7 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
     use super::*;
+    use crate::error::ResultExt;
     use crate::stream::uncons;
 
     use byteorder::{ByteOrder, BE, LE};
@@ -501,58 +509,70 @@ pub mod num {
             $func_name: ident, $be_name: ident, $le_name: ident, $read_name: ident
         ) => {
             #[derive(Clone)]
-            pub struct $type_name<B, I>(PhantomData<(B, I)>);
+            pub struct $type_name<B, Input>(PhantomData<(B, Input)>);
 
-            impl<'a, B, I> Parser for $type_name<B, I>
+            impl<'a, Input, B> Parser<Input> for $type_name<B, Input>
             where
-                I: Stream<Item = u8>,
-                I::Error: ParseError<I::Item, I::Range, I::Position>,
+                Input: Stream<Item = u8>,
+                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
                 B: ByteOrder,
             {
-                type Input = I;
+
                 type Output = $func_name;
                 type PartialState = ();
 
-                #[inline]
-                fn parse_lazy(
+                parse_mode!(Input);
+                fn parse_mode_impl<M>(
                     &mut self,
-                    input: &mut Self::Input
-                    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
-                    let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
-                    for elem in &mut *buffer {
-                        *elem = ctry!(uncons(input)).0;
+                    _mode: M,
+                    input: &mut Input,
+                    _state: &mut Self::PartialState,
+                ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+                where
+                    M: ParseMode,
+                {
+                    let checkpoint = input.checkpoint();
+                    let result = (|| {
+                        let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
+                        for elem in &mut *buffer {
+                            *elem = ctry!(uncons(input)).0;
+                        }
+                        ConsumedOk(B::$read_name(buffer))
+                    })();
+                    if result.is_err() {
+                        ctry!(input.reset(checkpoint).consumed());
                     }
-                    ConsumedOk(B::$read_name(buffer))
+                    result
                 }
             }
 
             $(#[$attr])*
-            #[inline(always)]
-            pub fn $func_name<'a, B, I>() -> $type_name<B, I>
+            #[inline]
+            pub fn $func_name<'a, B, Input>() -> $type_name<B, Input>
             where
-                I: Stream<Item = u8>,
-                I::Error: ParseError<I::Item, I::Range, I::Position>,
+                Input: Stream<Item = u8>,
+                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
                 B: ByteOrder,
             {
                 $type_name(PhantomData)
             }
 
             $(#[$attr])*
-            #[inline(always)]
-            pub fn $be_name<'a, I>() -> $type_name<BE, I>
+            #[inline]
+            pub fn $be_name<'a, Input>() -> $type_name<BE, Input>
             where
-                I: Stream<Item = u8>,
-                I::Error: ParseError<I::Item, I::Range, I::Position>,
+                Input: Stream<Item = u8>,
+                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
             {
                 $func_name()
             }
 
             $(#[$attr])*
-            #[inline(always)]
-            pub fn $le_name<'a, I>() -> $type_name<LE, I>
+            #[inline]
+            pub fn $le_name<'a, Input>() -> $type_name<LE, Input>
             where
-                I: Stream<Item = u8>,
-                I::Error: ParseError<I::Item, I::Range, I::Position>,
+                Input: Stream<Item = u8>,
+                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
             {
                 $func_name()
             }

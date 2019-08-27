@@ -5,13 +5,13 @@
 use either::Either;
 
 use crate::combinator::{
-    and_then, expected, flat_map, map, message, then, then_partial, AndThen, Expected, FlatMap,
-    Iter, Map, Message, Then, ThenPartial,
+    and_then, expected, flat_map, map, map_input, message, then, then_partial, AndThen, Expected,
+    FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
 };
 use crate::error::ParseResult::*;
 use crate::error::{Info, ParseError, ParseResult, ResultExt, Tracked};
 use crate::parser::error::{silent, Silent};
-use crate::stream::{ResetStream, Stream, StreamOnce};
+use crate::stream::{Stream, StreamOnce};
 use crate::ErrorOffset;
 
 use self::choice::{or, Or};
@@ -20,41 +20,23 @@ use self::sequence::{skip, with, Skip, With};
 /// Internal API. May break without a semver bump
 #[macro_export]
 #[doc(hidden)]
-macro_rules! impl_parser {
-    ($name: ident ($first: ident, $($ty_var: ident),*), $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<$first $(,$ty_var)*>($inner_type)
-        where $first: Parser $(,$ty_var : Parser<Input=<$first as Parser>::Input>)*;
-    impl <$first, $($ty_var),*> Parser for $name<$first $(,$ty_var)*>
-        where $first: Parser $(, $ty_var : Parser<Input=<$first as Parser>::Input>)* {
-        type Input = <$first as Parser>::Input;
-        type Output = <$inner_type as Parser>::Output;
-        type PartialState = <$inner_type as Parser>::PartialState;
-        forward_parser!(0);
-    }
-}
-}
-
-/// Internal API. May break without a semver bump
-#[macro_export]
-#[doc(hidden)]
 macro_rules! parse_mode {
-    () => {
-        #[inline(always)]
+    ($input_type: ty) => {
+        #[inline]
         fn parse_partial(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut $input_type,
             state: &mut Self::PartialState,
-        ) -> $crate::error::ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
+        ) -> $crate::error::ParseResult<Self::Output, <$input_type as $crate::StreamOnce>::Error> {
             self.parse_mode($crate::parser::PartialMode::default(), input, state)
         }
 
-        #[inline(always)]
+        #[inline]
         fn parse_first(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut $input_type,
             state: &mut Self::PartialState,
-        ) -> $crate::error::ParseResult<Self::Output, <Self::Input as $crate::StreamOnce>::Error> {
+        ) -> $crate::error::ParseResult<Self::Output, <$input_type as $crate::StreamOnce>::Error> {
             self.parse_mode($crate::parser::FirstMode, input, state)
         }
     }
@@ -85,10 +67,7 @@ pub mod sequence;
 /// [`parse_stream`]: trait.Parser.html#method.parse_stream
 /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
 /// [`add_error`]: trait.Parser.html#method.add_error
-pub trait Parser {
-    /// The type which is taken as input for the parser. The type must implement the `Stream` trait
-    /// which allows the parser to read items from the type.
-    type Input: Stream;
+pub trait Parser<Input: Stream> {
     /// The type which is returned if the parser is successful.
     type Output;
 
@@ -96,66 +75,6 @@ pub trait Parser {
     ///
     /// If partial parsing is not supported this can be set to `()`.
     type PartialState: Default;
-
-    /// Entry point of the parser. Takes some input and tries to parse it, returning an easy to use
-    /// and format error if parsing did not succeed.
-    ///
-    /// Returns the parsed result and the remaining input if the parser succeeds, or a
-    /// This function wraps requires `Self::Input == easy::Stream<I>` which makes it return
-    /// return `easy::Errors` if an error occurs. Due to this wrapping it is recommended that the
-    /// parser `Self` is written with a generic input type.
-    ///
-    /// ```
-    /// # #[macro_use]
-    /// # extern crate combine;
-    ///
-    /// use combine::{Parser, Stream};
-    /// use combine::parser::repeat::many1;
-    /// use combine::parser::char::letter;
-    ///
-    /// // Good!
-    /// parser!{
-    /// fn my_parser[I]()(I) -> String
-    ///     where [I: Stream<Item=char>]
-    /// {
-    ///     many1(letter())
-    /// }
-    /// }
-    ///
-    /// // Won't compile with `easy_parse` since it is specialized on `&str`
-    /// parser!{
-    /// fn my_parser2['a]()(&'a str) -> String
-    /// {
-    ///     many1(letter())
-    /// }
-    /// }
-    ///
-    /// fn main() {
-    ///     assert_eq!(my_parser().parse("abc"), Ok(("abc".to_string(), "")));
-    ///     // Would fail to compile if uncommented
-    ///     // my_parser2().parse("abc")
-    /// }
-    /// ```
-    ///
-    /// [`ParseError`]: struct.ParseError.html
-    #[cfg(feature = "std")]
-    fn easy_parse<I>(&mut self, input: I) -> Result<(Self::Output, I), crate::easy::ParseError<I>>
-    where
-        I: Stream,
-        crate::easy::Stream<I>: StreamOnce<
-            Item = I::Item,
-            Range = I::Range,
-            Error = crate::easy::ParseError<crate::easy::Stream<I>>,
-            Position = I::Position,
-        >,
-        I::Position: Default,
-        I::Item: PartialEq,
-        I::Range: PartialEq,
-        Self: Sized + Parser<Input = crate::easy::Stream<I>>,
-    {
-        let input = crate::easy::Stream(input);
-        self.parse(input).map(|(v, input)| (v, input.0))
-    }
 
     /// Entry point of the parser. Takes some input and tries to parse it.
     ///
@@ -171,8 +90,8 @@ pub trait Parser {
     /// [`easy_parse`]: trait.Parser.html#method.easy_parse
     fn parse(
         &mut self,
-        mut input: Self::Input,
-    ) -> Result<(Self::Output, Self::Input), <Self::Input as StreamOnce>::Error> {
+        mut input: Input,
+    ) -> Result<(Self::Output, Input), <Input as StreamOnce>::Error> {
         match self.parse_stream(&mut input).into() {
             Ok((v, _)) => Ok((v, input)),
             Err(error) => Err(error.into_inner().error),
@@ -186,9 +105,9 @@ pub trait Parser {
     /// error otherwise.
     fn parse_with_state(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> Result<Self::Output, <Self::Input as StreamOnce>::Error> {
+    ) -> Result<Self::Output, <Input as StreamOnce>::Error> {
         match self.parse_stream_partial(input, state).into() {
             Ok((v, _)) => Ok(v),
             Err(error) => Err(error.into_inner().error),
@@ -207,8 +126,8 @@ pub trait Parser {
     #[inline]
     fn parse_stream(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let mut state = Default::default();
         let mut result = self.parse_first(input, &mut state);
@@ -241,11 +160,11 @@ pub trait Parser {
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
     /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
-    #[inline(always)]
+    #[inline]
     fn parse_lazy(
         &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         if input.is_partial() {
             // If a partial parser were called from a non-partial parser (as it is here) we must
             // reset the input to before the partial parser were called on errors that consumed
@@ -268,15 +187,15 @@ pub trait Parser {
     /// See [`parse_lazy`] for details.
     ///
     /// [`parse_lazy`]: trait.Parser.html#method.parse_lazy
-    fn add_error(&mut self, _error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {}
+    fn add_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
     /// Like `parse_stream` but supports partial parsing.
     #[inline]
     fn parse_stream_partial(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let mut result = self.parse_partial(input, state);
         if let ParseResult::EmptyErr(ref mut error) = result {
@@ -298,13 +217,13 @@ pub trait Parser {
     ///
     /// Internal API. May break without a semver bump
     /// Always overridden by the `parse_mode!` macro
-    #[inline(always)]
+    #[inline]
     #[doc(hidden)]
     fn parse_first(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         self.parse_partial(input, state)
     }
 
@@ -313,26 +232,26 @@ pub trait Parser {
     ///
     /// Internal API. May break without a semver bump
     /// Always overridden by the `parse_mode!` macro
-    #[inline(always)]
+    #[inline]
     #[doc(hidden)]
     fn parse_partial(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         let _ = state;
         self.parse_lazy(input)
     }
 
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
-    #[inline(always)]
+    #[inline]
     fn parse_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized,
@@ -346,13 +265,13 @@ pub trait Parser {
 
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
-    #[inline(always)]
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized,
@@ -366,13 +285,13 @@ pub trait Parser {
 
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
-    #[inline(always)]
+    #[inline]
     fn parse_consumed_mode<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized,
@@ -394,11 +313,7 @@ pub trait Parser {
 
     /// Internal API: This should not be implemented explicitly outside of combine.
     #[doc(hidden)]
-    fn add_consumed_expected_error(
-        &mut self,
-        _error: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
-    }
+    fn add_consumed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
     /// Borrows a parser instead of consuming it.
     ///
@@ -449,7 +364,7 @@ pub trait Parser {
     fn with<P2>(self, p: P2) -> With<Self, P2>
     where
         Self: Sized,
-        P2: Parser<Input = Self::Input>,
+        P2: Parser<Input>,
     {
         with(self, p)
     }
@@ -472,7 +387,7 @@ pub trait Parser {
     fn skip<P2>(self, p: P2) -> Skip<Self, P2>
     where
         Self: Sized,
-        P2: Parser<Input = Self::Input>,
+        P2: Parser<Input>,
     {
         skip(self, p)
     }
@@ -496,7 +411,7 @@ pub trait Parser {
     fn and<P2>(self, p: P2) -> (Self, P2)
     where
         Self: Sized,
-        P2: Parser<Input = Self::Input>,
+        P2: Parser<Input>,
     {
         (self, p)
     }
@@ -533,7 +448,7 @@ pub trait Parser {
     fn or<P2>(self, p: P2) -> Or<Self, P2>
     where
         Self: Sized,
-        P2: Parser<Input = Self::Input, Output = Self::Output>,
+        P2: Parser<Input, Output = Self::Output>,
     {
         or(self, p)
     }
@@ -571,7 +486,7 @@ pub trait Parser {
     where
         Self: Sized,
         F: FnMut(Self::Output) -> N,
-        N: Parser<Input = Self::Input>,
+        N: Parser<Input>,
     {
         then(self, f)
     }
@@ -610,7 +525,7 @@ pub trait Parser {
     where
         Self: Sized,
         F: FnMut(&mut Self::Output) -> N,
-        N: Parser<Input = Self::Input>,
+        N: Parser<Input>,
     {
         then_partial(self, f)
     }
@@ -637,6 +552,14 @@ pub trait Parser {
         map(self, f)
     }
 
+    fn map_input<F, B>(self, f: F) -> MapInput<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(Self::Output, &mut Input) -> B,
+    {
+        map_input(self, f)
+    }
+
     /// Uses `f` to map over the output of `self`. If `f` returns an error the parser fails.
     ///
     /// ```
@@ -654,7 +577,7 @@ pub trait Parser {
     fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Output) -> Result<B, <Self::Input as StreamOnce>::Error>,
+        F: FnMut(Self::Output) -> Result<B, <Input as StreamOnce>::Error>,
     {
         flat_map(self, f)
     }
@@ -681,12 +604,12 @@ pub trait Parser {
     /// }));
     /// # }
     /// ```
-    fn message<S>(self, msg: S) -> Message<Self>
+    fn message<S>(self, msg: S) -> Message<Self, S>
     where
         Self: Sized,
-        S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
+        S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
     {
-        message(self, msg.into())
+        message(self, msg)
     }
 
     /// Parses with `self` and if it fails without consuming any input any expected errors are
@@ -711,12 +634,12 @@ pub trait Parser {
     /// }));
     /// # }
     /// ```
-    fn expected<S>(self, msg: S) -> Expected<Self>
+    fn expected<S>(self, msg: S) -> Expected<Self, S>
     where
         Self: Sized,
-        S: Into<Info<<Self::Input as StreamOnce>::Item, <Self::Input as StreamOnce>::Range>>,
+        S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
     {
-        expected(self, msg.into())
+        expected(self, msg)
     }
 
     /// Parses with `self`, if it fails without consuming any input any expected errors that would
@@ -767,12 +690,13 @@ pub trait Parser {
     /// assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });
     /// # }
     /// ```
-    fn and_then<F, O, E, I>(self, f: F) -> AndThen<Self, F>
+    fn and_then<F, O, E>(self, f: F) -> AndThen<Self, F>
     where
-        Self: Parser<Input = I> + Sized,
+        Self: Parser<Input> + Sized,
         F: FnMut(Self::Output) -> Result<O, E>,
-        I: Stream,
-        E: Into<<I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError>,
+        E: Into<
+            <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError,
+        >,
     {
         and_then(self, f)
     }
@@ -800,9 +724,9 @@ pub trait Parser {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter(self, input: &mut <Self as Parser>::Input) -> Iter<Self, Self::PartialState, FirstMode>
+    fn iter(self, input: &mut Input) -> Iter<Input, Self, Self::PartialState, FirstMode>
     where
-        Self: Parser + Sized,
+        Self: Parser<Input> + Sized,
     {
         Iter::new(self, FirstMode, input, Default::default())
     }
@@ -833,11 +757,11 @@ pub trait Parser {
     fn partial_iter<'a, 's, M>(
         self,
         mode: M,
-        input: &'a mut <Self as Parser>::Input,
+        input: &'a mut Input,
         partial_state: &'s mut Self::PartialState,
-    ) -> Iter<'a, Self, &'s mut Self::PartialState, M>
+    ) -> Iter<'a, Input, Self, &'s mut Self::PartialState, M>
     where
-        Self: Parser + Sized,
+        Self: Parser<Input> + Sized,
         M: ParseMode,
     {
         Iter::new(self, mode, input, partial_state)
@@ -853,7 +777,7 @@ pub trait Parser {
     /// fn test<'input, F>(
     ///     c: char,
     ///     f: F)
-    ///     -> Box<Parser<Input = &'input str, Output = (char, char), PartialState = ()>>
+    ///     -> Box<dyn Parser<&'input str, Output = (char, char), PartialState = ()> + 'input>
     ///     where F: FnMut(char) -> bool + 'static
     /// {
     ///     ::combine::combinator::no_partial((token(c), satisfy(f))).boxed()
@@ -866,9 +790,7 @@ pub trait Parser {
     #[cfg(feature = "std")]
     fn boxed<'a>(
         self,
-    ) -> Box<
-        Parser<Input = Self::Input, Output = Self::Output, PartialState = Self::PartialState> + 'a,
-    >
+    ) -> Box<dyn Parser<Input, Output = Self::Output, PartialState = Self::PartialState> + 'a>
     where
         Self: Sized + 'a,
     {
@@ -904,7 +826,7 @@ pub trait Parser {
     fn left<R>(self) -> Either<Self, R>
     where
         Self: Sized,
-        R: Parser<Input = Self::Input, Output = Self::Output>,
+        R: Parser<Input, Output = Self::Output>,
     {
         Either::Left(self)
     }
@@ -938,66 +860,149 @@ pub trait Parser {
     fn right<L>(self) -> Either<L, Self>
     where
         Self: Sized,
-        L: Parser<Input = Self::Input, Output = Self::Output>,
+        L: Parser<Input, Output = Self::Output>,
     {
         Either::Right(self)
     }
 }
 
+#[cfg(feature = "std")]
+pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
+where
+    Input::Item: PartialEq,
+    Input::Range: PartialEq,
+{
+    /// Entry point of the parser. Takes some input and tries to parse it, returning an easy to use
+    /// and format error if parsing did not succeed.
+    ///
+    /// Returns the parsed result and the remaining input if the parser succeeds, or a
+    /// This function wraps requires `Input == easy::Stream<Input>` which makes it return
+    /// return `easy::Errors` if an error occurs. Due to this wrapping it is recommended that the
+    /// parser `Self` is written with a generic input type.
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate combine;
+    ///
+    /// use combine::*;
+    /// use combine::parser::repeat::many1;
+    /// use combine::parser::char::letter;
+    ///
+    /// // Good!
+    /// parser!{
+    /// fn my_parser[Input]()(Input) -> String
+    ///     where [Input: Stream<Item=char>]
+    /// {
+    ///     many1::<String, _, _>(letter())
+    /// }
+    /// }
+    ///
+    /// // Won't compile with `easy_parse` since it is specialized on `&str`
+    /// parser!{
+    /// fn my_parser2['a]()(&'a str) -> String
+    ///     where [&'a str: Stream<Item = char, Range = &'a str>]
+    /// {
+    ///     many1(letter())
+    /// }
+    /// }
+    ///
+    /// fn main() {
+    ///     assert_eq!(my_parser().parse("abc"), Ok(("abc".to_string(), "")));
+    ///     // Would fail to compile if uncommented
+    ///     // my_parser2().parse("abc")
+    /// }
+    /// ```
+    ///
+    /// [`ParseError`]: struct.ParseError.html
+    #[cfg(feature = "std")]
+    fn easy_parse(
+        &mut self,
+        input: Input,
+    ) -> Result<
+        (<Self as Parser<crate::easy::Stream<Input>>>::Output, Input),
+        crate::easy::ParseError<Input>,
+    >
+    where
+        Input: Stream,
+        crate::easy::Stream<Input>: StreamOnce<
+            Item = Input::Item,
+            Range = Input::Range,
+            Error = crate::easy::ParseError<crate::easy::Stream<Input>>,
+            Position = Input::Position,
+        >,
+        Input::Position: Default,
+        Self: Sized + Parser<crate::easy::Stream<Input>>,
+    {
+        let input = crate::easy::Stream(input);
+        self.parse(input).map(|(v, input)| (v, input.0))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<Input, P> EasyParser<Input> for P
+where
+    P: ?Sized + Parser<crate::easy::Stream<Input>>,
+    Input: Stream,
+    Input::Item: PartialEq,
+    Input::Range: PartialEq,
+{
+}
+
 macro_rules! forward_deref {
-    () => {
-        type Input = P::Input;
+    (Input) => {
         type Output = P::Output;
         type PartialState = P::PartialState;
 
-        #[inline(always)]
+        #[inline]
         fn parse_first(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
             (**self).parse_first(input, state)
         }
 
-        #[inline(always)]
+        #[inline]
         fn parse_partial(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
             (**self).parse_partial(input, state)
         }
 
-        #[inline(always)]
-        fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        #[inline]
+        fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
             (**self).add_error(error)
         }
 
-        #[inline(always)]
-        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+        #[inline]
+        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
             (**self).add_consumed_expected_error(error)
         }
 
-        #[inline(always)]
+        #[inline]
         fn parser_count(&self) -> ErrorOffset {
             (**self).parser_count()
         }
     }
 }
 
-impl<'a, P> Parser for &'a mut P
+impl<'a, P, Input> Parser<Input> for &'a mut P
 where
-    P: ?Sized + Parser,
+    P: ?Sized + Parser<Input>,
+    Input: Stream,
 {
-    forward_deref!();
+    forward_deref!(Input);
 }
 
 #[cfg(feature = "std")]
-impl<P> Parser for Box<P>
+impl<P, Input> Parser<Input> for Box<P>
 where
-    P: ?Sized + Parser,
+    P: ?Sized + Parser<Input>,
+    Input: Stream,
 {
-    forward_deref!();
+    forward_deref!(Input);
 }
 
 /// Internal API. May break without a semver bump
@@ -1011,14 +1016,15 @@ pub trait ParseMode: Copy {
     fn set_first(&mut self);
 
     #[inline]
-    fn parse_consumed<P>(
+    fn parse_consumed<P, Input>(
         self,
         parser: &mut P,
-        input: &mut P::Input,
+        input: &mut Input,
         state: &mut P::PartialState,
-    ) -> ParseResult<P::Output, <P::Input as StreamOnce>::Error>
+    ) -> ParseResult<P::Output, <Input as StreamOnce>::Error>
     where
-        P: Parser,
+        P: Parser<Input>,
+        Input: Stream,
     {
         let before = input.checkpoint();
         let mut result = parser.parse_mode_impl(self, input, state);
@@ -1039,11 +1045,11 @@ pub trait ParseMode: Copy {
 #[derive(Copy, Clone)]
 pub struct FirstMode;
 impl ParseMode for FirstMode {
-    #[inline(always)]
+    #[inline]
     fn is_first(self) -> bool {
         true
     }
-    #[inline(always)]
+    #[inline]
     fn set_first(&mut self) {}
 }
 
@@ -1054,12 +1060,12 @@ pub struct PartialMode {
     pub first: bool,
 }
 impl ParseMode for PartialMode {
-    #[inline(always)]
+    #[inline]
     fn is_first(self) -> bool {
         self.first
     }
 
-    #[inline(always)]
+    #[inline]
     fn set_first(&mut self) {
         self.first = true;
     }

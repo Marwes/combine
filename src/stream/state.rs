@@ -51,13 +51,13 @@ impl<R> DefaultPositioned for ReadStream<R> {
     type Positioner = IndexPositioner;
 }
 
-/// The `State<I>` struct maintains the current position in the stream `I` using
+/// The `State<Input>` struct maintains the current position in the stream `Input` using
 /// the `Positioner` trait to track the position.
 ///
 /// ```
 /// # #![cfg(feature = "std")]
 /// # extern crate combine;
-/// # use combine::{token, Parser};
+/// # use combine::*;
 /// # use combine::stream::easy;
 /// # use combine::stream::state::State;
 /// # fn main() {
@@ -75,64 +75,64 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # }
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct State<I, X> {
+pub struct State<Input, X> {
     /// The input stream used when items are requested
-    pub input: I,
+    pub input: Input,
     /// The positioner used to update the current position
     pub positioner: X,
 }
 
-impl<I, X> State<I, X>
+impl<Input, X> State<Input, X>
 where
-    I: StreamOnce,
-    X: Positioner<I::Item>,
+    Input: StreamOnce,
+    X: Positioner<Input::Item>,
 {
-    /// Creates a new `State<I, X>` from an input stream and a positioner.
-    pub fn with_positioner(input: I, positioner: X) -> State<I, X> {
+    /// Creates a new `State<Input, X>` from an input stream and a positioner.
+    pub fn with_positioner(input: Input, positioner: X) -> State<Input, X> {
         State { input, positioner }
     }
 }
 
-impl<I> State<I, I::Positioner>
+impl<Input> State<Input, Input::Positioner>
 where
-    I: StreamOnce + DefaultPositioned,
-    I::Positioner: Positioner<I::Item>,
+    Input: StreamOnce + DefaultPositioned,
+    Input::Positioner: Positioner<Input::Item>,
 {
-    /// Creates a new `State<I, X>` from an input stream and its default positioner.
-    pub fn new(input: I) -> State<I, I::Positioner> {
-        State::with_positioner(input, I::Positioner::default())
+    /// Creates a new `State<Input, X>` from an input stream and its default positioner.
+    pub fn new(input: Input) -> State<Input, Input::Positioner> {
+        State::with_positioner(input, Input::Positioner::default())
     }
 }
 
-impl<I, X, E> Positioned for State<I, X>
+impl<Input, X, E> Positioned for State<Input, X>
 where
-    I: StreamOnce,
-    X: Positioner<I::Item>,
-    E: StreamError<I::Item, I::Range>,
-    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = E>,
-    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = E>,
+    Input: StreamOnce,
+    X: Positioner<Input::Item>,
+    E: StreamError<Input::Item, Input::Range>,
+    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = E>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = E>,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         self.positioner.position()
     }
 }
 
-impl<I, X, S> StreamOnce for State<I, X>
+impl<Input, X, S> StreamOnce for State<Input, X>
 where
-    I: StreamOnce,
-    X: Positioner<I::Item>,
-    S: StreamError<I::Item, I::Range>,
-    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
-    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
+    Input: StreamOnce,
+    X: Positioner<Input::Item>,
+    S: StreamError<Input::Item, Input::Range>,
+    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
 {
-    type Item = I::Item;
-    type Range = I::Range;
+    type Item = Input::Item;
+    type Range = Input::Range;
     type Position = X::Position;
-    type Error = I::Error;
+    type Error = Input::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -144,7 +144,7 @@ where
     }
 }
 
-/// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `I`.  The
+/// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `Input`.  The
 /// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
 /// increments the position by `range.len()`.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -156,7 +156,7 @@ where
 {
     type Position = usize;
 
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> usize {
         self.0
     }
@@ -203,7 +203,7 @@ impl Default for SourcePosition {
 }
 
 impl fmt::Display for SourcePosition {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "line: {}, column: {}", self.line, self.column)
     }
 }
@@ -217,7 +217,7 @@ impl SourcePosition {
 impl Positioner<char> for SourcePosition {
     type Position = SourcePosition;
 
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> SourcePosition {
         self.clone()
     }
@@ -240,18 +240,17 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
     }
 }
 
-impl<I, X, S> RangeStreamOnce for State<I, X>
+impl<Input, X, S> RangeStreamOnce for State<Input, X>
 where
-    I: RangeStreamOnce,
-    I: ResetStream,
-    X: Clone + RangePositioner<I::Item, I::Range>,
-    S: StreamError<I::Item, I::Range>,
-    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
-    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
-    I::Position: Clone + Ord,
+    Input: RangeStreamOnce,
+    X: Clone + RangePositioner<Input::Item, Input::Range>,
+    S: StreamError<Input::Item, Input::Range>,
+    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
+    Input::Position: Clone + Ord,
 {
     #[inline]
-    fn uncons_range(&mut self, size: usize) -> Result<I::Range, StreamErrorFor<Self>> {
+    fn uncons_range(&mut self, size: usize) -> Result<Input::Range, StreamErrorFor<Self>> {
         self.input.uncons_range(size).map(|range| {
             self.positioner.update_range(&range);
             range
@@ -259,9 +258,9 @@ where
     }
 
     #[inline]
-    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<I::Range, StreamErrorFor<Self>>
+    fn uncons_while<F>(&mut self, mut predicate: F) -> Result<Input::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(I::Item) -> bool,
+        F: FnMut(Input::Item) -> bool,
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while(|t| {
@@ -299,16 +298,15 @@ where
     }
 }
 
-impl<I, X, S> ResetStream for State<I, X>
+impl<Input, X, S> ResetStream for State<Input, X>
 where
-    I: ResetStream,
-    X: Clone + Positioner<I::Item>,
-    S: StreamError<I::Item, I::Range>,
-    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = S>,
-    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = S>,
+    Input: ResetStream,
+    X: Clone + Positioner<Input::Item>,
+    S: StreamError<Input::Item, Input::Range>,
+    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
 {
-    type Checkpoint = State<I::Checkpoint, X>;
-
+    type Checkpoint = State<Input::Checkpoint, X>;
     fn checkpoint(&self) -> Self::Checkpoint {
         State {
             input: self.input.checkpoint(),
@@ -322,14 +320,14 @@ where
     }
 }
 
-impl<I, X, E> FullRangeStream for State<I, X>
+impl<Input, X, E> FullRangeStream for State<Input, X>
 where
-    I: FullRangeStream + ResetStream,
-    I::Position: Clone + Ord,
-    E: StreamError<I::Item, I::Range>,
-    I::Error: ParseError<I::Item, I::Range, X::Position, StreamError = E>,
-    I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = E>,
-    X: Clone + RangePositioner<I::Item, I::Range>,
+    Input: FullRangeStream + ResetStream,
+    Input::Position: Clone + Ord,
+    E: StreamError<Input::Item, Input::Range>,
+    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = E>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = E>,
+    X: Clone + RangePositioner<Input::Item, Input::Range>,
 {
     fn range(&self) -> Self::Range {
         self.input.range()

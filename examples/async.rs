@@ -1,11 +1,11 @@
 #![cfg(feature = "std")]
 
-extern crate bytes;
+extern crate bytes_0_4 as bytes;
 extern crate combine;
 
 extern crate futures;
 extern crate partial_io;
-extern crate tokio_codec;
+extern crate tokio_codec_0_1 as tokio_codec;
 extern crate tokio_io;
 
 use std::cell::Cell;
@@ -48,13 +48,13 @@ impl LanguageServerDecoder {
 /// ```
 // The `content_length_parses` parameter only exists to demonstrate that `content_length` only
 // gets parsed once per message
-fn decode_parser<'a, I>(
+fn decode_parser<'a, Input>(
     content_length_parses: Rc<Cell<i32>>,
-) -> impl Parser<Input = I, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
+) -> impl Parser<Input, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
 where
-    I: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
+    Input: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
     // Necessary due to rust-lang/rust#24159
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let content_length = range(&b"Content-Length: "[..])
         .with(recognize(skip_many1(digit())).and_then(|digits: &[u8]| {
@@ -62,7 +62,7 @@ where
                 .unwrap()
                 .parse::<usize>()
                 // Convert the error from `.parse` into an error combine understands
-                .map_err(StreamErrorFor::<I>::other)
+                .map_err(StreamErrorFor::<Input>::other)
         }))
         .map(move |x| {
             content_length_parses.set(content_length_parses.get() + 1);
@@ -85,7 +85,7 @@ where
 
 impl Decoder for LanguageServerDecoder {
     type Item = String;
-    type Error = Box<::std::error::Error + Send + Sync>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         println!("Decoding `{:?}`", str::from_utf8(src).unwrap_or("NOT UTF8"));
@@ -96,7 +96,7 @@ impl Decoder for LanguageServerDecoder {
             // (the same error messages that combine has had since its inception)
             // PartialStream lets the parser know that more input should be
             // expected if end of input is unexpectedly reached
-            easy::Stream(PartialStream(&src[..])),
+            &mut easy::Stream(PartialStream(&src[..])),
             &mut self.state,
         )
         .map_err(|err| {

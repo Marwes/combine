@@ -1,23 +1,18 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
-use crate::lib::borrow::BorrowMut;
-use crate::lib::marker::PhantomData;
-use crate::lib::mem;
+use crate::lib::{borrow::BorrowMut, iter, marker::PhantomData, mem};
 
-use crate::combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value};
-use crate::error::{
-    Consumed, ParseError, ParseResult, ResultExt, StdParseResult, StreamError, Tracked,
+use crate::{
+    combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value},
+    error::{Consumed, ParseError, ParseResult, ResultExt, StdParseResult, StreamError, Tracked},
+    parser::{choice::Or, sequence::With, FirstMode, ParseMode},
+    stream::{uncons, Stream, StreamOnce},
+    ErrorOffset, Parser,
 };
-use crate::parser::choice::Or;
-use crate::parser::sequence::With;
-use crate::parser::ParseMode;
-use crate::stream::{uncons, Positioned, ResetStream, Stream, StreamOnce};
-use crate::{ErrorOffset, Parser};
 
 use crate::error::ParseResult::*;
 
 parser! {
-#[derive(Copy, Clone)]
 pub struct Count;
 
 /// Parses `parser` from zero up to `count` times.
@@ -34,22 +29,21 @@ pub struct Count;
 /// assert_eq!(result, Ok((b"aa"[..].to_owned(), &b"ab"[..])));
 /// # }
 /// ```
-#[inline(always)]
-pub fn count[F, P](count: usize, parser: P)(P::Input) -> F
+#[inline]
+pub fn count[F, Input, P](count: usize, parser: P)(Input) -> F
 where [
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     F: Extend<P::Output> + Default,
 ]
 {
     count_min_max(0, *count, parser)
 }
-
 }
 
 parser! {
-    #[derive(Copy, Clone)]
     pub struct SkipCount;
-    type PartialState = <With<Count<Sink, P>, Value<P::Input, ()>> as Parser>::PartialState;
+    type PartialState = <With<Count<Sink, Input, P>, Value<Input, ()>> as Parser<Input>>::PartialState;
     /// Parses `parser` from zero up to `count` times skipping the output of `parser`.
     ///
     /// ```
@@ -63,12 +57,12 @@ parser! {
     /// assert_eq!(result, Ok(((), &b"ab"[..])));
     /// # }
     /// ```
-    pub fn skip_count[P](count: usize, parser: P)(P::Input) -> ()
+    pub fn skip_count[Input, P](count: usize, parser: P)(Input) -> ()
     where [
-        P: Parser
+        P: Parser<Input>
     ]
     {
-        crate::combinator::count::<Sink, _>(*count, parser.map(|_| ())).with(value(()))
+        crate::combinator::count::<Sink, _, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -80,23 +74,23 @@ pub struct CountMinMax<F, P> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<P, F> Parser for CountMinMax<F, P>
+impl<Input, P, F> Parser<Input> for CountMinMax<F, P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (usize, F, P::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -122,7 +116,7 @@ where
         }
     }
 
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser.add_error(error)
     }
 }
@@ -146,10 +140,11 @@ where
 /// # Panics
 ///
 /// If `min` > `max`.
-#[inline(always)]
-pub fn count_min_max<F, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
+#[inline]
+pub fn count_min_max<F, Input, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
     assert!(min <= max);
@@ -163,9 +158,8 @@ where
 }
 
 parser! {
-    #[derive(Copy, Clone)]
     pub struct SkipCountMinMax;
-    type PartialState = <With<CountMinMax<Sink, P>, Value<P::Input, ()>> as Parser>::PartialState;
+    type PartialState = <With<CountMinMax<Sink, P>, Value<Input, ()>> as Parser<Input>>::PartialState;
     /// Parses `parser` from `min` to `max` times (including `min` and `max`)
     /// skipping the output of `parser`.
     ///
@@ -185,23 +179,24 @@ parser! {
     /// # Panics
     ///
     /// If `min` > `max`.
-    pub fn skip_count_min_max[P](min: usize, max: usize, parser: P)(P::Input) -> ()
+    pub fn skip_count_min_max[Input, P](min: usize, max: usize, parser: P)(Input) -> ()
     where [
-        P: Parser
+        P: Parser<Input>,
     ]
     {
-        crate::combinator::count_min_max::<Sink, _>(*min, *max, parser.map(|_| ())).with(value(()))
+       crate::combinator::count_min_max::<Sink, _, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
-pub struct Iter<'a, P: Parser, S, M>
+pub struct Iter<'a, Input, P, S, M>
 where
-    P::Input: 'a,
+    Input: Stream + 'a,
+    P: Parser<Input>,
 {
     parser: P,
-    input: &'a mut P::Input,
+    input: &'a mut Input,
     consumed: bool,
-    state: State<<P::Input as StreamOnce>::Error>,
+    state: State<<Input as StreamOnce>::Error>,
     partial_state: S,
     mode: M,
 }
@@ -212,11 +207,13 @@ enum State<E> {
     ConsumedErr(E),
 }
 
-impl<'a, P: Parser, S, M> Iter<'a, P, S, M>
+impl<'a, Input, P, S, M> Iter<'a, Input, P, S, M>
 where
+    Input: Stream,
+    P: Parser<Input>,
     S: BorrowMut<P::PartialState>,
 {
-    pub fn new(parser: P, mode: M, input: &'a mut P::Input, partial_state: S) -> Self {
+    pub fn new(parser: P, mode: M, input: &'a mut Input, partial_state: S) -> Self {
         Iter {
             parser,
             input,
@@ -226,13 +223,13 @@ where
             mode,
         }
     }
-    /// Converts the iterator to a `StdParseResult`, returning `Ok` if the parsing so far has be done
+    /// Converts the iterator to a `ParseResult`, returning `Ok` if the parsing so far has be done
     /// without any errors which consumed data.
-    pub fn into_result<O>(self, value: O) -> StdParseResult<O, P::Input> {
+    pub fn into_result<O>(self, value: O) -> StdParseResult<O, Input> {
         self.into_result_(value).into()
     }
 
-    fn into_result_<O>(self, value: O) -> ParseResult<O, <P::Input as StreamOnce>::Error> {
+    fn into_result_<O>(self, value: O) -> ParseResult<O, Input::Error> {
         match self.state {
             State::Ok | State::EmptyErr => {
                 if self.consumed {
@@ -245,7 +242,7 @@ where
         }
     }
 
-    fn into_result_fast<O>(self, value: &mut O) -> ParseResult<O, <P::Input as StreamOnce>::Error>
+    fn into_result_fast<O>(self, value: &mut O) -> ParseResult<O, Input::Error>
     where
         O: Default,
     {
@@ -264,15 +261,15 @@ where
 
     fn fail<T>(
         self,
-        err: <<P::Input as StreamOnce>::Error as ParseError<
-            <P::Input as StreamOnce>::Item,
-            <P::Input as StreamOnce>::Range,
-            <P::Input as StreamOnce>::Position,
+        err: <<Input as StreamOnce>::Error as ParseError<
+            <Input as StreamOnce>::Item,
+            <Input as StreamOnce>::Range,
+            <Input as StreamOnce>::Position,
         >>::StreamError,
-    ) -> ParseResult<T, <P::Input as StreamOnce>::Error> {
+    ) -> ParseResult<T, Input::Error> {
         match self.state {
             State::Ok | State::EmptyErr => {
-                let err = <P::Input as StreamOnce>::Error::from_error(self.input.position(), err);
+                let err = <Input as StreamOnce>::Error::from_error(self.input.position(), err);
                 if self.consumed {
                     ConsumedErr(err)
                 } else {
@@ -287,8 +284,10 @@ where
     }
 }
 
-impl<'a, P: Parser, S, M> Iterator for Iter<'a, P, S, M>
+impl<'a, Input, P, S, M> Iterator for Iter<'a, Input, P, S, M>
 where
+    Input: Stream,
+    P: Parser<Input>,
     S: BorrowMut<P::PartialState>,
     M: ParseMode,
 {
@@ -314,6 +313,7 @@ where
                     Err(err) => State::ConsumedErr(err),
                     Ok(_) => State::EmptyErr,
                 };
+                self.state = State::EmptyErr;
                 None
             }
             ConsumedErr(e) => {
@@ -327,23 +327,23 @@ where
 #[derive(Copy, Clone)]
 pub struct Many<F, P>(P, PhantomData<F>);
 
-impl<F, P> Parser for Many<F, P>
+impl<F, Input, P> Parser<Input> for Many<F, P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (F, P::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -355,14 +355,11 @@ where
         iter.into_result_fast(elements)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.add_error(errors);
     }
 
@@ -375,7 +372,7 @@ where
 ///
 /// If the returned collection cannot be inferred type annotations must be supplied, either by
 /// annotating the resulting type binding `let collection: Vec<_> = ...` or by specializing when
-/// calling many, `many::<Vec<_>, _>(...)`.
+/// calling many, `many::<Vec<_>, _, _>(...)`.
 ///
 /// NOTE: If `p` can succeed without consuming any input this may hang forever as `many` will
 /// repeatedly use `p` to parse the same location in the input every time
@@ -391,10 +388,11 @@ where
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
 /// # }
 /// ```
-#[inline(always)]
-pub fn many<F, P>(p: P) -> Many<F, P>
+#[inline]
+pub fn many<F, Input, P>(p: P) -> Many<F, P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
     F: Extend<P::Output> + Default,
 {
     Many(p, PhantomData)
@@ -402,23 +400,23 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
-impl<F, P> Parser for Many1<F, P>
+impl<F, Input, P> Parser<Input> for Many1<F, P>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
+    P: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (bool, bool, F, P::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mut mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<F, <P::Input as StreamOnce>::Error>
+    ) -> ParseResult<F, Input::Error>
     where
         M: ParseMode,
     {
@@ -452,14 +450,11 @@ where
         })
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.add_error(errors);
     }
 
-    forward_parser!(add_error parser_count, 0);
+    forward_parser!(Input, add_error parser_count, 0);
 }
 
 /// Parses `p` one or more times returning a collection with the values from `p`.
@@ -477,16 +472,17 @@ where
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # fn main() {
-/// let result = many1::<Vec<_>, _>(digit())
+/// let result = many1::<Vec<_>, _, _>(digit())
 ///     .parse("A123");
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline(always)]
-pub fn many1<F, P>(p: P) -> Many1<F, P>
+#[inline]
+pub fn many1<F, Input, P>(p: P) -> Many1<F, P>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
+    P: Parser<Input>,
 {
     Many1(p, PhantomData)
 }
@@ -511,8 +507,9 @@ impl<A> Extend<A> for Sink {
     }
 }
 
-impl_parser! { SkipMany(P,), Ignore<Many<Sink, Ignore<P>>> }
-
+parser! {
+    pub struct SkipMany;
+    type PartialState = <Ignore<Many<Sink, Ignore<P>>> as Parser<Input>>::PartialState;
 /// Parses `p` zero or more times ignoring the result.
 ///
 /// NOTE: If `p` can succeed without consuming any input this may hang forever as `skip_many` will
@@ -528,16 +525,19 @@ impl_parser! { SkipMany(P,), Ignore<Many<Sink, Ignore<P>>> }
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn skip_many<P>(p: P) -> SkipMany<P>
-where
-    P: Parser,
+#[inline]
+pub fn skip_many[Input, P](p: P)(Input) -> ()
+where [
+    P: Parser<Input>,
+]
 {
-    SkipMany(ignore(many(ignore(p))))
+    ignore(many::<Sink, _, _>(ignore(p)))
+}
 }
 
-impl_parser! { SkipMany1(P,), Ignore<Many1<Sink, Ignore<P>>> }
-
+parser! {
+    pub struct SkipMany1;
+    type PartialState = <Ignore<Many1<Sink, Ignore<P>>> as Parser<Input>>::PartialState;
 /// Parses `p` one or more times ignoring the result.
 ///
 /// NOTE: If `p` can succeed without consuming any input this may hang forever as `skip_many1` will
@@ -553,12 +553,14 @@ impl_parser! { SkipMany1(P,), Ignore<Many1<Sink, Ignore<P>>> }
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn skip_many1<P>(p: P) -> SkipMany1<P>
-where
-    P: Parser,
+#[inline]
+pub fn skip_many1[Input, P](p: P)(Input) -> ()
+where [
+    P: Parser<Input>,
+]
 {
-    SkipMany1(ignore(many1(ignore(p))))
+    ignore(many1::<Sink, _, _>(ignore(p)))
+}
 }
 
 #[derive(Copy, Clone)]
@@ -567,27 +569,27 @@ pub struct SepBy<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P, S> Parser for SepBy<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = <Or<
         SepBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
-    > as Parser>::PartialState;
+        FnParser<Input, fn(&mut Input) -> StdParseResult<F, Input>>,
+    > as Parser<Input>>::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<F, <P::Input as StreamOnce>::Error>
+    ) -> ParseResult<F, Input::Error>
     where
         M: ParseMode,
     {
@@ -596,14 +598,11 @@ where
             .parse_mode(mode, input, state)
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.separator.add_error(errors)
     }
 
-    forward_parser!(add_error parser_count, parser);
+    forward_parser!(Input, add_error parser_count, parser);
 }
 
 /// Parses `parser` zero or more time separated by `separator`, returning a collection with the
@@ -625,12 +624,13 @@ where
 /// assert_eq!(result_ok2, Ok((vec![], "")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn sep_by<F, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
+#[inline]
+pub fn sep_by<F, Input, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
     SepBy {
         parser,
@@ -645,28 +645,28 @@ pub struct SepBy1<F, P, S> {
     separator: S,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P, S> Parser for SepBy1<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (
         Option<Consumed<()>>,
         F,
-        <With<S, P> as Parser>::PartialState,
+        <With<S, P> as Parser<Input>>::PartialState,
     );
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -697,14 +697,11 @@ where
         })
     }
 
-    fn add_consumed_expected_error(
-        &mut self,
-        errors: &mut Tracked<<Self::Input as StreamOnce>::Error>,
-    ) {
+    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.separator.add_error(errors)
     }
 
-    forward_parser!(add_error parser_count, parser);
+    forward_parser!(Input, add_error parser_count, parser);
 }
 
 /// Parses `parser` one or more time separated by `separator`, returning a collection with the
@@ -735,12 +732,13 @@ where
 /// }));
 /// # }
 /// ```
-#[inline(always)]
-pub fn sep_by1<F, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
+#[inline]
+pub fn sep_by1<F, Input, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
     SepBy1 {
         parser,
@@ -756,27 +754,27 @@ pub struct SepEndBy<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<F, P, S> Parser for SepEndBy<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepEndBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = <Or<
         SepEndBy1<F, P, S>,
-        FnParser<P::Input, fn(&mut Self::Input) -> StdParseResult<F, Self::Input>>,
-    > as Parser>::PartialState;
+        FnParser<Input, fn(&mut Input) -> StdParseResult<F, Input>>,
+    > as Parser<Input>>::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -785,7 +783,7 @@ where
             .parse_mode(mode, input, state)
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser.add_error(errors)
     }
 }
@@ -809,12 +807,13 @@ where
 /// assert_eq!(result_ok2, Ok((vec!['1', '2', '3'], "")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn sep_end_by<F, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
+#[inline]
+pub fn sep_end_by<F, Input, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
     SepEndBy {
         parser,
@@ -830,28 +829,28 @@ pub struct SepEndBy1<F, P, S> {
     _marker: PhantomData<fn() -> F>,
 }
 
-impl<F, P, S> Parser for SepEndBy1<F, P, S>
+impl<F, Input, P, S> Parser<Input> for SepEndBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (
         Option<Consumed<()>>,
         F,
-        <With<S, Optional<P>> as Parser>::PartialState,
+        <With<S, Optional<P>> as Parser<Input>>::PartialState,
     );
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -883,7 +882,7 @@ where
         })
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.parser.add_error(errors)
     }
 }
@@ -916,12 +915,13 @@ where
 /// }));
 /// # }
 /// ```
-#[inline(always)]
-pub fn sep_end_by1<F, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
+#[inline]
+pub fn sep_end_by1<F, Input, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 where
+    Input: Stream,
     F: Extend<P::Output> + Default,
-    P: Parser,
-    S: Parser<Input = P::Input>,
+    P: Parser<Input>,
+    S: Parser<Input>,
 {
     SepEndBy1 {
         parser,
@@ -932,28 +932,27 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Chainl1<P, Op>(P, Op);
-impl<I, P, Op> Parser for Chainl1<P, Op>
+impl<Input, P, Op> Parser<Input> for Chainl1<P, Op>
 where
-    I: Stream,
-    P: Parser<Input = I>,
-    Op: Parser<Input = I>,
+    Input: Stream,
+    P: Parser<Input>,
+    Op: Parser<Input>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
-    type Input = I;
     type Output = P::Output;
     type PartialState = (
         Option<(P::Output, Consumed<()>)>,
-        <(Op, P) as Parser>::PartialState,
+        <(Op, P) as Parser<Input>>::PartialState,
     );
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mut mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -992,7 +991,7 @@ where
         Ok((l, consumed)).into()
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
@@ -1011,11 +1010,12 @@ where
 /// assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn chainl1<P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
+#[inline]
+pub fn chainl1<Input, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
 where
-    P: Parser,
-    Op: Parser<Input = P::Input>,
+    Input: Stream,
+    P: Parser<Input>,
+    Op: Parser<Input>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
     Chainl1(parser, op)
@@ -1023,22 +1023,18 @@ where
 
 #[derive(Copy, Clone)]
 pub struct Chainr1<P, Op>(P, Op);
-impl<I, P, Op> Parser for Chainr1<P, Op>
+impl<Input, P, Op> Parser<Input> for Chainr1<P, Op>
 where
-    I: Stream,
-    P: Parser<Input = I>,
-    Op: Parser<Input = I>,
+    Input: Stream,
+    P: Parser<Input>,
+    Op: Parser<Input>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
-    type Input = I;
     type Output = P::Output;
     type PartialState = ();
     #[inline]
-    fn parse_lazy(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<P::Output, <I as StreamOnce>::Error> {
-        // FIXME ParseResult
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<P::Output, Input::Error> {
+        // FIXME FastResult
         let (mut l, mut consumed) = ctry!(self.0.parse_lazy(input));
         loop {
             let before = input.checkpoint();
@@ -1068,7 +1064,7 @@ where
         }
         Ok((l, consumed)).into()
     }
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors)
     }
 }
@@ -1087,11 +1083,12 @@ where
 ///     assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
 /// }
 /// ```
-#[inline(always)]
-pub fn chainr1<P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
+#[inline]
+pub fn chainr1<Input, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
 where
-    P: Parser,
-    Op: Parser<Input = P::Input>,
+    Input: Stream,
+    P: Parser<Input>,
+    Op: Parser<Input>,
     Op::Output: FnOnce(P::Output, P::Output) -> P::Output,
 {
     Chainr1(parser, op)
@@ -1102,23 +1099,23 @@ pub struct TakeUntil<F, P> {
     end: P,
     _marker: PhantomData<fn() -> F>,
 }
-impl<F, P> Parser for TakeUntil<F, P>
+impl<F, Input, P> Parser<Input> for TakeUntil<F, P>
 where
-    F: Extend<<P::Input as StreamOnce>::Item> + Default,
-    P: Parser,
+    Input: Stream,
+    F: Extend<<Input as StreamOnce>::Item> + Default,
+    P: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = F;
     type PartialState = (F, P::PartialState);
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, Input::Error>
     where
         M: ParseMode,
     {
@@ -1172,11 +1169,12 @@ where
 ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok((b"123TA".to_vec(), &b"TAG"[..])));
 /// }
 /// ```
-#[inline(always)]
-pub fn take_until<F, P>(end: P) -> TakeUntil<F, P>
+#[inline]
+pub fn take_until<F, Input, P>(end: P) -> TakeUntil<F, P>
 where
-    F: Extend<<P::Input as StreamOnce>::Item> + Default,
-    P: Parser,
+    Input: Stream,
+    F: Extend<<Input as StreamOnce>::Item> + Default,
+    P: Parser<Input>,
 {
     TakeUntil {
         end,
@@ -1185,9 +1183,8 @@ where
 }
 
 parser! {
-    #[derive(Copy, Clone)]
     pub struct SkipUntil;
-    type PartialState = <With<TakeUntil<Sink, P>, Value<P::Input, ()>> as Parser>::PartialState;
+    type PartialState = <With<TakeUntil<Sink, P>, Value<Input, ()>> as Parser<Input>>::PartialState;
     /// Skips input until `end` is encountered or `end` indicates that it has consumed input before
     /// failing (`attempt` can be used to make it look like it has not consumed any input)
     ///
@@ -1211,40 +1208,148 @@ parser! {
     ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
     /// }
     /// ```
-    pub fn skip_until[P](end: P)(P::Input) -> ()
+    pub fn skip_until[Input, P](end: P)(Input) -> ()
     where [
-        P: Parser,
+        P: Parser<Input>,
     ]
     {
-        take_until::<Sink, _>(end).with(value(()))
+        take_until::<Sink, _, _>(end).with(value(()))
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct RepeatUntil<F, P, E> {
+    parser: P,
+    end: E,
+    _marker: PhantomData<fn() -> F>,
+}
+impl<F, Input, P, E> Parser<Input> for RepeatUntil<F, P, E>
+where
+    Input: Stream,
+    F: Extend<P::Output> + Default,
+    P: Parser<Input>,
+    E: Parser<Input>,
+{
+    type Output = F;
+    type PartialState = (F, bool, P::PartialState, E::PartialState);
+
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, Input::Error>
+    where
+        M: ParseMode,
+    {
+        let (output, is_parse, parse_state, end_state) = state;
+
+        let mut consumed = Consumed::Empty(());
+        loop {
+            if *is_parse {
+                let (item, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
+                output.extend(Some(item));
+                consumed = consumed.merge(c);
+                *is_parse = false;
+            } else {
+                let before = input.checkpoint();
+                match self.end.parse_mode(mode, input, end_state).into() {
+                    Ok((_, rest)) => {
+                        ctry!(input.reset(before).consumed());
+                        return match consumed.merge(rest) {
+                            Consumed::Consumed(()) => {
+                                ConsumedOk(mem::replace(output, F::default()))
+                            }
+                            Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
+                        };
+                    }
+                    Err(Consumed::Empty(_)) => {
+                        ctry!(input.reset(before).consumed());
+                        mode.set_first();
+                        *is_parse = true;
+                    }
+                    Err(Consumed::Consumed(e)) => {
+                        ctry!(input.reset(before).consumed());
+                        return ConsumedErr(e.error);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[inline]
+pub fn repeat_until<F, Input, P, E>(parser: P, end: E) -> RepeatUntil<F, P, E>
+where
+    Input: Stream,
+    F: Extend<P::Output> + Default,
+    P: Parser<Input>,
+    E: Parser<Input>,
+{
+    RepeatUntil {
+        parser,
+        end,
+        _marker: PhantomData,
+    }
+}
+
+parser! {
+    pub struct SkipRepeatUntil;
+    type PartialState = <With<RepeatUntil<Sink, P, E>, Value<Input, ()>> as Parser<Input>>::PartialState;
+    /// Skips input until `end` is encountered or `end` indicates that it has consumed input before
+    /// failing (`attempt` can be used to make it look like it has not consumed any input)
+    ///
+    /// ```
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::parser::char;
+    /// # use combine::parser::byte;
+    /// # use combine::parser::combinator::attempt;
+    /// # use combine::parser::repeat::skip_until;
+    /// # fn main() {
+    ///     let mut char_parser = skip_until(char::digit());
+    ///     assert_eq!(char_parser.parse("abc123"), Ok(((), "123")));
+    ///
+    ///     let mut byte_parser = skip_until(byte::bytes(&b"TAG"[..]));
+    ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
+    ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
+    ///
+    ///     // `attempt` must be used if the `end` should be consume input before failing
+    ///     let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
+    ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
+    /// }
+    /// ```
+    pub fn repeat_skip_until[Input, P, E](parser: P, end: E)(Input) -> ()
+    where [
+        P: Parser<Input>,
+        E: Parser<Input>,
+    ]
+    {
+        repeat_until::<Sink, _, _, _>(parser, end).with(value(()))
     }
 }
 
 #[derive(Default)]
 pub struct EscapedState<T, U>(PhantomData<(T, U)>);
 
-pub struct Escaped<P, Q>
-where
-    P: Parser,
-{
+pub struct Escaped<P, Q, I> {
     parser: P,
-    escape: <P::Input as StreamOnce>::Item,
+    escape: I,
     escape_parser: Q,
 }
-impl<P, Q> Parser for Escaped<P, Q>
+impl<Input, P, Q> Parser<Input> for Escaped<P, Q, Input::Item>
 where
-    P: Parser,
-    <P::Input as StreamOnce>::Item: PartialEq,
-    Q: Parser<Input = P::Input>,
+    Input: Stream,
+    P: Parser<Input>,
+    <Input as StreamOnce>::Item: PartialEq,
+    Q: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = ();
     type PartialState = EscapedState<P::PartialState, Q::PartialState>;
 
-    fn parse_lazy(
-        &mut self,
-        input: &mut Self::Input,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Self::Output, Input::Error> {
         let mut consumed = Consumed::Empty(());
         loop {
             match self.parser.parse_lazy(input) {
@@ -1256,7 +1361,11 @@ where
                     let checkpoint = input.checkpoint();
                     match uncons(input) {
                         ConsumedOk(ref c) | EmptyOk(ref c) if *c == self.escape => {
-                            match self.escape_parser.parse_stream(input) {
+                            match self.escape_parser.parse_consumed_mode(
+                                FirstMode,
+                                input,
+                                &mut Default::default(),
+                            ) {
                                 EmptyOk(_) => {}
                                 ConsumedOk(_) => {
                                     consumed = Consumed::Consumed(());
@@ -1285,7 +1394,7 @@ where
         }
     }
 
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         use crate::error::Info;
         self.parser.add_error(errors);
 
@@ -1317,20 +1426,128 @@ where
 ///     assert!(parser.parse(r#"\a"#).is_err());
 /// }
 /// ```
-#[inline(always)]
-pub fn escaped<P, Q>(
+#[inline]
+pub fn escaped<Input, P, Q>(
     parser: P,
-    escape: <P::Input as StreamOnce>::Item,
+    escape: <Input as StreamOnce>::Item,
     escape_parser: Q,
-) -> Escaped<P, Q>
+) -> Escaped<P, Q, Input::Item>
 where
-    P: Parser,
-    <P::Input as StreamOnce>::Item: PartialEq,
-    Q: Parser<Input = P::Input>,
+    Input: Stream,
+    P: Parser<Input>,
+    <Input as StreamOnce>::Item: PartialEq,
+    Q: Parser<Input>,
 {
     Escaped {
         parser,
         escape,
         escape_parser,
+    }
+}
+
+pub struct Iterate<F, I, P> {
+    parser: P,
+    iterable: I,
+    _marker: PhantomData<fn() -> F>,
+}
+impl<'s, 'a, P, Q, I, J, F> Parser<I> for Iterate<F, J, P>
+where
+    P: FnMut(&J::Item, &mut I) -> Q,
+    Q: Parser<I>,
+    I: Stream,
+    J: IntoIterator + Clone,
+    F: Extend<Q::Output> + Default,
+{
+    type Output = F;
+    type PartialState = (
+        Option<iter::Peekable<J::IntoIter>>,
+        bool,
+        F,
+        Q::PartialState,
+    );
+
+    parse_mode!(I);
+
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut I,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, I::Error>
+    where
+        M: ParseMode,
+    {
+        let (opt_iter, consumed, buf, next) = state;
+        let iter = match opt_iter {
+            Some(iter) if !mode.is_first() => iter,
+            _ => {
+                *opt_iter = Some(self.iterable.clone().into_iter().peekable());
+                opt_iter.as_mut().unwrap()
+            }
+        };
+
+        while let Some(elem) = iter.peek() {
+            let mut parser = (self.parser)(elem, input);
+            let before = input.checkpoint();
+            match parser.parse_mode(mode, input, next) {
+                EmptyOk(v) => {
+                    mode.set_first();
+                    buf.extend(Some(v));
+                }
+                ConsumedOk(v) => {
+                    mode.set_first();
+                    *consumed = true;
+                    buf.extend(Some(v));
+                }
+                EmptyErr(err) => {
+                    match input.reset(before) {
+                        Err(err) => return ConsumedErr(err),
+                        Ok(_) => (),
+                    };
+                    return if *consumed {
+                        ConsumedErr(err.error)
+                    } else {
+                        EmptyErr(err)
+                    };
+                }
+                ConsumedErr(err) => return ConsumedErr(err),
+            }
+            iter.next();
+        }
+
+        opt_iter.take();
+
+        let value = mem::replace(buf, F::default());
+        if *consumed {
+            *consumed = false;
+            ConsumedOk(value)
+        } else {
+            EmptyOk(value)
+        }
+    }
+}
+
+///
+/// ```
+/// # use combine::parser::repeat::{count_min_max, iterate};
+/// # use combine::*;
+///
+/// assert_eq!(
+///     iterate(0..3, |&i, _| count_min_max(i, i, any())).parse("abbccc"),
+///     Ok((vec!["".to_string(), "a".to_string(), "bb".to_string()], "ccc")),
+/// );
+/// ```
+pub fn iterate<F, J, P, I, Q>(iterable: J, parser: P) -> Iterate<F, J, P>
+where
+    P: FnMut(&J::Item, &mut I) -> Q,
+    Q: Parser<I>,
+    I: Stream,
+    J: IntoIterator + Clone,
+    F: Extend<Q::Output> + Default,
+{
+    Iterate {
+        parser,
+        iterable,
+        _marker: PhantomData,
     }
 }

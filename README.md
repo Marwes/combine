@@ -54,7 +54,7 @@ A parser combinator is, broadly speaking, a function which takes several parsers
 
 The library adheres to [semantic versioning](http://semver.org).
 
-If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a day by opening an issue, sending an email or posting a message on gitter.
+If you end up trying it Input welcome any feedback from your experience with it. Input am usually reachable within a day by opening an issue, sending an email or posting a message on gitter.
 
 ## FAQ
 

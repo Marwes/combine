@@ -9,26 +9,25 @@
 //! ```
 //! #[macro_use]
 //! extern crate combine;
-//! use combine::{easy, Parser, Stream, many1};
+//! use combine::{easy, Parser, EasyParser, Stream, many1};
 //! use combine::parser::char::letter;
 //! use combine::stream::StreamErrorFor;
 //! use combine::error::{ParseError, StreamError};
 //!
 //! fn main() {
 //!     parser!{
-//!        fn parser[I]()(I) -> String
+//!        fn parser[Input]()(Input) -> String
 //!         where [
-//!             I: Stream<Item=char, Error = easy::ParseError<I>>,
+//!             Input: Stream<Item=char, Error = easy::ParseError<Input>>,
+//!             Input::Range: PartialEq,
 //!             // If we want to use the error type explicitly we need to help rustc infer
 //!             // `StreamError` to `easy::Error` (rust-lang/rust#24159)
-//!             I::Error: ParseError<
-//!                 I::Item,
-//!                 I::Range,
-//!                 I::Position,
-//!                 StreamError = easy::Error<I::Item, I::Range>
-//!             >,
-//!             I::Item: PartialEq,
-//!             I::Range: PartialEq,
+//!             Input::Error: ParseError<
+//!                 Input::Item,
+//!                 Input::Range,
+//!                 Input::Position,
+//!                 StreamError = easy::Error<Input::Item, Input::Range>
+//!             >
 //!         ]
 //!         {
 //!             many1(letter()).and_then(|word: String| {
@@ -42,9 +41,9 @@
 //!     }
 //!
 //!     parser!{
-//!        fn parser2[I]()(I) -> String
+//!        fn parser2[Input]()(Input) -> String
 //!         where [
-//!             I: Stream<Item=char>,
+//!             Input: Stream<Item=char>,
 //!         ]
 //!         {
 //!             many1(letter()).and_then(|word: String| {
@@ -55,7 +54,7 @@
 //!                     // `StreamError` trait.
 //!                     // In that case the extra bound is not necessary (and this method will work
 //!                     // for other errors than `easy::Errors`)
-//!                     Err(StreamErrorFor::<I>::expected_static_message("combine"))
+//!                     Err(StreamErrorFor::<Input>::expected_static_message("combine"))
 //!                 }
 //!             })
 //!         }
@@ -156,7 +155,7 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
     }
 }
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Info<T, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Info::Token(ref c) => write!(f, "{}", c),
             Info::Range(ref c) => write!(f, "{}", c),
@@ -199,7 +198,7 @@ pub enum Error<T, R> {
     /// Generic message
     Message(Info<T, R>),
     /// Variant for containing other types of errors
-    Other(Box<StdError + Send + Sync>),
+    Other(Box<dyn StdError + Send + Sync>),
 }
 
 impl<Item, Range> StreamError<Item, Range> for Error<Item, Range>
@@ -511,7 +510,7 @@ impl<T, R> Error<T, R> {
     /// assert_eq!(m, expected);
     /// # }
     /// ```
-    pub fn fmt_errors(errors: &[Error<T, R>], f: &mut fmt::Formatter) -> fmt::Result
+    pub fn fmt_errors(errors: &[Error<T, R>], f: &mut fmt::Formatter<'_>) -> fmt::Result
     where
         T: fmt::Display,
         R: fmt::Display,
@@ -524,7 +523,7 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in unexpected {
-            r#try!(writeln!(f, "{}", error));
+            writeln!(f, "{}", error)?;
         }
 
         // Then we print out all the things that were expected in a comma separated list
@@ -543,10 +542,10 @@ impl<T, R> Error<T, R> {
                 // Last expected message to be written
                 _ => " or",
             };
-            r#try!(write!(f, "{} `{}`", s, message));
+            write!(f, "{} `{}`", s, message)?;
         }
         if expected_count != 0 {
-            r#try!(writeln!(f, ""));
+            writeln!(f, "")?;
         }
         // If there are any generic messages we print them out last
         let messages = errors.iter().filter(|e| match **e {
@@ -554,47 +553,47 @@ impl<T, R> Error<T, R> {
             _ => false,
         });
         for error in messages {
-            r#try!(writeln!(f, "{}", error));
+            writeln!(f, "{}", error)?;
         }
         Ok(())
     }
 }
 
 /// Convenience alias over `Errors` for `StreamOnce` types which makes it possible to specify the
-/// `Errors` type from a `StreamOnce` by writing `ParseError<I>` instead of `Errors<I::Item,
-/// I::Range, I::Position>`
+/// `Errors` type from a `StreamOnce` by writing `ParseError<Input>` instead of `Errors<Input::Item,
+/// Input::Range, Input::Position>`
 pub type ParseError<S> =
     Errors<<S as StreamOnce>::Item, <S as StreamOnce>::Range, <S as StreamOnce>::Position>;
 
 /// Struct which hold information about an error that occurred at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occurred in the same position.
 #[derive(Debug, PartialEq)]
-pub struct Errors<I, R, P> {
+pub struct Errors<Input, R, P> {
     /// The position where the error occurred
     pub position: P,
     /// A vector containing specific information on what errors occurred at `position`. Usually
     /// a fully formed message contains one `Unexpected` error and one or more `Expected` errors.
     /// `Message` and `Other` may also appear (`combine` never generates these errors on its own)
     /// and may warrant custom handling.
-    pub errors: Vec<Error<I, R>>,
+    pub errors: Vec<Error<Input, R>>,
 }
 
-impl<I, R, P> Errors<I, R, P> {
+impl<Input, R, P> Errors<Input, R, P> {
     /// Constructs a new `ParseError` which occurred at `position`.
     #[inline]
-    pub fn new(position: P, error: Error<I, R>) -> Errors<I, R, P> {
+    pub fn new(position: P, error: Error<Input, R>) -> Errors<Input, R, P> {
         Self::from_errors(position, vec![error])
     }
 
     /// Constructs an error with no other information than the position it occurred at.
     #[inline]
-    pub fn empty(position: P) -> Errors<I, R, P> {
+    pub fn empty(position: P) -> Errors<Input, R, P> {
         Self::from_errors(position, vec![])
     }
 
     /// Constructs a `ParseError` with multiple causes.
     #[inline]
-    pub fn from_errors(position: P, errors: Vec<Error<I, R>>) -> Errors<I, R, P> {
+    pub fn from_errors(position: P, errors: Vec<Error<Input, R>>) -> Errors<Input, R, P> {
         Errors {
             position: position,
             errors: errors,
@@ -604,15 +603,15 @@ impl<I, R, P> Errors<I, R, P> {
     /// Constructs an end of input error. Should be returned by parsers which encounter end of
     /// input unexpectedly.
     #[inline]
-    pub fn end_of_input(position: P) -> Errors<I, R, P> {
+    pub fn end_of_input(position: P) -> Errors<Input, R, P> {
         Self::new(position, Error::end_of_input())
     }
 
     /// Adds an error if `error` does not exist in this `ParseError` already (as determined byte
     /// `PartialEq`).
-    pub fn add_error(&mut self, error: Error<I, R>)
+    pub fn add_error(&mut self, error: Error<Input, R>)
     where
-        I: PartialEq,
+        Input: PartialEq,
         R: PartialEq,
     {
         // Don't add duplicate errors
@@ -622,7 +621,7 @@ impl<I, R, P> Errors<I, R, P> {
     }
 
     /// Removes all `Expected` errors in `self` and adds `info` instead.
-    pub fn set_expected(&mut self, info: Info<I, R>) {
+    pub fn set_expected(&mut self, info: Info<Input, R>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {
             Error::Expected(_) => false,
@@ -634,10 +633,10 @@ impl<I, R, P> Errors<I, R, P> {
     /// Merges two `ParseError`s. If they exist at the same position the errors of `other` are
     /// added to `self` (using `add_error` to skip duplicates). If they are not at the same
     /// position the error furthest ahead are returned, ignoring the other `ParseError`.
-    pub fn merge(mut self, mut other: Errors<I, R, P>) -> Errors<I, R, P>
+    pub fn merge(mut self, mut other: Errors<Input, R, P>) -> Errors<Input, R, P>
     where
         P: Ord,
-        I: PartialEq,
+        Input: PartialEq,
         R: PartialEq,
     {
         use std::cmp::Ordering;
@@ -655,7 +654,7 @@ impl<I, R, P> Errors<I, R, P> {
     }
 
     /// Maps the position to a new value
-    pub fn map_position<F, Q>(self, f: F) -> Errors<I, R, Q>
+    pub fn map_position<F, Q>(self, f: F) -> Errors<Input, R, Q>
     where
         F: FnOnce(P) -> Q,
     {
@@ -665,7 +664,7 @@ impl<I, R, P> Errors<I, R, P> {
     /// Maps all token variants to a new value
     pub fn map_token<F, U>(self, mut f: F) -> Errors<U, R, P>
     where
-        F: FnMut(I) -> U,
+        F: FnMut(Input) -> U,
     {
         Errors::from_errors(
             self.position,
@@ -679,7 +678,7 @@ impl<I, R, P> Errors<I, R, P> {
     /// Maps all range variants to a new value.
     ///
     /// ```
-    /// use combine::Parser;
+    /// use combine::*;
     /// use combine::parser::range::range;
     /// println!(
     ///     "{}",
@@ -689,7 +688,7 @@ impl<I, R, P> Errors<I, R, P> {
     ///         .map_range(|bytes| format!("{:?}", bytes))
     /// );
     /// ```
-    pub fn map_range<F, S>(self, mut f: F) -> Errors<I, S, P>
+    pub fn map_range<F, S>(self, mut f: F) -> Errors<Input, S, P>
     where
         F: FnMut(R) -> S,
     {
@@ -703,10 +702,10 @@ impl<I, R, P> Errors<I, R, P> {
     }
 }
 
-impl<I, R, P> StdError for Errors<I, R, P>
+impl<Input, R, P> StdError for Errors<Input, R, P>
 where
     P: fmt::Display + fmt::Debug,
-    I: fmt::Display + fmt::Debug,
+    Input: fmt::Display + fmt::Debug,
     R: fmt::Display + fmt::Debug,
 {
     fn description(&self) -> &str {
@@ -714,20 +713,20 @@ where
     }
 }
 
-impl<I, R, P> fmt::Display for Errors<I, R, P>
+impl<Input, R, P> fmt::Display for Errors<Input, R, P>
 where
     P: fmt::Display,
-    I: fmt::Display,
+    Input: fmt::Display,
     R: fmt::Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        r#try!(writeln!(f, "Parse error at {}", self.position));
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Parse error at {}", self.position)?;
         Error::fmt_errors(&self.errors, f)
     }
 }
 
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::Unexpected(ref c) => write!(f, "Unexpected `{}`", c),
             Error::Expected(ref s) => write!(f, "Expected `{}`", s),

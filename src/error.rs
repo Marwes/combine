@@ -152,9 +152,9 @@ impl<T> Consumed<T> {
     /// # fn main() {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
-    /// fn char<I>(input: &mut I) -> StdParseResult<char, I>
-    ///     where I: Stream<Item = char>,
-    ///           I::Error: ParseError<I::Item, I::Range, I::Position>,
+    /// fn char<Input>(input: &mut Input) -> StdParseResult<char, Input>
+    ///     where Input: Stream<Item = char>,
+    ///           Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
     /// {
     ///     let (c, consumed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
     ///     match c {
@@ -212,9 +212,9 @@ impl<T> Consumed<T> {
 /// A type alias over the specific `Result` type used by parsers to indicate whether they were
 /// successful or not.
 /// `O` is the type that is output on success.
-/// `I` is the specific stream type used in the parser.
-pub type StdParseResult<O, I> =
-    Result<(O, Consumed<()>), Consumed<Tracked<<I as StreamOnce>::Error>>>;
+/// `Input` is the specific stream type used in the parser.
+pub type StdParseResult<O, Input> =
+    Result<(O, Consumed<()>), Consumed<Tracked<<Input as StreamOnce>::Error>>>;
 pub type StdParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
@@ -360,7 +360,7 @@ pub enum UnexpectedParse {
 }
 
 impl fmt::Display for UnexpectedParse {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::UnexpectedParse::*;
         write!(
             f,
@@ -501,7 +501,7 @@ pub enum StringStreamError {
 pub(crate) const CHAR_BOUNDARY_ERROR_MESSAGE: &str = "unexpected slice on character boundary";
 
 impl fmt::Display for StringStreamError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::StringStreamError::*;
         write!(
             f,
@@ -676,6 +676,12 @@ impl<T, E> ParseResult<T, E> {
             ConsumedErr(_) | EmptyErr(_) => false,
         }
     }
+
+    #[inline]
+    pub fn is_err(&self) -> bool {
+        !self.is_ok()
+    }
+
     pub fn as_ref(&self) -> ParseResult<&T, &E> {
         match *self {
             ConsumedOk(ref t) => ConsumedOk(t),
@@ -739,7 +745,7 @@ impl<O, E> ParseResult<O, E> {
 }
 
 impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E> {
-    #[inline(always)]
+    #[inline]
     fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
         match self {
             ConsumedOk(t) => Ok(Consumed::Consumed(t)),
@@ -751,7 +757,7 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E>
 }
 
 impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
-    #[inline(always)]
+    #[inline]
     fn into(self) -> StdParseResult2<O, E> {
         use self::ParseResult::*;
         match self {
@@ -764,7 +770,7 @@ impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
 }
 
 impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
-    #[inline(always)]
+    #[inline]
     fn from(result: StdParseResult2<O, E>) -> ParseResult<O, E> {
         use self::ParseResult::*;
         match result {

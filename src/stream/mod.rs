@@ -11,7 +11,7 @@
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
-use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, str::Chars};
+use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, mem, str::Chars};
 
 #[cfg(feature = "std")]
 use std::io::{Bytes, Read};
@@ -38,7 +38,7 @@ macro_rules! clone_resetable {
             fn checkpoint(&self) -> Self {
                 self.clone()
             }
-            #[inline(always)]
+            #[inline]
             fn reset(&mut self, checkpoint: Self) -> Result<(), Self::Error> {
                 *self = checkpoint;
                 Ok(())
@@ -53,6 +53,8 @@ pub mod buffered;
 pub mod easy;
 /// Stateful stream wrappers.
 pub mod state;
+/// Stream wrapper allowing custom state to be used.
+pub mod user_state;
 
 /// A type which has a position.
 pub trait Positioned: StreamOnce {
@@ -60,7 +62,7 @@ pub trait Positioned: StreamOnce {
     fn position(&self) -> Self::Position;
 }
 
-/// Convenience alias over the `StreamError` for the input stream `I`
+/// Convenience alias over the `StreamError` for the input stream `Input`
 ///
 /// ```
 /// #[macro_use]
@@ -71,15 +73,15 @@ pub trait Positioned: StreamOnce {
 /// use combine::error::{ParseError, StreamError};
 ///
 /// parser!{
-///    fn parser[I]()(I) -> String
-///     where [ I: Stream<Item = char>, ]
+///    fn parser[Input]()(Input) -> String
+///     where [ Input: Stream<Item = char>, ]
 ///     {
 ///         many1(letter()).and_then(|word: String| {
 ///             if word == "combine" {
 ///                 Ok(word)
 ///             } else {
-///                 // The alias makes it easy to refer to the `StreamError` type of `I`
-///                 Err(StreamErrorFor::<I>::expected_static_message("combine"))
+///                 // The alias makes it easy to refer to the `StreamError` type of `Input`
+///                 Err(StreamErrorFor::<Input>::expected_static_message("combine"))
 ///             }
 ///         })
 ///     }
@@ -88,10 +90,10 @@ pub trait Positioned: StreamOnce {
 /// fn main() {
 /// }
 /// ```
-pub type StreamErrorFor<I> = <<I as StreamOnce>::Error as ParseError<
-    <I as StreamOnce>::Item,
-    <I as StreamOnce>::Range,
-    <I as StreamOnce>::Position,
+pub type StreamErrorFor<Input> = <<Input as StreamOnce>::Error as ParseError<
+    <Input as StreamOnce>::Item,
+    <Input as StreamOnce>::Range,
+    <Input as StreamOnce>::Position,
 >>::StreamError;
 
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
@@ -144,17 +146,17 @@ clone_resetable! {(T: Clone) IteratorStream<T>}
 /// implemented automatically.
 pub trait Stream: StreamOnce + ResetStream + Positioned {}
 
-impl<I> Stream for I
+impl<Input> Stream for Input
 where
-    I: StreamOnce + Positioned + ResetStream,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+    Input: StreamOnce + Positioned + ResetStream,
+    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
 }
 
 #[inline]
-pub fn uncons<I>(input: &mut I) -> ParseResult<I::Item, <I as StreamOnce>::Error>
+pub fn uncons<Input>(input: &mut Input) -> ParseResult<Input::Item, Input::Error>
 where
-    I: ?Sized + Stream,
+    Input: ?Sized + Stream,
 {
     match input.uncons() {
         Ok(x) => ConsumedOk(x),
@@ -216,7 +218,7 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
 /// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
 pub trait RangeStream: Stream + RangeStreamOnce {}
 
-impl<I> RangeStream for I where I: RangeStreamOnce + Stream {}
+impl<Input> RangeStream for Input where Input: RangeStreamOnce + Stream {}
 
 /// A `RangeStream` which is capable of providing it's entire range.
 pub trait FullRangeStream: RangeStream {
@@ -226,14 +228,14 @@ pub trait FullRangeStream: RangeStream {
 
 #[doc(hidden)]
 #[inline]
-pub fn wrap_stream_error<T, I>(
-    input: &I,
-    err: <I::Error as ParseError<I::Item, I::Range, I::Position>>::StreamError,
-) -> ParseResult<T, <I as StreamOnce>::Error>
+pub fn wrap_stream_error<T, Input>(
+    input: &Input,
+    err: <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError,
+) -> ParseResult<T, <Input as StreamOnce>::Error>
 where
-    I: ?Sized + StreamOnce + Positioned,
+    Input: ?Sized + StreamOnce + Positioned,
 {
-    let err = I::Error::from_error(input.position(), err);
+    let err = Input::Error::from_error(input.position(), err);
     if input.is_partial() {
         ConsumedErr(err)
     } else {
@@ -242,12 +244,12 @@ where
 }
 
 #[inline]
-pub fn uncons_range<I>(
-    input: &mut I,
+pub fn uncons_range<Input>(
+    input: &mut Input,
     size: usize,
-) -> ParseResult<I::Range, <I as StreamOnce>::Error>
+) -> ParseResult<Input::Range, <Input as StreamOnce>::Error>
 where
-    I: ?Sized + RangeStream,
+    Input: ?Sized + RangeStream,
 {
     match input.uncons_range(size) {
         Err(err) => wrap_stream_error(input, err),
@@ -262,9 +264,9 @@ where
 }
 
 #[doc(hidden)]
-pub fn input_at_eof<I>(input: &mut I) -> bool
+pub fn input_at_eof<Input>(input: &mut Input) -> bool
 where
-    I: ?Sized + Stream,
+    Input: ?Sized + Stream,
 {
     let before = input.checkpoint();
     let x = input
@@ -276,14 +278,14 @@ where
 
 /// Removes items from the input while `predicate` returns `true`.
 #[inline]
-pub fn uncons_while<I, F>(
-    input: &mut I,
+pub fn uncons_while<Input, F>(
+    input: &mut Input,
     predicate: F,
-) -> ParseResult<I::Range, <I as StreamOnce>::Error>
+) -> ParseResult<Input::Range, Input::Error>
 where
-    F: FnMut(I::Item) -> bool,
-    I: ?Sized + RangeStream,
-    I::Range: Range,
+    F: FnMut(Input::Item) -> bool,
+    Input: ?Sized + RangeStream,
+    Input::Range: Range,
 {
     match input.uncons_while(predicate) {
         Err(err) => wrap_stream_error(input, err),
@@ -291,7 +293,7 @@ where
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -311,20 +313,20 @@ where
 /// # Note
 ///
 /// This may not return `EmptyOk` as it should uncons at least one item.
-pub fn uncons_while1<I, F>(
-    input: &mut I,
+pub fn uncons_while1<Input, F>(
+    input: &mut Input,
     predicate: F,
-) -> ParseResult<I::Range, <I as StreamOnce>::Error>
+) -> ParseResult<Input::Range, Input::Error>
 where
-    F: FnMut(I::Item) -> bool,
-    I: ?Sized + RangeStream,
+    F: FnMut(Input::Item) -> bool,
+    Input: ?Sized + RangeStream,
 {
     match input.uncons_while1(predicate) {
         ConsumedOk(x) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -336,19 +338,19 @@ where
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
             } else {
-                EmptyErr(I::Error::empty(input.position()).into())
+                EmptyErr(Input::Error::empty(input.position()).into())
             }
         }
         ConsumedErr(err) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(I::Error::from_error(
+                ConsumedErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -486,7 +488,7 @@ impl<'a> StreamOnce for &'a str {
 }
 
 impl<'a> Positioned for &'a str {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         PointerOffset::new(self.as_bytes().position().0)
     }
@@ -701,7 +703,7 @@ impl<'a, T> Positioned for &'a [T]
 where
     T: Clone + PartialEq,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         PointerOffset::new(self.as_ptr() as usize)
     }
@@ -732,11 +734,17 @@ where
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct PartialStream<S>(pub S);
 
+impl<S> From<S> for PartialStream<S> {
+    fn from(t: S) -> Self {
+        PartialStream(t)
+    }
+}
+
 impl<S> Positioned for PartialStream<S>
 where
     S: Positioned,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         self.0.position()
     }
@@ -748,12 +756,12 @@ where
 {
     type Checkpoint = S::Checkpoint;
 
-    #[inline(always)]
+    #[inline]
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()
     }
 
-    #[inline(always)]
+    #[inline]
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
         self.0.reset(checkpoint)
     }
@@ -768,7 +776,7 @@ where
     type Position = S::Position;
     type Error = S::Error;
 
-    #[inline(always)]
+    #[inline]
     fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
         self.0.uncons()
     }
@@ -782,12 +790,12 @@ impl<S> RangeStreamOnce for PartialStream<S>
 where
     S: RangeStreamOnce,
 {
-    #[inline(always)]
+    #[inline]
     fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
         self.0.uncons_range(size)
     }
 
-    #[inline(always)]
+    #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Item) -> bool,
@@ -802,7 +810,7 @@ where
         self.0.uncons_while1(f)
     }
 
-    #[inline(always)]
+    #[inline]
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
     }
@@ -812,7 +820,114 @@ impl<S> FullRangeStream for PartialStream<S>
 where
     S: FullRangeStream,
 {
-    #[inline(always)]
+    #[inline]
+    fn range(&self) -> Self::Range {
+        self.0.range()
+    }
+}
+
+/// Stream type which indicates that the stream is complete if end of input is reached
+///
+/// For most streams this is already the default but this wrapper can be used to override a nested
+/// `PartialStream`
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[repr(transparent)]
+pub struct CompleteStream<S>(pub S);
+
+impl<S> From<S> for CompleteStream<S> {
+    fn from(t: S) -> Self {
+        CompleteStream(t)
+    }
+}
+
+impl<'s, S> From<&'s mut S> for &'s mut CompleteStream<S> {
+    fn from(t: &'s mut S) -> Self {
+        // SAFETY repr(transparent) is specified on CompleteStream
+        unsafe { mem::transmute(t) }
+    }
+}
+
+impl<S> Positioned for CompleteStream<S>
+where
+    S: Positioned,
+{
+    #[inline]
+    fn position(&self) -> Self::Position {
+        self.0.position()
+    }
+}
+
+impl<S> ResetStream for CompleteStream<S>
+where
+    S: ResetStream,
+{
+    type Checkpoint = S::Checkpoint;
+
+    #[inline]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.0.checkpoint()
+    }
+
+    #[inline]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
+        self.0.reset(checkpoint)
+    }
+}
+
+impl<S> StreamOnce for CompleteStream<S>
+where
+    S: StreamOnce,
+{
+    type Item = S::Item;
+    type Range = S::Range;
+    type Position = S::Position;
+    type Error = S::Error;
+
+    #[inline]
+    fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
+        self.0.uncons()
+    }
+
+    fn is_partial(&self) -> bool {
+        false
+    }
+}
+
+impl<S> RangeStreamOnce for CompleteStream<S>
+where
+    S: RangeStreamOnce,
+{
+    #[inline]
+    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
+        self.0.uncons_range(size)
+    }
+
+    #[inline]
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while(f)
+    }
+
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.0.uncons_while1(f)
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
+        self.0.distance(end)
+    }
+}
+
+impl<S> FullRangeStream for CompleteStream<S>
+where
+    S: FullRangeStream,
+{
+    #[inline]
     fn range(&self) -> Self::Range {
         self.0.range()
     }
@@ -832,7 +947,7 @@ impl<'a, T> Positioned for SliceStream<'a, T>
 where
     T: PartialEq + 'a,
 {
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> Self::Position {
         PointerOffset::new(self.0.as_ptr() as usize)
     }
@@ -956,45 +1071,45 @@ where
 ///
 /// [`from_iter`]: fn.from_iter.html
 #[derive(Copy, Clone, Debug)]
-pub struct IteratorStream<I>(I);
+pub struct IteratorStream<Input>(Input);
 
-impl<I> IteratorStream<I>
+impl<Input> IteratorStream<Input>
 where
-    I: Iterator,
+    Input: Iterator,
 {
     /// Converts an `Iterator` into a stream.
     ///
     /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
     ///     such as `BufferedStreamRef` and `State` to become a `Stream` which can be parsed
-    pub fn new<T>(iter: T) -> IteratorStream<I>
+    pub fn new<T>(iter: T) -> IteratorStream<Input>
     where
-        T: IntoIterator<IntoIter = I, Item = I::Item>,
+        T: IntoIterator<IntoIter = Input, Item = Input::Item>,
     {
         IteratorStream(iter.into_iter())
     }
 }
 
-impl<I> Iterator for IteratorStream<I>
+impl<Input> Iterator for IteratorStream<Input>
 where
-    I: Iterator,
+    Input: Iterator,
 {
-    type Item = I::Item;
-    fn next(&mut self) -> Option<I::Item> {
+    type Item = Input::Item;
+    fn next(&mut self) -> Option<Input::Item> {
         self.0.next()
     }
 }
 
-impl<I: Iterator> StreamOnce for IteratorStream<I>
+impl<Input: Iterator> StreamOnce for IteratorStream<Input>
 where
-    I::Item: Clone + PartialEq,
+    Input::Item: Clone + PartialEq,
 {
-    type Item = I::Item;
-    type Range = I::Item;
+    type Item = Input::Item;
+    type Range = Input::Item;
     type Position = ();
     type Error = UnexpectedParse;
 
     #[inline]
-    fn uncons(&mut self) -> Result<I::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
         match self.next() {
             Some(x) => Ok(x),
             None => Err(UnexpectedParse::Eoi),
@@ -1101,7 +1216,7 @@ impl<T> fmt::Debug for PointerOffset<T>
 where
     T: ?Sized,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -1110,7 +1225,7 @@ impl<T> fmt::Display for PointerOffset<T>
 where
     T: ?Sized,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "PointerOffset({:?})", self.0 as *const ())
     }
 }
@@ -1149,14 +1264,14 @@ where
 /// using `parser`.
 ///
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
-pub fn decode<P>(
+pub fn decode<Input, P>(
     mut parser: P,
-    mut input: P::Input,
+    mut input: &mut Input,
     partial_state: &mut P::PartialState,
-) -> Result<(Option<P::Output>, usize), <P::Input as StreamOnce>::Error>
+) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
 where
-    P: Parser,
-    P::Input: RangeStream,
+    P: Parser<Input>,
+    Input: RangeStream,
 {
     let start = input.checkpoint();
     match parser.parse_with_state(&mut input, partial_state) {

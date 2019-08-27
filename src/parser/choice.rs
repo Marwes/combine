@@ -2,7 +2,6 @@
 //! of them.
 use crate::error::{ParseError, ParseResult, ParseResult::*, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
-use crate::stream::ResetStream;
 use crate::{ErrorOffset, Parser, Stream, StreamOnce};
 
 /// Takes a number of parsers and tries to apply them each in order.
@@ -37,20 +36,20 @@ macro_rules! choice {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! parse_mode_choice {
-    () => {
+    (Input) => {
         fn parse_partial(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
             self.parse_mode_choice($crate::parser::PartialMode::default(), input, state)
         }
 
         fn parse_first(
             &mut self,
-            input: &mut Self::Input,
+            input: &mut Input,
             state: &mut Self::PartialState,
-        ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+        ) -> ParseResult<Self::Output, Input::Error> {
             self.parse_mode_choice($crate::parser::FirstMode, input, state)
         }
     }
@@ -60,52 +59,51 @@ macro_rules! parse_mode_choice {
 /// on the input.
 ///
 /// This is an internal trait used to overload the `choice` function.
-pub trait ChoiceParser {
-    type Input: Stream;
+pub trait ChoiceParser<Input: Stream> {
     type Output;
     type PartialState: Default;
 
     fn parse_first(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>;
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>;
 
     fn parse_partial(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>;
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>;
 
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
         Self: Sized;
 
-    fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>);
+    fn add_error_choice(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>);
 }
 
-impl<'a, P> ChoiceParser for &'a mut P
+impl<'a, Input, P> ChoiceParser<Input> for &'a mut P
 where
-    P: ?Sized + ChoiceParser,
+    Input: Stream,
+    P: ?Sized + ChoiceParser<Input>,
 {
-    type Input = P::Input;
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    parse_mode_choice!();
-    #[inline(always)]
+    parse_mode_choice!(Input);
+    #[inline]
     fn parse_mode_choice<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -116,7 +114,7 @@ where
         }
     }
 
-    fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error_choice(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         (**self).add_error_choice(error)
     }
 }
@@ -225,23 +223,23 @@ macro_rules! tuple_choice_parser_inner {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Output $(,$id)+> ChoiceParser for ($($id,)+)
+        impl<Input, Output $(,$id)+> ChoiceParser<Input> for ($($id,)+)
         where
             Input: Stream,
-            $($id: Parser<Input = Input, Output = Output>),+
+            $($id: Parser< Input, Output = Output>),+
         {
-            type Input = Input;
+
             type Output = Output;
             type PartialState = self::$partial_state<$($id::PartialState),+>;
 
-            parse_mode_choice!();
+            parse_mode_choice!(Input);
             #[inline]
             fn parse_mode_choice<Mode>(
                 &mut self,
                 mode: Mode,
-                input: &mut Self::Input,
+                input: &mut Input,
                 state: &mut Self::PartialState,
-            ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+            ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
             where
                 Mode: ParseMode,
             {
@@ -277,7 +275,7 @@ macro_rules! tuple_choice_parser_inner {
 
             fn add_error_choice(
                 &mut self,
-                error: &mut Tracked<<Self::Input as StreamOnce>::Error>
+                error: &mut Tracked<<Input as StreamOnce>::Error>
             ) {
                 if error.offset != ErrorOffset(0) {
                     let ($(ref mut $id,)+) = *self;
@@ -299,22 +297,23 @@ tuple_choice_parser!(A B C D E F G H I J K L M N O P Q R S T U V X Y Z);
 macro_rules! array_choice_parser {
     ($($t: tt)+) => {
         $(
-        impl<P> ChoiceParser for [P; $t]
+        impl<Input, P> ChoiceParser<Input> for [P; $t]
         where
-            P: Parser,
+            Input: Stream,
+            P: Parser<Input>,
         {
-            type Input = P::Input;
-            type Output = P::Output;
-            type PartialState = <[P] as ChoiceParser>::PartialState;
 
-            parse_mode_choice!();
-            #[inline(always)]
+            type Output = P::Output;
+            type PartialState = <[P] as ChoiceParser<Input>>::PartialState;
+
+            parse_mode_choice!(Input);
+            #[inline]
             fn parse_mode_choice<M>(
                 &mut self,
                 mode: M,
-                input: &mut Self::Input,
+                input: &mut Input,
                 state: &mut Self::PartialState,
-            ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+            ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
             where
                 M: ParseMode,
             {
@@ -326,7 +325,7 @@ macro_rules! array_choice_parser {
             }
             fn add_error_choice(
                 &mut self,
-                error: &mut Tracked<<Self::Input as StreamOnce>::Error>
+                error: &mut Tracked<<Input as StreamOnce>::Error>
             ) {
                 self[..].add_error_choice(error)
             }
@@ -345,44 +344,44 @@ array_choice_parser!(
 #[derive(Copy, Clone)]
 pub struct Choice<P>(P);
 
-impl<P> Parser for Choice<P>
+impl<Input, P> Parser<Input> for Choice<P>
 where
-    P: ChoiceParser,
+    Input: Stream,
+    P: ChoiceParser<Input>,
 {
-    type Input = P::Input;
     type Output = P::Output;
     type PartialState = P::PartialState;
 
-    parse_mode!();
-    #[inline(always)]
+    parse_mode!(Input);
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
         self.0.parse_mode_choice(mode, input, state)
     }
 
-    fn add_error(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         let before = error.offset.0;
         self.0.add_error_choice(error);
         error.offset.0 = before.saturating_sub(1);
     }
 }
 
-fn slice_parse_mode<I, P, M>(
+fn slice_parse_mode<Input, P, M>(
     self_: &mut [P],
     mode: M,
-    input: &mut P::Input,
+    input: &mut Input,
     state: &mut (usize, P::PartialState),
-) -> ParseResult<P::Output, <P::Input as StreamOnce>::Error>
+) -> ParseResult<P::Output, <Input as StreamOnce>::Error>
 where
-    P: Parser<Input = I>,
-    I: Stream,
+    P: Parser<Input>,
+    Input: Stream,
     M: ParseMode,
 {
     let mut prev_err = None;
@@ -439,7 +438,7 @@ where
         }
     }
     EmptyErr(match prev_err {
-        None => I::Error::from_error(
+        None => Input::Error::from_error(
             input.position(),
             StreamError::message_static_message("parser choice is empty"),
         )
@@ -461,47 +460,46 @@ where
     })
 }
 
-impl<I, O, P> ChoiceParser for [P]
+impl<Input, O, P> ChoiceParser<Input> for [P]
 where
-    I: Stream,
-    P: Parser<Input = I, Output = O>,
+    Input: Stream,
+    P: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = O;
     type PartialState = (usize, P::PartialState);
 
-    #[inline(always)]
+    #[inline]
     fn parse_partial(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         slice_parse_mode(self, crate::parser::PartialMode::default(), input, state)
     }
 
-    #[inline(always)]
+    #[inline]
     fn parse_first(
         &mut self,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error> {
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
-    #[inline(always)]
+    #[inline]
     fn parse_mode_choice<M>(
         &mut self,
         _mode: M,
-        _input: &mut Self::Input,
+        _input: &mut Input,
         _state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
         unreachable!()
     }
 
-    fn add_error_choice(&mut self, error: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error_choice(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         if error.offset != ErrorOffset(0) {
             for p in self {
                 error.offset = ErrorOffset(1);
@@ -542,37 +540,34 @@ where
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
-#[inline(always)]
-pub fn choice<P>(ps: P) -> Choice<P>
+#[inline]
+pub fn choice<Input, P>(ps: P) -> Choice<P>
 where
-    P: ChoiceParser,
+    Input: Stream,
+    P: ChoiceParser<Input>,
 {
     Choice(ps)
 }
 
 #[derive(Copy, Clone)]
-pub struct Or<P1, P2>(Choice<(P1, P2)>)
+pub struct Or<P1, P2>(Choice<(P1, P2)>);
+impl<Input, O, P1, P2> Parser<Input> for Or<P1, P2>
 where
-    P1: Parser,
-    P2: Parser;
-impl<I, O, P1, P2> Parser for Or<P1, P2>
-where
-    I: Stream,
-    P1: Parser<Input = I, Output = O>,
-    P2: Parser<Input = I, Output = O>,
+    Input: Stream,
+    P1: Parser<Input, Output = O>,
+    P2: Parser<Input, Output = O>,
 {
-    type Input = I;
     type Output = O;
-    type PartialState = <Choice<(P1, P2)> as Parser>::PartialState;
+    type PartialState = <Choice<(P1, P2)> as Parser<Input>>::PartialState;
 
-    parse_mode!();
-    #[inline(always)]
+    parse_mode!(Input);
+    #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -580,7 +575,7 @@ where
     }
 
     #[inline]
-    fn add_error(&mut self, errors: &mut Tracked<<Self::Input as StreamOnce>::Error>) {
+    fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         if errors.offset != ErrorOffset(0) {
             self.0.add_error(errors);
         }
@@ -618,33 +613,34 @@ where
 ///
 /// [`choice!`]: ../macro.choice.html
 /// [`p1.or(p2)`]: ../parser/trait.Parser.html#method.or
-#[inline(always)]
-pub fn or<P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
+#[inline]
+pub fn or<Input, P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
-    P1: Parser,
-    P2: Parser<Input = P1::Input, Output = P1::Output>,
+    Input: Stream,
+    P1: Parser<Input>,
+    P2: Parser<Input, Output = P1::Output>,
 {
     Or(choice((p1, p2)))
 }
 
 #[derive(Copy, Clone)]
 pub struct Optional<P>(P);
-impl<P> Parser for Optional<P>
+impl<Input, P> Parser<Input> for Optional<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
-    type Input = P::Input;
     type Output = Option<P::Output>;
     type PartialState = P::PartialState;
 
-    parse_mode!();
+    parse_mode!(Input);
     #[inline]
     fn parse_mode_impl<M>(
         &mut self,
         mode: M,
-        input: &mut Self::Input,
+        input: &mut Input,
         state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Self::Input as StreamOnce>::Error>
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
     where
         M: ParseMode,
     {
@@ -660,7 +656,7 @@ where
         }
     }
 
-    forward_parser!(add_error parser_count, 0);
+    forward_parser!(Input, add_error parser_count, 0);
 }
 
 /// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without
@@ -677,21 +673,163 @@ where
 /// assert!(parser.parse("heya").is_err());
 /// # }
 /// ```
-#[inline(always)]
-pub fn optional<P>(parser: P) -> Optional<P>
+#[inline]
+pub fn optional<Input, P>(parser: P) -> Optional<P>
 where
-    P: Parser,
+    Input: Stream,
+    P: Parser<Input>,
 {
     Optional(parser)
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! parse_mode_dispatch {
+    () => {
+        fn parse_partial(
+            &mut self,
+            input: &mut Input,
+            state: &mut Self::PartialState,
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+            self.parse_mode_dispatch($crate::parser::PartialMode::default(), input, state)
+        }
+
+        fn parse_first(
+            &mut self,
+            input: &mut Input,
+            state: &mut Self::PartialState,
+        ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+            self.parse_mode_dispatch($crate::parser::FirstMode, input, state)
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! dispatch_parser_impl {
+    ($parser_name: ident [$first_ident: ident $($id: ident)*] [$($collected_idents: ident)*] $expr: expr, $($rest: expr,)*) => {
+        $crate::dispatch_parser_impl!{ $parser_name [ $($id)* ] [$($collected_idents)* $first_ident] $($rest,)*}
+    };
+    ($parser_name: ident [$($id: ident)*] [$($collected_idents: ident)*]) => {
+        $crate::dispatch_parser_impl!{ $parser_name; $($collected_idents)* }
+    };
+
+    ($parser_name: ident; $($id: ident)*) => {
+        pub enum $parser_name<$($id),*> {
+            $(
+                $id($id),
+            )*
+        }
+
+        #[allow(non_snake_case)]
+        impl<Input, Output, $($id),*> $crate::Parser<Input> for $parser_name<$($id),*>
+            where
+                $( $id: $crate::Parser<Input, Output = Output>, )*
+                Input: $crate::Stream,
+        {
+            type Output = Output;
+            type PartialState = Option<$parser_name<$($id::PartialState),*>>;
+
+            $crate::parse_mode!(Input);
+            fn parse_mode<Mode>(
+                &mut self,
+                mode: Mode,
+                input: &mut Input,
+                state: &mut Self::PartialState,
+            ) -> $crate::error::ParseResult<Self::Output, <Input as $crate::StreamOnce>::Error>
+            where
+                Mode: $crate::parser::ParseMode,
+            {
+                match self {
+                    $(
+                    $parser_name::$id($id) => {
+                        let state = match state {
+                            Some($parser_name::$id(s)) => s,
+                            _ => {
+                                *state = Some($parser_name::$id(Default::default()));
+                                match state {
+                                    Some($parser_name::$id(s)) => s,
+                                    _ => unreachable!(),
+                                }
+                            }
+                        };
+                        $id.parse_mode(mode, input, state)
+                    }
+                    )*
+                }
+            }
+
+            fn add_error(&mut self, error: &mut $crate::error::Tracked<<Input as $crate::StreamOnce>::Error>) {
+                match self {
+                    $(
+                    $parser_name::$id($id) => $id.add_error(error),
+                    )*
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! dispatch_inner {
+    ($expr_ident: ident [$first_ident: ident $($id: ident)*] [$($collected: tt)*] $($pat: pat)|+ => $expr: expr, $($rest_alt: tt)*) => {
+        $crate::dispatch_inner!{ $expr_ident [ $($id)* ] [$($collected)* $first_ident $($pat)|+ => $expr,] $($rest_alt)*}
+    };
+    ($expr_ident: ident [$($id: ident)*] [$($collected: tt)*]) => {
+        $crate::dispatch_inner!{ $expr_ident $($collected)* }
+    };
+    ($expr_ident: ident [$($ident_tt: tt)*]) => {
+        unreachable!()
+    };
+    ($expr_ident: ident $( $ident: ident $($pat: pat)|+ => $expr: expr,)+ ) => {
+        match $expr_ident {
+            $(
+                $($pat)|+ => Dispatch::$ident(check_parser($expr)),
+            )+
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! dispatch {
+    ($match_expr: expr; $( $($pat: pat)|+ => $expr: expr ),+ $(,)? ) => {
+        {
+            $crate::dispatch_parser_impl!{ Dispatch [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] [] $($expr,)+ }
+
+            fn check_parser<Input, P>(p: P) -> P where P: $crate::Parser<Input>, Input: $crate::Stream { p }
+
+            let e = $match_expr;
+            let parser = $crate::dispatch_inner!(e [A B C D E F G H I J K L M N O P Q R S T U V X Y Z] []
+                $(
+                    $($pat)|+ => $expr,
+                )*
+            );
+            parser
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::item::any;
+    use crate::parser::{
+        item::{any, item},
+        EasyParser,
+    };
 
     #[test]
     fn choice_single_parser() {
         assert!(choice((any(),),).easy_parse("a").is_ok());
+    }
+
+    #[test]
+    fn dispatch() {
+        let mut parser = any().then(|e| {
+            dispatch!(e;
+                'a' => item('a'),
+                'b' => item('b'),
+                _ => item('c')
+            )
+        });
+        assert_eq!(parser.easy_parse("aa"), Ok(('a', "")));
     }
 }
