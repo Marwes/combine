@@ -228,7 +228,7 @@ where
     Input: Stream,
 {
     cmp: C,
-    expected: Info<Input::Item, Input::Range>,
+    expected: Info<Input::Item, Input::Range, &'static str>,
     tokens: T,
     _marker: PhantomData<Input>,
 }
@@ -316,7 +316,7 @@ where
 #[inline]
 pub fn tokens<C, T, Input>(
     cmp: C,
-    expected: Info<Input::Item, Input::Range>,
+    expected: Info<Input::Item, Input::Range, &'static str>,
     tokens: T,
 ) -> Tokens<C, T, Input>
 where
@@ -649,7 +649,7 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        errors.error.add_expected("end of input".into());
+        errors.error.add_expected("end of input");
     }
 }
 

@@ -107,7 +107,7 @@ where
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     parser(|input: &mut Input| {
-        let (c, consumed) = r#try!(any().parse_lazy(input).into());
+        let (c, consumed) = any().parse_lazy(input).into_result()?;
         let mut back_slash_char = satisfy_map(|c| {
             Some(match c {
                 '"' => '"',

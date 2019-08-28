@@ -73,7 +73,7 @@ pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
 where
     Input: Stream,
     P: Parser<Input>,
-    P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+    P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range, &'static str>>,
 {
     NotFollowedBy(parser)
 }

@@ -9,7 +9,7 @@ use crate::combinator::{
     FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
 };
 use crate::error::ParseResult::*;
-use crate::error::{Info, ParseError, ParseResult, ResultExt, Tracked};
+use crate::error::{ErrorInfo, Info, ParseError, ParseResult, ResultExt, Tracked};
 use crate::parser::error::{silent, Silent};
 use crate::stream::{Stream, StreamOnce};
 use crate::ErrorOffset;
@@ -607,7 +607,7 @@ pub trait Parser<Input: Stream> {
     fn message<S>(self, msg: S) -> Message<Self, S>
     where
         Self: Sized,
-        S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+        S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
     {
         message(self, msg)
     }
@@ -619,6 +619,7 @@ pub trait Parser<Input: Stream> {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
+    /// # use combine::error::Format;
     /// # use combine::stream::easy;
     /// # use combine::stream::state::{State, SourcePosition};
     /// # fn main() {
@@ -632,12 +633,23 @@ pub trait Parser<Input: Stream> {
     ///         easy::Error::Expected("nine".into())
     ///     ]
     /// }));
+    ///
+    /// let result = token('9')
+    ///     .expected(Format(format_args!("That is not a nine!")))
+    ///     .easy_parse(State::new("8"));
+    /// assert_eq!(result, Err(easy::Errors {
+    ///     position: SourcePosition::default(),
+    ///     errors: vec![
+    ///         easy::Error::Unexpected('8'.into()),
+    ///         easy::Error::Expected("nine".into())
+    ///     ]
+    /// }));
     /// # }
     /// ```
     fn expected<S>(self, msg: S) -> Expected<Self, S>
     where
         Self: Sized,
-        S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+        S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
     {
         expected(self, msg)
     }

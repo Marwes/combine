@@ -39,28 +39,138 @@ macro_rules! ctry {
     };
 }
 
+pub trait ErrorInfo<'s, T, R> {
+    type Format: fmt::Display;
+    fn into_info(&'s self) -> Info<T, R, Self::Format>;
+}
+
+impl<'s, 'a, T, R, F> ErrorInfo<'s, T, R> for &'a F
+where
+    F: ErrorInfo<'s, T, R>,
+{
+    type Format = F::Format;
+    fn into_info(&'s self) -> Info<T, R, Self::Format> {
+        (**self).into_info()
+    }
+}
+
 #[derive(Clone, Debug)]
-pub enum Info<T, R> {
+pub enum Info<T, R, F = &'static str> {
     Token(T),
     Range(R),
     Borrowed(&'static str),
+    Format(F),
 }
 
-impl<R> From<char> for Info<char, R> {
-    fn from(s: char) -> Info<char, R> {
+impl<'s, T, R> ErrorInfo<'s, T, R> for Info<T, R, &'static str>
+where
+    T: Clone,
+    R: Clone,
+{
+    type Format = &'static str;
+    fn into_info(&'s self) -> Info<T, R, <Self as ErrorInfo<T, R>>::Format> {
+        self.clone()
+    }
+}
+
+impl<R, F> From<char> for Info<char, R, F> {
+    fn from(s: char) -> Self {
         Info::Token(s)
     }
 }
 
-impl<T, R> From<&'static str> for Info<T, R> {
-    fn from(s: &'static str) -> Info<T, R> {
+impl<'s, R> ErrorInfo<'s, char, R> for char {
+    type Format = &'static str;
+    fn into_info(&self) -> Info<char, R, Self::Format> {
+        Info::Token(*self)
+    }
+}
+
+impl<T, R, F> From<&'static str> for Info<T, R, F> {
+    fn from(s: &'static str) -> Self {
         Info::Borrowed(s)
     }
 }
 
-impl<R> From<u8> for Info<u8, R> {
-    fn from(s: u8) -> Info<u8, R> {
+impl<'s, T, R> ErrorInfo<'s, T, R> for &'static str {
+    type Format = &'static str;
+    fn into_info(&self) -> Info<T, R, Self::Format> {
+        Info::Borrowed(*self)
+    }
+}
+
+impl<R, F> From<u8> for Info<u8, R, F> {
+    fn from(s: u8) -> Self {
         Info::Token(s)
+    }
+}
+
+impl<R> ErrorInfo<'_, Self, R> for u8 {
+    type Format = &'static str;
+    fn into_info(&self) -> Info<Self, R, Self::Format> {
+        Info::Token(*self)
+    }
+}
+
+/// Newtype which constructs an `Info::Token` through `ErrorInfo`
+pub struct Token<T>(pub T);
+
+impl<T, R> From<Token<T>> for Info<T, R, &'static str> {
+    fn from(s: Token<T>) -> Self {
+        Info::Token(s.0)
+    }
+}
+
+impl<'s, T, R> ErrorInfo<'s, T, R> for Token<T>
+where
+    T: Clone,
+{
+    type Format = &'static str;
+    fn into_info(&'s self) -> Info<T, R, Self::Format> {
+        Info::Token(self.0.clone())
+    }
+}
+
+/// Newtype which constructs an `Info::Range` through `ErrorInfo`
+pub struct Range<R>(pub R);
+
+impl<T, R> From<Range<R>> for Info<T, R, &'static str> {
+    fn from(s: Range<R>) -> Self {
+        Info::Range(s.0)
+    }
+}
+
+impl<'s, T, R> ErrorInfo<'s, T, R> for Range<R>
+where
+    R: Clone,
+{
+    type Format = &'static str;
+    fn into_info(&'s self) -> Info<T, R, Self::Format> {
+        Info::Range(self.0.clone())
+    }
+}
+
+/// Newtype which constructs an `Info::Format` through `ErrorInfo`
+pub struct Format<F>(pub F)
+where
+    F: fmt::Display;
+
+impl<T, R, F> From<Format<F>> for Info<T, R, F>
+where
+    F: fmt::Display,
+{
+    fn from(s: Format<F>) -> Self {
+        Info::Format(s.0)
+    }
+}
+
+impl<'s, T, R, F> ErrorInfo<'s, T, R> for Format<F>
+where
+    F: fmt::Display + 's,
+{
+    type Format = &'s F;
+    fn into_info(&'s self) -> Info<T, R, Self::Format> {
+        Info::Format(&self.0)
     }
 }
 
@@ -227,11 +337,21 @@ pub trait StreamError<Item, Range>: Sized {
     fn unexpected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn unexpected(info: Info<Item, Range>) -> Self {
+    fn unexpected<E>(info: E) -> Self
+    where
+        E: for<'s> ErrorInfo<'s, Item, Range>,
+    {
+        Self::unexpected_info(info.into_info())
+    }
+    fn unexpected_info<F>(info: Info<Item, Range, F>) -> Self
+    where
+        F: fmt::Display,
+    {
         match info {
             Info::Token(b) => Self::unexpected_token(b),
             Info::Range(b) => Self::unexpected_range(b),
             Info::Borrowed(b) => Self::unexpected_static_message(b),
+            Info::Format(b) => Self::unexpected_message(b),
         }
     }
     fn unexpected_static_message(msg: &'static str) -> Self {
@@ -243,11 +363,22 @@ pub trait StreamError<Item, Range>: Sized {
     fn expected_message<T>(msg: T) -> Self
     where
         T: fmt::Display;
-    fn expected(info: Info<Item, Range>) -> Self {
+    fn expected<E>(info: E) -> Self
+    where
+        E: for<'s> ErrorInfo<'s, Item, Range>,
+    {
+        Self::expected_info(info.into_info())
+    }
+
+    fn expected_info<F>(info: Info<Item, Range, F>) -> Self
+    where
+        F: fmt::Display,
+    {
         match info {
             Info::Token(b) => Self::expected_token(b),
             Info::Range(b) => Self::expected_range(b),
             Info::Borrowed(b) => Self::expected_static_message(b),
+            Info::Format(b) => Self::expected_message(b),
         }
     }
     fn expected_static_message(msg: &'static str) -> Self {
@@ -262,11 +393,22 @@ pub trait StreamError<Item, Range>: Sized {
     fn message_static_message(msg: &'static str) -> Self {
         Self::message_message(msg)
     }
-    fn message(info: Info<Item, Range>) -> Self {
+    fn message<E>(info: E) -> Self
+    where
+        E: for<'s> ErrorInfo<'s, Item, Range>,
+    {
+        Self::message_info(info.into_info())
+    }
+
+    fn message_info<F>(info: Info<Item, Range, F>) -> Self
+    where
+        F: fmt::Display,
+    {
         match info {
             Info::Token(b) => Self::message_token(b),
             Info::Range(b) => Self::message_range(b),
             Info::Borrowed(b) => Self::message_static_message(b),
+            Info::Format(b) => Self::message_message(b),
         }
     }
 
@@ -325,15 +467,24 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     /// it to a vector while others may only keep `self` or `err` to avoid allocation
     fn add(&mut self, err: Self::StreamError);
 
-    fn add_expected(&mut self, info: Info<Item, Range>) {
+    fn add_expected<E>(&mut self, info: E)
+    where
+        E: for<'s> ErrorInfo<'s, Item, Range>,
+    {
         self.add(Self::StreamError::expected(info))
     }
 
-    fn add_unexpected(&mut self, info: Info<Item, Range>) {
+    fn add_unexpected<E>(&mut self, info: E)
+    where
+        E: for<'s> ErrorInfo<'s, Item, Range>,
+    {
         self.add(Self::StreamError::unexpected(info))
     }
 
-    fn add_message(&mut self, info: Info<Item, Range>) {
+    fn add_message<E>(&mut self, info: E)
+    where
+        E: for<'s> ErrorInfo<'s, Item, Range>,
+    {
         self.add(Self::StreamError::message(info))
     }
 

@@ -103,12 +103,16 @@ pub enum Info<T, R> {
     Borrowed(&'static str),
 }
 
-impl<T, R> From<PrimitiveInfo<T, R>> for Info<T, R> {
-    fn from(info: PrimitiveInfo<T, R>) -> Self {
+impl<T, R, F> From<PrimitiveInfo<T, R, F>> for Info<T, R>
+where
+    F: fmt::Display,
+{
+    fn from(info: PrimitiveInfo<T, R, F>) -> Self {
         match info {
             PrimitiveInfo::Token(b) => Info::Token(b),
             PrimitiveInfo::Range(b) => Info::Range(b),
             PrimitiveInfo::Borrowed(b) => Info::Borrowed(b),
+            PrimitiveInfo::Format(b) => Info::Owned(b.to_string()),
         }
     }
 }

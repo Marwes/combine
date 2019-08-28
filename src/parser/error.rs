@@ -2,19 +2,22 @@
 
 use crate::lib::marker::PhantomData;
 
-use crate::error::{Info, ParseError, ParseResult, StreamError, Tracked};
-use crate::parser::ParseMode;
-use crate::{Parser, Stream, StreamOnce};
+use crate::{
+    error::{ErrorInfo, ParseError, ParseResult, StreamError, Tracked},
+    parser::ParseMode,
+    Parser, Stream, StreamOnce,
+};
 
 use crate::error::ParseResult::*;
 
 #[derive(Clone)]
-pub struct Unexpected<I, T>(Info<I::Item, I::Range>, PhantomData<fn(I) -> (I, T)>)
+pub struct Unexpected<I, T, E>(E, PhantomData<fn(I) -> (I, T)>)
 where
     I: Stream;
-impl<Input, T> Parser<Input> for Unexpected<Input, T>
+impl<Input, T, E> Parser<Input> for Unexpected<Input, T, E>
 where
     Input: Stream,
+    E: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
     type Output = T;
     type PartialState = ();
@@ -23,7 +26,7 @@ where
         EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        errors.error.add(StreamError::unexpected(self.0.clone()));
+        errors.error.add(StreamError::unexpected(&self.0));
     }
 }
 /// Always fails with `message` as an unexpected error.
@@ -44,15 +47,15 @@ where
 ///         .unwrap()
 ///         .errors
 ///         .iter()
-///         .any(|m| *m == StreamError::unexpected("token".into()))
+///         .any(|m| *m == StreamError::unexpected("token"))
 /// );
 /// # }
 /// ```
 #[inline]
-pub fn unexpected<I, S>(message: S) -> Unexpected<I, ()>
+pub fn unexpected<Input, S>(message: S) -> Unexpected<Input, (), S>
 where
-    I: Stream,
-    S: Into<Info<I::Item, I::Range>>,
+    Input: Stream,
+    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
     unexpected_any(message)
 }
@@ -77,17 +80,17 @@ where
 ///         .unwrap()
 ///         .errors
 ///         .iter()
-///         .any(|m| *m == StreamError::unexpected("token".into()))
+///         .any(|m| *m == StreamError::unexpected("token"))
 /// );
 /// # }
 /// ```
 #[inline]
-pub fn unexpected_any<I, S, T>(message: S) -> Unexpected<I, T>
+pub fn unexpected_any<Input, S, T>(message: S) -> Unexpected<Input, T, S>
 where
-    I: Stream,
-    S: Into<Info<I::Item, I::Range>>,
+    Input: Stream,
+    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
-    Unexpected(message.into(), PhantomData)
+    Unexpected(message, PhantomData)
 }
 
 #[derive(Clone)]
@@ -96,7 +99,7 @@ impl<Input, P, S> Parser<Input> for Message<P, S>
 where
     Input: Stream,
     P: Parser<Input>,
-    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -118,7 +121,7 @@ where
 
             // The message should always be added even if some input was consumed before failing
             ConsumedErr(mut err) => {
-                err.add_message(self.1.clone().into());
+                err.add_message(&self.1);
                 ConsumedErr(err)
             }
 
@@ -129,7 +132,7 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         self.0.add_error(errors);
-        errors.error.add_message(self.1.clone().into());
+        errors.error.add_message(&self.1);
     }
 
     forward_parser!(Input, parser_count add_consumed_expected_error, 0);
@@ -143,7 +146,7 @@ pub fn message<Input, P, S>(p: P, msg: S) -> Message<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
-    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
     Message(p, msg)
 }
@@ -154,7 +157,7 @@ impl<Input, P, S> Parser<Input> for Expected<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
-    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -176,7 +179,7 @@ where
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         ParseError::set_expected(
             errors,
-            StreamError::expected(self.1.clone().into()),
+            StreamError::expected_info(self.1.into_info()),
             |errors| {
                 self.0.add_error(errors);
             },
@@ -194,7 +197,7 @@ pub fn expected<Input, P, S>(p: P, info: S) -> Expected<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
-    S: Clone + Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
 {
     Expected(p, info)
 }
