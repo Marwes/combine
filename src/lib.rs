@@ -218,33 +218,6 @@ pub use crate::parser::combinator::from_str;
 #[doc(inline)]
 pub use crate::parser::item::tokens_cmp;
 
-macro_rules! static_fn {
-    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
-        fn temp($($arg: $arg_ty),*) -> $ret { $body }
-        temp as fn(_) -> _
-    } }
-}
-
-macro_rules! impl_token_parser {
-    ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
-    pub struct $name<Input $(,$ty_var)*>($inner_type, PhantomData<fn (Input) -> Input>)
-        where Input: Stream<Item=$ty>,
-              Input::Error: ParseError<$ty, Input::Range, Input::Position>
-              $(, $ty_var : Parser<Input>)*;
-    impl <Input $(,$ty_var)*> Parser<Input> for $name<Input $(,$ty_var)*>
-        where Input: Stream<Item=$ty>,
-              Input::Error: ParseError<$ty, Input::Range, Input::Position>
-              $(, $ty_var : Parser<Input>)*
-    {
-
-        type Output = <$inner_type as Parser<Input>>::Output;
-        type PartialState = <$inner_type as Parser<Input>>::PartialState;
-
-        forward_parser!(Input, 0);
-    }
-}
-}
-
 /// Declares a named parser which can easily be reused.
 ///
 /// The expression which creates the parser should have no side effects as it may be called
