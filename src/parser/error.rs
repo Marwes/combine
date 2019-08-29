@@ -177,13 +177,9 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        ParseError::set_expected(
-            errors,
-            StreamError::expected_info(self.1.into_info()),
-            |errors| {
-                self.0.add_error(errors);
-            },
-        )
+        ParseError::set_expected(errors, StreamError::expected(&self.1), |errors| {
+            self.0.add_error(errors);
+        })
     }
 
     forward_parser!(Input, parser_count add_consumed_expected_error, 0);

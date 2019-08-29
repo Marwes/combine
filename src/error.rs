@@ -371,13 +371,7 @@ pub trait StreamError<Item, Range>: Sized {
     where
         E: for<'s> ErrorInfo<'s, Item, Range>,
     {
-        Self::unexpected_info(info.into_info())
-    }
-    fn unexpected_info<F>(info: Info<Item, Range, F>) -> Self
-    where
-        F: fmt::Display,
-    {
-        match info {
+        match info.into_info() {
             Info::Token(b) => Self::unexpected_token(b),
             Info::Range(b) => Self::unexpected_range(b),
             Info::Static(b) => Self::unexpected_static_message(b),
@@ -397,14 +391,7 @@ pub trait StreamError<Item, Range>: Sized {
     where
         E: for<'s> ErrorInfo<'s, Item, Range>,
     {
-        Self::expected_info(info.into_info())
-    }
-
-    fn expected_info<F>(info: Info<Item, Range, F>) -> Self
-    where
-        F: fmt::Display,
-    {
-        match info {
+        match info.into_info() {
             Info::Token(b) => Self::expected_token(b),
             Info::Range(b) => Self::expected_range(b),
             Info::Static(b) => Self::expected_static_message(b),
@@ -427,14 +414,7 @@ pub trait StreamError<Item, Range>: Sized {
     where
         E: for<'s> ErrorInfo<'s, Item, Range>,
     {
-        Self::message_info(info.into_info())
-    }
-
-    fn message_info<F>(info: Info<Item, Range, F>) -> Self
-    where
-        F: fmt::Display,
-    {
-        match info {
+        match info.into_info() {
             Info::Token(b) => Self::message_token(b),
             Info::Range(b) => Self::message_range(b),
             Info::Static(b) => Self::message_static_message(b),
