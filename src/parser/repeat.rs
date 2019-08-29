@@ -1395,10 +1395,10 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        use crate::error::Info;
+        use crate::error;
         self.parser.add_error(errors);
 
-        errors.error.add_expected(Info::Token(self.escape.clone()));
+        errors.error.add_expected(error::Token(self.escape.clone()));
     }
 }
 

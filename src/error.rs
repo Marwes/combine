@@ -39,6 +39,10 @@ macro_rules! ctry {
     };
 }
 
+/// Trait for types which can be used to construct error information.
+///
+/// To call functions expecting this trait, use the wrappar types defined in this module
+/// `Token`, `Range`, `Format` or `Static`/`&'static str`
 pub trait ErrorInfo<'s, T, R> {
     type Format: fmt::Display;
     fn into_info(&'s self) -> Info<T, R, Self::Format>;
@@ -62,14 +66,20 @@ pub enum Info<T, R, F = &'static str> {
     Format(F),
 }
 
-impl<'s, T, R> ErrorInfo<'s, T, R> for Info<T, R, &'static str>
+impl<'s, T, R, F> ErrorInfo<'s, T, R> for Info<T, R, F>
 where
     T: Clone,
     R: Clone,
+    F: fmt::Display + 's,
 {
-    type Format = &'static str;
+    type Format = &'s F;
     fn into_info(&'s self) -> Info<T, R, <Self as ErrorInfo<T, R>>::Format> {
-        self.clone()
+        match self {
+            Info::Token(b) => Info::Token(b.clone()),
+            Info::Range(b) => Info::Range(b.clone()),
+            Info::Static(b) => Info::Static(*b),
+            Info::Format(b) => Info::Format(b),
+        }
     }
 }
 

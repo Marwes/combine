@@ -8,7 +8,7 @@
 use crate::lib::marker::PhantomData;
 
 use crate::error::ParseResult::*;
-use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
+use crate::error::{self, ParseError, ParseResult, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
@@ -48,7 +48,7 @@ where
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         // TODO Add unexpected message?
-        errors.error.add_expected(Info::Range(self.0.clone()));
+        errors.error.add_expected(error::Range(self.0.clone()));
     }
 }
 

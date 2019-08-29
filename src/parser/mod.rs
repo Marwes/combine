@@ -9,7 +9,7 @@ use crate::combinator::{
     FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
 };
 use crate::error::ParseResult::*;
-use crate::error::{ErrorInfo, Info, ParseError, ParseResult, ResultExt, Tracked};
+use crate::error::{ErrorInfo, ParseError, ParseResult, ResultExt, Token, Tracked};
 use crate::parser::error::{silent, Silent};
 use crate::stream::{Stream, StreamOnce};
 use crate::ErrorOffset;
@@ -135,7 +135,7 @@ pub trait Parser<Input: Stream> {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
-                error.error.add_unexpected(Info::Token(t));
+                error.error.add_unexpected(Token(t));
             }
             self.add_error(error);
         }
@@ -202,7 +202,7 @@ pub trait Parser<Input: Stream> {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
-                error.error.add_unexpected(Info::Token(t));
+                error.error.add_unexpected(Token(t));
             }
             self.add_error(error);
         }
@@ -619,7 +619,7 @@ pub trait Parser<Input: Stream> {
     /// # #![cfg(feature = "std")]
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::error::Format;
+    /// # use combine::error;
     /// # use combine::stream::easy;
     /// # use combine::stream::state::{State, SourcePosition};
     /// # fn main() {
@@ -635,13 +635,13 @@ pub trait Parser<Input: Stream> {
     /// }));
     ///
     /// let result = token('9')
-    ///     .expected(Format(format_args!("That is not a nine!")))
+    ///     .expected(error::Format(format_args!("That is not a nine!")))
     ///     .easy_parse(State::new("8"));
     /// assert_eq!(result, Err(easy::Errors {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
     ///         easy::Error::Unexpected('8'.into()),
-    ///         easy::Error::Expected("nine".into())
+    ///         easy::Error::Expected("That is not a nine!".to_string().into())
     ///     ]
     /// }));
     /// # }
@@ -1044,7 +1044,7 @@ pub trait ParseMode: Copy {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
-                error.error.add_unexpected(Info::Token(t));
+                error.error.add_unexpected(Token(t));
             }
             parser.add_error(error);
         }
