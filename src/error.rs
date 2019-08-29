@@ -334,7 +334,7 @@ pub type StdParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>
 pub trait StreamError<Item, Range>: Sized {
     fn unexpected_token(token: Item) -> Self;
     fn unexpected_range(token: Range) -> Self;
-    fn unexpected_message<T>(msg: T) -> Self
+    fn unexpected_format<T>(msg: T) -> Self
     where
         T: fmt::Display;
     fn unexpected<E>(info: E) -> Self
@@ -351,16 +351,16 @@ pub trait StreamError<Item, Range>: Sized {
             Info::Token(b) => Self::unexpected_token(b),
             Info::Range(b) => Self::unexpected_range(b),
             Info::Borrowed(b) => Self::unexpected_static_message(b),
-            Info::Format(b) => Self::unexpected_message(b),
+            Info::Format(b) => Self::unexpected_format(b),
         }
     }
     fn unexpected_static_message(msg: &'static str) -> Self {
-        Self::unexpected_message(msg)
+        Self::unexpected_format(msg)
     }
 
     fn expected_token(token: Item) -> Self;
     fn expected_range(token: Range) -> Self;
-    fn expected_message<T>(msg: T) -> Self
+    fn expected_format<T>(msg: T) -> Self
     where
         T: fmt::Display;
     fn expected<E>(info: E) -> Self
@@ -378,20 +378,20 @@ pub trait StreamError<Item, Range>: Sized {
             Info::Token(b) => Self::expected_token(b),
             Info::Range(b) => Self::expected_range(b),
             Info::Borrowed(b) => Self::expected_static_message(b),
-            Info::Format(b) => Self::expected_message(b),
+            Info::Format(b) => Self::expected_format(b),
         }
     }
     fn expected_static_message(msg: &'static str) -> Self {
-        Self::expected_message(msg)
+        Self::expected_format(msg)
     }
 
     fn message_token(token: Item) -> Self;
     fn message_range(token: Range) -> Self;
-    fn message_message<T>(msg: T) -> Self
+    fn message_format<T>(msg: T) -> Self
     where
         T: fmt::Display;
     fn message_static_message(msg: &'static str) -> Self {
-        Self::message_message(msg)
+        Self::message_format(msg)
     }
     fn message<E>(info: E) -> Self
     where
@@ -408,7 +408,7 @@ pub trait StreamError<Item, Range>: Sized {
             Info::Token(b) => Self::message_token(b),
             Info::Range(b) => Self::message_range(b),
             Info::Borrowed(b) => Self::message_static_message(b),
-            Info::Format(b) => Self::message_message(b),
+            Info::Format(b) => Self::message_format(b),
         }
     }
 
@@ -417,7 +417,7 @@ pub trait StreamError<Item, Range>: Sized {
     where
         E: StdError + Send + Sync + 'static,
     {
-        Self::message_message(err)
+        Self::message_format(err)
     }
 
     fn end_of_input() -> Self {
@@ -534,7 +534,7 @@ impl<Item, Range> StreamError<Item, Range> for UnexpectedParse {
         UnexpectedParse::Unexpected
     }
     #[inline]
-    fn unexpected_message<T>(_: T) -> Self
+    fn unexpected_format<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
@@ -550,14 +550,14 @@ impl<Item, Range> StreamError<Item, Range> for UnexpectedParse {
         UnexpectedParse::Unexpected
     }
     #[inline]
-    fn expected_message<T>(_: T) -> Self
+    fn expected_format<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
         UnexpectedParse::Unexpected
     }
     #[inline]
-    fn message_message<T>(_: T) -> Self
+    fn message_format<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
@@ -676,7 +676,7 @@ impl<Item, Range> StreamError<Item, Range> for StringStreamError {
         StringStreamError::UnexpectedParse
     }
     #[inline]
-    fn unexpected_message<T>(_msg: T) -> Self
+    fn unexpected_format<T>(_msg: T) -> Self
     where
         T: fmt::Display,
     {
@@ -692,14 +692,14 @@ impl<Item, Range> StreamError<Item, Range> for StringStreamError {
         StringStreamError::UnexpectedParse
     }
     #[inline]
-    fn expected_message<T>(_: T) -> Self
+    fn expected_format<T>(_: T) -> Self
     where
         T: fmt::Display,
     {
         StringStreamError::UnexpectedParse
     }
     #[inline]
-    fn message_message<T>(_: T) -> Self
+    fn message_format<T>(_: T) -> Self
     where
         T: fmt::Display,
     {

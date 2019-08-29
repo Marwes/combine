@@ -1170,7 +1170,7 @@ where [
     parser.and_then(|r| {
         r.from_utf8()
             .map_err(|_| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
-            .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_message))
+            .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_format))
     })
 }
 }

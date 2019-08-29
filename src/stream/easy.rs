@@ -219,7 +219,7 @@ where
         Error::Unexpected(Info::Range(token))
     }
     #[inline]
-    fn unexpected_message<T>(msg: T) -> Self
+    fn unexpected_format<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
@@ -239,7 +239,7 @@ where
         Error::Expected(Info::Range(token))
     }
     #[inline]
-    fn expected_message<T>(msg: T) -> Self
+    fn expected_format<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
@@ -251,7 +251,7 @@ where
     }
 
     #[inline]
-    fn message_message<T>(msg: T) -> Self
+    fn message_format<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
@@ -292,21 +292,21 @@ where
                 Info::Token(x) => T::unexpected_token(x),
                 Info::Range(x) => T::unexpected_range(x),
                 Info::Borrowed(x) => T::unexpected_static_message(x),
-                Info::Owned(x) => T::unexpected_message(x),
+                Info::Owned(x) => T::unexpected_format(x),
             },
             Error::Expected(info) => match info {
                 Info::Token(x) => T::expected_token(x),
                 Info::Range(x) => T::expected_range(x),
                 Info::Borrowed(x) => T::expected_static_message(x),
-                Info::Owned(x) => T::expected_message(x),
+                Info::Owned(x) => T::expected_format(x),
             },
             Error::Message(info) => match info {
                 Info::Token(x) => T::expected_token(x),
                 Info::Range(x) => T::expected_range(x),
                 Info::Borrowed(x) => T::expected_static_message(x),
-                Info::Owned(x) => T::expected_message(x),
+                Info::Owned(x) => T::expected_format(x),
             },
-            Error::Other(err) => T::message_message(err),
+            Error::Other(err) => T::message_format(err),
         }
     }
 }

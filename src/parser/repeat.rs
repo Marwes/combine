@@ -103,7 +103,7 @@ where
                 .inspect(|_| *count += 1),
         );
         if *count < self.min {
-            let err = StreamError::message_message(format_args!(
+            let err = StreamError::message_format(format_args!(
                 "expected {} more elements",
                 self.min - *count
             ));
