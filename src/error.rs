@@ -58,7 +58,7 @@ where
 pub enum Info<T, R, F = &'static str> {
     Token(T),
     Range(R),
-    Borrowed(&'static str),
+    Static(&'static str),
     Format(F),
 }
 
@@ -88,14 +88,14 @@ impl<'s, R> ErrorInfo<'s, char, R> for char {
 
 impl<T, R, F> From<&'static str> for Info<T, R, F> {
     fn from(s: &'static str) -> Self {
-        Info::Borrowed(s)
+        Info::Static(s)
     }
 }
 
 impl<'s, T, R> ErrorInfo<'s, T, R> for &'static str {
     type Format = &'static str;
     fn into_info(&self) -> Info<T, R, Self::Format> {
-        Info::Borrowed(*self)
+        Info::Static(*self)
     }
 }
 
@@ -147,6 +147,26 @@ where
     type Format = &'static str;
     fn into_info(&'s self) -> Info<T, R, Self::Format> {
         Info::Range(self.0.clone())
+    }
+}
+
+/// Newtype which constructs an `Info::Static` through `ErrorInfo`
+/// A plain `&'static str` can also be used, this exists for consistency.
+pub struct Static(&'static str);
+
+impl<T, R, F> From<Static> for Info<T, R, F>
+where
+    F: fmt::Display,
+{
+    fn from(s: Static) -> Self {
+        Info::Static(s.0)
+    }
+}
+
+impl<'s, T, R> ErrorInfo<'s, T, R> for Static {
+    type Format = &'static str;
+    fn into_info(&'s self) -> Info<T, R, Self::Format> {
+        Info::Static(self.0)
     }
 }
 
@@ -350,7 +370,7 @@ pub trait StreamError<Item, Range>: Sized {
         match info {
             Info::Token(b) => Self::unexpected_token(b),
             Info::Range(b) => Self::unexpected_range(b),
-            Info::Borrowed(b) => Self::unexpected_static_message(b),
+            Info::Static(b) => Self::unexpected_static_message(b),
             Info::Format(b) => Self::unexpected_format(b),
         }
     }
@@ -377,7 +397,7 @@ pub trait StreamError<Item, Range>: Sized {
         match info {
             Info::Token(b) => Self::expected_token(b),
             Info::Range(b) => Self::expected_range(b),
-            Info::Borrowed(b) => Self::expected_static_message(b),
+            Info::Static(b) => Self::expected_static_message(b),
             Info::Format(b) => Self::expected_format(b),
         }
     }
@@ -407,7 +427,7 @@ pub trait StreamError<Item, Range>: Sized {
         match info {
             Info::Token(b) => Self::message_token(b),
             Info::Range(b) => Self::message_range(b),
-            Info::Borrowed(b) => Self::message_static_message(b),
+            Info::Static(b) => Self::message_static_message(b),
             Info::Format(b) => Self::message_format(b),
         }
     }

@@ -34,7 +34,7 @@
 //!                 if word == "combine" {
 //!                     Ok(word)
 //!                 } else {
-//!                     Err(easy::Error::Expected(easy::Info::Borrowed("combine")))
+//!                     Err(easy::Error::Expected(easy::Info::Static("combine")))
 //!                 }
 //!             })
 //!         }
@@ -100,7 +100,7 @@ pub enum Info<T, R> {
     Token(T),
     Range(R),
     Owned(String),
-    Borrowed(&'static str),
+    Static(&'static str),
 }
 
 impl<T, R, F> From<PrimitiveInfo<T, R, F>> for Info<T, R>
@@ -111,7 +111,7 @@ where
         match info {
             PrimitiveInfo::Token(b) => Info::Token(b),
             PrimitiveInfo::Range(b) => Info::Range(b),
-            PrimitiveInfo::Borrowed(b) => Info::Borrowed(b),
+            PrimitiveInfo::Static(b) => Info::Static(b),
             PrimitiveInfo::Format(b) => Info::Owned(b.to_string()),
         }
     }
@@ -127,7 +127,7 @@ impl<T, R> Info<T, R> {
             Token(t) => Token(f(t)),
             Range(r) => Range(r),
             Owned(s) => Owned(s),
-            Borrowed(x) => Borrowed(x),
+            Static(x) => Static(x),
         }
     }
 
@@ -140,7 +140,7 @@ impl<T, R> Info<T, R> {
             Token(t) => Token(t),
             Range(r) => Range(f(r)),
             Owned(s) => Owned(s),
-            Borrowed(x) => Borrowed(x),
+            Static(x) => Static(x),
         }
     }
 }
@@ -151,9 +151,9 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
             (&Info::Token(ref l), &Info::Token(ref r)) => l == r,
             (&Info::Range(ref l), &Info::Range(ref r)) => l == r,
             (&Info::Owned(ref l), &Info::Owned(ref r)) => l == r,
-            (&Info::Borrowed(l), &Info::Owned(ref r)) => l == r,
-            (&Info::Owned(ref l), &Info::Borrowed(r)) => l == r,
-            (&Info::Borrowed(l), &Info::Borrowed(r)) => l == r,
+            (&Info::Static(l), &Info::Owned(ref r)) => l == r,
+            (&Info::Owned(ref l), &Info::Static(r)) => l == r,
+            (&Info::Static(l), &Info::Static(r)) => l == r,
             _ => false,
         }
     }
@@ -164,7 +164,7 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for Info<T, R> {
             Info::Token(ref c) => write!(f, "{}", c),
             Info::Range(ref c) => write!(f, "{}", c),
             Info::Owned(ref s) => write!(f, "{}", s),
-            Info::Borrowed(s) => write!(f, "{}", s),
+            Info::Static(s) => write!(f, "{}", s),
         }
     }
 }
@@ -182,7 +182,7 @@ impl<T, R> From<String> for Info<T, R> {
 
 impl<T, R> From<&'static str> for Info<T, R> {
     fn from(s: &'static str) -> Info<T, R> {
-        Info::Borrowed(s)
+        Info::Static(s)
     }
 }
 
@@ -227,7 +227,7 @@ where
     }
     #[inline]
     fn unexpected_static_message(msg: &'static str) -> Self {
-        Error::Unexpected(Info::Borrowed(msg))
+        Error::Unexpected(Info::Static(msg))
     }
 
     #[inline]
@@ -247,7 +247,7 @@ where
     }
     #[inline]
     fn expected_static_message(msg: &'static str) -> Self {
-        Error::Expected(Info::Borrowed(msg))
+        Error::Expected(Info::Static(msg))
     }
 
     #[inline]
@@ -259,7 +259,7 @@ where
     }
     #[inline]
     fn message_static_message(msg: &'static str) -> Self {
-        Error::Message(Info::Borrowed(msg))
+        Error::Message(Info::Static(msg))
     }
     #[inline]
     fn message_token(token: Item) -> Self {
@@ -291,19 +291,19 @@ where
             Error::Unexpected(info) => match info {
                 Info::Token(x) => T::unexpected_token(x),
                 Info::Range(x) => T::unexpected_range(x),
-                Info::Borrowed(x) => T::unexpected_static_message(x),
+                Info::Static(x) => T::unexpected_static_message(x),
                 Info::Owned(x) => T::unexpected_format(x),
             },
             Error::Expected(info) => match info {
                 Info::Token(x) => T::expected_token(x),
                 Info::Range(x) => T::expected_range(x),
-                Info::Borrowed(x) => T::expected_static_message(x),
+                Info::Static(x) => T::expected_static_message(x),
                 Info::Owned(x) => T::expected_format(x),
             },
             Error::Message(info) => match info {
                 Info::Token(x) => T::expected_token(x),
                 Info::Range(x) => T::expected_range(x),
-                Info::Borrowed(x) => T::expected_static_message(x),
+                Info::Static(x) => T::expected_static_message(x),
                 Info::Owned(x) => T::expected_format(x),
             },
             Error::Other(err) => T::message_format(err),
