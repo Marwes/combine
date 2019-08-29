@@ -73,7 +73,7 @@ pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
 where
     Input: Stream,
     P: Parser<Input>,
-    P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range>>,
+    P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range, &'static str>>,
 {
     NotFollowedBy(parser)
 }
@@ -1170,7 +1170,7 @@ where [
     parser.and_then(|r| {
         r.from_utf8()
             .map_err(|_| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
-            .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_message))
+            .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_format))
     })
 }
 }

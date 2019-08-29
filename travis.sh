@@ -5,8 +5,7 @@ cargo build
 cargo test --features doc
 cargo test --features doc --examples
 
-cargo check --bench json
-cargo check --bench http
+cargo test --bench json --bench http -- --test
 cargo check --bench mp4 --features mp4
 
 cargo build --no-default-features

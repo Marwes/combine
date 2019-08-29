@@ -3,7 +3,7 @@
 use crate::lib::marker::PhantomData;
 
 use crate::{
-    error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked},
+    error::{self, ErrorInfo, ParseError, ParseResult, ResultExt, StreamError, Tracked},
     stream::{uncons, Stream, StreamOnce},
     Parser,
 };
@@ -194,7 +194,7 @@ where
         satisfy_impl(input, |c| if c == self.c { Some(c) } else { None })
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        errors.error.add_expected(Info::Token(self.c.clone()));
+        errors.error.add_expected(error::Token(self.c.clone()));
     }
 }
 
@@ -223,19 +223,20 @@ where
 }
 
 #[derive(Clone)]
-pub struct Tokens<C, T, Input>
+pub struct Tokens<C, E, T, Input>
 where
     Input: Stream,
 {
     cmp: C,
-    expected: Info<Input::Item, Input::Range>,
+    expected: E,
     tokens: T,
     _marker: PhantomData<Input>,
 }
 
-impl<Input, C, T> Parser<Input> for Tokens<C, T, Input>
+impl<Input, C, E, T> Parser<Input> for Tokens<C, E, T, Input>
 where
     C: FnMut(T::Item, Input::Item) -> bool,
+    E: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
     T: Clone + IntoIterator,
     Input: Stream,
 {
@@ -252,9 +253,9 @@ where
                         return if consumed {
                             let mut errors = <Input as StreamOnce>::Error::from_error(
                                 start,
-                                StreamError::unexpected(Info::Token(other)),
+                                StreamError::unexpected_token(other),
                             );
-                            errors.add_expected(self.expected.clone());
+                            errors.add_expected(&self.expected);
                             ConsumedErr(errors)
                         } else {
                             EmptyErr(<Input as StreamOnce>::Error::empty(start).into())
@@ -283,7 +284,7 @@ where
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        errors.error.add_expected(self.expected.clone());
+        errors.error.add_expected(&self.expected);
     }
 }
 
@@ -296,16 +297,15 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::error::Info;
+/// # use combine::error;
 /// # fn main() {
-/// use std::ascii::AsciiExt;
-/// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc".into(), "abc".chars())
+/// let result = tokens(|l, r| l.eq_ignore_ascii_case(&r), "abc", "abc".chars())
 ///     .parse("AbC")
 ///     .map(|x| x.0.as_str());
 /// assert_eq!(result, Ok("abc"));
 /// let result = tokens(
 ///     |&l, r| (if l < r { r - l } else { l - r }) <= 2,
-///     Info::Range(&b"025"[..]),
+///     error::Range(&b"025"[..]),
 ///     &b"025"[..]
 /// )
 ///     .parse(&b"123"[..])
@@ -314,20 +314,16 @@ where
 /// # }
 /// ```
 #[inline]
-pub fn tokens<C, T, Input>(
-    cmp: C,
-    expected: Info<Input::Item, Input::Range>,
-    tokens: T,
-) -> Tokens<C, T, Input>
+pub fn tokens<C, E, T, Input>(cmp: C, expected: E, tokens: T) -> Tokens<C, E, T, Input>
 where
     C: FnMut(T::Item, Input::Item) -> bool,
     T: Clone + IntoIterator,
     Input: Stream,
 {
     Tokens {
-        cmp: cmp,
-        expected: expected,
-        tokens: tokens,
+        cmp,
+        expected,
+        tokens,
         _marker: PhantomData,
     }
 }
@@ -362,7 +358,7 @@ where
                         return if consumed {
                             let errors = <Input as StreamOnce>::Error::from_error(
                                 start,
-                                StreamError::unexpected(Info::Token(other)),
+                                StreamError::unexpected_token(other),
                             );
                             ConsumedErr(errors)
                         } else {
@@ -503,7 +499,7 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         for expected in self.tokens.clone() {
-            errors.error.add_expected(Info::Token(expected));
+            errors.error.add_expected(error::Token(expected));
         }
     }
 }
@@ -649,7 +645,7 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        errors.error.add_expected("end of input".into());
+        errors.error.add_expected("end of input");
     }
 }
 

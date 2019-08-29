@@ -6,7 +6,7 @@ use crate::lib::marker::PhantomData;
 use self::ascii::AsciiChar;
 
 use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
-use crate::error::{Info, ParseError, ParseResult, Tracked};
+use crate::error::{self, ParseError, ParseResult, Tracked};
 use crate::parser::{
     item::tokens_cmp,
     range::{take_fn, TakeRange},
@@ -350,7 +350,7 @@ where [
     let s = *s;
     tokens_cmp(s.iter().cloned(), cmp)
         .map(move |_| s)
-        .expected(Info::Range(s))
+        .expected(error::Range(s))
 }
 }
 

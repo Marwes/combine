@@ -48,7 +48,7 @@ pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 ///         //Return an empty error since we only tested the first token of the stream
 ///         let errors = easy::Errors::new(
 ///             position,
-///             StreamError::expected(From::from("even number"))
+///             StreamError::expected("even number")
 ///         );
 ///         Err(Consumed::Empty(errors.into()))
 ///     }
