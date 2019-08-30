@@ -661,7 +661,7 @@ pub mod num {
     mod tests {
         use super::*;
         use crate::stream::buffered;
-        use crate::stream::state::State;
+        use crate::stream::position;
         use crate::stream::IteratorStream;
 
         #[test]
@@ -671,7 +671,7 @@ pub mod num {
             assert_eq!(
                 f64::<LE, _>()
                     .parse(buffered::Stream::new(
-                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
                     .map(|(t, _)| t),
@@ -680,7 +680,7 @@ pub mod num {
             assert_eq!(
                 le_f64()
                     .parse(buffered::Stream::new(
-                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
                     .map(|(t, _)| t),
@@ -691,7 +691,7 @@ pub mod num {
             assert_eq!(
                 be_f64()
                     .parse(buffered::Stream::new(
-                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
                     .map(|(t, _)| t),
@@ -704,7 +704,7 @@ pub mod num {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stream::{buffered, state::State, ReadStream};
+    use crate::stream::{buffered, position, ReadStream};
 
     #[test]
     fn memslice_basic() {
@@ -726,7 +726,7 @@ mod tests {
     fn bytes_read_stream() {
         assert!(bytes(b"abc")
             .parse(buffered::Stream::new(
-                State::new(ReadStream::new("abc".as_bytes())),
+                position::Stream::new(ReadStream::new("abc".as_bytes())),
                 1
             ))
             .is_ok());

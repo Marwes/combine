@@ -716,13 +716,13 @@ where
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # use combine::stream::easy;
-/// # use combine::stream::state::{State, SourcePosition};
+/// # use combine::stream::position::{self, SourcePosition};
 /// # fn main() {
 /// let mut parser = sep_by1(digit(), token(','));
-/// let result_ok = parser.easy_parse(State::new("1,2,3"))
+/// let result_ok = parser.easy_parse(position::Stream::new("1,2,3"))
 ///                       .map(|(vec, state)| (vec, state.input));
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
-/// let result_err = parser.easy_parse(State::new(""));
+/// let result_err = parser.easy_parse(position::Stream::new(""));
 /// assert_eq!(result_err, Err(easy::Errors {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
@@ -899,13 +899,13 @@ where
 /// # use combine::*;
 /// # use combine::parser::char::digit;
 /// # use combine::stream::easy;
-/// # use combine::stream::state::{State, SourcePosition};
+/// # use combine::stream::position::{self, SourcePosition};
 /// # fn main() {
 /// let mut parser = sep_end_by1(digit(), token(';'));
-/// let result_ok = parser.easy_parse(State::new("1;2;3;"))
+/// let result_ok = parser.easy_parse(position::Stream::new("1;2;3;"))
 ///                       .map(|(vec, state)| (vec, state.input));
 /// assert_eq!(result_ok, Ok((vec!['1', '2', '3'], "")));
-/// let result_err = parser.easy_parse(State::new(""));
+/// let result_err = parser.easy_parse(position::Stream::new(""));
 /// assert_eq!(result_err, Err(easy::Errors {
 ///     position: SourcePosition::default(),
 ///     errors: vec![

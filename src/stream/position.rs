@@ -51,7 +51,7 @@ impl<R> DefaultPositioned for ReadStream<R> {
     type Positioner = IndexPositioner;
 }
 
-/// The `State<Input>` struct maintains the current position in the stream `Input` using
+/// The `Stream<Input>` struct maintains the current position in the stream `Input` using
 /// the `Positioner` trait to track the position.
 ///
 /// ```
@@ -59,11 +59,11 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::stream::easy;
-/// # use combine::stream::state::State;
+/// # use combine::stream::position;
 /// # fn main() {
 ///     let result = token(b'9')
 ///         .message("Not a nine")
-///         .easy_parse(State::new(&b"8"[..]));
+///         .easy_parse(position::Stream::new(&b"8"[..]));
 ///     assert_eq!(result, Err(easy::Errors {
 ///         position: 0,
 ///         errors: vec![
@@ -75,36 +75,36 @@ impl<R> DefaultPositioned for ReadStream<R> {
 /// # }
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct State<Input, X> {
+pub struct Stream<Input, X> {
     /// The input stream used when items are requested
     pub input: Input,
     /// The positioner used to update the current position
     pub positioner: X,
 }
 
-impl<Input, X> State<Input, X>
+impl<Input, X> Stream<Input, X>
 where
     Input: StreamOnce,
     X: Positioner<Input::Item>,
 {
-    /// Creates a new `State<Input, X>` from an input stream and a positioner.
-    pub fn with_positioner(input: Input, positioner: X) -> State<Input, X> {
-        State { input, positioner }
+    /// Creates a new `Stream<Input, X>` from an input stream and a positioner.
+    pub fn with_positioner(input: Input, positioner: X) -> Stream<Input, X> {
+        Stream { input, positioner }
     }
 }
 
-impl<Input> State<Input, Input::Positioner>
+impl<Input> Stream<Input, Input::Positioner>
 where
     Input: StreamOnce + DefaultPositioned,
     Input::Positioner: Positioner<Input::Item>,
 {
-    /// Creates a new `State<Input, X>` from an input stream and its default positioner.
-    pub fn new(input: Input) -> State<Input, Input::Positioner> {
-        State::with_positioner(input, Input::Positioner::default())
+    /// Creates a new `Stream<Input, X>` from an input stream and its default positioner.
+    pub fn new(input: Input) -> Stream<Input, Input::Positioner> {
+        Stream::with_positioner(input, Input::Positioner::default())
     }
 }
 
-impl<Input, X, E> Positioned for State<Input, X>
+impl<Input, X, E> Positioned for Stream<Input, X>
 where
     Input: StreamOnce,
     X: Positioner<Input::Item>,
@@ -118,7 +118,7 @@ where
     }
 }
 
-impl<Input, X, S> StreamOnce for State<Input, X>
+impl<Input, X, S> StreamOnce for Stream<Input, X>
 where
     Input: StreamOnce,
     X: Positioner<Input::Item>,
@@ -240,7 +240,7 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
     }
 }
 
-impl<Input, X, S> RangeStreamOnce for State<Input, X>
+impl<Input, X, S> RangeStreamOnce for Stream<Input, X>
 where
     Input: RangeStreamOnce,
     X: Clone + RangePositioner<Input::Item, Input::Range>,
@@ -298,7 +298,7 @@ where
     }
 }
 
-impl<Input, X, S> ResetStream for State<Input, X>
+impl<Input, X, S> ResetStream for Stream<Input, X>
 where
     Input: ResetStream,
     X: Clone + Positioner<Input::Item>,
@@ -306,9 +306,9 @@ where
     Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
 {
-    type Checkpoint = State<Input::Checkpoint, X>;
+    type Checkpoint = Stream<Input::Checkpoint, X>;
     fn checkpoint(&self) -> Self::Checkpoint {
-        State {
+        Stream {
             input: self.input.checkpoint(),
             positioner: self.positioner.clone(),
         }
@@ -320,7 +320,7 @@ where
     }
 }
 
-impl<Input, X, E> FullRangeStream for State<Input, X>
+impl<Input, X, E> FullRangeStream for Stream<Input, X>
 where
     Input: FullRangeStream + ResetStream,
     Input::Position: Clone + Ord,
@@ -343,12 +343,12 @@ mod tests {
     fn test_positioner() {
         let input = ["a".to_string(), "b".to_string()];
         let mut parser = crate::any();
-        let result = parser.parse(State::new(&input[..]));
+        let result = parser.parse(Stream::new(&input[..]));
         assert_eq!(
             result,
             Ok((
                 "a".to_string(),
-                State::with_positioner(
+                Stream::with_positioner(
                     &["b".to_string()][..],
                     IndexPositioner::new_with_position(1)
                 )
@@ -360,12 +360,12 @@ mod tests {
     fn test_range_positioner() {
         let input = ["a".to_string(), "b".to_string(), "c".to_string()];
         let mut parser = crate::parser::range::take(2);
-        let result = parser.parse(State::new(&input[..]));
+        let result = parser.parse(Stream::new(&input[..]));
         assert_eq!(
             result,
             Ok((
                 &["a".to_string(), "b".to_string()][..],
-                State::with_positioner(
+                Stream::with_positioner(
                     &["c".to_string()][..],
                     IndexPositioner::new_with_position(2)
                 )

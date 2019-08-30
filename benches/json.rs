@@ -25,7 +25,7 @@ use combine::parser::item::{any, satisfy, satisfy_map};
 use combine::parser::repeat::{many, many1, sep_by};
 use combine::parser::sequence::between;
 
-use combine::stream::state::{SourcePosition, State};
+use combine::stream::position::{self, SourcePosition};
 use combine::stream::IteratorStream;
 
 #[derive(PartialEq, Debug)]
@@ -238,7 +238,7 @@ fn test_data() -> String {
 fn bench_json(bencher: &mut Bencher) {
     let data = test_data();
     let mut parser = json_value();
-    match parser.easy_parse(State::new(&data[..])) {
+    match parser.easy_parse(position::Stream::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -247,7 +247,7 @@ fn bench_json(bencher: &mut Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.easy_parse(State::new(&data[..]));
+        let result = parser.easy_parse(position::Stream::new(&data[..]));
         black_box(result)
     });
 }
@@ -255,7 +255,7 @@ fn bench_json(bencher: &mut Bencher) {
 fn bench_json_core_error(bencher: &mut Bencher) {
     let data = test_data();
     let mut parser = json_value();
-    match parser.parse(State::new(&data[..])) {
+    match parser.parse(position::Stream::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
         Ok(_) => assert!(false),
         Err(err) => {
@@ -264,7 +264,7 @@ fn bench_json_core_error(bencher: &mut Bencher) {
         }
     }
     bencher.iter(|| {
-        let result = parser.parse(State::new(&data[..]));
+        let result = parser.parse(position::Stream::new(&data[..]));
         black_box(result)
     });
 }
@@ -289,9 +289,13 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher) {
 fn bench_buffered_json(bencher: &mut Bencher) {
     let data = test_data();
     bencher.iter(|| {
-        let buffer = buffered::Stream::new(State::new(IteratorStream::new(data.chars())), 1);
+        let buffer =
+            buffered::Stream::new(position::Stream::new(IteratorStream::new(data.chars())), 1);
         let mut parser = json_value();
-        match parser.easy_parse(State::with_positioner(buffer, SourcePosition::default())) {
+        match parser.easy_parse(position::Stream::with_positioner(
+            buffer,
+            SourcePosition::default(),
+        )) {
             Ok((Value::Array(v), _)) => {
                 black_box(v);
             }

@@ -305,7 +305,7 @@ mod tests {
         parser::EasyParser,
         stream::{
             easy::{Error, Errors},
-            state::{SourcePosition, State},
+            position::{self, SourcePosition},
         },
     };
 
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn string_consumed() {
-        let result = string("a").easy_parse(State::new("b"));
+        let result = string("a").easy_parse(position::Stream::new("b"));
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().position,
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn string_error() {
-        let result = string("abc").easy_parse(State::new("bc"));
+        let result = string("abc").easy_parse(position::Stream::new("bc"));
         assert_eq!(
             result,
             Err(Errors {

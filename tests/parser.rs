@@ -48,7 +48,7 @@ mod tests_std {
     use combine::parser::byte::{alpha_num, bytes};
     use combine::parser::char::{char, digit, letter};
     use combine::stream::easy::{self, Error, Errors};
-    use combine::stream::state::{SourcePosition, State};
+    use combine::stream::position::{self, SourcePosition};
     use combine::Parser;
 
     #[derive(Clone, PartialEq, Debug)]
@@ -90,7 +90,7 @@ mod tests_std {
             .expected("N/A")
             .expected("my expected digit");
         assert_eq!(
-            parser.easy_parse(State::new("a")),
+            parser.easy_parse(position::Stream::new("a")),
             Err(Errors {
                 position: SourcePosition::default(),
                 errors: vec![
@@ -105,7 +105,7 @@ mod tests_std {
     #[test]
     fn tuple_parse_error() {
         let mut parser = (digit(), digit());
-        let result = parser.easy_parse(State::new("a"));
+        let result = parser.easy_parse(position::Stream::new("a"));
         assert_eq!(
             result,
             Err(Errors {
@@ -138,7 +138,7 @@ mod tests_std {
             .map(|x| x)
             .message("expected message");
 
-        assert!(ok.easy_parse(State::new(input)).is_ok());
+        assert!(ok.easy_parse(position::Stream::new(input)).is_ok());
 
         let empty_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 1 },
@@ -158,13 +158,31 @@ mod tests_std {
             ],
         });
 
-        assert_eq!(empty0.easy_parse(State::new(input)), empty_expected);
-        assert_eq!(empty1.easy_parse(State::new(input)), empty_expected);
-        assert_eq!(empty2.easy_parse(State::new(input)), empty_expected);
+        assert_eq!(
+            empty0.easy_parse(position::Stream::new(input)),
+            empty_expected
+        );
+        assert_eq!(
+            empty1.easy_parse(position::Stream::new(input)),
+            empty_expected
+        );
+        assert_eq!(
+            empty2.easy_parse(position::Stream::new(input)),
+            empty_expected
+        );
 
-        assert_eq!(consumed0.easy_parse(State::new(input)), consumed_expected);
-        assert_eq!(consumed1.easy_parse(State::new(input)), consumed_expected);
-        assert_eq!(consumed2.easy_parse(State::new(input)), consumed_expected);
+        assert_eq!(
+            consumed0.easy_parse(position::Stream::new(input)),
+            consumed_expected
+        );
+        assert_eq!(
+            consumed1.easy_parse(position::Stream::new(input)),
+            consumed_expected
+        );
+        assert_eq!(
+            consumed2.easy_parse(position::Stream::new(input)),
+            consumed_expected
+        );
     }
 
     #[test]
@@ -187,7 +205,7 @@ mod tests_std {
             .map(|x| x)
             .expected("expected message");
 
-        assert!(ok.easy_parse(State::new(input)).is_ok());
+        assert!(ok.easy_parse(position::Stream::new(input)).is_ok());
 
         let empty_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 1 },
@@ -202,20 +220,38 @@ mod tests_std {
             errors: vec![Error::Unexpected('i'.into()), Error::Expected('o'.into())],
         });
 
-        assert_eq!(empty0.easy_parse(State::new(input)), empty_expected);
-        assert_eq!(empty1.easy_parse(State::new(input)), empty_expected);
-        assert_eq!(empty2.easy_parse(State::new(input)), empty_expected);
+        assert_eq!(
+            empty0.easy_parse(position::Stream::new(input)),
+            empty_expected
+        );
+        assert_eq!(
+            empty1.easy_parse(position::Stream::new(input)),
+            empty_expected
+        );
+        assert_eq!(
+            empty2.easy_parse(position::Stream::new(input)),
+            empty_expected
+        );
 
-        assert_eq!(consumed0.easy_parse(State::new(input)), consumed_expected);
-        assert_eq!(consumed1.easy_parse(State::new(input)), consumed_expected);
-        assert_eq!(consumed2.easy_parse(State::new(input)), consumed_expected);
+        assert_eq!(
+            consumed0.easy_parse(position::Stream::new(input)),
+            consumed_expected
+        );
+        assert_eq!(
+            consumed1.easy_parse(position::Stream::new(input)),
+            consumed_expected
+        );
+        assert_eq!(
+            consumed2.easy_parse(position::Stream::new(input)),
+            consumed_expected
+        );
     }
 
     #[test]
     fn try_tests() {
         // Ensure attempt adds error messages exactly once
         assert_eq!(
-            attempt(unexpected("test")).easy_parse(State::new("hi")),
+            attempt(unexpected("test")).easy_parse(position::Stream::new("hi")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
@@ -225,7 +261,7 @@ mod tests_std {
             })
         );
         assert_eq!(
-            attempt(char('h').with(unexpected("test"))).easy_parse(State::new("hi")),
+            attempt(char('h').with(unexpected("test"))).easy_parse(position::Stream::new("hi")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 2 },
                 errors: vec![
@@ -241,7 +277,7 @@ mod tests_std {
         let mut parser = (char('a'), char('b'), char('c'));
 
         assert_eq!(
-            parser.easy_parse(State::new("c")),
+            parser.easy_parse(position::Stream::new("c")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![Error::Unexpected('c'.into()), Error::Expected('a'.into())],
@@ -249,7 +285,7 @@ mod tests_std {
         );
 
         assert_eq!(
-            parser.easy_parse(State::new("ac")),
+            parser.easy_parse(position::Stream::new("ac")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 2 },
                 errors: vec![Error::Unexpected('c'.into()), Error::Expected('b'.into())],
@@ -262,7 +298,7 @@ mod tests_std {
         let mut parser = (optional(char('a')), char('b'));
 
         assert_eq!(
-            parser.easy_parse(State::new("c")),
+            parser.easy_parse(position::Stream::new("c")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
@@ -279,7 +315,7 @@ mod tests_std {
         let mut parser = ((optional(char('a')), char('b')), char('c'));
 
         assert_eq!(
-            parser.easy_parse(State::new("c")),
+            parser.easy_parse(position::Stream::new("c")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
@@ -296,7 +332,7 @@ mod tests_std {
         let mut parser = (char('b'), optional(char('a')), char('b'));
 
         assert_eq!(
-            parser.easy_parse(State::new("bc")),
+            parser.easy_parse(position::Stream::new("bc")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 2 },
                 errors: vec![
@@ -316,7 +352,7 @@ mod tests_std {
         ));
 
         assert_eq!(
-            parser.easy_parse(State::new("c")),
+            parser.easy_parse(position::Stream::new("c")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
@@ -338,7 +374,7 @@ mod tests_std {
         ]);
 
         assert_eq!(
-            parser.easy_parse(State::new("c")),
+            parser.easy_parse(position::Stream::new("c")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![
@@ -360,7 +396,7 @@ mod tests_std {
             choice::<_, [&mut dyn Parser<_, Output = _, PartialState = _>; 2]>([&mut p1, &mut p2]);
 
         assert_eq!(
-            parser.easy_parse(State::new("c")),
+            parser.easy_parse(position::Stream::new("c")),
             Err(Errors {
                 position: SourcePosition { line: 1, column: 1 },
                 errors: vec![

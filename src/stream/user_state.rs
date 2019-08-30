@@ -6,12 +6,12 @@ use crate::{
 };
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct StateStream<S, U> {
+pub struct Stream<S, U> {
     pub stream: S,
     pub state: U,
 }
 
-impl<S, U> Positioned for StateStream<S, U>
+impl<S, U> Positioned for Stream<S, U>
 where
     S: Positioned,
 {
@@ -21,7 +21,7 @@ where
     }
 }
 
-impl<S, U> ResetStream for StateStream<S, U>
+impl<S, U> ResetStream for Stream<S, U>
 where
     S: ResetStream,
 {
@@ -38,7 +38,7 @@ where
     }
 }
 
-impl<S, U> StreamOnce for StateStream<S, U>
+impl<S, U> StreamOnce for Stream<S, U>
 where
     S: StreamOnce,
 {
@@ -57,7 +57,7 @@ where
     }
 }
 
-impl<S, U> RangeStreamOnce for StateStream<S, U>
+impl<S, U> RangeStreamOnce for Stream<S, U>
 where
     S: RangeStreamOnce,
 {
@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<S, U> FullRangeStream for StateStream<S, U>
+impl<S, U> FullRangeStream for Stream<S, U>
 where
     S: FullRangeStream,
 {

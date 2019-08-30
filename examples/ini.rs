@@ -8,13 +8,13 @@ use std::fs::File;
 use std::io::{self, Read};
 
 use combine::parser::char::space;
-use combine::stream::state::State;
+use combine::stream::position;
 use combine::*;
 
 #[cfg(feature = "std")]
 use combine::stream::easy;
 #[cfg(feature = "std")]
-use combine::stream::state::SourcePosition;
+use combine::stream::position::SourcePosition;
 
 enum Error<E> {
     Io(io::Error),
@@ -130,7 +130,7 @@ type=LL(1)
 #[test]
 fn ini_error() {
     let text = "[error";
-    let result = ini().easy_parse(State::new(text)).map(|t| t.0);
+    let result = ini().easy_parse(position::Stream::new(text)).map(|t| t.0);
     assert_eq!(
         result,
         Err(easy::Errors {
@@ -163,7 +163,7 @@ where
     let mut text = String::new();
     read.read_to_string(&mut text).map_err(Error::Io)?;
     ini()
-        .easy_parse(State::new(&*text))
+        .easy_parse(position::Stream::new(&*text))
         .map_err(|err| Error::Parse(err.map_range(|s| s.to_string())))?;
     Ok(())
 }
@@ -175,6 +175,8 @@ where
 {
     let mut text = String::new();
     read.read_to_string(&mut text).map_err(Error::Io)?;
-    ini().parse(State::new(&*text)).map_err(Error::Parse)?;
+    ini()
+        .parse(position::Stream::new(&*text))
+        .map_err(Error::Parse)?;
     Ok(())
 }

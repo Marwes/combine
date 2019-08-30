@@ -51,8 +51,8 @@ macro_rules! clone_resetable {
 pub mod buffered;
 #[cfg(feature = "std")]
 pub mod easy;
-/// Stateful stream wrappers.
-pub mod state;
+/// Stream wrapper which provided more detailed position information.
+pub mod position;
 /// Stream wrapper allowing custom state to be used.
 pub mod user_state;
 
@@ -1156,12 +1156,12 @@ where
     /// use combine::parser::byte::*;
     /// use combine::stream::ReadStream;
     /// use combine::stream::buffered;
-    /// use combine::stream::state::State;
+    /// use combine::stream::position;
     /// use std::io::Read;
     ///
     /// # fn main() {
     /// let input: &[u8] = b"123,";
-    /// let stream = buffered::Stream::new(State::new(ReadStream::new(input)), 1);
+    /// let stream = buffered::Stream::new(position::Stream::new(ReadStream::new(input)), 1);
     /// let result = (many(digit()), byte(b','))
     ///     .parse(stream)
     ///     .map(|t| t.0);

@@ -454,10 +454,10 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::stream::state::{State, SourcePosition};
+/// # use combine::stream::position::{self, SourcePosition};
 /// # fn main() {
 /// let result = (position(), token('!'), position())
-///     .parse(State::new("!"))
+///     .parse(position::Stream::new("!"))
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok((SourcePosition { line: 1, column: 1 },
 ///                        '!',
@@ -558,14 +558,14 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::stream::easy;
-/// # use combine::stream::state::State;
+/// # use combine::stream::position;
 /// # fn main() {
 /// let mut parser = many1(none_of(b"abc".iter().cloned()));
-/// let result = parser.easy_parse(State::new(&b"xyb"[..]))
+/// let result = parser.easy_parse(position::Stream::new(&b"xyb"[..]))
 ///     .map(|(output, input)| (output, input.input));
 /// assert_eq!(result, Ok((b"xy"[..].to_owned(), &b"b"[..])));
 ///
-/// let result = parser.easy_parse(State::new(&b"ab"[..]));
+/// let result = parser.easy_parse(position::Stream::new(&b"ab"[..]));
 /// assert_eq!(result, Err(easy::Errors {
 ///     position: 0,
 ///     errors: vec![
@@ -655,11 +655,11 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::stream::easy;
-/// # use combine::stream::state::{State, SourcePosition};
+/// # use combine::stream::position::{self, SourcePosition};
 /// # fn main() {
 /// let mut parser = eof();
-/// assert_eq!(parser.easy_parse(State::new("")), Ok(((), State::new(""))));
-/// assert_eq!(parser.easy_parse(State::new("x")), Err(easy::Errors {
+/// assert_eq!(parser.easy_parse(position::Stream::new("")), Ok(((), position::Stream::new(""))));
+/// assert_eq!(parser.easy_parse(position::Stream::new("x")), Err(easy::Errors {
 ///     position: SourcePosition::default(),
 ///     errors: vec![
 ///         easy::Error::Unexpected('x'.into()),
