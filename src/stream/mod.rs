@@ -48,13 +48,15 @@ macro_rules! clone_resetable {
 }
 
 #[cfg(feature = "std")]
+/// Stream wrapper which provides a `ResetStream` impl for `StreamOnce` impls which do not have
+/// one.
 pub mod buffered;
 #[cfg(feature = "std")]
 pub mod easy;
-/// Stream wrapper which provided more detailed position information.
+/// Stream wrapper which provides more detailed position information.
 pub mod position;
 /// Stream wrapper allowing custom state to be used.
-pub mod user_state;
+pub mod state;
 
 /// A type which has a position.
 pub trait Positioned: StreamOnce {
