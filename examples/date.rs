@@ -12,13 +12,13 @@ use combine::{
     error::ParseError,
     many, optional,
     parser::char::{char, digit},
-    stream::state::State,
+    stream::position,
     Parser, Stream,
 };
 
 #[cfg(feature = "std")]
 use combine::{
-    stream::{easy, state::SourcePosition},
+    stream::{easy, position::SourcePosition},
     EasyParser,
 };
 
@@ -219,7 +219,7 @@ where
     let mut text = String::new();
     read.read_to_string(&mut text).map_err(Error::Io)?;
     date_time()
-        .easy_parse(State::new(&*text))
+        .easy_parse(position::Stream::new(&*text))
         .map_err(|err| Error::Parse(err.map_range(|s| s.to_string())))?;
     Ok(())
 }
@@ -232,7 +232,7 @@ where
     let mut text = String::new();
     read.read_to_string(&mut text).map_err(Error::Io)?;
     date_time()
-        .parse(State::new(&*text))
+        .parse(position::Stream::new(&*text))
         .map_err(Error::Parse)?;
     Ok(())
 }

@@ -498,14 +498,14 @@ impl<T, R> Error<T, R> {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char::*;
-    /// # use combine::stream::state::{State, SourcePosition};
+    /// # use combine::stream::position::{self, SourcePosition};
     ///
     /// # fn main() {
     /// let input = r"
     ///   ,123
     /// ";
     /// let result = spaces().silent().with(char('.').or(char('a')).or(digit()))
-    ///     .easy_parse(State::new(input));
+    ///     .easy_parse(position::Stream::new(input));
     /// let m = format!("{}", result.unwrap_err());
     /// let expected = r"Parse error at line: 2, column: 3
     /// Unexpected `,`

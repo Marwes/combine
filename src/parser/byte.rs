@@ -5,12 +5,11 @@ use crate::lib::marker::PhantomData;
 
 use self::ascii::AsciiChar;
 
-use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
-use crate::error::{self, ParseError, ParseResult, Tracked};
+use crate::combinator::{no_partial, satisfy, skip_many, token, Token};
+use crate::error::{self, ParseError, ParseResult};
 use crate::parser::{
     item::tokens_cmp,
     range::{take_fn, TakeRange},
-    sequence::With,
     ParseMode,
 };
 use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
@@ -36,14 +35,10 @@ where
     token(c)
 }
 
-impl_token_parser! { Digit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
-
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f:ident) => {{
-        let f = static_fn! {
-            (c, u8) -> bool { AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false) }
-        };
-        $ty(satisfy(f).expected(stringify!($name)), PhantomData)
+        satisfy(|c: u8| AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false))
+            .expected(stringify!($name))
     }};
 }
 
@@ -56,15 +51,13 @@ macro_rules! byte_parser {
 /// assert!(digit().parse(&b"A"[..]).is_err());
 /// ```
 #[inline]
-pub fn digit<Input>() -> Digit<Input>
+pub fn digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(digit, Digit, is_digit)
 }
-
-impl_token_parser! { Space(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 ///
@@ -77,7 +70,7 @@ impl_token_parser! { Space(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'st
 /// assert!(space().parse(&b""[..]).is_err());
 /// ```
 #[inline]
-pub fn space<Input>() -> Space<Input>
+pub fn space<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -85,7 +78,6 @@ where
     byte_parser!(space, Space, is_whitespace)
 }
 
-impl_token_parser! { Spaces(), u8, Expected<SkipMany<Input, Space<Input>>, &'static str> }
 /// Skips over [`space`] zero or more times
 ///
 /// [`space`]: fn.space.html
@@ -97,15 +89,13 @@ impl_token_parser! { Spaces(), u8, Expected<SkipMany<Input, Space<Input>>, &'sta
 /// assert_eq!(spaces().parse(&b"   "[..]), Ok(((), &b""[..])));
 /// ```
 #[inline]
-pub fn spaces<Input>() -> Spaces<Input>
+pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
+    skip_many(space()).expected("whitespaces")
 }
-
-impl_token_parser! { Newline(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses a newline byte (`b'\n'`).
 ///
@@ -116,18 +106,13 @@ impl_token_parser! { Newline(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'
 /// assert!(newline().parse(&b"\r"[..]).is_err());
 /// ```
 #[inline]
-pub fn newline<Input>() -> Newline<Input>
+pub fn newline<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Newline(
-        satisfy(static_fn!((ch, u8) -> bool { ch == b'\n' })).expected("lf newline"),
-        PhantomData,
-    )
+    satisfy(|ch: u8| ch == b'\n').expected("lf newline")
 }
-
-impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<Input, fn (u8) -> bool>, Newline<Input>>, &'static str> }
 
 /// Parses carriage return and newline (`&b"\r\n"`), returning the newline byte.
 ///
@@ -139,20 +124,14 @@ impl_token_parser! { CrLf(), u8, Expected<With<Satisfy<Input, fn (u8) -> bool>, 
 /// assert!(crlf().parse(&b"\n"[..]).is_err());
 /// ```
 #[inline]
-pub fn crlf<Input>() -> CrLf<Input>
+pub fn crlf<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    CrLf(
-        satisfy(static_fn!((ch, u8) -> bool { ch == b'\r' }))
-            .with(newline())
-            .expected("crlf newline"),
-        PhantomData,
-    )
+    no_partial(satisfy(|ch: u8| ch == b'\r').with(newline())).expected("crlf newline")
 }
 
-impl_token_parser! { Tab(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses a tab byte (`b'\t'`).
 ///
 /// ```
@@ -162,18 +141,14 @@ impl_token_parser! { Tab(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'stat
 /// assert!(tab().parse(&b" "[..]).is_err());
 /// ```
 #[inline]
-pub fn tab<Input>() -> Tab<Input>
+pub fn tab<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Tab(
-        satisfy(static_fn!((ch, u8) -> bool { ch == b'\t' })).expected("tab"),
-        PhantomData,
-    )
+    satisfy(|ch| ch == b'\t').expected("tab")
 }
 
-impl_token_parser! { Upper(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an uppercase ASCII letter (A–Z).
 ///
 /// ```
@@ -183,7 +158,7 @@ impl_token_parser! { Upper(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'st
 /// assert!(upper().parse(&b"a"[..]).is_err());
 /// ```
 #[inline]
-pub fn upper<Input>() -> Upper<Input>
+pub fn upper<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -191,7 +166,6 @@ where
     byte_parser!(upper, Upper, is_uppercase)
 }
 
-impl_token_parser! { Lower(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an lowercase ASCII letter (a–z).
 ///
 /// ```
@@ -201,7 +175,7 @@ impl_token_parser! { Lower(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'st
 /// assert!(lower().parse(&b"A"[..]).is_err());
 /// ```
 #[inline]
-pub fn lower<Input>() -> Lower<Input>
+pub fn lower<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -209,7 +183,6 @@ where
     byte_parser!(lower, Lower, is_lowercase)
 }
 
-impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
 ///
 /// ```
@@ -220,7 +193,7 @@ impl_token_parser! { AlphaNum(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &
 /// assert!(alpha_num().parse(&b"!"[..]).is_err());
 /// ```
 #[inline]
-pub fn alpha_num<Input>() -> AlphaNum<Input>
+pub fn alpha_num<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -228,7 +201,6 @@ where
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
 
-impl_token_parser! { Letter(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
 ///
 /// ```
@@ -239,15 +211,13 @@ impl_token_parser! { Letter(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'s
 /// assert!(letter().parse(&b"9"[..]).is_err());
 /// ```
 #[inline]
-pub fn letter<Input>() -> Letter<Input>
+pub fn letter<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     byte_parser!(letter, Letter, is_alphabetic)
 }
-
-impl_token_parser! { OctDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 
 /// Parses an octal digit.
 ///
@@ -258,18 +228,14 @@ impl_token_parser! { OctDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &
 /// assert!(oct_digit().parse(&b"8"[..]).is_err());
 /// ```
 #[inline]
-pub fn oct_digit<Input>() -> OctDigit<Input>
+pub fn oct_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    OctDigit(
-        satisfy(static_fn!((ch, u8) -> bool { ch >= b'0' && ch <= b'7' })).expected("octal digit"),
-        PhantomData,
-    )
+    satisfy(|ch| ch >= b'0' && ch <= b'7').expected("octal digit")
 }
 
-impl_token_parser! { HexDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
 ///
 /// ```
@@ -279,7 +245,7 @@ impl_token_parser! { HexDigit(), u8, Expected<Satisfy<Input, fn (u8) -> bool>, &
 /// assert!(hex_digit().parse(&b"H"[..]).is_err());
 /// ```
 #[inline]
-pub fn hex_digit<Input>() -> HexDigit<Input>
+pub fn hex_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Item = u8>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
@@ -695,7 +661,7 @@ pub mod num {
     mod tests {
         use super::*;
         use crate::stream::buffered;
-        use crate::stream::state::State;
+        use crate::stream::position;
         use crate::stream::IteratorStream;
 
         #[test]
@@ -705,7 +671,7 @@ pub mod num {
             assert_eq!(
                 f64::<LE, _>()
                     .parse(buffered::Stream::new(
-                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
                     .map(|(t, _)| t),
@@ -714,7 +680,7 @@ pub mod num {
             assert_eq!(
                 le_f64()
                     .parse(buffered::Stream::new(
-                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
                     .map(|(t, _)| t),
@@ -725,7 +691,7 @@ pub mod num {
             assert_eq!(
                 be_f64()
                     .parse(buffered::Stream::new(
-                        State::new(IteratorStream::new(buf.iter().cloned())),
+                        position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
                     ))
                     .map(|(t, _)| t),
@@ -738,7 +704,7 @@ pub mod num {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stream::{buffered, state::State, ReadStream};
+    use crate::stream::{buffered, position, ReadStream};
 
     #[test]
     fn memslice_basic() {
@@ -760,7 +726,7 @@ mod tests {
     fn bytes_read_stream() {
         assert!(bytes(b"abc")
             .parse(buffered::Stream::new(
-                State::new(ReadStream::new("abc".as_bytes())),
+                position::Stream::new(ReadStream::new("abc".as_bytes())),
                 1
             ))
             .is_ok());

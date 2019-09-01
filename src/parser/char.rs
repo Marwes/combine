@@ -1,10 +1,8 @@
 //! Module containing parsers specialized on character streams.
 
-use crate::combinator::{satisfy, skip_many, token, Expected, Satisfy, SkipMany, Token};
-use crate::error::{ParseError, ParseResult, Tracked};
-use crate::lib::marker::PhantomData;
+use crate::combinator::{no_partial, satisfy, skip_many, token, Token};
+use crate::error::ParseError;
 use crate::parser::item::tokens_cmp;
-use crate::parser::sequence::With;
 use crate::stream::Stream;
 use crate::Parser;
 
@@ -44,8 +42,6 @@ parser! {
     }
 }
 
-impl_token_parser! { Space(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
-
 /// Parse a single whitespace according to [`std::char::is_whitespace`].
 ///
 /// This includes space characters, tabs and newlines.
@@ -61,16 +57,14 @@ impl_token_parser! { Space(), char, Expected<Satisfy<Input, fn (char) -> bool>, 
 /// assert!(space().parse("").is_err());
 /// ```
 #[inline]
-pub fn space<Input>() -> Space<Input>
+pub fn space<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
     let f: fn(char) -> bool = char::is_whitespace;
-    Space(satisfy(f).expected("whitespace"), PhantomData)
+    satisfy(f).expected("whitespace")
 }
-
-impl_token_parser! { Spaces(), char, Expected<SkipMany<Input, Space<Input>>, &'static str> }
 
 /// Skips over zero or more spaces according to [`std::char::is_whitespace`].
 ///
@@ -85,15 +79,13 @@ impl_token_parser! { Spaces(), char, Expected<SkipMany<Input, Space<Input>>, &'s
 /// assert_eq!(spaces().parse("   "), Ok(((), "")));
 /// ```
 #[inline]
-pub fn spaces<Input>() -> Spaces<Input>
+pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Spaces(skip_many(space()).expected("whitespaces"), PhantomData)
+    skip_many(space()).expected("whitespaces")
 }
-
-impl_token_parser! { Newline(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses a newline character (`'\n'`).
 ///
@@ -104,18 +96,13 @@ impl_token_parser! { Newline(), char, Expected<Satisfy<Input, fn (char) -> bool>
 /// assert!(newline().parse("\r").is_err());
 /// ```
 #[inline]
-pub fn newline<Input>() -> Newline<Input>
+pub fn newline<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Newline(
-        satisfy(static_fn!((ch, char) -> bool { ch == '\n' })).expected("lf newline"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch == '\n').expected("lf newline")
 }
-
-impl_token_parser! { CrLf(), char, Expected<With<Satisfy<Input, fn (char) -> bool>, Newline<Input>>, &'static str> }
 
 /// Parses carriage return and newline (`"\r\n"`), returning the newline character.
 ///
@@ -127,20 +114,13 @@ impl_token_parser! { CrLf(), char, Expected<With<Satisfy<Input, fn (char) -> boo
 /// assert!(crlf().parse("\n").is_err());
 /// ```
 #[inline]
-pub fn crlf<Input>() -> CrLf<Input>
+pub fn crlf<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    CrLf(
-        satisfy(static_fn!((ch, char) -> bool { ch == '\r' }))
-            .with(newline())
-            .expected("crlf newline"),
-        PhantomData,
-    )
+    no_partial(satisfy(|ch: char| ch == '\r').with(newline())).expected("crlf newline")
 }
-
-impl_token_parser! { Tab(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses a tab character (`'\t'`).
 ///
@@ -151,18 +131,13 @@ impl_token_parser! { Tab(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'
 /// assert!(tab().parse(" ").is_err());
 /// ```
 #[inline]
-pub fn tab<Input>() -> Tab<Input>
+pub fn tab<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Tab(
-        satisfy(static_fn!((ch, char) -> bool { ch == '\t' })).expected("tab"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch == '\t').expected("tab")
 }
-
-impl_token_parser! { Upper(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an uppercase letter according to [`std::char::is_uppercase`].
 ///
@@ -175,18 +150,13 @@ impl_token_parser! { Upper(), char, Expected<Satisfy<Input, fn (char) -> bool>, 
 /// assert!(upper().parse("a").is_err());
 /// ```
 #[inline]
-pub fn upper<Input>() -> Upper<Input>
+pub fn upper<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Upper(
-        satisfy(static_fn!((ch, char) -> bool { ch.is_uppercase()})).expected("uppercase letter"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch.is_uppercase()).expected("uppercase letter")
 }
-
-impl_token_parser! { Lower(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an lowercase letter according to [`std::char::is_lowercase`].
 ///
@@ -199,18 +169,13 @@ impl_token_parser! { Lower(), char, Expected<Satisfy<Input, fn (char) -> bool>, 
 /// assert!(lower().parse("A").is_err());
 /// ```
 #[inline]
-pub fn lower<Input>() -> Lower<Input>
+pub fn lower<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Lower(
-        satisfy(static_fn!((ch, char) -> bool { ch.is_lowercase() })).expected("lowercase letter"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch.is_lowercase()).expected("lowercase letter")
 }
-
-impl_token_parser! { AlphaNum(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses either an alphabet letter or digit according to [`std::char::is_alphanumeric`].
 ///
@@ -224,19 +189,13 @@ impl_token_parser! { AlphaNum(), char, Expected<Satisfy<Input, fn (char) -> bool
 /// assert!(alpha_num().parse("!").is_err());
 /// ```
 #[inline]
-pub fn alpha_num<Input>() -> AlphaNum<Input>
+pub fn alpha_num<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    AlphaNum(
-        satisfy(static_fn!((ch, char) -> bool { ch.is_alphanumeric() }))
-            .expected("letter or digit"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch.is_alphanumeric()).expected("letter or digit")
 }
-
-impl_token_parser! { Letter(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an alphabet letter according to [`std::char::is_alphabetic`].
 ///
@@ -250,18 +209,13 @@ impl_token_parser! { Letter(), char, Expected<Satisfy<Input, fn (char) -> bool>,
 /// assert!(letter().parse("9").is_err());
 /// ```
 #[inline]
-pub fn letter<Input>() -> Letter<Input>
+pub fn letter<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    Letter(
-        satisfy(static_fn!((ch, char) -> bool { ch.is_alphabetic() })).expected("letter"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch.is_alphabetic()).expected("letter")
 }
-
-impl_token_parser! { OctDigit(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses an octal digit.
 ///
@@ -272,18 +226,13 @@ impl_token_parser! { OctDigit(), char, Expected<Satisfy<Input, fn (char) -> bool
 /// assert!(oct_digit().parse("8").is_err());
 /// ```
 #[inline]
-pub fn oct_digit<Input>() -> OctDigit<Input>
+pub fn oct_digit<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    OctDigit(
-        satisfy(static_fn!((ch, char) -> bool { ch.is_digit(8) })).expected("octal digit"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch.is_digit(8)).expected("octal digit")
 }
-
-impl_token_parser! { HexDigit(), char, Expected<Satisfy<Input, fn (char) -> bool>, &'static str> }
 
 /// Parses a hexdecimal digit with uppercase and lowercase.
 ///
@@ -294,15 +243,12 @@ impl_token_parser! { HexDigit(), char, Expected<Satisfy<Input, fn (char) -> bool
 /// assert!(hex_digit().parse("H").is_err());
 /// ```
 #[inline]
-pub fn hex_digit<Input>() -> HexDigit<Input>
+pub fn hex_digit<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Item = char>,
     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
 {
-    HexDigit(
-        satisfy(static_fn!((ch, char) -> bool { ch.is_digit(0x10) })).expected("hexadecimal digit"),
-        PhantomData,
-    )
+    satisfy(|ch: char| ch.is_digit(0x10)).expected("hexadecimal digit")
 }
 
 /// Parses the string `s`.
@@ -359,7 +305,7 @@ mod tests {
         parser::EasyParser,
         stream::{
             easy::{Error, Errors},
-            state::{SourcePosition, State},
+            position::{self, SourcePosition},
         },
     };
 
@@ -375,7 +321,7 @@ mod tests {
 
     #[test]
     fn string_consumed() {
-        let result = string("a").easy_parse(State::new("b"));
+        let result = string("a").easy_parse(position::Stream::new("b"));
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().position,
@@ -385,7 +331,7 @@ mod tests {
 
     #[test]
     fn string_error() {
-        let result = string("abc").easy_parse(State::new("bc"));
+        let result = string("abc").easy_parse(position::Stream::new("bc"));
         assert_eq!(
             result,
             Err(Errors {

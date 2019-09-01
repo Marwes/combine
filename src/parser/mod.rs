@@ -589,11 +589,11 @@ pub trait Parser<Input: Stream> {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::stream::easy;
-    /// # use combine::stream::state::{State, SourcePosition};
+    /// # use combine::stream::position::{self, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .message("Not a nine")
-    ///     .easy_parse(State::new("8"));
+    ///     .easy_parse(position::Stream::new("8"));
     /// assert_eq!(result, Err(easy::Errors {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
@@ -621,11 +621,11 @@ pub trait Parser<Input: Stream> {
     /// # use combine::*;
     /// # use combine::error;
     /// # use combine::stream::easy;
-    /// # use combine::stream::state::{State, SourcePosition};
+    /// # use combine::stream::position::{self, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
-    ///     .easy_parse(State::new("8"));
+    ///     .easy_parse(position::Stream::new("8"));
     /// assert_eq!(result, Err(easy::Errors {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
@@ -636,7 +636,7 @@ pub trait Parser<Input: Stream> {
     ///
     /// let result = token('9')
     ///     .expected(error::Format(format_args!("That is not a nine!")))
-    ///     .easy_parse(State::new("8"));
+    ///     .easy_parse(position::Stream::new("8"));
     /// assert_eq!(result, Err(easy::Errors {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
@@ -662,12 +662,12 @@ pub trait Parser<Input: Stream> {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::stream::easy;
-    /// # use combine::stream::state::{State, SourcePosition};
+    /// # use combine::stream::position::{self, SourcePosition};
     /// # fn main() {
     /// let result = token('9')
     ///     .expected("nine")
     ///     .silent()
-    ///     .easy_parse(State::new("8"));
+    ///     .easy_parse(position::Stream::new("8"));
     /// assert_eq!(result, Err(easy::Errors {
     ///     position: SourcePosition::default(),
     ///     errors: vec![
@@ -689,14 +689,14 @@ pub trait Parser<Input: Stream> {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::stream::state::{State, SourcePosition};
+    /// # use combine::stream::position::{self, SourcePosition};
     /// # use combine::parser::char::digit;
     /// # fn main() {
     /// let mut parser = many1(digit())
     ///     .and_then(|s: String| s.parse::<i32>());
-    /// let result = parser.easy_parse(State::new("1234")).map(|(x, state)| (x, state.input));
+    /// let result = parser.easy_parse(position::Stream::new("1234")).map(|(x, state)| (x, state.input));
     /// assert_eq!(result, Ok((1234, "")));
-    /// let result = parser.easy_parse(State::new("999999999999999999999999"));
+    /// let result = parser.easy_parse(position::Stream::new("999999999999999999999999"));
     /// assert!(result.is_err());
     /// // Errors are report as if they occurred at the start of the parse
     /// assert_eq!(result.unwrap_err().position, SourcePosition { line: 1, column: 1 });

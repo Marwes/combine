@@ -21,7 +21,7 @@
 //! ```rust
 //! extern crate combine;
 //! use combine::{Parser, EasyParser};
-//! use combine::stream::state::State;
+//! use combine::stream::position;
 //! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
 //! Unexpected `|`
@@ -31,7 +31,7 @@
 //! fn main() {
 //!     // Wrapping a `&str` with `State` provides automatic line and column tracking. If `State`
 //!     // was not used the positions would instead only be pointers into the `&str`
-//!     if let Err(err) = digit().or(letter()).easy_parse(State::new("|")) {
+//!     if let Err(err) = digit().or(letter()).easy_parse(position::Stream::new("|")) {
 //!         assert_eq!(MSG, format!("{}", err));
 //!     }
 //! }
@@ -96,7 +96,7 @@
 //! use combine::{between, choice, many1, parser, sep_by, Parser, EasyParser};
 //! use combine::error::{ParseError, StdParseResult};
 //! use combine::stream::{Stream, Positioned};
-//! use combine::stream::state::State;
+//! use combine::stream::position;
 //!
 //! #[derive(Debug, PartialEq)]
 //! pub enum Expr {
@@ -217,33 +217,6 @@ pub use crate::parser::choice::choice;
 pub use crate::parser::combinator::from_str;
 #[doc(inline)]
 pub use crate::parser::item::tokens_cmp;
-
-macro_rules! static_fn {
-    (($($arg: pat, $arg_ty: ty),*) -> $ret: ty { $body: expr }) => { {
-        fn temp($($arg: $arg_ty),*) -> $ret { $body }
-        temp as fn(_) -> _
-    } }
-}
-
-macro_rules! impl_token_parser {
-    ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
-    pub struct $name<Input $(,$ty_var)*>($inner_type, PhantomData<fn (Input) -> Input>)
-        where Input: Stream<Item=$ty>,
-              Input::Error: ParseError<$ty, Input::Range, Input::Position>
-              $(, $ty_var : Parser<Input>)*;
-    impl <Input $(,$ty_var)*> Parser<Input> for $name<Input $(,$ty_var)*>
-        where Input: Stream<Item=$ty>,
-              Input::Error: ParseError<$ty, Input::Range, Input::Position>
-              $(, $ty_var : Parser<Input>)*
-    {
-
-        type Output = <$inner_type as Parser<Input>>::Output;
-        type PartialState = <$inner_type as Parser<Input>>::PartialState;
-
-        forward_parser!(Input, 0);
-    }
-}
-}
 
 /// Declares a named parser which can easily be reused.
 ///
@@ -740,12 +713,12 @@ mod std_tests {
     use crate::error::StdParseResult;
     use crate::parser::char::{alpha_num, char, digit, letter, spaces, string};
     use crate::stream::easy;
-    use crate::stream::state::{SourcePosition, State};
+    use crate::stream::position::{self, SourcePosition};
 
     #[test]
     fn optional_error_consume() {
         let mut p = optional(string("abc"));
-        let err = p.easy_parse(State::new("ab")).unwrap_err();
+        let err = p.easy_parse(position::Stream::new("ab")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
@@ -805,7 +778,7 @@ mod std_tests {
     #[test]
     fn iterator() {
         let result = parser(integer)
-            .parse(State::new(IteratorStream::new("123".chars())))
+            .parse(position::Stream::new(IteratorStream::new("123".chars())))
             .map(|(i, mut input)| (i, input.uncons().is_err()));
         assert_eq!(result, Ok((123i64, true)));
     }
@@ -824,12 +797,12 @@ mod std_tests {
         let source = r"
 123
 ";
-        let mut parsed_state = State::with_positioner(source, SourcePosition::new());
+        let mut parsed_state = position::Stream::with_positioner(source, SourcePosition::new());
         let result = (spaces(), parser(integer), spaces())
             .map(|t| t.1)
             .parse_stream(&mut parsed_state)
             .into_result();
-        let state = Consumed::Consumed(State {
+        let state = Consumed::Consumed(position::Stream {
             positioner: SourcePosition { line: 3, column: 1 },
             input: "",
         });
@@ -885,7 +858,7 @@ mod std_tests {
         let input = r"
 ,123
 ";
-        let result = expr().easy_parse(State::new(input));
+        let result = expr().easy_parse(position::Stream::new(input));
         let err = easy::Errors {
             position: SourcePosition { line: 2, column: 1 },
             errors: vec![
@@ -921,7 +894,7 @@ mod std_tests {
         let input = r"
 1 * 2 + 3 * test
 ";
-        let (result, _) = parser(term).parse(State::new(input)).unwrap();
+        let (result, _) = parser(term).parse(position::Stream::new(input)).unwrap();
 
         let e1 = Expr::Times(Box::new(Expr::Int(1)), Box::new(Expr::Int(2)));
         let e2 = Expr::Times(
@@ -937,11 +910,11 @@ mod std_tests {
             .skip(parser(follow))
             .map(|x| x.to_string())
             .or(many1(digit()));
-        match p.easy_parse(State::new("le123")) {
+        match p.easy_parse(position::Stream::new("le123")) {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 }),
         }
-        match p.easy_parse(State::new("let1")) {
+        match p.easy_parse(position::Stream::new("let1")) {
             Ok(_) => assert!(false),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 4 }),
         }
@@ -950,14 +923,14 @@ mod std_tests {
     #[test]
     fn sep_by_error_consume() {
         let mut p = sep_by::<Vec<_>, _, _, _>(string("abc"), char(','));
-        let err = p.easy_parse(State::new("ab,abc")).unwrap_err();
+        let err = p.easy_parse(position::Stream::new("ab,abc")).unwrap_err();
         assert_eq!(err.position, SourcePosition { line: 1, column: 1 });
     }
 
     #[test]
     fn inner_error_consume() {
         let mut p = many::<Vec<_>, _, _>(between(char('['), char(']'), digit()));
-        let result = p.easy_parse(State::new("[1][2][]"));
+        let result = p.easy_parse(position::Stream::new("[1][2][]"));
         assert!(result.is_err(), format!("{:?}", result));
         let error = result.map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
