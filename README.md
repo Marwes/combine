@@ -4,7 +4,7 @@
 [![Docs](https://docs.rs/combine/badge.svg)](https://docs.rs/combine)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Marwes/combine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahead using the [attempt combinator](https://docs.rs/combine*/combine/fn.attempt.html).
+An implementation of parser combinators for Rust, inspired by the Haskell library [Parsec](https://hackage.haskell.org/package/parsec). As in Parsec the parsers are [LL(1)](https://en.wikipedia.org/wiki/LL_parser) by default but they can opt-in to arbitrary lookahead using the [attempt combinator](https://docs.rs/combine/*/combine/fn.attempt.html).
 
 ## Example
 
@@ -50,11 +50,11 @@ Larger examples can be found in the [examples][], [tests][] and [benches][] fold
 
 ## About
 
-A parser combinator is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](https://docs.rs/combine*/combine/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times. Thanks to the modularity that parser combinators gives it is possible to define parsers for a wide range of tasks without needing to implement the low level plumbing while still having the full power of Rust when you need it. 
+A parser combinator is, broadly speaking, a function which takes several parsers as arguments and returns a new parser, created by combining those parsers. For instance, the [many](https://docs.rs/combine/*/combine/fn.many.html) parser takes one parser, `p`, as input and returns a new parser which applies `p` zero or more times. Thanks to the modularity that parser combinators gives it is possible to define parsers for a wide range of tasks without needing to implement the low level plumbing while still having the full power of Rust when you need it. 
 
-The library adheres to [semantic versioning](http://semver.org).
+The library adheres to [semantic versioning](https://semver.org/).
 
-If you end up trying it Input welcome any feedback from your experience with it. Input am usually reachable within a day by opening an issue, sending an email or posting a message on gitter.
+If you end up trying it I welcome any feedback from your experience with it. I am usually reachable within a day by opening an issue, sending an email or posting a message on Gitter.
 
 ## FAQ
 
@@ -70,7 +70,7 @@ https://github.com/Marwes/combine/issues/73 contains discussion and links to com
 
 ### Formats and protocols
 
-* GraphQL https://github.com/tailhook/graphql-parser (Uses a custom tokenizer as input)
+* GraphQL https://github.com/graphql-rust/graphql-parser (Uses a custom tokenizer as input)
 * DiffX https://github.com/brennie/diffx-rs
 * Redis https://github.com/mitsuhiko/redis-rs/pull/141 (Uses partial parsing)
 * Toml https://github.com/ordian/toml_edit
