@@ -79,7 +79,7 @@
 //!
 //! ```
 //!
-//! [`Parser::easy_parse`]: ../parser/trait.Parser.html#method.easy_parse
+//! [`Parser::easy_parse`]: ../../parser/trait.Parser.html#method.easy_parse
 use std::error::Error as StdError;
 use std::fmt;
 

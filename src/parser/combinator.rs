@@ -137,7 +137,7 @@ where
 }
 
 /// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
-/// after consuming input. (alias for [`try`](fn.try.html))
+/// after consuming input.
 ///
 /// ```
 /// # extern crate combine;
@@ -152,8 +152,6 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-///
-/// `attempt` is an alias for [`try`](fn.try.html). It was added because [`try`](fn.try.html) is now a keyword in Rust 2018.
 #[inline]
 pub fn attempt<Input, P>(p: P) -> Try<P>
 where
@@ -246,7 +244,7 @@ where
 
 /// Equivalent to [`p.map(f)`].
 ///
-/// [`p.map(f)`]: ../parser/trait.Parser.html#method.map
+/// [`p.map(f)`]: ../trait.Parser.html#method.map
 #[inline]
 pub fn map<Input, P, F, B>(p: P, f: F) -> Map<P, F>
 where
@@ -292,7 +290,7 @@ where
 
 /// Equivalent to [`p.map_input(f)`].
 ///
-/// [`p.map_input(f)`]: ../parser/trait.Parser.html#method.map_input
+/// [`p.map_input(f)`]: ../trait.Parser.html#method.map_input
 #[inline]
 pub fn map_input<Input, P, F, B>(p: P, f: F) -> MapInput<P, F>
 where
@@ -344,7 +342,7 @@ where
 
 /// Equivalent to [`p.flat_map(f)`].
 ///
-/// [`p.flat_map(f)`]: ../parser/trait.Parser.html#method.flat_map
+/// [`p.flat_map(f)`]: ../trait.Parser.html#method.flat_map
 #[inline]
 pub fn flat_map<Input, P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
@@ -415,7 +413,7 @@ where
 
 /// Equivalent to [`p.and_then(f)`].
 ///
-/// [`p.and_then(f)`]: ../parser/trait.Parser.html#method.and_then
+/// [`p.and_then(f)`]: ../trait.Parser.html#method.and_then
 #[inline]
 pub fn and_then<Input, P, F, O, E>(p: P, f: F) -> AndThen<P, F>
 where
@@ -1297,7 +1295,7 @@ where
 
 /// Convenience macro over [`opaque`][].
 ///
-/// [`opaque`]: fn.opaque.html
+/// [`opaque`]: parser/combinator/fn.opaque.html
 #[macro_export]
 macro_rules! opaque {
     ($e: expr) => {

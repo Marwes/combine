@@ -611,8 +611,8 @@ where
 /// # }
 /// ```
 ///
-/// [`choice!`]: ../macro.choice.html
-/// [`p1.or(p2)`]: ../parser/trait.Parser.html#method.or
+/// [`choice!`]: ../../macro.choice.html
+/// [`p1.or(p2)`]: ../trait.Parser.html#method.or
 #[inline]
 pub fn or<Input, P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
