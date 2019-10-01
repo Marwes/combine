@@ -119,10 +119,10 @@ pub trait Parser<Input: Stream> {
     /// Semantically equivalent to [`parse_stream`], except this method returns a flattened result
     /// type, combining `Result` and [`Consumed`] into a single [`ParseResult`].
     ///
-    /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
+    /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Consumed`]: enum.Consumed.html
-    /// [`ParseResult`]: enum.ParseResult.html
+    /// [`Consumed`]: ../error/enum.Consumed.html
+    /// [`ParseResult`]: ../error/enum.ParseResult.html
     #[inline]
     fn parse_stream(
         &mut self,
@@ -156,9 +156,9 @@ pub trait Parser<Input: Stream> {
     /// encountered before consuming input. The default implementation always returns all errors,
     /// with [`add_error`] being a no-op.
     ///
-    /// [`Stream::uncons`]: trait.StreamOnce.html#tymethod.uncons
+    /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Error`]: trait.StreamOnce.html#associatedtype.Error
+    /// [`Error`]: ../stream/trait.StreamOnce.html#associatedtype.Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(
