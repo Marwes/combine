@@ -36,8 +36,12 @@ where
 }
 
 macro_rules! byte_parser {
-    ($name:ident, $ty:ident, $f:ident) => {{
-        satisfy(|c: u8| AsciiChar::from(c).map(|c| c.$f()).unwrap_or(false))
+    ($name:ident, $ty:ident, $f: ident) => {{
+        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f()).unwrap_or(false))
+            .expected(stringify!($name))
+    }};
+    ($name:ident, $ty:ident, $f: ident $($args:tt)+) => {{
+        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f $($args)+).unwrap_or(false))
             .expected(stringify!($name))
     }};
 }
@@ -56,7 +60,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(digit, Digit, is_digit)
+    byte_parser!(digit, Digit, is_digit(10))
 }
 
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
@@ -250,7 +254,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(hex_digit, HexDigit, is_hex)
+    byte_parser!(hex_digit, HexDigit, is_digit(16))
 }
 
 parser! {

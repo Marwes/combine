@@ -6,10 +6,7 @@
 //! Enabled using the `regex` feature (for `regex-0.2`) or the `regex-1` feature for `regex-1.0`.
 //!
 //! ```
-//! extern crate regex;
-//! #[macro_use]
-//! extern crate lazy_static;
-//! extern crate combine;
+//! use once_cell::sync::Lazy;
 //! use regex::{bytes, Regex};
 //! use combine::Parser;
 //! use combine::parser::regex::{find_many, match_};
@@ -26,7 +23,7 @@
 //!         Ok((vec![], &b""[..]))
 //!     );
 //!
-//!     lazy_static! { static ref REGEX: Regex = Regex::new("[:alpha:]+").unwrap(); }
+//!     static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("[:alpha:]+").unwrap());
 //!     assert_eq!(
 //!         match_(&*REGEX).parse("abc123"),
 //!         Ok(("abc123", "abc123"))
