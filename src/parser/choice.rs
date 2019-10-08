@@ -1,8 +1,15 @@
 //! Combinators which take one or more parsers and attempts to parse successfully with at least one
 //! of them.
-use crate::error::{ParseError, ParseResult, ParseResult::*, ResultExt, StreamError, Tracked};
-use crate::parser::ParseMode;
-use crate::{ErrorOffset, Parser, Stream, StreamOnce};
+
+use crate::{
+    error::{
+        ParseError,
+        ParseResult::{self, *},
+        ResultExt, StreamError, Tracked,
+    },
+    parser::ParseMode,
+    ErrorOffset, Parser, Stream, StreamOnce,
+};
 
 /// Takes a number of parsers and tries to apply them each in order.
 /// Fails if all the parsers fails or if an applied parser consumes input before failing.
@@ -810,11 +817,13 @@ macro_rules! dispatch {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use crate::parser::{
         token::{any, token},
         EasyParser,
     };
+
+    use super::*;
 
     #[test]
     fn choice_single_parser() {

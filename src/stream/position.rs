@@ -1,9 +1,10 @@
-use crate::lib::fmt;
-
-use crate::error::{ParseError, ParseResult, StreamError};
-use crate::stream::{
-    IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream, StreamErrorFor,
-    StreamOnce,
+use crate::{
+    error::{ParseError, ParseResult, StreamError},
+    lib::fmt,
+    stream::{
+        IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream, StreamErrorFor,
+        StreamOnce,
+    },
 };
 
 #[cfg(feature = "std")]
@@ -326,8 +327,10 @@ where
 
 #[cfg(all(feature = "std", test))]
 mod tests {
-    use super::*;
+
     use crate::Parser;
+
+    use super::*;
 
     #[test]
     fn test_positioner() {

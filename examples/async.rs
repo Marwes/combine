@@ -8,22 +8,23 @@ extern crate partial_io;
 extern crate tokio_codec_0_1 as tokio_codec;
 extern crate tokio_io;
 
-use std::cell::Cell;
-use std::io::Cursor;
-use std::rc::Rc;
-use std::str;
+use std::{cell::Cell, io::Cursor, rc::Rc, str};
 
-use bytes::BytesMut;
-
-use tokio_io::codec::Decoder;
-
-use combine::combinator::{any_partial_state, AnyPartialState};
-use combine::error::{ParseError, StreamError};
-use combine::parser::byte::digit;
-use combine::parser::range::{range, recognize, take};
-use combine::stream::easy;
-use combine::stream::{PartialStream, RangeStream, StreamErrorFor};
-use combine::{skip_many, skip_many1, Parser};
+use {
+    bytes::BytesMut,
+    combine::{
+        combinator::{any_partial_state, AnyPartialState},
+        error::{ParseError, StreamError},
+        parser::{
+            byte::digit,
+            range::{range, recognize, take},
+        },
+        skip_many, skip_many1,
+        stream::{easy, PartialStream, RangeStream, StreamErrorFor},
+        Parser,
+    },
+    tokio_io::codec::Decoder,
+};
 
 pub struct LanguageServerDecoder {
     state: AnyPartialState,
@@ -145,9 +146,11 @@ impl Decoder for LanguageServerDecoder {
 }
 
 fn main() {
-    use futures::{Future, Stream};
-    use partial_io::{PartialAsyncRead, PartialOp};
-    use tokio_codec::FramedRead;
+    use {
+        futures::{Future, Stream},
+        partial_io::{PartialAsyncRead, PartialOp},
+        tokio_codec::FramedRead,
+    };
 
     let input = "Content-Length: 6\r\n\
                  \r\n\

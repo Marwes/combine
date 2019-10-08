@@ -19,11 +19,13 @@ use std::io::{Bytes, Read};
 #[cfg(feature = "std")]
 use crate::stream::easy::Errors;
 
-use crate::Parser;
-
-use crate::error::ParseResult::*;
-use crate::error::{
-    ParseError, ParseResult, StreamError, StringStreamError, Tracked, UnexpectedParse,
+use crate::{
+    error::{
+        ParseError,
+        ParseResult::{self, *},
+        StreamError, StringStreamError, Tracked, UnexpectedParse,
+    },
+    Parser,
 };
 
 #[doc(hidden)]
@@ -1260,7 +1262,9 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+
     #[test]
     #[inline]
     fn uncons_range_at_end() {

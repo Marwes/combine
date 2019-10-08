@@ -5,15 +5,21 @@
 //! [`RangeStream`]: ../../stream/trait.RangeStream.html
 //! [`Stream`]: ../../stream/trait.Stream.html
 
-use crate::lib::marker::PhantomData;
+use crate::{
+    error::{
+        self, ParseError,
+        ParseResult::{self, *},
+        ResultExt, StreamError, Tracked,
+    },
+    lib::marker::PhantomData,
+    parser::ParseMode,
+};
 
-use crate::error::ParseResult::*;
-use crate::error::{self, ParseError, ParseResult, ResultExt, StreamError, Tracked};
-use crate::parser::ParseMode;
 use crate::stream::{
     uncons_range, uncons_while, uncons_while1, wrap_stream_error, Range as StreamRange,
     RangeStream, StreamOnce,
 };
+
 use crate::Parser;
 
 pub struct Range<Input>(Input::Range)
@@ -34,6 +40,7 @@ where
         input: &mut Input,
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         use crate::stream::Range;
+
         let position = input.position();
         match input.uncons_range(self.0.len()) {
             Ok(other) => {
@@ -630,8 +637,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use crate::Parser;
+
+    use super::*;
 
     #[test]
     fn take_while_test() {

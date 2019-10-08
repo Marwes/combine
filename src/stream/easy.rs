@@ -81,9 +81,11 @@
 //!
 //! [`Parser::easy_parse`]: ../../parser/trait.Parser.html#method.easy_parse
 use std::error::Error as StdError;
+
 use std::fmt;
 
 use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
+
 use crate::stream::{
     Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor, StreamOnce,
 };
@@ -122,6 +124,7 @@ impl<T, R> Info<T, R> {
         F: FnOnce(T) -> U,
     {
         use self::Info::*;
+
         match self {
             Token(t) => Token(f(t)),
             Range(r) => Range(r),
@@ -135,6 +138,7 @@ impl<T, R> Info<T, R> {
         F: FnOnce(R) -> S,
     {
         use self::Info::*;
+
         match self {
             Token(t) => Token(t),
             Range(r) => Range(f(r)),
@@ -443,6 +447,7 @@ impl<T, R> Error<T, R> {
         F: FnOnce(T) -> U,
     {
         use self::Error::*;
+
         match self {
             Unexpected(x) => Unexpected(x.map_token(f)),
             Expected(x) => Expected(x.map_token(f)),
@@ -456,6 +461,7 @@ impl<T, R> Error<T, R> {
         F: FnOnce(R) -> S,
     {
         use self::Error::*;
+
         match self {
             Unexpected(x) => Unexpected(x.map_range(f)),
             Expected(x) => Expected(x.map_range(f)),
@@ -643,6 +649,7 @@ impl<Input, R, P> Errors<Input, R, P> {
         R: PartialEq,
     {
         use std::cmp::Ordering;
+
         // Only keep the errors which occurred after consuming the most amount of data
         match self.position.cmp(&other.position) {
             Ordering::Less => other,

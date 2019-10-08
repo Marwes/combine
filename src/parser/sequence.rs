@@ -1,11 +1,16 @@
 //! Combinators which take multiple parsers and applies them one after another.
-use crate::lib::marker::PhantomData;
 
-use crate::combinator::{ignore, Ignore, Map};
-use crate::error::ParseResult::*;
-use crate::error::{ParseError, ParseResult, StreamError, Tracked};
-use crate::parser::ParseMode;
-use crate::{ErrorOffset, Parser, Stream, StreamOnce};
+use crate::{
+    combinator::{ignore, Ignore, Map},
+    error::{
+        ParseError,
+        ParseResult::{self, *},
+        StreamError, Tracked,
+    },
+    lib::marker::PhantomData,
+    parser::ParseMode,
+    ErrorOffset, Parser, Stream, StreamOnce,
+};
 
 macro_rules! dispatch_on {
     ($i: expr, $f: expr;) => {
@@ -708,6 +713,7 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use crate::parser::{token::any, EasyParser};
 
     #[test]

@@ -1,13 +1,19 @@
 #![cfg(feature = "std")]
 extern crate combine;
-use combine::parser::char::{char, digit, spaces, string};
-use combine::stream::buffered;
-use combine::stream::easy::{self, Error, Errors};
-use combine::stream::position;
-use combine::stream::IteratorStream;
+
 use combine::{
-    attempt, choice, many, many1, parser::combinator::recognize, sep_by, skip_many1, Parser,
-    Positioned,
+    attempt, choice, many, many1,
+    parser::{
+        char::{char, digit, spaces, string},
+        combinator::recognize,
+    },
+    sep_by, skip_many1,
+    stream::{
+        buffered,
+        easy::{self, Error, Errors},
+        position, IteratorStream,
+    },
+    Parser, Positioned,
 };
 
 #[test]

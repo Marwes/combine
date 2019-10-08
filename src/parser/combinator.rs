@@ -1,18 +1,18 @@
 //! Various combinators which do not fit anywhere else.
 
-use crate::lib::fmt;
-use crate::lib::marker::PhantomData;
-use crate::lib::mem;
-use crate::lib::str;
-
-use crate::error::{Info, ParseError, ParseResult, ResultExt, StreamError, Tracked};
-use crate::parser::ParseMode;
-use crate::stream::{input_at_eof, ResetStream, Stream, StreamErrorFor, StreamOnce};
-use crate::Parser;
-
 use either::Either;
 
-use crate::error::ParseResult::*;
+use crate::{
+    error::{
+        Info, ParseError,
+        ParseResult::{self, *},
+        ResultExt, StreamError, Tracked,
+    },
+    lib::{fmt, marker::PhantomData, mem, str},
+    parser::ParseMode,
+    stream::{input_at_eof, ResetStream, Stream, StreamErrorFor, StreamOnce},
+    Parser,
+};
 
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);

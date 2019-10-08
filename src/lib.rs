@@ -195,11 +195,14 @@
 
 #[doc(inline)]
 pub use crate::error::{ParseError, ParseResult, StdParseResult};
+
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use crate::parser::EasyParser;
+
 #[doc(inline)]
 pub use crate::parser::Parser;
+
 #[doc(inline)]
 pub use crate::stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
@@ -211,10 +214,13 @@ pub use crate::combinator::{
     satisfy_map, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max,
     skip_many, skip_many1, token, tokens, unexpected, unexpected_any, value,
 };
+
 #[doc(inline)]
 pub use crate::parser::choice::choice;
+
 #[doc(inline)]
 pub use crate::parser::combinator::from_str;
+
 #[doc(inline)]
 pub use crate::parser::token::tokens_cmp;
 
@@ -591,6 +597,7 @@ macro_rules! forward_parser {
 pub mod lib {
     #[cfg(not(feature = "std"))]
     pub use core::*;
+
     #[cfg(feature = "std")]
     pub use std::*;
 }
@@ -616,16 +623,22 @@ pub mod parser;
 pub mod combinator {
     #[doc(inline)]
     pub use crate::parser::choice::*;
+
     #[doc(inline)]
     pub use crate::parser::combinator::*;
+
     #[doc(inline)]
     pub use crate::parser::error::*;
+
     #[doc(inline)]
     pub use crate::parser::function::*;
+
     #[doc(inline)]
     pub use crate::parser::repeat::*;
+
     #[doc(inline)]
     pub use crate::parser::sequence::*;
+
     #[doc(inline)]
     pub use crate::parser::token::*;
 }
@@ -659,8 +672,10 @@ pub struct ErrorOffset(u8);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use crate::parser::char::{char, string};
+
+    use super::*;
 
     #[test]
     fn chainl1_error_consume() {
@@ -705,15 +720,17 @@ mod tests {
 
 #[cfg(all(feature = "std", test))]
 mod std_tests {
-    use super::easy::Error;
-    use super::error::Consumed;
-    use super::stream::IteratorStream;
-    use super::*;
 
-    use crate::error::StdParseResult;
-    use crate::parser::char::{alpha_num, char, digit, letter, spaces, string};
-    use crate::stream::easy;
-    use crate::stream::position::{self, SourcePosition};
+    use crate::{
+        error::StdParseResult,
+        parser::char::{alpha_num, char, digit, letter, spaces, string},
+        stream::{
+            easy,
+            position::{self, SourcePosition},
+        },
+    };
+
+    use super::{easy::Error, error::Consumed, stream::IteratorStream, *};
 
     #[test]
     fn optional_error_consume() {
@@ -951,7 +968,9 @@ mod std_tests {
     #[test]
     fn std_error() {
         use std::error::Error as StdError;
+
         use std::fmt;
+
         #[derive(Debug)]
         struct Error;
         impl fmt::Display for Error {
@@ -984,6 +1003,7 @@ mod std_tests {
         // https://github.com/Marwes/combine/issues/86, and excuse the test with significant
         // boilerplate!
         use std::error::Error as StdError;
+
         use std::fmt;
 
         #[derive(Clone, PartialEq, Debug)]

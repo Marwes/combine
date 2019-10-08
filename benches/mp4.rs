@@ -5,17 +5,17 @@ extern crate criterion;
 extern crate byteorder;
 extern crate combine;
 
-use criterion::{black_box, Bencher, Criterion};
+use std::{fs::File, io::Read, str::from_utf8};
 
-use std::fs::File;
-use std::io::Read;
-use std::str::from_utf8;
-
-use byteorder::{BigEndian, ByteOrder};
-
-use combine::range::{range, take};
-use combine::stream::easy::ParseError;
-use combine::*;
+use {
+    byteorder::{BigEndian, ByteOrder},
+    combine::{
+        range::{range, take},
+        stream::easy::ParseError,
+        *,
+    },
+    criterion::{black_box, Bencher, Criterion},
+};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct FileType<'a> {

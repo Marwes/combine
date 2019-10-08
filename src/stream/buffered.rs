@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
-use crate::error::StreamError;
-use crate::stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamOnce};
+use crate::{
+    error::StreamError,
+    stream::{ParseError, Positioned, ResetStream, StreamErrorFor, StreamOnce},
+};
 
 /// `Stream` which buffers items from an instance of `StreamOnce` into a ring buffer.
 /// Instances of `StreamOnce` which is not able to implement `ResetStream` (such as `ReadStream`) may

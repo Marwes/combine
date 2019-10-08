@@ -1,21 +1,23 @@
 //! Module containing parsers specialized on byte streams.
 extern crate ascii;
 
-use crate::lib::marker::PhantomData;
+use crate::{
+    combinator::{no_partial, satisfy, skip_many, token, Token},
+    error::{
+        self, ParseError,
+        ParseResult::{self, *},
+    },
+    lib::marker::PhantomData,
+    parser::{
+        range::{take_fn, TakeRange},
+        token::tokens_cmp,
+        ParseMode,
+    },
+    stream::{RangeStream, Stream, StreamOnce},
+    Parser,
+};
 
 use self::ascii::AsciiChar;
-
-use crate::combinator::{no_partial, satisfy, skip_many, token, Token};
-use crate::error::{self, ParseError, ParseResult};
-use crate::parser::{
-    range::{take_fn, TakeRange},
-    token::tokens_cmp,
-    ParseMode,
-};
-use crate::stream::{RangeStream, Stream, StreamOnce};
-use crate::Parser;
-
-use crate::error::ParseResult::*;
 
 /// Parses a byte and succeeds if the byte is equal to `c`.
 ///
@@ -464,13 +466,12 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
 
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
-    use super::*;
-    use crate::error::ResultExt;
-    use crate::stream::uncons;
 
     use byteorder::{ByteOrder, BE, LE};
 
-    use crate::lib::mem::size_of;
+    use crate::{error::ResultExt, lib::mem::size_of, stream::uncons};
+
+    use super::*;
 
     macro_rules! integer_parser {
         (
@@ -663,10 +664,10 @@ pub mod num {
 
     #[cfg(test)]
     mod tests {
+
+        use crate::stream::{buffered, position, IteratorStream};
+
         use super::*;
-        use crate::stream::buffered;
-        use crate::stream::position;
-        use crate::stream::IteratorStream;
 
         #[test]
         fn no_rangestream() {
@@ -707,8 +708,10 @@ pub mod num {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use crate::stream::{buffered, position, ReadStream};
+
+    use super::*;
 
     #[test]
     fn memslice_basic() {

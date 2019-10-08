@@ -31,14 +31,18 @@
 //! }
 //! ```
 
-use std::iter::FromIterator;
-use std::marker::PhantomData;
+use std::{iter::FromIterator, marker::PhantomData};
 
-use crate::error::ParseResult::*;
-use crate::error::{ParseError, ParseResult, StreamError, Tracked};
-use crate::parser::range::take;
-use crate::stream::{RangeStream, StreamOnce};
-use crate::Parser;
+use crate::{
+    error::{
+        ParseError,
+        ParseResult::{self, *},
+        StreamError, Tracked,
+    },
+    parser::range::take,
+    stream::{RangeStream, StreamOnce},
+    Parser,
+};
 
 struct First<T>(Option<T>);
 
@@ -117,9 +121,9 @@ mod regex {
 
     use std::iter::FromIterator;
 
-    pub use self::regex::*;
-
     use super::{find_iter, MatchFind, Regex};
+
+    pub use self::regex::*;
 
     impl<'t> MatchFind for regex::Match<'t> {
         type Range = &'t str;
@@ -527,10 +531,10 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use regex::Regex;
 
-    use crate::parser::regex::find;
-    use crate::Parser;
+    use crate::{parser::regex::find, Parser};
 
     #[test]
     fn test() {

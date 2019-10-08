@@ -5,8 +5,10 @@ parser! {
     pub fn test[Input]()(Input) -> ()
         where [Input: ::combine::Stream<Token = char>]
     {
-        use combine::combinator::value;
-        let _ = ();
+
+use combine::combinator::value;
+
+let _ = ();
         fn _test() { }
         match Some(1) {
             Some(_) => (),
@@ -20,8 +22,10 @@ parser! {
     pub fn test_that_parsers_with_unnamed_types_can_be_in_same_scope[Input]()(Input) -> ()
         where [Input: ::combine::Stream<Token = char>]
     {
-        use combine::combinator::value;
-        value(())
+
+use combine::combinator::value;
+
+value(())
     }
 }
 

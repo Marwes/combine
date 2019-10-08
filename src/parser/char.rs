@@ -1,10 +1,12 @@
 //! Module containing parsers specialized on character streams.
 
-use crate::combinator::{no_partial, satisfy, skip_many, token, Token};
-use crate::error::ParseError;
-use crate::parser::token::tokens_cmp;
-use crate::stream::Stream;
-use crate::Parser;
+use crate::{
+    combinator::{no_partial, satisfy, skip_many, token, Token},
+    error::ParseError,
+    parser::token::tokens_cmp,
+    stream::Stream,
+    Parser,
+};
 
 /// Parses a character and succeeds if the character is equal to `c`.
 ///
@@ -299,7 +301,6 @@ where
 
 #[cfg(all(feature = "std", test))]
 mod tests {
-    use super::*;
 
     use crate::{
         parser::EasyParser,
@@ -308,6 +309,8 @@ mod tests {
             position::{self, SourcePosition},
         },
     };
+
+    use super::*;
 
     #[test]
     fn space_error() {

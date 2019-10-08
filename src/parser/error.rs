@@ -1,14 +1,15 @@
 //! Parsers which cause errors or modifies the returned error on parse failure.
 
-use crate::lib::marker::PhantomData;
-
 use crate::{
-    error::{ErrorInfo, ParseError, ParseResult, StreamError, Tracked},
+    error::{
+        ErrorInfo, ParseError,
+        ParseResult::{self, *},
+        StreamError, Tracked,
+    },
+    lib::marker::PhantomData,
     parser::ParseMode,
     Parser, Stream, StreamOnce,
 };
-
-use crate::error::ParseResult::*;
 
 #[derive(Clone)]
 pub struct Unexpected<I, T, E>(E, PhantomData<fn(I) -> (I, T)>)

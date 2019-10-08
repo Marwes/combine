@@ -1,16 +1,17 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
-use crate::lib::{borrow::BorrowMut, iter, marker::PhantomData, mem};
-
 use crate::{
     combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value},
-    error::{Consumed, ParseError, ParseResult, ResultExt, StdParseResult, StreamError, Tracked},
+    error::{
+        Consumed, ParseError,
+        ParseResult::{self, *},
+        ResultExt, StdParseResult, StreamError, Tracked,
+    },
+    lib::{borrow::BorrowMut, iter, marker::PhantomData, mem},
     parser::{choice::Or, sequence::With, FirstMode, ParseMode},
     stream::{uncons, Stream, StreamOnce},
     ErrorOffset, Parser,
 };
-
-use crate::error::ParseResult::*;
 
 parser! {
 pub struct Count;
@@ -1396,6 +1397,7 @@ where
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         use crate::error;
+
         self.parser.add_error(errors);
 
         errors.error.add_expected(error::Token(self.escape.clone()));

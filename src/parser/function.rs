@@ -1,9 +1,8 @@
 //! Parsers constructor from regular functions
 
-use crate::lib::marker::PhantomData;
-
 use crate::{
     error::{ParseResult, StdParseResult},
+    lib::marker::PhantomData,
     stream::Stream,
     Parser,
 };

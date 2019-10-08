@@ -1,14 +1,15 @@
 //! Parsers working with single stream items.
 
-use crate::lib::marker::PhantomData;
-
 use crate::{
-    error::{self, ErrorInfo, ParseError, ParseResult, ResultExt, StreamError, Tracked},
+    error::{
+        self, ErrorInfo, ParseError,
+        ParseResult::{self, *},
+        ResultExt, StreamError, Tracked,
+    },
+    lib::marker::PhantomData,
     stream::{uncons, Stream, StreamOnce},
     Parser,
 };
-
-use crate::error::ParseResult::*;
 
 #[derive(Copy, Clone)]
 pub struct Any<Input>(PhantomData<fn(Input) -> Input>);

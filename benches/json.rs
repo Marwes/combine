@@ -7,26 +7,28 @@ extern crate criterion;
 #[macro_use]
 extern crate combine;
 
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
+use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
-use criterion::{black_box, Bencher, Criterion};
-
-use combine::error::{Consumed, ParseError};
-use combine::stream::buffered;
-use combine::{EasyParser, Parser, Stream, StreamOnce};
-
-use combine::parser::char::{char, digit, spaces, string};
-use combine::parser::choice::{choice, optional};
-use combine::parser::function::parser;
-use combine::parser::repeat::{many, many1, sep_by};
-use combine::parser::sequence::between;
-use combine::parser::token::{any, satisfy, satisfy_map};
-
-use combine::stream::position::{self, SourcePosition};
-use combine::stream::IteratorStream;
+use {
+    combine::{
+        error::{Consumed, ParseError},
+        parser::{
+            char::{char, digit, spaces, string},
+            choice::{choice, optional},
+            function::parser,
+            repeat::{many, many1, sep_by},
+            sequence::between,
+            token::{any, satisfy, satisfy_map},
+        },
+        stream::{
+            buffered,
+            position::{self, SourcePosition},
+            IteratorStream,
+        },
+        EasyParser, Parser, Stream, StreamOnce,
+    },
+    criterion::{black_box, Bencher, Criterion},
+};
 
 #[derive(PartialEq, Debug)]
 enum Value {
@@ -188,6 +190,7 @@ parser! {
 #[test]
 fn json_test() {
     use self::Value::*;
+
     let input = r#"{
     "array": [1, ""],
     "object": {},

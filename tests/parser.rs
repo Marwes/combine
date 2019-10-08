@@ -1,14 +1,16 @@
-use combine::parser::byte::bytes_cmp;
-use combine::parser::char::{digit, letter, string, string_cmp};
-use combine::parser::choice::{choice, optional};
-use combine::parser::combinator::{attempt, no_partial, not_followed_by};
-use combine::parser::error::unexpected;
-use combine::parser::range::{self, range};
-use combine::parser::repeat::{
-    count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until,
+use combine::{
+    parser::{
+        byte::bytes_cmp,
+        char::{digit, letter, string, string_cmp},
+        choice::{choice, optional},
+        combinator::{attempt, no_partial, not_followed_by},
+        error::unexpected,
+        range::{self, range},
+        repeat::{count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until},
+        token::{any, eof, position, token, value, Token},
+    },
+    EasyParser, Parser,
 };
-use combine::parser::token::{any, eof, position, token, value, Token};
-use combine::{EasyParser, Parser};
 
 #[test]
 fn choice_empty() {
@@ -43,13 +45,20 @@ fn not_followed_by_does_not_consume_any_input() {
 
 #[cfg(feature = "std")]
 mod tests_std {
+
+    use combine::{
+        parser::{
+            byte::{alpha_num, bytes, num::be_u32},
+            char::{char, digit, letter},
+        },
+        stream::{
+            easy::{self, Error, Errors},
+            position::{self, SourcePosition},
+        },
+        Parser,
+    };
+
     use super::*;
-    use combine::parser::byte::num::be_u32;
-    use combine::parser::byte::{alpha_num, bytes};
-    use combine::parser::char::{char, digit, letter};
-    use combine::stream::easy::{self, Error, Errors};
-    use combine::stream::position::{self, SourcePosition};
-    use combine::Parser;
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {

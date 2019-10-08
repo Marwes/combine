@@ -1,5 +1,8 @@
-use combine::parser::char::{letter, space};
-use combine::{many1, sep_by, Parser};
+use combine::{
+    many1,
+    parser::char::{letter, space},
+    sep_by, Parser,
+};
 
 #[test]
 fn readme() {

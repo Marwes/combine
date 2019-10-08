@@ -4,16 +4,21 @@ extern crate combine;
 
 #[cfg(not(feature = "std"))]
 use core::str;
+
 #[cfg(feature = "std")]
 use std::str;
 
-use combine::error::UnexpectedParse;
-use combine::parser::byte::digit;
-use combine::parser::choice::optional;
-use combine::parser::range::recognize;
-use combine::parser::repeat::{skip_many, skip_many1};
-use combine::parser::token::token;
-use combine::Parser;
+use combine::{
+    error::UnexpectedParse,
+    parser::{
+        byte::digit,
+        choice::optional,
+        range::recognize,
+        repeat::{skip_many, skip_many1},
+        token::token,
+    },
+    Parser,
+};
 
 fn main() {
     let mut parser = recognize((

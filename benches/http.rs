@@ -3,13 +3,17 @@ extern crate criterion;
 #[macro_use]
 extern crate combine;
 
-use criterion::{black_box, Bencher, Criterion};
-
 use std::fmt;
 
-use combine::range::{range, take_while1};
-use combine::stream::easy;
-use combine::{many, many1, token, ParseError, Parser, RangeStream};
+use {
+    combine::{
+        many, many1,
+        range::{range, take_while1},
+        stream::easy,
+        token, ParseError, Parser, RangeStream,
+    },
+    criterion::{black_box, Bencher, Criterion},
+};
 
 #[derive(Debug)]
 struct Request<'a> {

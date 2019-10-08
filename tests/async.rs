@@ -7,35 +7,35 @@ use std::{
     str,
 };
 
-use bytes_0_4::BytesMut;
-
-use futures::{Future, Stream};
-use quick_error::quick_error;
-use quickcheck::quickcheck;
-use tokio_codec_0_1::{Decoder, FramedRead};
-
-use combine::{
-    any,
-    combinator::{
-        any_partial_state, any_send_partial_state, attempt, from_str, optional, recognize,
-        skip_many1, AnyPartialState, AnySendPartialState,
-    },
-    count_min_max,
-    error::{ParseError, StreamError},
-    many1, parser,
-    parser::{
-        byte::{num, take_until_bytes},
-        char::{char, digit, letter},
-        range::{
-            self, range, recognize_with_value, take, take_fn, take_until_range, take_while,
-            take_while1,
+use {
+    bytes_0_4::BytesMut,
+    combine::{
+        any,
+        combinator::{
+            any_partial_state, any_send_partial_state, attempt, from_str, optional, recognize,
+            skip_many1, AnyPartialState, AnySendPartialState,
         },
-        repeat,
-        token::token,
+        count_min_max,
+        error::{ParseError, StreamError},
+        many1, parser,
+        parser::{
+            byte::{num, take_until_bytes},
+            char::{char, digit, letter},
+            range::{
+                self, range, recognize_with_value, take, take_fn, take_until_range, take_while,
+                take_while1,
+            },
+            repeat,
+            token::token,
+        },
+        skip_many,
+        stream::{easy, RangeStream, StreamErrorFor},
+        Parser,
     },
-    skip_many,
-    stream::{easy, RangeStream, StreamErrorFor},
-    Parser,
+    futures::{Future, Stream},
+    quick_error::quick_error,
+    quickcheck::quickcheck,
+    tokio_codec_0_1::{Decoder, FramedRead},
 };
 
 quick_error! {

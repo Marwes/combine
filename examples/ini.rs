@@ -1,18 +1,18 @@
 //! Parser example for INI files.
 extern crate combine;
 
-use std::collections::HashMap;
-use std::env;
-use std::fmt;
-use std::fs::File;
-use std::io::{self, Read};
+use std::{
+    collections::HashMap,
+    env, fmt,
+    fs::File,
+    io::{self, Read},
+};
 
-use combine::parser::char::space;
-use combine::stream::position;
-use combine::*;
+use combine::{parser::char::space, stream::position, *};
 
 #[cfg(feature = "std")]
 use combine::stream::easy;
+
 #[cfg(feature = "std")]
 use combine::stream::position::SourcePosition;
 

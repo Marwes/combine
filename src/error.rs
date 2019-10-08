@@ -3,11 +3,9 @@ use crate::lib::fmt;
 #[cfg(feature = "std")]
 use std::error::Error as StdError;
 
+use crate::{stream::StreamOnce, ErrorOffset};
+
 use self::ParseResult::*;
-
-use crate::ErrorOffset;
-
-use crate::stream::StreamOnce;
 
 pub(crate) trait ResultExt<E, T> {
     fn consumed(self) -> ParseResult<E, T>;
@@ -338,6 +336,7 @@ impl<T> Consumed<T> {
         F: FnOnce(T) -> ParseResult<U, E>,
     {
         use self::ParseResult::*;
+
         match self {
             Consumed::Consumed(x) => match f(x) {
                 EmptyOk(v) => ConsumedOk(v),
@@ -523,6 +522,7 @@ pub enum UnexpectedParse {
 impl fmt::Display for UnexpectedParse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::UnexpectedParse::*;
+
         write!(
             f,
             "{}",
@@ -664,6 +664,7 @@ pub(crate) const CHAR_BOUNDARY_ERROR_MESSAGE: &str = "unexpected slice on charac
 impl fmt::Display for StringStreamError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::StringStreamError::*;
+
         write!(
             f,
             "{}",
@@ -921,6 +922,7 @@ impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
     #[inline]
     fn into(self) -> StdParseResult2<O, E> {
         use self::ParseResult::*;
+
         match self {
             ConsumedOk(t) => Ok((t, Consumed::Consumed(()))),
             EmptyOk(t) => Ok((t, Consumed::Empty(()))),
@@ -934,6 +936,7 @@ impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
     #[inline]
     fn from(result: StdParseResult2<O, E>) -> ParseResult<O, E> {
         use self::ParseResult::*;
+
         match result {
             Ok((t, Consumed::Consumed(()))) => ConsumedOk(t),
             Ok((t, Consumed::Empty(()))) => EmptyOk(t),
@@ -945,6 +948,7 @@ impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
 
 #[cfg(all(feature = "std", test))]
 mod tests_std {
+
     use crate::Parser;
 
     #[derive(Clone, PartialEq, Debug)]

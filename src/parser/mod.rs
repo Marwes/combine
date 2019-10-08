@@ -2,20 +2,28 @@
 //!
 //! Implements the `Parser` trait which is the core of `combine` and contains the submodules
 //! implementing all combine parsers.
+
 use either::Either;
 
-use crate::combinator::{
-    and_then, expected, flat_map, map, map_input, message, then, then_partial, AndThen, Expected,
-    FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
+use crate::{
+    combinator::{
+        and_then, expected, flat_map, map, map_input, message, then, then_partial, AndThen,
+        Expected, FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
+    },
+    error::{
+        ErrorInfo, ParseError,
+        ParseResult::{self, *},
+        ResultExt, Token, Tracked,
+    },
+    parser::error::{silent, Silent},
+    stream::{Stream, StreamOnce},
+    ErrorOffset,
 };
-use crate::error::ParseResult::*;
-use crate::error::{ErrorInfo, ParseError, ParseResult, ResultExt, Token, Tracked};
-use crate::parser::error::{silent, Silent};
-use crate::stream::{Stream, StreamOnce};
-use crate::ErrorOffset;
 
-use self::choice::{or, Or};
-use self::sequence::{skip, with, Skip, With};
+use self::{
+    choice::{or, Or},
+    sequence::{skip, with, Skip, With},
+};
 
 /// Internal API. May break without a semver bump
 #[macro_export]
