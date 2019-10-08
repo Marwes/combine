@@ -1249,8 +1249,8 @@ where
         let mut consumed = Consumed::Empty(());
         loop {
             if *is_parse {
-                let (item, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
-                output.extend(Some(item));
+                let (token, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
+                output.extend(Some(token));
                 consumed = consumed.merge(c);
                 *is_parse = false;
             } else {
@@ -1403,7 +1403,7 @@ where
 }
 
 /// Parses an escaped string by first applying `parser` which accept the normal characters which do
-/// not need escaping. Once `parser` can not consume any more input it checks if the next item
+/// not need escaping. Once `parser` can not consume any more input it checks if the next token
 /// is `escape`. If it is then `escape_parser` is used to parse the escaped character and then
 /// resumes parsing using `parser`. If `escape` was not found then the parser finishes
 /// successfully.

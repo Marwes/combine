@@ -1,8 +1,6 @@
 use crate::{
     error::ParseResult,
-    stream::{
-        FullRangeStream, Positioned, RangeStreamOnce, ResetStream, StreamErrorFor, StreamOnce,
-    },
+    stream::{Positioned, RangeStreamOnce, ResetStream, StreamErrorFor, StreamOnce},
 };
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -85,12 +83,7 @@ where
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.stream.distance(end)
     }
-}
 
-impl<S, U> FullRangeStream for Stream<S, U>
-where
-    S: FullRangeStream,
-{
     #[inline]
     fn range(&self) -> Self::Range {
         self.stream.range()

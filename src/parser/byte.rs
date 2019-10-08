@@ -12,7 +12,7 @@ use crate::parser::{
     token::tokens_cmp,
     ParseMode,
 };
-use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
+use crate::stream::{RangeStream, Stream, StreamOnce};
 use crate::Parser;
 
 use crate::error::ParseResult::*;
@@ -332,7 +332,7 @@ macro_rules! take_until {
             $(#[$attr])*
             pub fn $func_name[Input]($($param : u8),*)(Input) -> Input::Range
                 where [
-                    Input: RangeStream + FullRangeStream,
+                    Input: RangeStream,
                     Input::Range: AsRef<[u8]> + crate::stream::Range,
                 ]
             {
@@ -429,7 +429,7 @@ parser! {
 #[inline]
 pub fn take_until_bytes['a, Input](needle: &'a [u8])(Input) -> Input::Range
 where [
-    Input: RangeStream + FullRangeStream,
+    Input: RangeStream,
     Input::Range: AsRef<[u8]> + crate::stream::Range,
 ]
 {

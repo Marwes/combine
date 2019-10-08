@@ -69,19 +69,19 @@ macro_rules! mk_parser {
     };
 }
 macro_rules! impl_decoder {
-    ($typ: ident, $item: ty, $parser: expr, $custom_state: ty) => {
+    ($typ: ident, $token: ty, $parser: expr, $custom_state: ty) => {
         #[derive(Default)]
         struct $typ(AnyPartialState, $custom_state);
-        impl_decoder!{$typ, $item, $parser; ($custom_state)}
+        impl_decoder!{$typ, $token, $parser; ($custom_state)}
     };
-    ($typ: ident, $item: ty, $parser: expr) => {
+    ($typ: ident, $token: ty, $parser: expr) => {
         #[derive(Default)]
         struct $typ(AnyPartialState);
-        impl_decoder!{$typ, $item, $parser; ()}
+        impl_decoder!{$typ, $token, $parser; ()}
     };
-    ($typ: ident, $item: ty, $parser: expr; ( $($custom_state: tt)* )) => {
+    ($typ: ident, $token: ty, $parser: expr; ( $($custom_state: tt)* )) => {
         impl Decoder for $typ {
-            type Item = $item;
+            type Item = $token;
             type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -90,7 +90,7 @@ macro_rules! impl_decoder {
         }
 
         impl<'a> Decoder for &'a mut $typ {
-            type Item = $item;
+            type Item = $token;
             type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -123,19 +123,19 @@ macro_rules! impl_decoder {
 }
 
 macro_rules! impl_byte_decoder {
-    ($typ: ident, $item: ty, $parser: expr, $custom_state: ty) => {
+    ($typ: ident, $token: ty, $parser: expr, $custom_state: ty) => {
         #[derive(Default)]
         struct $typ(AnyPartialState, $custom_state);
-        impl_byte_decoder!{$typ, $item, $parser; ($custom_state)}
+        impl_byte_decoder!{$typ, $token, $parser; ($custom_state)}
     };
-    ($typ: ident, $item: ty, $parser: expr) => {
+    ($typ: ident, $token: ty, $parser: expr) => {
         #[derive(Default)]
         struct $typ(AnyPartialState);
-        impl_byte_decoder!{$typ, $item, $parser; ()}
+        impl_byte_decoder!{$typ, $token, $parser; ()}
     };
-    ($typ: ident, $item: ty, $parser: expr; ( $($custom_state: tt)* )) => {
+    ($typ: ident, $token: ty, $parser: expr; ( $($custom_state: tt)* )) => {
         impl Decoder for $typ {
-            type Item = $item;
+            type Item = $token;
             type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -144,7 +144,7 @@ macro_rules! impl_byte_decoder {
         }
 
         impl<'a> Decoder for &'a mut $typ {
-            type Item = $item;
+            type Item = $token;
             type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
