@@ -2,8 +2,8 @@ use crate::lib::fmt;
 
 use crate::error::{ParseError, ParseResult, StreamError};
 use crate::stream::{
-    FullRangeStream, IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream,
-    StreamErrorFor, StreamOnce,
+    IteratorStream, Positioned, RangeStreamOnce, ResetStream, SliceStream, StreamErrorFor,
+    StreamOnce,
 };
 
 #[cfg(feature = "std")]
@@ -15,8 +15,8 @@ pub trait Positioner<Item> {
     type Position: Clone + Ord;
     /// Returns the current position
     fn position(&self) -> Self::Position;
-    /// Updates the position given that `item` has been taken from the stream
-    fn update(&mut self, item: &Item);
+    /// Updates the position given that `token` has been taken from the stream
+    fn update(&mut self, token: &Item);
 }
 
 /// Trait for tracking the current position of a `RangeStream`.
@@ -223,9 +223,9 @@ impl Positioner<char> for SourcePosition {
     }
 
     #[inline]
-    fn update(&mut self, item: &char) {
+    fn update(&mut self, token: &char) {
         self.column += 1;
-        if *item == '\n' {
+        if *token == '\n' {
             self.column = 1;
             self.line += 1;
         }
@@ -296,6 +296,10 @@ where
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.input.distance(&end.input)
     }
+
+    fn range(&self) -> Self::Range {
+        self.input.range()
+    }
 }
 
 impl<Input, X, S> ResetStream for Stream<Input, X>
@@ -317,20 +321,6 @@ where
         self.input.reset(checkpoint.input)?;
         self.positioner = checkpoint.positioner;
         Ok(())
-    }
-}
-
-impl<Input, X, E> FullRangeStream for Stream<Input, X>
-where
-    Input: FullRangeStream + ResetStream,
-    Input::Position: Clone + Ord,
-    E: StreamError<Input::Token, Input::Range>,
-    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = E>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = E>,
-    X: Clone + RangePositioner<Input::Token, Input::Range>,
-{
-    fn range(&self) -> Self::Range {
-        self.input.range()
     }
 }
 

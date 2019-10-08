@@ -178,7 +178,7 @@
 //! [`range`]: parser/range/index.html
 //! [`many`]: parser/repeat/fn.many.html
 //! [`attempt`]: parser/combinator/fn.attempt.html
-//! [`satisfy`]: parser/item/fn.satisfy.html
+//! [`satisfy`]: parser/token/fn.satisfy.html
 //! [`or`]: parser/trait.Parser.html#method.or
 //! [`Stream`]: stream/trait.Stream.html
 //! [`RangeStream`]: stream/trait.RangeStream.html

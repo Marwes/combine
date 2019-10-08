@@ -11,8 +11,8 @@ use crate::error::ParseResult::*;
 use crate::error::{self, ParseError, ParseResult, ResultExt, StreamError, Tracked};
 use crate::parser::ParseMode;
 use crate::stream::{
-    uncons_range, uncons_while, uncons_while1, wrap_stream_error, FullRangeStream,
-    Range as StreamRange, RangeStream, StreamOnce,
+    uncons_range, uncons_while, uncons_while1, wrap_stream_error, Range as StreamRange,
+    RangeStream, StreamOnce,
 };
 use crate::Parser;
 
@@ -226,7 +226,7 @@ where
 ///
 /// [`tokens2`][] is a non-`RangeStream` alternative.
 ///
-/// [`tokens2`]: ../../parser/item/fn.tokens2.html
+/// [`tokens2`]: ../../parser/token/fn.tokens2.html
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::range;
@@ -462,7 +462,7 @@ where
                         // Reset the stream back to where it was when we entered the top of the loop
                         ctry!(input.reset(look_ahead_input).consumed());
 
-                        // Advance the stream by one item
+                        // Advance the stream by one token
                         if input.uncons().is_err() {
                             unreachable!();
                         }
@@ -553,7 +553,7 @@ impl<Input, F, R> Parser<Input> for TakeFn<F, Input>
 where
     F: FnMut(Input::Range) -> R,
     R: Into<TakeRange>,
-    Input: RangeStream + FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     type Output = Input::Range;
@@ -619,7 +619,7 @@ pub fn take_fn<F, R, Input>(searcher: F) -> TakeFn<F, Input>
 where
     F: FnMut(Input::Range) -> R,
     R: Into<TakeRange>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     TakeFn {

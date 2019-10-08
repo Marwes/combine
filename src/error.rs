@@ -954,7 +954,7 @@ mod tests_std {
 
     #[test]
     fn parse_clone_but_not_copy() {
-        // This verifies we can parse slice references with an item type that is Clone but not Copy.
+        // This verifies we can parse slice references with an token type that is Clone but not Copy.
         let input = &[
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },

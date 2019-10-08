@@ -113,7 +113,7 @@ pub trait StreamOnce {
     type Position: Clone + Ord;
 
     type Error: ParseError<Self::Token, Self::Range, Self::Position>;
-    /// Takes a stream and removes its first item, yielding the item and the rest of the elements.
+    /// Takes a stream and removes its first token, yielding the token and the rest of the elements.
     /// Returns `Err` if no element could be retrieved.
     fn uncons(&mut self) -> Result<Self::Token, StreamErrorFor<Self>>;
 
@@ -184,7 +184,7 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
     ///
     /// # Note
     ///
-    /// This may not return `EmptyOk` as it should uncons at least one item.
+    /// This may not return `EmptyOk` as it should uncons at least one token.
     fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Token) -> bool,
@@ -215,18 +215,15 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
     /// stream.distance(&start) == distance
     /// ```
     fn distance(&self, end: &Self::Checkpoint) -> usize;
+
+    /// Returns the entire range of `self`
+    fn range(&self) -> Self::Range;
 }
 
 /// A `RangeStream` is an extension of `Stream` which allows for zero copy parsing.
 pub trait RangeStream: Stream + RangeStreamOnce {}
 
 impl<Input> RangeStream for Input where Input: RangeStreamOnce + Stream {}
-
-/// A `RangeStream` which is capable of providing it's entire range.
-pub trait FullRangeStream: RangeStream {
-    /// Returns the entire range of `self`
-    fn range(&self) -> Self::Range;
-}
 
 #[doc(hidden)]
 #[inline]
@@ -314,7 +311,7 @@ where
 ///
 /// # Note
 ///
-/// This may not return `EmptyOk` as it should uncons at least one item.
+/// This may not return `EmptyOk` as it should uncons at least one token.
 pub fn uncons_while1<Input, F>(
     input: &mut Input,
     predicate: F,
@@ -450,12 +447,7 @@ where
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         (**self).distance(end)
     }
-}
 
-impl<'a, I> FullRangeStream for &'a mut I
-where
-    I: FullRangeStream + ?Sized,
-{
     fn range(&self) -> Self::Range {
         (**self).range()
     }
@@ -586,9 +578,7 @@ impl<'a> RangeStreamOnce for &'a str {
     fn distance(&self, end: &Self) -> usize {
         self.position().0 - end.position().0
     }
-}
 
-impl<'a> FullRangeStream for &'a str {
     fn range(&self) -> Self::Range {
         self
     }
@@ -690,12 +680,7 @@ where
     fn distance(&self, end: &Self) -> usize {
         end.len() - self.len()
     }
-}
 
-impl<'a, T> FullRangeStream for &'a [T]
-where
-    T: Clone + PartialEq,
-{
     fn range(&self) -> Self::Range {
         self
     }
@@ -816,12 +801,7 @@ where
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
     }
-}
 
-impl<S> FullRangeStream for PartialStream<S>
-where
-    S: FullRangeStream,
-{
     #[inline]
     fn range(&self) -> Self::Range {
         self.0.range()
@@ -923,12 +903,7 @@ where
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
     }
-}
 
-impl<S> FullRangeStream for CompleteStream<S>
-where
-    S: FullRangeStream,
-{
     #[inline]
     fn range(&self) -> Self::Range {
         self.0.range()
@@ -1057,12 +1032,7 @@ where
     fn distance(&self, end: &Self) -> usize {
         end.0.len() - self.0.len()
     }
-}
 
-impl<'a, T> FullRangeStream for SliceStream<'a, T>
-where
-    T: PartialEq + 'a,
-{
     fn range(&self) -> Self::Range {
         self.0
     }
@@ -1260,7 +1230,7 @@ where
 
 /// Decodes `input` using `parser`.
 ///
-/// Return `Ok(Some(item), consumed_data)` if there was enough data to finish parsing using
+/// Return `Ok(Some(token), consumed_data)` if there was enough data to finish parsing using
 /// `parser`.
 /// Returns `Ok(None, consumed_data)` if `input` did not contain enough data to finish parsing
 /// using `parser`.

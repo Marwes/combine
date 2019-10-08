@@ -111,16 +111,16 @@ where
     fn uncons(&mut self) -> Result<Input::Token, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
-            let item = self.iter.uncons()?;
+            let token = self.iter.uncons()?;
             self.buffer_offset += 1;
             // We want the VecDeque to only keep the last .capacity() elements so we need to remove
             // an element if it gets to large
             if self.buffer.len() == self.buffer.capacity() {
                 self.buffer.pop_front();
             }
-            self.buffer.push_back((item.clone(), position.clone()));
+            self.buffer.push_back((token.clone(), position.clone()));
             self.offset += 1;
-            Ok(item)
+            Ok(token)
         } else if self.offset < self.buffer_offset - self.buffer.len() {
             // We have backtracked to far
             Err(StreamError::message_static_message(

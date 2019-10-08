@@ -58,7 +58,7 @@ mod tests_std {
 
     #[test]
     fn token_clone_but_not_copy() {
-        // Verify we can use token() with a StreamSlice with an item type that is Clone but not
+        // Verify we can use token() with a StreamSlice with an token type that is Clone but not
         // Copy.
         let input = &[
             CloneOnly { s: "x".to_string() },

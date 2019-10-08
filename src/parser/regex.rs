@@ -40,7 +40,7 @@ use std::marker::PhantomData;
 use crate::error::ParseResult::*;
 use crate::error::{ParseError, ParseResult, StreamError, Tracked};
 use crate::parser::range::take;
-use crate::stream::{FullRangeStream, StreamOnce};
+use crate::stream::{RangeStream, StreamOnce};
 use crate::Parser;
 
 struct First<T>(Option<T>);
@@ -222,7 +222,7 @@ pub struct Match<R, Input>(R, PhantomData<Input>);
 impl<'a, Input, R> Parser<Input> for Match<R, Input>
 where
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
 {
     type Output = Input::Range;
     type PartialState = ();
@@ -267,7 +267,7 @@ where
 pub fn match_<R, Input>(regex: R) -> Match<R, Input>
 where
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
 {
     Match(regex, PhantomData)
 }
@@ -278,7 +278,7 @@ pub struct Find<R, Input>(R, PhantomData<fn() -> Input>);
 impl<'a, Input, R> Parser<Input> for Find<R, Input>
 where
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     type Output = Input::Range;
@@ -327,7 +327,7 @@ where
 pub fn find<R, Input>(regex: R) -> Find<R, Input>
 where
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     Find(regex, PhantomData)
@@ -340,7 +340,7 @@ impl<'a, Input, F, R> Parser<Input> for FindMany<F, R, Input>
 where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     type Output = F;
@@ -385,7 +385,7 @@ pub fn find_many<F, R, Input>(regex: R) -> FindMany<F, R, Input>
 where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     FindMany(regex, PhantomData)
@@ -398,7 +398,7 @@ impl<'a, Input, F, R> Parser<Input> for Captures<F, R, Input>
 where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     type Output = F;
@@ -453,7 +453,7 @@ pub fn captures<F, R, Input>(regex: R) -> Captures<F, R, Input>
 where
     F: FromIterator<Input::Range>,
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     Captures(regex, PhantomData)
@@ -467,7 +467,7 @@ where
     F: FromIterator<Input::Range>,
     G: FromIterator<F>,
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     type Output = G;
@@ -522,7 +522,7 @@ where
     F: FromIterator<Input::Range>,
     G: FromIterator<F>,
     R: Regex<Input::Range>,
-    Input: FullRangeStream,
+    Input: RangeStream,
     Input::Range: crate::stream::Range,
 {
     CapturesMany(regex, PhantomData)

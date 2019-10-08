@@ -85,8 +85,7 @@ use std::fmt;
 
 use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
 use crate::stream::{
-    FullRangeStream, Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor,
-    StreamOnce,
+    Positioned, RangeStream, RangeStreamOnce, ResetStream, StreamErrorFor, StreamOnce,
 };
 
 /// Enum holding error information. Variants are defined for `Stream::Token` and `Stream::Range` as
@@ -819,6 +818,10 @@ where
     fn distance(&self, end: &Self::Checkpoint) -> usize {
         self.0.distance(end)
     }
+
+    fn range(&self) -> Self::Range {
+        self.0.range()
+    }
 }
 
 impl<S> Positioned for Stream<S>
@@ -829,16 +832,5 @@ where
 {
     fn position(&self) -> S::Position {
         self.0.position()
-    }
-}
-
-impl<S> FullRangeStream for Stream<S>
-where
-    S: FullRangeStream,
-    S::Token: PartialEq,
-    S::Range: PartialEq,
-{
-    fn range(&self) -> Self::Range {
-        self.0.range()
     }
 }
