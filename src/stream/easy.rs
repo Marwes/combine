@@ -18,15 +18,15 @@
 //!     parser!{
 //!        fn parser[Input]()(Input) -> String
 //!         where [
-//!             Input: Stream<Item=char, Error = easy::ParseError<Input>>,
+//!             Input: Stream<Token = char, Error = easy::ParseError<Input>>,
 //!             Input::Range: PartialEq,
 //!             // If we want to use the error type explicitly we need to help rustc infer
 //!             // `StreamError` to `easy::Error` (rust-lang/rust#24159)
 //!             Input::Error: ParseError<
-//!                 Input::Item,
+//!                 Input::Token,
 //!                 Input::Range,
 //!                 Input::Position,
-//!                 StreamError = easy::Error<Input::Item, Input::Range>
+//!                 StreamError = easy::Error<Input::Token, Input::Range>
 //!             >
 //!         ]
 //!         {
@@ -43,7 +43,7 @@
 //!     parser!{
 //!        fn parser2[Input]()(Input) -> String
 //!         where [
-//!             Input: Stream<Item=char>,
+//!             Input: Stream<Token = char>,
 //!         ]
 //!         {
 //!             many1(letter()).and_then(|word: String| {
@@ -89,7 +89,7 @@ use crate::stream::{
     StreamOnce,
 };
 
-/// Enum holding error information. Variants are defined for `Stream::Item` and `Stream::Range` as
+/// Enum holding error information. Variants are defined for `Stream::Token` and `Stream::Range` as
 /// well as string variants holding easy descriptions.
 ///
 /// As there is implementations of `From` for `String` and `&'static str` the
@@ -564,10 +564,10 @@ impl<T, R> Error<T, R> {
 }
 
 /// Convenience alias over `Errors` for `StreamOnce` types which makes it possible to specify the
-/// `Errors` type from a `StreamOnce` by writing `ParseError<Input>` instead of `Errors<Input::Item,
+/// `Errors` type from a `StreamOnce` by writing `ParseError<Input>` instead of `Errors<Input::Token,
 /// Input::Range, Input::Position>`
 pub type ParseError<S> =
-    Errors<<S as StreamOnce>::Item, <S as StreamOnce>::Range, <S as StreamOnce>::Position>;
+    Errors<<S as StreamOnce>::Token, <S as StreamOnce>::Range, <S as StreamOnce>::Position>;
 
 /// Struct which hold information about an error that occurred at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occurred in the same position.
@@ -752,7 +752,7 @@ impl<S> From<S> for Stream<S> {
 impl<S> ResetStream for Stream<S>
 where
     S: ResetStream + Positioned,
-    S::Item: PartialEq,
+    S::Token: PartialEq,
     S::Range: PartialEq,
 {
     type Checkpoint = S::Checkpoint;
@@ -770,16 +770,16 @@ where
 impl<S> StreamOnce for Stream<S>
 where
     S: StreamOnce + Positioned,
-    S::Item: PartialEq,
+    S::Token: PartialEq,
     S::Range: PartialEq,
 {
-    type Item = S::Item;
+    type Token = S::Token;
     type Range = S::Range;
     type Position = S::Position;
     type Error = ParseError<S>;
 
     #[inline]
-    fn uncons(&mut self) -> Result<Self::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Self::Token, StreamErrorFor<Self>> {
         self.0.uncons().map_err(StreamError::into_other)
     }
 
@@ -791,7 +791,7 @@ where
 impl<S> RangeStreamOnce for Stream<S>
 where
     S: RangeStream,
-    S::Item: PartialEq,
+    S::Token: PartialEq,
     S::Range: PartialEq,
 {
     #[inline]
@@ -802,7 +802,7 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.0.uncons_while(f).map_err(StreamError::into_other)
     }
@@ -810,7 +810,7 @@ where
     #[inline]
     fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.0.uncons_while1(f).map_err(StreamError::into_other)
     }
@@ -824,7 +824,7 @@ where
 impl<S> Positioned for Stream<S>
 where
     S: StreamOnce + Positioned,
-    S::Item: PartialEq,
+    S::Token: PartialEq,
     S::Range: PartialEq,
 {
     fn position(&self) -> S::Position {
@@ -835,7 +835,7 @@ where
 impl<S> FullRangeStream for Stream<S>
 where
     S: FullRangeStream,
-    S::Item: PartialEq,
+    S::Token: PartialEq,
     S::Range: PartialEq,
 {
     fn range(&self) -> Self::Range {

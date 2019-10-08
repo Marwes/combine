@@ -298,7 +298,7 @@ impl<Input, F> Parser<Input> for TakeWhile<Input, F>
 where
     Input: RangeStream,
     Input::Range: crate::stream::Range,
-    F: FnMut(Input::Item) -> bool,
+    F: FnMut(Input::Token) -> bool,
 {
     type Output = Input::Range;
     type PartialState = usize;
@@ -347,7 +347,7 @@ pub fn take_while<Input, F>(f: F) -> TakeWhile<Input, F>
 where
     Input: RangeStream,
     Input::Range: crate::stream::Range,
-    F: FnMut(Input::Item) -> bool,
+    F: FnMut(Input::Token) -> bool,
 {
     TakeWhile(f, PhantomData)
 }
@@ -357,7 +357,7 @@ impl<Input, F> Parser<Input> for TakeWhile1<Input, F>
 where
     Input: RangeStream,
     Input::Range: crate::stream::Range,
-    F: FnMut(Input::Item) -> bool,
+    F: FnMut(Input::Token) -> bool,
 {
     type Output = Input::Range;
     type PartialState = usize;
@@ -406,7 +406,7 @@ pub fn take_while1<Input, F>(f: F) -> TakeWhile1<Input, F>
 where
     Input: RangeStream,
     Input::Range: crate::stream::Range,
-    F: FnMut(Input::Item) -> bool,
+    F: FnMut(Input::Token) -> bool,
 {
     TakeWhile1(f, PhantomData)
 }

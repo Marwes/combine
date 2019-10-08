@@ -21,9 +21,9 @@ use combine::{EasyParser, Parser, Stream, StreamOnce};
 use combine::parser::char::{char, digit, spaces, string};
 use combine::parser::choice::{choice, optional};
 use combine::parser::function::parser;
-use combine::parser::item::{any, satisfy, satisfy_map};
 use combine::parser::repeat::{many, many1, sep_by};
 use combine::parser::sequence::between;
+use combine::parser::token::{any, satisfy, satisfy_map};
 
 use combine::stream::position::{self, SourcePosition};
 use combine::stream::IteratorStream;
@@ -41,9 +41,9 @@ enum Value {
 fn lex<Input, P>(p: P) -> impl Parser<Input, Output = P::Output>
 where
     P: Parser<Input>,
-    Input: Stream<Item = char>,
+    Input: Stream<Token = char>,
     <Input as StreamOnce>::Error: ParseError<
-        <Input as StreamOnce>::Item,
+        <Input as StreamOnce>::Token,
         <Input as StreamOnce>::Range,
         <Input as StreamOnce>::Position,
     >,
@@ -53,8 +53,8 @@ where
 
 fn integer<Input>() -> impl Parser<Input, Output = i64>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     lex(many1(digit()))
         .map(|s: String| {
@@ -69,8 +69,8 @@ where
 
 fn number<Input>() -> impl Parser<Input, Output = f64>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let i = char('0').map(|_| 0.0).or(integer().map(|x| x as f64));
     let fractional = many(digit()).map(|digits: String| {
@@ -103,8 +103,8 @@ where
 
 fn json_char<Input>() -> impl Parser<Input, Output = char>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     parser(|input: &mut Input| {
         let (c, consumed) = any().parse_lazy(input).into_result()?;
@@ -133,16 +133,16 @@ where
 
 fn json_string<Input>() -> impl Parser<Input, Output = String>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     between(char('"'), lex(char('"')), many(json_char())).expected("string")
 }
 
 fn object<Input>() -> impl Parser<Input, Output = Value>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let field = (json_string(), lex(char(':')), json_value()).map(|t| (t.0, t.2));
     let fields = sep_by(field, lex(char(',')));
@@ -154,8 +154,8 @@ where
 #[inline]
 fn json_value<Input>() -> impl Parser<Input, Output = Value>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     json_value_()
 }
@@ -165,7 +165,7 @@ where
 parser! {
     #[inline]
     fn json_value_[Input]()(Input) -> Value
-        where [ Input: Stream<Item = char> ]
+        where [ Input: Stream<Token = char> ]
     {
         let array = between(
             lex(char('[')),

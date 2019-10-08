@@ -2,7 +2,7 @@
 
 use crate::combinator::{no_partial, satisfy, skip_many, token, Token};
 use crate::error::ParseError;
-use crate::parser::item::tokens_cmp;
+use crate::parser::token::tokens_cmp;
 use crate::stream::Stream;
 use crate::Parser;
 
@@ -17,8 +17,8 @@ use crate::Parser;
 #[inline]
 pub fn char<Input>(c: char) -> Token<Input>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     token(c)
 }
@@ -36,7 +36,7 @@ parser! {
     /// ```
     pub fn digit[Input]()(Input) -> char
     where
-        [Input: Stream<Item = char>,]
+        [Input: Stream<Token = char>,]
     {
         satisfy(|c: char| c.is_digit(10)).expected("digit")
     }
@@ -59,8 +59,8 @@ parser! {
 #[inline]
 pub fn space<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let f: fn(char) -> bool = char::is_whitespace;
     satisfy(f).expected("whitespace")
@@ -81,8 +81,8 @@ where
 #[inline]
 pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     skip_many(space()).expected("whitespaces")
 }
@@ -98,8 +98,8 @@ where
 #[inline]
 pub fn newline<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch == '\n').expected("lf newline")
 }
@@ -116,8 +116,8 @@ where
 #[inline]
 pub fn crlf<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     no_partial(satisfy(|ch: char| ch == '\r').with(newline())).expected("crlf newline")
 }
@@ -133,8 +133,8 @@ where
 #[inline]
 pub fn tab<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch == '\t').expected("tab")
 }
@@ -152,8 +152,8 @@ where
 #[inline]
 pub fn upper<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch.is_uppercase()).expected("uppercase letter")
 }
@@ -171,8 +171,8 @@ where
 #[inline]
 pub fn lower<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch.is_lowercase()).expected("lowercase letter")
 }
@@ -191,8 +191,8 @@ where
 #[inline]
 pub fn alpha_num<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch.is_alphanumeric()).expected("letter or digit")
 }
@@ -211,8 +211,8 @@ where
 #[inline]
 pub fn letter<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch.is_alphabetic()).expected("letter")
 }
@@ -228,8 +228,8 @@ where
 #[inline]
 pub fn oct_digit<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch.is_digit(8)).expected("octal digit")
 }
@@ -245,8 +245,8 @@ where
 #[inline]
 pub fn hex_digit<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: char| ch.is_digit(0x10)).expected("hexadecimal digit")
 }
@@ -267,8 +267,8 @@ where
 #[inline]
 pub fn string<'a, Input>(s: &'static str) -> impl Parser<Input, Output = &'a str>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     string_cmp(s, |l, r| l == r)
 }
@@ -291,8 +291,8 @@ where
 pub fn string_cmp<'a, C, Input>(s: &'static str, cmp: C) -> impl Parser<Input, Output = &'a str>
 where
     C: FnMut(char, char) -> bool,
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     tokens_cmp(s.chars(), cmp).map(move |_| s).expected(s)
 }

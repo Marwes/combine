@@ -3,7 +3,7 @@ extern crate combine;
 
 parser! {
     pub fn test[Input]()(Input) -> ()
-        where [Input: ::combine::Stream<Item = char>]
+        where [Input: ::combine::Stream<Token = char>]
     {
         use combine::combinator::value;
         let _ = ();
@@ -18,7 +18,7 @@ parser! {
 
 parser! {
     pub fn test_that_parsers_with_unnamed_types_can_be_in_same_scope[Input]()(Input) -> ()
-        where [Input: ::combine::Stream<Item = char>]
+        where [Input: ::combine::Stream<Token = char>]
     {
         use combine::combinator::value;
         value(())

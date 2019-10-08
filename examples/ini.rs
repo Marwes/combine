@@ -41,9 +41,9 @@ pub struct Ini {
 
 fn property<Input>() -> impl Parser<Input, Output = (String, String)>
 where
-    Input: Stream<Item = char>,
+    Input: Stream<Token = char>,
     // Necessary due to rust-lang/rust#24159
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (
         many1(satisfy(|c| c != '=' && c != '[' && c != ';')),
@@ -56,8 +56,8 @@ where
 
 fn whitespace<Input>() -> impl Parser<Input>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let comment = (token(';'), skip_many(satisfy(|c| c != '\n'))).map(|_| ());
     // Wrap the `spaces().or(comment)` in `skip_many` so that it skips alternating whitespace and
@@ -67,8 +67,8 @@ where
 
 fn properties<Input>() -> impl Parser<Input, Output = HashMap<String, String>>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     // After each property we skip any whitespace that followed it
     many(property().skip(whitespace()))
@@ -76,8 +76,8 @@ where
 
 fn section<Input>() -> impl Parser<Input, Output = (String, HashMap<String, String>)>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (
         between(token('['), token(']'), many(satisfy(|c| c != ']'))),
@@ -90,8 +90,8 @@ where
 
 fn ini<Input>() -> impl Parser<Input, Output = Ini>
 where
-    Input: Stream<Item = char>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (whitespace(), properties(), many(section())).map(|(_, global, sections)| Ini {
         global: global,

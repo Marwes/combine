@@ -3,11 +3,11 @@ use combine::parser::char::{digit, letter, string, string_cmp};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{attempt, no_partial, not_followed_by};
 use combine::parser::error::unexpected;
-use combine::parser::item::{any, eof, position, token, value, Token};
 use combine::parser::range::{self, range};
 use combine::parser::repeat::{
     count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until,
 };
+use combine::parser::token::{any, eof, position, token, value, Token};
 use combine::{EasyParser, Parser};
 
 #[test]

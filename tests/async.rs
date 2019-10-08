@@ -26,12 +26,12 @@ use combine::{
     parser::{
         byte::{num, take_until_bytes},
         char::{char, digit, letter},
-        item::item,
         range::{
             self, range, recognize_with_value, take, take_fn, take_until_range, take_while,
             take_while1,
         },
         repeat,
+        token::token,
     },
     skip_many,
     stream::{easy, RangeStream, StreamErrorFor},
@@ -200,7 +200,7 @@ where
 parser! {
     type PartialState = AnyPartialState;
     fn basic_parser['a, Input]()(Input) -> String
-        where [ Input: RangeStream<Item = char, Range = &'a str> ]
+        where [ Input: RangeStream<Token = char, Range = &'a str> ]
     {
         any_partial_state(
             many1(digit()).skip(range(&"\r\n"[..])),
@@ -224,7 +224,7 @@ fn many1_skip_no_errors() {
 parser! {
     type PartialState = AnyPartialState;
     fn prefix_many_then_parser['a, Input]()(Input) -> String
-        where [ Input: RangeStream<Item = char, Range = &'a str> ]
+        where [ Input: RangeStream<Token = char, Range = &'a str> ]
     {
         let integer = from_str(many1::<String, _, _>(digit()));
         any_partial_state((char('#'), skip_many(char(' ')), integer)
@@ -239,7 +239,7 @@ parser! {
 parser! {
     type PartialState = AnyPartialState;
     fn choice_parser['a, Input]()(Input) -> String
-        where [ Input: RangeStream<Item = char, Range = &'a str> ]
+        where [ Input: RangeStream<Token = char, Range = &'a str> ]
     {
         any_partial_state(
             many1(digit())
@@ -252,9 +252,9 @@ parser! {
 fn content_length<'a, Input>(
 ) -> impl Parser<Input, Output = String, PartialState = AnySendPartialState> + 'a
 where
-    Input: RangeStream<Item = char, Range = &'a str> + 'a,
+    Input: RangeStream<Token = char, Range = &'a str> + 'a,
     // Necessary due to rust-lang/rust#24159
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let content_length = range("Content-Length: ").with(
         range::recognize(skip_many1(digit())).and_then(|digits: &str| {
@@ -439,7 +439,7 @@ quickcheck! {
     fn take_until(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             |count: Rc<Cell<i32>>|
-                repeat::take_until(item(',').map(move |_| count.set(count.get() + 1))).skip(item(',')),
+                repeat::take_until(token(',').map(move |_| count.set(count.get() + 1))).skip(token(',')),
             Rc<Cell<i32>>
         }
 
@@ -460,8 +460,8 @@ quickcheck! {
     fn take_until_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             |count: Rc<Cell<i32>>| {
-                let end = attempt((item(':').map(move |_| count.set(count.get() + 1)), item(':')));
-                repeat::take_until(end).skip((item(':'), item(':')))
+                let end = attempt((token(':').map(move |_| count.set(count.get() + 1)), token(':')));
+                repeat::take_until(end).skip((token(':'), token(':')))
             },
             Rc<Cell<i32>>
         }
@@ -482,7 +482,7 @@ quickcheck! {
 
     fn take_until_range_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
-            take_until_range("::").map(String::from).skip((item(':'), item(':')))
+            take_until_range("::").map(String::from).skip((token(':'), token(':')))
         }
 
         let input = "123::456::789::";

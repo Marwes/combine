@@ -48,12 +48,12 @@ pub mod choice;
 pub mod combinator;
 pub mod error;
 pub mod function;
-pub mod item;
 pub mod range;
 #[cfg(any(feature = "regex", feature = "regex-1"))]
 pub mod regex;
 pub mod repeat;
 pub mod sequence;
+pub mod token;
 
 /// By implementing the `Parser` trait a type says that it can be used to parse an input stream
 /// into the type `Output`.
@@ -607,7 +607,7 @@ pub trait Parser<Input: Stream> {
     fn message<S>(self, msg: S) -> Message<Self, S>
     where
         Self: Sized,
-        S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+        S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
     {
         message(self, msg)
     }
@@ -649,7 +649,7 @@ pub trait Parser<Input: Stream> {
     fn expected<S>(self, msg: S) -> Expected<Self, S>
     where
         Self: Sized,
-        S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+        S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
     {
         expected(self, msg)
     }
@@ -707,7 +707,7 @@ pub trait Parser<Input: Stream> {
         Self: Parser<Input> + Sized,
         F: FnMut(Self::Output) -> Result<O, E>,
         E: Into<
-            <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError,
+            <Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError,
         >,
     {
         and_then(self, f)
@@ -881,7 +881,7 @@ pub trait Parser<Input: Stream> {
 #[cfg(feature = "std")]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where
-    Input::Item: PartialEq,
+    Input::Token: PartialEq,
     Input::Range: PartialEq,
 {
     /// Entry point of the parser. Takes some input and tries to parse it, returning an easy to use
@@ -903,7 +903,7 @@ where
     /// // Good!
     /// parser!{
     /// fn my_parser[Input]()(Input) -> String
-    ///     where [Input: Stream<Item=char>]
+    ///     where [Input: Stream<Token = char>]
     /// {
     ///     many1::<String, _, _>(letter())
     /// }
@@ -912,7 +912,7 @@ where
     /// // Won't compile with `easy_parse` since it is specialized on `&str`
     /// parser!{
     /// fn my_parser2['a]()(&'a str) -> String
-    ///     where [&'a str: Stream<Item = char, Range = &'a str>]
+    ///     where [&'a str: Stream<Token = char, Range = &'a str>]
     /// {
     ///     many1(letter())
     /// }
@@ -937,7 +937,7 @@ where
     where
         Input: Stream,
         crate::easy::Stream<Input>: StreamOnce<
-            Item = Input::Item,
+            Token = Input::Token,
             Range = Input::Range,
             Error = crate::easy::ParseError<crate::easy::Stream<Input>>,
             Position = Input::Position,
@@ -955,7 +955,7 @@ impl<Input, P> EasyParser<Input> for P
 where
     P: ?Sized + Parser<crate::easy::Stream<Input>>,
     Input: Stream,
-    Input::Item: PartialEq,
+    Input::Token: PartialEq,
     Input::Range: PartialEq,
 {
 }

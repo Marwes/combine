@@ -76,7 +76,7 @@ pub trait Positioned: StreamOnce {
 ///
 /// parser!{
 ///    fn parser[Input]()(Input) -> String
-///     where [ Input: Stream<Item = char>, ]
+///     where [ Input: Stream<Token = char>, ]
 ///     {
 ///         many1(letter()).and_then(|word: String| {
 ///             if word == "combine" {
@@ -93,7 +93,7 @@ pub trait Positioned: StreamOnce {
 /// }
 /// ```
 pub type StreamErrorFor<Input> = <<Input as StreamOnce>::Error as ParseError<
-    <Input as StreamOnce>::Item,
+    <Input as StreamOnce>::Token,
     <Input as StreamOnce>::Range,
     <Input as StreamOnce>::Position,
 >>::StreamError;
@@ -101,21 +101,21 @@ pub type StreamErrorFor<Input> = <<Input as StreamOnce>::Error as ParseError<
 /// `StreamOnce` represents a sequence of items that can be extracted one by one.
 pub trait StreamOnce {
     /// The type of items which is yielded from this stream.
-    type Item: Clone;
+    type Token: Clone;
 
     /// The type of a range of items yielded from this stream.
     /// Types which do not a have a way of yielding ranges of items should just use the
-    /// `Self::Item` for this type.
+    /// `Self::Token` for this type.
     type Range: Clone;
 
     /// Type which represents the position in a stream.
     /// `Ord` is required to allow parsers to determine which of two positions are further ahead.
     type Position: Clone + Ord;
 
-    type Error: ParseError<Self::Item, Self::Range, Self::Position>;
+    type Error: ParseError<Self::Token, Self::Range, Self::Position>;
     /// Takes a stream and removes its first item, yielding the item and the rest of the elements.
     /// Returns `Err` if no element could be retrieved.
-    fn uncons(&mut self) -> Result<Self::Item, StreamErrorFor<Self>>;
+    fn uncons(&mut self) -> Result<Self::Token, StreamErrorFor<Self>>;
 
     /// Returns `true` if this stream only contains partial input.
     ///
@@ -151,12 +151,12 @@ pub trait Stream: StreamOnce + ResetStream + Positioned {}
 impl<Input> Stream for Input
 where
     Input: StreamOnce + Positioned + ResetStream,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
 }
 
 #[inline]
-pub fn uncons<Input>(input: &mut Input) -> ParseResult<Input::Item, Input::Error>
+pub fn uncons<Input>(input: &mut Input) -> ParseResult<Input::Token, Input::Error>
 where
     Input: ?Sized + Stream,
 {
@@ -176,7 +176,7 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
     /// returns the range of items which passed `predicate`.
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool;
+        F: FnMut(Self::Token) -> bool;
 
     #[inline]
     /// Takes items from stream, testing each one with `predicate`
@@ -187,7 +187,7 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
     /// This may not return `EmptyOk` as it should uncons at least one item.
     fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         let mut consumed = false;
         let result = self.uncons_while(|c| {
@@ -232,7 +232,7 @@ pub trait FullRangeStream: RangeStream {
 #[inline]
 pub fn wrap_stream_error<T, Input>(
     input: &Input,
-    err: <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError,
+    err: <Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError,
 ) -> ParseResult<T, <Input as StreamOnce>::Error>
 where
     Input: ?Sized + StreamOnce + Positioned,
@@ -285,7 +285,7 @@ pub fn uncons_while<Input, F>(
     predicate: F,
 ) -> ParseResult<Input::Range, Input::Error>
 where
-    F: FnMut(Input::Item) -> bool,
+    F: FnMut(Input::Token) -> bool,
     Input: ?Sized + RangeStream,
     Input::Range: Range,
 {
@@ -320,7 +320,7 @@ pub fn uncons_while1<Input, F>(
     predicate: F,
 ) -> ParseResult<Input::Range, Input::Error>
 where
-    F: FnMut(Input::Item) -> bool,
+    F: FnMut(Input::Token) -> bool,
     Input: ?Sized + RangeStream,
 {
     match input.uncons_while1(predicate) {
@@ -380,14 +380,14 @@ impl<'a, I> StreamOnce for &'a mut I
 where
     I: StreamOnce + ?Sized,
 {
-    type Item = I::Item;
+    type Token = I::Token;
 
     type Range = I::Range;
 
     type Position = I::Position;
 
     type Error = I::Error;
-    fn uncons(&mut self) -> Result<Self::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Self::Token, StreamErrorFor<Self>> {
         (**self).uncons()
     }
 
@@ -428,7 +428,7 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         (**self).uncons_while(f)
     }
@@ -436,7 +436,7 @@ where
     #[inline]
     fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         (**self).uncons_while1(f)
     }
@@ -471,7 +471,7 @@ where
 }
 
 impl<'a> StreamOnce for &'a str {
-    type Item = char;
+    type Token = char;
     type Range = &'a str;
     type Position = PointerOffset<str>;
     type Error = StringStreamError;
@@ -535,7 +535,7 @@ where
 impl<'a> RangeStreamOnce for &'a str {
     fn uncons_while<F>(&mut self, f: F) -> Result<&'a str, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         Ok(str_uncons_while(self, self.chars(), f))
     }
@@ -543,7 +543,7 @@ impl<'a> RangeStreamOnce for &'a str {
     #[inline]
     fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         let mut chars = self.chars();
         match chars.next() {
@@ -669,7 +669,7 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<&'a [T], StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         Ok(slice_uncons_while(self, 0, f))
     }
@@ -677,7 +677,7 @@ where
     #[inline]
     fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         if self.is_empty() || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
             return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
@@ -715,7 +715,7 @@ impl<'a, T> StreamOnce for &'a [T]
 where
     T: Clone + PartialEq,
 {
-    type Item = T;
+    type Token = T;
     type Range = &'a [T];
     type Position = PointerOffset<[T]>;
     type Error = UnexpectedParse;
@@ -773,13 +773,13 @@ impl<S> StreamOnce for PartialStream<S>
 where
     S: StreamOnce,
 {
-    type Item = S::Item;
+    type Token = S::Token;
     type Range = S::Range;
     type Position = S::Position;
     type Error = S::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<S::Token, StreamErrorFor<Self>> {
         self.0.uncons()
     }
 
@@ -800,14 +800,14 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.0.uncons_while(f)
     }
 
     fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.0.uncons_while1(f)
     }
@@ -880,13 +880,13 @@ impl<S> StreamOnce for CompleteStream<S>
 where
     S: StreamOnce,
 {
-    type Item = S::Item;
+    type Token = S::Token;
     type Range = S::Range;
     type Position = S::Position;
     type Error = S::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<S::Token, StreamErrorFor<Self>> {
         self.0.uncons()
     }
 
@@ -907,14 +907,14 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.0.uncons_while(f)
     }
 
     fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.0.uncons_while1(f)
     }
@@ -959,7 +959,7 @@ impl<'a, T> StreamOnce for SliceStream<'a, T>
 where
     T: PartialEq + 'a,
 {
-    type Item = &'a T;
+    type Token = &'a T;
     type Range = &'a [T];
     type Position = PointerOffset<[T]>;
     type Error = UnexpectedParse;
@@ -1036,7 +1036,7 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<&'a [T], StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         Ok(slice_uncons_while_ref(&mut self.0, 0, f))
     }
@@ -1044,7 +1044,7 @@ where
     #[inline]
     fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         if self.0.is_empty() || !f(unsafe { self.0.get_unchecked(0) }) {
             return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
@@ -1105,13 +1105,13 @@ impl<Input: Iterator> StreamOnce for IteratorStream<Input>
 where
     Input::Item: Clone + PartialEq,
 {
-    type Item = Input::Item;
+    type Token = Input::Item;
     type Range = Input::Item;
     type Position = ();
     type Error = UnexpectedParse;
 
     #[inline]
-    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Self::Token, StreamErrorFor<Self>> {
         match self.next() {
             Some(x) => Ok(x),
             None => Err(UnexpectedParse::Eoi),
@@ -1126,10 +1126,10 @@ pub struct ReadStream<R> {
 
 #[cfg(feature = "std")]
 impl<R: Read> StreamOnce for ReadStream<R> {
-    type Item = u8;
+    type Token = u8;
     type Range = &'static [u8];
     type Position = usize;
-    type Error = Errors<Self::Item, Self::Range, usize>;
+    type Error = Errors<Self::Token, Self::Range, usize>;
 
     #[inline]
     fn uncons(&mut self) -> Result<u8, StreamErrorFor<Self>> {

@@ -10,15 +10,15 @@ use std::str;
 use combine::error::UnexpectedParse;
 use combine::parser::byte::digit;
 use combine::parser::choice::optional;
-use combine::parser::item::item;
 use combine::parser::range::recognize;
 use combine::parser::repeat::{skip_many, skip_many1};
+use combine::parser::token::token;
 use combine::Parser;
 
 fn main() {
     let mut parser = recognize((
         skip_many1(digit()),
-        optional((item(b'.'), skip_many(digit()))),
+        optional((token(b'.'), skip_many(digit()))),
     ))
     .and_then(|bs: &[u8]| {
         // `bs` only contains digits which are ascii and thus UTF-8

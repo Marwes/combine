@@ -107,9 +107,9 @@
 //!
 //! // `impl Parser` can be used to create reusable parsers with zero overhead
 //! fn expr_<Input>() -> impl Parser< Input, Output = Expr>
-//!     where Input: Stream<Item = char>,
+//!     where Input: Stream<Token = char>,
 //!           // Necessary due to rust-lang/rust#24159
-//!           Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+//!           Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 //! {
 //!     let word = many1(letter());
 //!
@@ -150,7 +150,7 @@
 //! // emulate `impl Parser`)
 //! parser!{
 //!     fn expr[Input]()(Input) -> Expr
-//!     where [Input: Stream<Item = char>]
+//!     where [Input: Stream<Token = char>]
 //!     {
 //!         expr_()
 //!     }
@@ -216,7 +216,7 @@ pub use crate::parser::choice::choice;
 #[doc(inline)]
 pub use crate::parser::combinator::from_str;
 #[doc(inline)]
-pub use crate::parser::item::tokens_cmp;
+pub use crate::parser::token::tokens_cmp;
 
 /// Declares a named parser which can easily be reused.
 ///
@@ -240,9 +240,9 @@ pub use crate::parser::item::tokens_cmp;
 ///     /// It gets expanded to `<Input>`
 ///     fn integer[Input]()(Input) -> i32
 ///     where [
-///         Input: Stream<Item = char>,
+///         Input: Stream<Token = char>,
 ///         Input::Error: ParseError<char, Input::Range, Input::Position>,
-///         <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError:
+///         <Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError:
 ///             From<::std::num::ParseIntError>,
 ///     ]
 ///     {
@@ -264,9 +264,9 @@ pub use crate::parser::item::tokens_cmp;
 ///     /// Parses an integer or a string (any characters)
 ///     pub fn integer_or_string[Input]()(Input) -> IntOrString
 ///     where [
-///         Input: Stream<Item = char>,
+///         Input: Stream<Token = char>,
 ///         Input::Error: ParseError<char, Input::Range, Input::Position>,
-///         <Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError:
+///         <Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError:
 ///             From<::std::num::ParseIntError>,
 ///     ]
 ///     {
@@ -416,7 +416,7 @@ macro_rules! combine_parser_impl {
         $struct_vis struct $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
                 $crate::error::ParseError<
-                    <$input_type as $crate::stream::StreamOnce>::Item,
+                    <$input_type as $crate::stream::StreamOnce>::Token,
                     <$input_type as $crate::stream::StreamOnce>::Range,
                     <$input_type as $crate::stream::StreamOnce>::Position
                     >,
@@ -432,7 +432,7 @@ macro_rules! combine_parser_impl {
         impl<$($type_params)*> $crate::Parser<$input_type> for $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
                     $crate::error::ParseError<
-                        <$input_type as $crate::stream::StreamOnce>::Item,
+                        <$input_type as $crate::stream::StreamOnce>::Token,
                         <$input_type as $crate::stream::StreamOnce>::Range,
                         <$input_type as $crate::stream::StreamOnce>::Position
                         >,
@@ -494,7 +494,7 @@ macro_rules! combine_parser_impl {
             ) -> $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
                     $crate::error::ParseError<
-                        <$input_type as $crate::stream::StreamOnce>::Item,
+                        <$input_type as $crate::stream::StreamOnce>::Token,
                         <$input_type as $crate::stream::StreamOnce>::Range,
                         <$input_type as $crate::stream::StreamOnce>::Position
                         >,
@@ -623,11 +623,11 @@ pub mod combinator {
     #[doc(inline)]
     pub use crate::parser::function::*;
     #[doc(inline)]
-    pub use crate::parser::item::*;
-    #[doc(inline)]
     pub use crate::parser::repeat::*;
     #[doc(inline)]
     pub use crate::parser::sequence::*;
+    #[doc(inline)]
+    pub use crate::parser::token::*;
 }
 
 #[doc(hidden)]
@@ -724,10 +724,10 @@ mod std_tests {
 
     fn follow<Input>(input: &mut Input) -> StdParseResult<(), Input>
     where
-        Input: Stream<Item = char, Error = easy::ParseError<Input>>,
+        Input: Stream<Token = char, Error = easy::ParseError<Input>>,
         Input::Position: Default,
         Input::Error: std::fmt::Debug,
-        Input::Item: PartialEq,
+        Input::Token: PartialEq,
         Input::Range: PartialEq,
     {
         let before = input.checkpoint();
@@ -749,8 +749,8 @@ mod std_tests {
 
     fn integer<'a, Input>(input: &mut Input) -> StdParseResult<i64, Input>
     where
-        Input: Stream<Item = char>,
-        Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+        Input: Stream<Token = char>,
+        Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     {
         let (s, input) = many1::<String, _, _>(digit())
             .expected("integer")
@@ -824,7 +824,7 @@ mod std_tests {
     parser! {
         fn expr[Input]()(Input) -> Expr
         where
-            [Input: Stream<Item = char>,]
+            [Input: Stream<Token = char>,]
         {
             let word = many1(letter()).expected("identifier");
             let integer = parser(integer);
@@ -874,8 +874,8 @@ mod std_tests {
 
     fn term<Input>(input: &mut Input) -> StdParseResult<Expr, Input>
     where
-        Input: Stream<Item = char>,
-        Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+        Input: Stream<Token = char>,
+        Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     {
         fn times(l: Expr, r: Expr) -> Expr {
             Expr::Times(Box::new(l), Box::new(r))

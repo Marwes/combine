@@ -30,7 +30,7 @@ where
     offset: usize,
     iter: Input,
     buffer_offset: usize,
-    buffer: VecDeque<(Input::Item, Input::Position)>,
+    buffer: VecDeque<(Input::Token, Input::Position)>,
 }
 
 impl<Input> ResetStream for Stream<Input>
@@ -61,7 +61,7 @@ impl<Input> Stream<Input>
 where
     Input: StreamOnce + Positioned,
     Input::Position: Clone,
-    Input::Item: Clone,
+    Input::Token: Clone,
 {
     /// Constructs a new `BufferedStream` from a `StreamOnce` instance with a `lookahead`
     /// number of elements that can be stored in the buffer.
@@ -100,15 +100,15 @@ where
 impl<Input> StreamOnce for Stream<Input>
 where
     Input: StreamOnce + Positioned,
-    Input::Item: Clone,
+    Input::Token: Clone,
 {
-    type Item = Input::Item;
+    type Token = Input::Token;
     type Range = Input::Range;
     type Position = Input::Position;
     type Error = Input::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Token, StreamErrorFor<Self>> {
         if self.offset >= self.buffer_offset {
             let position = self.iter.position();
             let item = self.iter.uncons()?;

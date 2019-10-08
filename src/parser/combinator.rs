@@ -73,7 +73,7 @@ pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
 where
     Input: Stream,
     P: Parser<Input>,
-    P::Output: Into<Info<<Input as StreamOnce>::Item, <Input as StreamOnce>::Range, &'static str>>,
+    P::Output: Into<Info<<Input as StreamOnce>::Token, <Input as StreamOnce>::Range, &'static str>>,
 {
     NotFollowedBy(parser)
 }
@@ -360,8 +360,8 @@ where
     Input: Stream,
     P: Parser<Input>,
     F: FnMut(P::Output) -> Result<O, E>,
-    E: Into<<Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    E: Into<<Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     type Output = O;
     type PartialState = P::PartialState;
@@ -420,7 +420,7 @@ where
     P: Parser<Input>,
     F: FnMut(P::Output) -> Result<O, E>,
     Input: Stream,
-    E: Into<<Input::Error as ParseError<Input::Item, Input::Range, Input::Position>>::StreamError>,
+    E: Into<<Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError>,
 {
     AndThen(p, f)
 }
@@ -439,7 +439,7 @@ impl<F, P> Recognize<F, P> {
     where
         P: Parser<Input>,
         Input: Stream,
-        F: Default + Extend<Input::Item>,
+        F: Default + Extend<Input::Token>,
     {
         match result {
             EmptyOk(_) => {
@@ -502,7 +502,7 @@ impl<Input, P, F> Parser<Input> for Recognize<F, P>
 where
     Input: Stream,
     P: Parser<Input>,
-    F: Default + Extend<<Input as StreamOnce>::Item>,
+    F: Default + Extend<<Input as StreamOnce>::Token>,
 {
     type Output = F;
     type PartialState = (F, P::PartialState);
@@ -531,7 +531,7 @@ where
 }
 
 /// Constructs a parser which returns the tokens parsed by `parser` accumulated in
-/// `F: Extend<Input::Item>` instead of `P::Output`.
+/// `F: Extend<Input::Token>` instead of `P::Output`.
 ///
 /// ```
 /// use combine::Parser;
@@ -547,7 +547,7 @@ pub fn recognize<F, Input, P>(parser: P) -> Recognize<F, P>
 where
     Input: Stream,
     P: Parser<Input>,
-    F: Default + Extend<<Input as StreamOnce>::Item>,
+    F: Default + Extend<<Input as StreamOnce>::Token>,
 {
     Recognize(parser, PhantomData)
 }
@@ -787,7 +787,7 @@ where
 /// parser! {
 ///     type PartialState = AnyPartialState;
 ///     fn example[Input]()(Input) -> (char, char)
-///     where [ Input: Stream<Item = char> ]
+///     where [ Input: Stream<Token = char> ]
 ///     {
 ///         any_partial_state((letter(), letter()))
 ///     }
@@ -887,7 +887,7 @@ where
 /// parser! {
 ///     type PartialState = AnySendPartialState;
 ///     fn example[Input]()(Input) -> (char, char)
-///     where [ Input: Stream<Item = char> ]
+///     where [ Input: Stream<Token = char> ]
 ///     {
 ///         any_send_partial_state((letter(), letter()))
 ///     }
@@ -1259,8 +1259,8 @@ pub type FnOpaque<Input, O, S = ()> =
 ///
 /// fn expr<Input>() -> FnOpaque<Input, Expr>
 /// where
-///     Input: Stream<Item = char>,
-///     Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+///     Input: Stream<Token = char>,
+///     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 /// {
 ///     opaque!(
 ///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
