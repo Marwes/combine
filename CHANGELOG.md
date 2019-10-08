@@ -1,3 +1,37 @@
+<a name="4.0.0-beta.1"></a>
+## 4.0.0-beta.1 (2019-10-08)
+
+
+#### Bug Fixes
+
+*   Handle partial parsing in the num parsers ([47764c7f](https://github.com/Marwes/combine/commit/47764c7feb8becefd1d4c376fc11492ed3f3cd6a))
+*   Don't bind the input lifetime to the parser with expected/message ([618c69e0](https://github.com/Marwes/combine/commit/618c69e09afc383dadc9af305394ca82948801c3))
+
+#### Breaking Changes
+
+*   Merge FullRangeStream into RangeStreamOnce ([c160a971](https://github.com/Marwes/combine/commit/c160a971b47c29a0c8d37fbca6f77cd4a6c85831), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Rename `StreamOnce::Item` to `Token` ([74a0bbd3](https://github.com/Marwes/combine/commit/74a0bbd363214047236ae88e76bd7e7a7cdc265f), breaks [#](https://github.com/Marwes/combine/issues/), [#](https://github.com/Marwes/combine/issues/))
+*   Minimum rust version is now 1.32 ([7b77508c](https://github.com/Marwes/combine/commit/7b77508c05f2075e7795b6026e419a2a57666a1c), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Only require `&mut I` in decode ([e154dbc2](https://github.com/Marwes/combine/commit/e154dbc2f2ca3288e6733f29c85f4b1efcd689c7), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Generalize factory to take the Input ([19b1a73e](https://github.com/Marwes/combine/commit/19b1a73ed3516d14b392aefeba0363d01937be22), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Features
+
+*   Merge FullRangeStream into RangeStreamOnce ([c160a971](https://github.com/Marwes/combine/commit/c160a971b47c29a0c8d37fbca6f77cd4a6c85831), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Rename `StreamOnce::Item` to `Token` ([74a0bbd3](https://github.com/Marwes/combine/commit/74a0bbd363214047236ae88e76bd7e7a7cdc265f), breaks [#](https://github.com/Marwes/combine/issues/), [#](https://github.com/Marwes/combine/issues/))
+*   Allow fmt::Display be used to specify errors in combinators ([82796d4a](https://github.com/Marwes/combine/commit/82796d4ae5ea23290920ae4e1586b20535285d49), closes [#255](https://github.com/Marwes/combine/issues/255))
+*   Minimum rust version is now 1.32 ([7b77508c](https://github.com/Marwes/combine/commit/7b77508c05f2075e7795b6026e419a2a57666a1c), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Only require `&mut I` in decode ([e154dbc2](https://github.com/Marwes/combine/commit/e154dbc2f2ca3288e6733f29c85f4b1efcd689c7), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add RepeatUntil ([7f4a310f](https://github.com/Marwes/combine/commit/7f4a310f8edaebe7d3bd450aca7a2823fcf2e5d6))
+*   Generalize factory to take the Input ([19b1a73e](https://github.com/Marwes/combine/commit/19b1a73ed3516d14b392aefeba0363d01937be22), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add the iterate parser ([342a45b4](https://github.com/Marwes/combine/commit/342a45b484240ace2e313138b2818c95cbec3427))
+*   Add dispatch! ([0740ce0f](https://github.com/Marwes/combine/commit/0740ce0fd2ade2bd19981261dfeb89cae1f63120))
+*   impl Stream* for &mut T ([51e7e2b7](https://github.com/Marwes/combine/commit/51e7e2b736f3b3ab8d9ec9877e2afa8fc31f5207))
+*   Add From<S> for easy::Stream<S> ([8f695cc6](https://github.com/Marwes/combine/commit/8f695cc62268a855c3c3847661f6ffe8308b745e))
+*   Allow ReadStream parsers to use &[u8] in errors ([6b62a857](https://github.com/Marwes/combine/commit/6b62a857f441ab930e2f595aff3e87f992c769b8), closes [#249](https://github.com/Marwes/combine/issues/249))
+
+
+
 <a name="4.1.0-alpha.1"></a>
 ## 4.0.0-alpha.2 (2019-06-17)
 
