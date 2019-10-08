@@ -8,8 +8,8 @@ use self::ascii::AsciiChar;
 use crate::combinator::{no_partial, satisfy, skip_many, token, Token};
 use crate::error::{self, ParseError, ParseResult};
 use crate::parser::{
-    item::tokens_cmp,
     range::{take_fn, TakeRange},
+    token::tokens_cmp,
     ParseMode,
 };
 use crate::stream::{FullRangeStream, RangeStream, Stream, StreamOnce};
@@ -29,8 +29,8 @@ use crate::error::ParseResult::*;
 #[inline]
 pub fn byte<Input>(c: u8) -> Token<Input>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     token(c)
 }
@@ -53,8 +53,8 @@ macro_rules! byte_parser {
 #[inline]
 pub fn digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(digit, Digit, is_digit)
 }
@@ -72,8 +72,8 @@ where
 #[inline]
 pub fn space<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(space, Space, is_whitespace)
 }
@@ -91,8 +91,8 @@ where
 #[inline]
 pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     skip_many(space()).expected("whitespaces")
 }
@@ -108,8 +108,8 @@ where
 #[inline]
 pub fn newline<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: u8| ch == b'\n').expected("lf newline")
 }
@@ -126,8 +126,8 @@ where
 #[inline]
 pub fn crlf<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     no_partial(satisfy(|ch: u8| ch == b'\r').with(newline())).expected("crlf newline")
 }
@@ -143,8 +143,8 @@ where
 #[inline]
 pub fn tab<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch| ch == b'\t').expected("tab")
 }
@@ -160,8 +160,8 @@ where
 #[inline]
 pub fn upper<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(upper, Upper, is_uppercase)
 }
@@ -177,8 +177,8 @@ where
 #[inline]
 pub fn lower<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(lower, Lower, is_lowercase)
 }
@@ -195,8 +195,8 @@ where
 #[inline]
 pub fn alpha_num<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
@@ -213,8 +213,8 @@ where
 #[inline]
 pub fn letter<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(letter, Letter, is_alphabetic)
 }
@@ -230,8 +230,8 @@ where
 #[inline]
 pub fn oct_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch| ch >= b'0' && ch <= b'7').expected("octal digit")
 }
@@ -247,8 +247,8 @@ where
 #[inline]
 pub fn hex_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
-    Input: Stream<Item = u8>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(hex_digit, HexDigit, is_hex)
 }
@@ -276,8 +276,8 @@ parser! {
 #[inline]
 pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
 where [
-    Input: Stream<Item = u8, Range = &'b [u8]>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8, Range = &'b [u8]>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 ]
 {
     bytes_cmp(s, |l: u8, r: u8| l == r)
@@ -309,8 +309,8 @@ parser! {
 pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
 where [
     C: FnMut(u8, u8) -> bool,
-    Input: Stream<Item = u8, Range = &'b [u8]>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: Stream<Token = u8, Range = &'b [u8]>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 ]
 {
     let s = *s;
@@ -479,8 +479,8 @@ pub mod num {
 
             impl<'a, Input, B> Parser<Input> for $type_name<B, Input>
             where
-                Input: Stream<Item = u8>,
-                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+                Input: Stream<Token = u8>,
+                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
                 B: ByteOrder,
             {
 
@@ -516,8 +516,8 @@ pub mod num {
             #[inline]
             pub fn $func_name<'a, B, Input>() -> $type_name<B, Input>
             where
-                Input: Stream<Item = u8>,
-                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+                Input: Stream<Token = u8>,
+                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
                 B: ByteOrder,
             {
                 $type_name(PhantomData)
@@ -527,8 +527,8 @@ pub mod num {
             #[inline]
             pub fn $be_name<'a, Input>() -> $type_name<BE, Input>
             where
-                Input: Stream<Item = u8>,
-                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+                Input: Stream<Token = u8>,
+                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
             {
                 $func_name()
             }
@@ -537,8 +537,8 @@ pub mod num {
             #[inline]
             pub fn $le_name<'a, Input>() -> $type_name<LE, Input>
             where
-                Input: Stream<Item = u8>,
-                Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+                Input: Stream<Token = u8>,
+                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
             {
                 $func_name()
             }

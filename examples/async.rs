@@ -52,9 +52,9 @@ fn decode_parser<'a, Input>(
     content_length_parses: Rc<Cell<i32>>,
 ) -> impl Parser<Input, Output = Vec<u8>, PartialState = AnyPartialState> + 'a
 where
-    Input: RangeStream<Item = u8, Range = &'a [u8]> + 'a,
+    Input: RangeStream<Token = u8, Range = &'a [u8]> + 'a,
     // Necessary due to rust-lang/rust#24159
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let content_length = range(&b"Content-Length: "[..])
         .with(recognize(skip_many1(digit())).and_then(|digits: &[u8]| {

@@ -65,16 +65,16 @@ fn is_http_version(c: u8) -> bool {
 
 fn end_of_line<'a, Input>() -> impl Parser<Input, Output = u8>
 where
-    Input: RangeStream<Item = u8, Range = &'a [u8]>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: RangeStream<Token = u8, Range = &'a [u8]>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (token(b'\r'), token(b'\n')).map(|_| b'\r').or(token(b'\n'))
 }
 
 fn message_header<'a, Input>() -> impl Parser<Input, Output = Header<'a>>
 where
-    Input: RangeStream<Item = u8, Range = &'a [u8]>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: RangeStream<Token = u8, Range = &'a [u8]>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let message_header_line = (
         take_while1(is_horizontal_space),
@@ -94,8 +94,8 @@ fn parse_http_request<'a, Input>(
     input: Input,
 ) -> Result<((Request<'a>, Vec<Header<'a>>), Input), Input::Error>
 where
-    Input: RangeStream<Item = u8, Range = &'a [u8]>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    Input: RangeStream<Token = u8, Range = &'a [u8]>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     let http_version = range(&b"HTTP/"[..]).with(take_while1(is_http_version));
 
@@ -146,8 +146,8 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
 
 fn http_requests_bench<'a, Input>(b: &mut Bencher, buffer: Input)
 where
-    Input: RangeStream<Item = u8, Range = &'a [u8]> + Clone,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position> + fmt::Debug,
+    Input: RangeStream<Token = u8, Range = &'a [u8]> + Clone,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position> + fmt::Debug,
 {
     b.iter(|| {
         let mut buf = black_box(buffer.clone());

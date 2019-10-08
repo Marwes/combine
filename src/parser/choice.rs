@@ -812,7 +812,7 @@ macro_rules! dispatch {
 mod tests {
     use super::*;
     use crate::parser::{
-        item::{any, item},
+        token::{any, token},
         EasyParser,
     };
 
@@ -825,9 +825,9 @@ mod tests {
     fn dispatch() {
         let mut parser = any().then(|e| {
             dispatch!(e;
-                'a' => item('a'),
-                'b' => item('b'),
-                _ => item('c')
+                'a' => token('a'),
+                'b' => token('b'),
+                _ => token('c')
             )
         });
         assert_eq!(parser.easy_parse("aa"), Ok(('a', "")));

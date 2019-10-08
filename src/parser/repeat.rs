@@ -262,7 +262,7 @@ where
     fn fail<T>(
         self,
         err: <<Input as StreamOnce>::Error as ParseError<
-            <Input as StreamOnce>::Item,
+            <Input as StreamOnce>::Token,
             <Input as StreamOnce>::Range,
             <Input as StreamOnce>::Position,
         >>::StreamError,
@@ -1102,7 +1102,7 @@ pub struct TakeUntil<F, P> {
 impl<F, Input, P> Parser<Input> for TakeUntil<F, P>
 where
     Input: Stream,
-    F: Extend<<Input as StreamOnce>::Item> + Default,
+    F: Extend<<Input as StreamOnce>::Token> + Default,
     P: Parser<Input>,
 {
     type Output = F;
@@ -1173,7 +1173,7 @@ where
 pub fn take_until<F, Input, P>(end: P) -> TakeUntil<F, P>
 where
     Input: Stream,
-    F: Extend<<Input as StreamOnce>::Item> + Default,
+    F: Extend<<Input as StreamOnce>::Token> + Default,
     P: Parser<Input>,
 {
     TakeUntil {
@@ -1339,11 +1339,11 @@ pub struct Escaped<P, Q, I> {
     escape: I,
     escape_parser: Q,
 }
-impl<Input, P, Q> Parser<Input> for Escaped<P, Q, Input::Item>
+impl<Input, P, Q> Parser<Input> for Escaped<P, Q, Input::Token>
 where
     Input: Stream,
     P: Parser<Input>,
-    <Input as StreamOnce>::Item: PartialEq,
+    <Input as StreamOnce>::Token: PartialEq,
     Q: Parser<Input>,
 {
     type Output = ();
@@ -1429,13 +1429,13 @@ where
 #[inline]
 pub fn escaped<Input, P, Q>(
     parser: P,
-    escape: <Input as StreamOnce>::Item,
+    escape: <Input as StreamOnce>::Token,
     escape_parser: Q,
-) -> Escaped<P, Q, Input::Item>
+) -> Escaped<P, Q, Input::Token>
 where
     Input: Stream,
     P: Parser<Input>,
-    <Input as StreamOnce>::Item: PartialEq,
+    <Input as StreamOnce>::Token: PartialEq,
     Q: Parser<Input>,
 {
     Escaped {

@@ -144,8 +144,8 @@ where
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {
 ///     fn string<Input>(&self, input: &mut Input) -> StdParseResult<u32, Input>
-///         where Input: Stream<Item=char>,
-///               Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+///         where Input: Stream<Token = char>,
+///               Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 ///     {
 ///         many(letter())
 ///             .map(|s: String| self.0.get(&s).cloned().unwrap_or(0))

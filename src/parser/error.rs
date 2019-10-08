@@ -17,7 +17,7 @@ where
 impl<Input, T, E> Parser<Input> for Unexpected<Input, T, E>
 where
     Input: Stream,
-    E: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    E: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     type Output = T;
     type PartialState = ();
@@ -55,7 +55,7 @@ where
 pub fn unexpected<Input, S>(message: S) -> Unexpected<Input, (), S>
 where
     Input: Stream,
-    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     unexpected_any(message)
 }
@@ -88,7 +88,7 @@ where
 pub fn unexpected_any<Input, S, T>(message: S) -> Unexpected<Input, T, S>
 where
     Input: Stream,
-    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     Unexpected(message, PhantomData)
 }
@@ -99,7 +99,7 @@ impl<Input, P, S> Parser<Input> for Message<P, S>
 where
     Input: Stream,
     P: Parser<Input>,
-    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -146,7 +146,7 @@ pub fn message<Input, P, S>(p: P, msg: S) -> Message<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
-    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     Message(p, msg)
 }
@@ -157,7 +157,7 @@ impl<Input, P, S> Parser<Input> for Expected<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
-    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -193,7 +193,7 @@ pub fn expected<Input, P, S>(p: P, info: S) -> Expected<P, S>
 where
     P: Parser<Input>,
     Input: Stream,
-    S: for<'s> ErrorInfo<'s, Input::Item, Input::Range>,
+    S: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
 {
     Expected(p, info)
 }

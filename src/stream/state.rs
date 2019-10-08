@@ -42,13 +42,13 @@ impl<S, U> StreamOnce for Stream<S, U>
 where
     S: StreamOnce,
 {
-    type Item = S::Item;
+    type Token = S::Token;
     type Range = S::Range;
     type Position = S::Position;
     type Error = S::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<S::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<S::Token, StreamErrorFor<Self>> {
         self.stream.uncons()
     }
 
@@ -69,14 +69,14 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.stream.uncons_while(f)
     }
 
     fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         self.stream.uncons_while1(f)
     }

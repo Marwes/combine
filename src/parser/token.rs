@@ -10,9 +10,6 @@ use crate::{
 
 use crate::error::ParseResult::*;
 
-#[doc(inline)]
-pub use self::token as item;
-
 #[derive(Copy, Clone)]
 pub struct Any<Input>(PhantomData<fn(Input) -> Input>);
 
@@ -235,7 +232,7 @@ where
 
 impl<Input, C, E, T> Parser<Input> for Tokens<C, E, T, Input>
 where
-    C: FnMut(T::Token, Input::Token) -> bool,
+    C: FnMut(T::Item, Input::Token) -> bool,
     E: for<'s> ErrorInfo<'s, Input::Token, Input::Range>,
     T: Clone + IntoIterator,
     Input: Stream,
@@ -316,7 +313,7 @@ where
 #[inline]
 pub fn tokens<C, E, T, Input>(cmp: C, expected: E, tokens: T) -> Tokens<C, E, T, Input>
 where
-    C: FnMut(T::Token, Input::Token) -> bool,
+    C: FnMut(T::Item, Input::Token) -> bool,
     T: Clone + IntoIterator,
     Input: Stream,
 {
@@ -340,7 +337,7 @@ where
 
 impl<Input, C, T> Parser<Input> for TokensCmp<C, T, Input>
 where
-    C: FnMut(T::Token, Input::Token) -> bool,
+    C: FnMut(T::Item, Input::Token) -> bool,
     T: Clone + IntoIterator,
     Input: Stream,
 {
@@ -417,7 +414,7 @@ where
 #[inline]
 pub fn tokens_cmp<C, T, I>(tokens: T, cmp: C) -> TokensCmp<C, T, I>
 where
-    C: FnMut(T::Token, I::Token) -> bool,
+    C: FnMut(T::Item, I::Token) -> bool,
     T: Clone + IntoIterator,
     I: Stream,
 {
@@ -520,7 +517,7 @@ pub fn one_of<T, Input>(tokens: T) -> OneOf<T, Input>
 where
     T: Clone + IntoIterator,
     Input: Stream,
-    Input::Token: PartialEq<T::Token>,
+    Input::Token: PartialEq<T::Item>,
 {
     OneOf {
         tokens: tokens,
@@ -579,7 +576,7 @@ pub fn none_of<T, Input>(tokens: T) -> NoneOf<T, Input>
 where
     T: Clone + IntoIterator,
     Input: Stream,
-    Input::Token: PartialEq<T::Token>,
+    Input::Token: PartialEq<T::Item>,
 {
     NoneOf {
         tokens: tokens,

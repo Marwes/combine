@@ -293,8 +293,8 @@ impl<T> Consumed<T> {
     /// //Parses a character of string literal and handles the escaped characters \\ and \" as \
     /// //and " respectively
     /// fn char<Input>(input: &mut Input) -> StdParseResult<char, Input>
-    ///     where Input: Stream<Item = char>,
-    ///           Input::Error: ParseError<Input::Item, Input::Range, Input::Position>,
+    ///     where Input: Stream<Token = char>,
+    ///           Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     /// {
     ///     let (c, consumed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
     ///     match c {

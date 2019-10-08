@@ -85,7 +85,7 @@ pub struct Stream<Input, X> {
 impl<Input, X> Stream<Input, X>
 where
     Input: StreamOnce,
-    X: Positioner<Input::Item>,
+    X: Positioner<Input::Token>,
 {
     /// Creates a new `Stream<Input, X>` from an input stream and a positioner.
     pub fn with_positioner(input: Input, positioner: X) -> Stream<Input, X> {
@@ -96,7 +96,7 @@ where
 impl<Input> Stream<Input, Input::Positioner>
 where
     Input: StreamOnce + DefaultPositioned,
-    Input::Positioner: Positioner<Input::Item>,
+    Input::Positioner: Positioner<Input::Token>,
 {
     /// Creates a new `Stream<Input, X>` from an input stream and its default positioner.
     pub fn new(input: Input) -> Stream<Input, Input::Positioner> {
@@ -107,10 +107,10 @@ where
 impl<Input, X, E> Positioned for Stream<Input, X>
 where
     Input: StreamOnce,
-    X: Positioner<Input::Item>,
-    E: StreamError<Input::Item, Input::Range>,
-    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = E>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = E>,
+    X: Positioner<Input::Token>,
+    E: StreamError<Input::Token, Input::Range>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = E>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = E>,
 {
     #[inline]
     fn position(&self) -> Self::Position {
@@ -121,18 +121,18 @@ where
 impl<Input, X, S> StreamOnce for Stream<Input, X>
 where
     Input: StreamOnce,
-    X: Positioner<Input::Item>,
-    S: StreamError<Input::Item, Input::Range>,
-    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
+    X: Positioner<Input::Token>,
+    S: StreamError<Input::Token, Input::Range>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
 {
-    type Item = Input::Item;
+    type Token = Input::Token;
     type Range = Input::Range;
     type Position = X::Position;
     type Error = Input::Error;
 
     #[inline]
-    fn uncons(&mut self) -> Result<Input::Item, StreamErrorFor<Self>> {
+    fn uncons(&mut self) -> Result<Input::Token, StreamErrorFor<Self>> {
         self.input.uncons().map(|c| {
             self.positioner.update(&c);
             c
@@ -243,10 +243,10 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 impl<Input, X, S> RangeStreamOnce for Stream<Input, X>
 where
     Input: RangeStreamOnce,
-    X: Clone + RangePositioner<Input::Item, Input::Range>,
-    S: StreamError<Input::Item, Input::Range>,
-    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
+    X: Clone + RangePositioner<Input::Token, Input::Range>,
+    S: StreamError<Input::Token, Input::Range>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
     Input::Position: Clone + Ord,
 {
     #[inline]
@@ -260,7 +260,7 @@ where
     #[inline]
     fn uncons_while<F>(&mut self, mut predicate: F) -> Result<Input::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Input::Item) -> bool,
+        F: FnMut(Input::Token) -> bool,
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while(|t| {
@@ -279,7 +279,7 @@ where
         mut predicate: F,
     ) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
-        F: FnMut(Self::Item) -> bool,
+        F: FnMut(Self::Token) -> bool,
     {
         let positioner = &mut self.positioner;
         self.input.uncons_while1(|t| {
@@ -301,10 +301,10 @@ where
 impl<Input, X, S> ResetStream for Stream<Input, X>
 where
     Input: ResetStream,
-    X: Clone + Positioner<Input::Item>,
-    S: StreamError<Input::Item, Input::Range>,
-    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = S>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = S>,
+    X: Clone + Positioner<Input::Token>,
+    S: StreamError<Input::Token, Input::Range>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
 {
     type Checkpoint = Stream<Input::Checkpoint, X>;
     fn checkpoint(&self) -> Self::Checkpoint {
@@ -324,10 +324,10 @@ impl<Input, X, E> FullRangeStream for Stream<Input, X>
 where
     Input: FullRangeStream + ResetStream,
     Input::Position: Clone + Ord,
-    E: StreamError<Input::Item, Input::Range>,
-    Input::Error: ParseError<Input::Item, Input::Range, X::Position, StreamError = E>,
-    Input::Error: ParseError<Input::Item, Input::Range, Input::Position, StreamError = E>,
-    X: Clone + RangePositioner<Input::Item, Input::Range>,
+    E: StreamError<Input::Token, Input::Range>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = E>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = E>,
+    X: Clone + RangePositioner<Input::Token, Input::Range>,
 {
     fn range(&self) -> Self::Range {
         self.input.range()

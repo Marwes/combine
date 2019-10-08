@@ -479,7 +479,7 @@ at https://marwes.github.io/2018/02/08/combine-3.html and https://www.reddit.com
 *   Add Sync to to the Error::Other variant ([22add3ec](https://github.com/Marwes/combine/commit/22add3eca62ff5e6f4d58122a4b366290b1d9385))
 *   Fix positions of BufferedStream being for the next token ([66eab92a](https://github.com/Marwes/combine/commit/66eab92a7dd63269f48cf0fbd0722a6eeea9135d))
 *   Fix the position handling of BufferedStream ([f21148b3](https://github.com/Marwes/combine/commit/f21148b3c4c5c6f10d8b6d90ce4a7925596879b3))
-*   Remove the Positioner bound from Stream::Item an Stream::Range ([fba3f1e7](https://github.com/Marwes/combine/commit/fba3f1e760505305b6a586b6ff5a53eff645e1d1))
+*   Remove the Positioner bound from Stream::Token an Stream::Range ([fba3f1e7](https://github.com/Marwes/combine/commit/fba3f1e760505305b6a586b6ff5a53eff645e1d1))
 * **buffered_stream:**  BufferedStream no longer emits the last token after EOF ([6532884c](https://github.com/Marwes/combine/commit/6532884cc16307e1753584dd40b2b59e3daa6267))
 * **travis:**
   *  Dont pass the test feature to travis ([382a608d](https://github.com/Marwes/combine/commit/382a608da2851c5cc2d3477025951e9a133732bc))
