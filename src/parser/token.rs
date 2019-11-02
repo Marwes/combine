@@ -41,7 +41,6 @@ where
 /// assert!(byte_parser.parse(&b""[..]).is_err());
 /// # }
 /// ```
-#[inline]
 pub fn any<Input>() -> Any<Input>
 where
     Input: Stream,
@@ -102,7 +101,6 @@ where
 /// assert_eq!(parser.parse("?").map(|x| x.0), Ok('?'));
 /// # }
 /// ```
-#[inline]
 pub fn satisfy<Input, P>(predicate: P) -> Satisfy<Input, P>
 where
     Input: Stream,
@@ -157,7 +155,6 @@ where
 /// assert!(parser.parse("A").map(|x| x.0).is_err());
 /// # }
 /// ```
-#[inline]
 pub fn satisfy_map<Input, P, R>(predicate: P) -> SatisfyMap<Input, P>
 where
     Input: Stream,
@@ -208,7 +205,6 @@ where
 /// assert_eq!(result, Ok('!'));
 /// # }
 /// ```
-#[inline]
 pub fn token<Input>(c: Input::Token) -> Token<Input>
 where
     Input: Stream,
@@ -311,7 +307,6 @@ where
 /// assert_eq!(result, Ok(&b"025"[..]));
 /// # }
 /// ```
-#[inline]
 pub fn tokens<C, E, T, Input>(cmp: C, expected: E, tokens: T) -> Tokens<C, E, T, Input>
 where
     C: FnMut(T::Item, Input::Token) -> bool,
@@ -412,7 +407,6 @@ where
 /// assert_eq!(result, Ok(&b"025"[..]));
 /// # }
 /// ```
-#[inline]
 pub fn tokens_cmp<C, T, I>(tokens: T, cmp: C) -> TokensCmp<C, T, I>
 where
     C: FnMut(T::Item, I::Token) -> bool,
@@ -462,7 +456,6 @@ where
 ///                        SourcePosition { line: 1, column: 2 })));
 /// # }
 /// ```
-#[inline]
 pub fn position<Input>() -> Position<Input>
 where
     Input: Stream,
@@ -513,7 +506,6 @@ where
 /// assert_eq!(result, Ok((String::from("ab"), "d")));
 /// # }
 /// ```
-#[inline]
 pub fn one_of<T, Input>(tokens: T) -> OneOf<T, Input>
 where
     T: Clone + IntoIterator,
@@ -572,7 +564,6 @@ where
 /// }));
 /// # }
 /// ```
-#[inline]
 pub fn none_of<T, Input>(tokens: T) -> NoneOf<T, Input>
 where
     T: Clone + IntoIterator,
@@ -612,7 +603,6 @@ where
 /// assert_eq!(result, Ok(42));
 /// # }
 /// ```
-#[inline]
 pub fn value<Input, T>(v: T) -> Value<Input, T>
 where
     Input: Stream,
@@ -666,7 +656,6 @@ where
 /// }));
 /// # }
 /// ```
-#[inline]
 pub fn eof<Input>() -> Eof<Input>
 where
     Input: Stream,

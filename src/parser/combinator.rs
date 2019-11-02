@@ -68,7 +68,6 @@ where
 ///
 /// # }
 /// ```
-#[inline]
 pub fn not_followed_by<Input, P>(parser: P) -> NotFollowedBy<P>
 where
     Input: Stream,
@@ -152,7 +151,6 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline]
 pub fn attempt<Input, P>(p: P) -> Try<P>
 where
     Input: Stream,
@@ -200,7 +198,6 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline]
 pub fn look_ahead<Input, P>(p: P) -> LookAhead<P>
 where
     Input: Stream,
@@ -245,7 +242,6 @@ where
 /// Equivalent to [`p.map(f)`].
 ///
 /// [`p.map(f)`]: ../trait.Parser.html#method.map
-#[inline]
 pub fn map<Input, P, F, B>(p: P, f: F) -> Map<P, F>
 where
     Input: Stream,
@@ -291,7 +287,6 @@ where
 /// Equivalent to [`p.map_input(f)`].
 ///
 /// [`p.map_input(f)`]: ../trait.Parser.html#method.map_input
-#[inline]
 pub fn map_input<Input, P, F, B>(p: P, f: F) -> MapInput<P, F>
 where
     Input: Stream,
@@ -343,7 +338,6 @@ where
 /// Equivalent to [`p.flat_map(f)`].
 ///
 /// [`p.flat_map(f)`]: ../trait.Parser.html#method.flat_map
-#[inline]
 pub fn flat_map<Input, P, F, B>(p: P, f: F) -> FlatMap<P, F>
 where
     Input: Stream,
@@ -414,7 +408,6 @@ where
 /// Equivalent to [`p.and_then(f)`].
 ///
 /// [`p.and_then(f)`]: ../trait.Parser.html#method.and_then
-#[inline]
 pub fn and_then<Input, P, F, O, E>(p: P, f: F) -> AndThen<P, F>
 where
     P: Parser<Input>,
@@ -542,7 +535,6 @@ where
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
 /// ```
-#[inline]
 pub fn recognize<F, Input, P>(parser: P) -> Recognize<F, P>
 where
     Input: Stream,
@@ -657,7 +649,6 @@ where
     forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
-#[inline]
 pub fn no_partial<Input, P>(p: P) -> NoPartial<P>
 where
     Input: Stream,
@@ -972,7 +963,6 @@ where
 /// instead.
 ///
 /// [`factory`]: fn.factory.html
-#[inline]
 pub fn lazy<Input, P, R>(p: P) -> Lazy<P>
 where
     Input: Stream,
@@ -1055,7 +1045,6 @@ where
 /// let mut parser = many(factory(move |_| iter.next().unwrap()));
 /// assert_eq!(parser.parse("1a2b3cd"), Ok(("1a2b3c".to_string(), "d")));
 /// ```
-#[inline]
 pub fn factory<Input, P, R>(p: P) -> Factory<P, R>
 where
     Input: Stream,

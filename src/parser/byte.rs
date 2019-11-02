@@ -28,7 +28,6 @@ use self::ascii::AsciiChar;
 /// assert!(byte(b'A').parse(&b""[..]).is_err());
 /// assert!(byte(b'A').parse(&b"!"[..]).is_err());
 /// ```
-#[inline]
 pub fn byte<Input>(c: u8) -> Token<Input>
 where
     Input: Stream<Token = u8>,
@@ -56,7 +55,6 @@ macro_rules! byte_parser {
 /// assert_eq!(digit().parse(&b"9"[..]), Ok((b'9', &b""[..])));
 /// assert!(digit().parse(&b"A"[..]).is_err());
 /// ```
-#[inline]
 pub fn digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -75,7 +73,6 @@ where
 /// assert!(space().parse(&b"!"[..]).is_err());
 /// assert!(space().parse(&b""[..]).is_err());
 /// ```
-#[inline]
 pub fn space<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -94,7 +91,6 @@ where
 /// assert_eq!(spaces().parse(&b""[..]), Ok(((), &b""[..])));
 /// assert_eq!(spaces().parse(&b"   "[..]), Ok(((), &b""[..])));
 /// ```
-#[inline]
 pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
     Input: Stream<Token = u8>,
@@ -111,7 +107,6 @@ where
 /// assert_eq!(newline().parse(&b"\n"[..]), Ok((b'\n', &b""[..])));
 /// assert!(newline().parse(&b"\r"[..]).is_err());
 /// ```
-#[inline]
 pub fn newline<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -129,7 +124,6 @@ where
 /// assert!(crlf().parse(&b"\r"[..]).is_err());
 /// assert!(crlf().parse(&b"\n"[..]).is_err());
 /// ```
-#[inline]
 pub fn crlf<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -146,7 +140,6 @@ where
 /// assert_eq!(tab().parse(&b"\t"[..]), Ok((b'\t', &b""[..])));
 /// assert!(tab().parse(&b" "[..]).is_err());
 /// ```
-#[inline]
 pub fn tab<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -163,7 +156,6 @@ where
 /// assert_eq!(upper().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(upper().parse(&b"a"[..]).is_err());
 /// ```
-#[inline]
 pub fn upper<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -180,7 +172,6 @@ where
 /// assert_eq!(lower().parse(&b"a"[..]), Ok((b'a', &b""[..])));
 /// assert!(lower().parse(&b"A"[..]).is_err());
 /// ```
-#[inline]
 pub fn lower<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -198,7 +189,6 @@ where
 /// assert_eq!(alpha_num().parse(&b"1"[..]), Ok((b'1', &b""[..])));
 /// assert!(alpha_num().parse(&b"!"[..]).is_err());
 /// ```
-#[inline]
 pub fn alpha_num<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -216,7 +206,6 @@ where
 /// assert_eq!(letter().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(letter().parse(&b"9"[..]).is_err());
 /// ```
-#[inline]
 pub fn letter<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -233,7 +222,6 @@ where
 /// assert_eq!(oct_digit().parse(&b"7"[..]), Ok((b'7', &b""[..])));
 /// assert!(oct_digit().parse(&b"8"[..]).is_err());
 /// ```
-#[inline]
 pub fn oct_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -250,7 +238,6 @@ where
 /// assert_eq!(hex_digit().parse(&b"F"[..]), Ok((b'F', &b""[..])));
 /// assert!(hex_digit().parse(&b"H"[..]).is_err());
 /// ```
-#[inline]
 pub fn hex_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
@@ -279,7 +266,6 @@ parser! {
 ///
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
-#[inline]
 pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
 where [
     Input: Stream<Token = u8, Range = &'b [u8]>,
@@ -311,7 +297,6 @@ parser! {
 ///
 /// [`RangeStream`]: ../stream/trait.RangeStream.html
 /// [`range`]: ../range/fn.range.html
-#[inline]
 pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
 where [
     C: FnMut(u8, u8) -> bool,
@@ -334,7 +319,6 @@ macro_rules! take_until {
         parser!{
             #[derive(Clone)]
             pub struct $type_name;
-            #[inline]
             $(#[$attr])*
             pub fn $func_name[Input]($($param : u8),*)(Input) -> Input::Range
                 where [
@@ -432,7 +416,6 @@ parser! {
 ///     Ok(("abc"))
 /// );
 /// ```
-#[inline]
 pub fn take_until_bytes['a, Input](needle: &'a [u8])(Input) -> Input::Range
 where [
     Input: RangeStream,
@@ -518,7 +501,6 @@ pub mod num {
             }
 
             $(#[$attr])*
-            #[inline]
             pub fn $func_name<'a, B, Input>() -> $type_name<B, Input>
             where
                 Input: Stream<Token = u8>,
@@ -529,7 +511,6 @@ pub mod num {
             }
 
             $(#[$attr])*
-            #[inline]
             pub fn $be_name<'a, Input>() -> $type_name<BE, Input>
             where
                 Input: Stream<Token = u8>,
@@ -539,7 +520,6 @@ pub mod num {
             }
 
             $(#[$attr])*
-            #[inline]
             pub fn $le_name<'a, Input>() -> $type_name<LE, Input>
             where
                 Input: Stream<Token = u8>,

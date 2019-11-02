@@ -30,7 +30,6 @@ pub struct Count;
 /// assert_eq!(result, Ok((b"aa"[..].to_owned(), &b"ab"[..])));
 /// # }
 /// ```
-#[inline]
 pub fn count[F, Input, P](count: usize, parser: P)(Input) -> F
 where [
     Input: Stream,
@@ -141,7 +140,6 @@ where
 /// # Panics
 ///
 /// If `min` > `max`.
-#[inline]
 pub fn count_min_max<F, Input, P>(min: usize, max: usize, parser: P) -> CountMinMax<F, P>
 where
     Input: Stream,
@@ -389,7 +387,6 @@ where
 /// assert_eq!(result, Ok(vec!['1', '2', '3']));
 /// # }
 /// ```
-#[inline]
 pub fn many<F, Input, P>(p: P) -> Many<F, P>
 where
     Input: Stream,
@@ -478,7 +475,6 @@ where
 /// assert!(result.is_err());
 /// # }
 /// ```
-#[inline]
 pub fn many1<F, Input, P>(p: P) -> Many1<F, P>
 where
     Input: Stream,
@@ -526,7 +522,6 @@ parser! {
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
-#[inline]
 pub fn skip_many[Input, P](p: P)(Input) -> ()
 where [
     P: Parser<Input>,
@@ -554,7 +549,6 @@ parser! {
 /// assert_eq!(result, Ok(((), "A")));
 /// # }
 /// ```
-#[inline]
 pub fn skip_many1[Input, P](p: P)(Input) -> ()
 where [
     P: Parser<Input>,
@@ -625,7 +619,6 @@ where
 /// assert_eq!(result_ok2, Ok((vec![], "")));
 /// # }
 /// ```
-#[inline]
 pub fn sep_by<F, Input, P, S>(parser: P, separator: S) -> SepBy<F, P, S>
 where
     Input: Stream,
@@ -733,7 +726,6 @@ where
 /// }));
 /// # }
 /// ```
-#[inline]
 pub fn sep_by1<F, Input, P, S>(parser: P, separator: S) -> SepBy1<F, P, S>
 where
     Input: Stream,
@@ -808,7 +800,6 @@ where
 /// assert_eq!(result_ok2, Ok((vec!['1', '2', '3'], "")));
 /// # }
 /// ```
-#[inline]
 pub fn sep_end_by<F, Input, P, S>(parser: P, separator: S) -> SepEndBy<F, P, S>
 where
     Input: Stream,
@@ -916,7 +907,6 @@ where
 /// }));
 /// # }
 /// ```
-#[inline]
 pub fn sep_end_by1<F, Input, P, S>(parser: P, separator: S) -> SepEndBy1<F, P, S>
 where
     Input: Stream,
@@ -1011,7 +1001,6 @@ where
 /// assert_eq!(parser.parse("9-3-5"), Ok((1, "")));
 /// # }
 /// ```
-#[inline]
 pub fn chainl1<Input, P, Op>(parser: P, op: Op) -> Chainl1<P, Op>
 where
     Input: Stream,
@@ -1084,7 +1073,6 @@ where
 ///     assert_eq!(parser.parse("2^3^2"), Ok((512, "")));
 /// }
 /// ```
-#[inline]
 pub fn chainr1<Input, P, Op>(parser: P, op: Op) -> Chainr1<P, Op>
 where
     Input: Stream,
@@ -1170,7 +1158,6 @@ where
 ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok((b"123TA".to_vec(), &b"TAG"[..])));
 /// }
 /// ```
-#[inline]
 pub fn take_until<F, Input, P>(end: P) -> TakeUntil<F, P>
 where
     Input: Stream,
@@ -1281,7 +1268,6 @@ where
     }
 }
 
-#[inline]
 pub fn repeat_until<F, Input, P, E>(parser: P, end: E) -> RepeatUntil<F, P, E>
 where
     Input: Stream,
@@ -1428,7 +1414,6 @@ where
 ///     assert!(parser.parse(r#"\a"#).is_err());
 /// }
 /// ```
-#[inline]
 pub fn escaped<Input, P, Q>(
     parser: P,
     escape: <Input as StreamOnce>::Token,

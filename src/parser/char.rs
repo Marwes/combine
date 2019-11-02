@@ -16,7 +16,6 @@ use crate::{
 /// assert_eq!(char('!').parse("!"), Ok(('!', "")));
 /// assert!(char('A').parse("!").is_err());
 /// ```
-#[inline]
 pub fn char<Input>(c: char) -> Token<Input>
 where
     Input: Stream<Token = char>,
@@ -58,7 +57,6 @@ parser! {
 /// assert!(space().parse("!").is_err());
 /// assert!(space().parse("").is_err());
 /// ```
-#[inline]
 pub fn space<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -80,7 +78,6 @@ where
 /// assert_eq!(spaces().parse(""), Ok(((), "")));
 /// assert_eq!(spaces().parse("   "), Ok(((), "")));
 /// ```
-#[inline]
 pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
     Input: Stream<Token = char>,
@@ -97,7 +94,6 @@ where
 /// assert_eq!(newline().parse("\n"), Ok(('\n', "")));
 /// assert!(newline().parse("\r").is_err());
 /// ```
-#[inline]
 pub fn newline<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -115,7 +111,6 @@ where
 /// assert!(crlf().parse("\r").is_err());
 /// assert!(crlf().parse("\n").is_err());
 /// ```
-#[inline]
 pub fn crlf<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -132,7 +127,6 @@ where
 /// assert_eq!(tab().parse("\t"), Ok(('\t', "")));
 /// assert!(tab().parse(" ").is_err());
 /// ```
-#[inline]
 pub fn tab<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -151,7 +145,6 @@ where
 /// assert_eq!(upper().parse("A"), Ok(('A', "")));
 /// assert!(upper().parse("a").is_err());
 /// ```
-#[inline]
 pub fn upper<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -170,7 +163,6 @@ where
 /// assert_eq!(lower().parse("a"), Ok(('a', "")));
 /// assert!(lower().parse("A").is_err());
 /// ```
-#[inline]
 pub fn lower<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -190,7 +182,6 @@ where
 /// assert_eq!(alpha_num().parse("1"), Ok(('1', "")));
 /// assert!(alpha_num().parse("!").is_err());
 /// ```
-#[inline]
 pub fn alpha_num<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -210,7 +201,6 @@ where
 /// assert_eq!(letter().parse("A"), Ok(('A', "")));
 /// assert!(letter().parse("9").is_err());
 /// ```
-#[inline]
 pub fn letter<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -227,7 +217,6 @@ where
 /// assert_eq!(oct_digit().parse("7"), Ok(('7', "")));
 /// assert!(oct_digit().parse("8").is_err());
 /// ```
-#[inline]
 pub fn oct_digit<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -244,7 +233,6 @@ where
 /// assert_eq!(hex_digit().parse("F"), Ok(('F', "")));
 /// assert!(hex_digit().parse("H").is_err());
 /// ```
-#[inline]
 pub fn hex_digit<Input>() -> impl Parser<Input, Output = char, PartialState = ()>
 where
     Input: Stream<Token = char>,
@@ -266,7 +254,6 @@ where
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
-#[inline]
 pub fn string<'a, Input>(s: &'static str) -> impl Parser<Input, Output = &'a str>
 where
     Input: Stream<Token = char>,
@@ -289,7 +276,6 @@ where
 /// assert_eq!(result, Ok("rust"));
 /// # }
 /// ```
-#[inline]
 pub fn string_cmp<'a, C, Input>(s: &'static str, cmp: C) -> impl Parser<Input, Output = &'a str>
 where
     C: FnMut(char, char) -> bool,

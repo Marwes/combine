@@ -547,7 +547,6 @@ where
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
 /// ```
-#[inline]
 pub fn choice<Input, P>(ps: P) -> Choice<P>
 where
     Input: Stream,
@@ -620,7 +619,6 @@ where
 ///
 /// [`choice!`]: ../../macro.choice.html
 /// [`p1.or(p2)`]: ../trait.Parser.html#method.or
-#[inline]
 pub fn or<Input, P1, P2>(p1: P1, p2: P2) -> Or<P1, P2>
 where
     Input: Stream,
@@ -680,7 +678,6 @@ where
 /// assert!(parser.parse("heya").is_err());
 /// # }
 /// ```
-#[inline]
 pub fn optional<Input, P>(parser: P) -> Optional<P>
 where
     Input: Stream,

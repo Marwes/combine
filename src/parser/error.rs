@@ -52,7 +52,6 @@ where
 /// );
 /// # }
 /// ```
-#[inline]
 pub fn unexpected<Input, S>(message: S) -> Unexpected<Input, (), S>
 where
     Input: Stream,
@@ -85,7 +84,6 @@ where
 /// );
 /// # }
 /// ```
-#[inline]
 pub fn unexpected_any<Input, S, T>(message: S) -> Unexpected<Input, T, S>
 where
     Input: Stream,
@@ -142,7 +140,6 @@ where
 /// Equivalent to [`p1.message(msg)`].
 ///
 /// [`p1.message(msg)`]: ../trait.Parser.html#method.message
-#[inline]
 pub fn message<Input, P, S>(p: P, msg: S) -> Message<P, S>
 where
     P: Parser<Input>,
@@ -189,7 +186,6 @@ where
 /// Equivalent to [`p.expected(info)`].
 ///
 /// [`p.expected(info)`]: ../trait.Parser.html#method.expected
-#[inline]
 pub fn expected<Input, P, S>(p: P, info: S) -> Expected<P, S>
 where
     P: Parser<Input>,
@@ -237,7 +233,6 @@ where
 /// Equivalent to [`p.silent()`].
 ///
 /// [`p.silent()`]: ../trait.Parser.html#method.silent
-#[inline]
 pub fn silent<Input, P>(p: P) -> Silent<P>
 where
     P: Parser<Input>,
