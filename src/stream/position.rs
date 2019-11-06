@@ -233,6 +233,24 @@ impl Positioner<char> for SourcePosition {
     }
 }
 
+impl Positioner<u8> for SourcePosition {
+    type Position = SourcePosition;
+
+    #[inline]
+    fn position(&self) -> SourcePosition {
+        self.clone()
+    }
+
+    #[inline]
+    fn update(&mut self, token: &u8) {
+        self.column += 1;
+        if *token == b'\n' {
+            self.column = 1;
+            self.line += 1;
+        }
+    }
+}
+
 impl<'a> RangePositioner<char, &'a str> for SourcePosition {
     fn update_range(&mut self, range: &&'a str) {
         for c in range.chars() {
