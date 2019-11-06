@@ -1091,16 +1091,21 @@ where
 }
 
 #[cfg(feature = "std")]
-pub struct ReadStream<R> {
+pub struct ReadStream<R, P> {
     bytes: Bytes<R>,
+    phantom: PhantomData<P>
 }
 
 #[cfg(feature = "std")]
-impl<R: Read> StreamOnce for ReadStream<R> {
+impl<R, P> StreamOnce for ReadStream<R, P>
+where
+    R: Read,
+    P: Ord + PartialEq + Clone
+{
     type Token = u8;
     type Range = &'static [u8];
-    type Position = usize;
-    type Error = Errors<Self::Token, Self::Range, usize>;
+    type Position = P;
+    type Error = Errors<Self::Token, Self::Range, P>;
 
     #[inline]
     fn uncons(&mut self) -> Result<u8, StreamErrorFor<Self>> {
@@ -1113,7 +1118,7 @@ impl<R: Read> StreamOnce for ReadStream<R> {
 }
 
 #[cfg(feature = "std")]
-impl<R> ReadStream<R>
+impl<R, P> ReadStream<R, P>
 where
     R: Read,
 {
@@ -1141,9 +1146,10 @@ where
     /// assert_eq!(result, Ok((vec![b'1', b'2', b'3'], b',')));
     /// # }
     /// ```
-    pub fn new(read: R) -> ReadStream<R> {
+    pub fn new(read: R) -> ReadStream<R, P> {
         ReadStream {
             bytes: read.bytes(),
+            phantom: PhantomData
         }
     }
 }

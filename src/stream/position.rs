@@ -48,7 +48,7 @@ impl<T> DefaultPositioned for IteratorStream<T> {
 }
 
 #[cfg(feature = "std")]
-impl<R> DefaultPositioned for ReadStream<R> {
+impl<R, P> DefaultPositioned for ReadStream<R, P> {
     type Positioner = IndexPositioner;
 }
 
@@ -227,6 +227,24 @@ impl Positioner<char> for SourcePosition {
     fn update(&mut self, token: &char) {
         self.column += 1;
         if *token == '\n' {
+            self.column = 1;
+            self.line += 1;
+        }
+    }
+}
+
+impl Positioner<u8> for SourcePosition {
+    type Position = SourcePosition;
+
+    #[inline]
+    fn position(&self) -> SourcePosition {
+        self.clone()
+    }
+
+    #[inline]
+    fn update(&mut self, token: &u8) {
+        self.column += 1;
+        if *token == b'\n' {
             self.column = 1;
             self.line += 1;
         }

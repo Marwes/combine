@@ -177,6 +177,7 @@ impl<R> From<char> for Info<char, R> {
         Info::Token(s)
     }
 }
+
 impl<T, R> From<String> for Info<T, R> {
     fn from(s: String) -> Info<T, R> {
         Info::Owned(s)
