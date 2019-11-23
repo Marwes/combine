@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[cfg(feature = "std")]
-use crate::stream::ReadStream;
+use crate::stream::read;
 
 /// Trait for tracking the current position of a `Stream`.
 pub trait Positioner<Item> {
@@ -48,7 +48,7 @@ impl<T> DefaultPositioned for IteratorStream<T> {
 }
 
 #[cfg(feature = "std")]
-impl<R> DefaultPositioned for ReadStream<R> {
+impl<R> DefaultPositioned for read::Stream<R> {
     type Positioner = IndexPositioner;
 }
 
