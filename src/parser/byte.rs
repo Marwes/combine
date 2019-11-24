@@ -689,7 +689,7 @@ pub mod num {
 #[cfg(test)]
 mod tests {
 
-    use crate::stream::{buffered, position, ReadStream};
+    use crate::stream::{buffered, position, read};
 
     use super::*;
 
@@ -713,7 +713,7 @@ mod tests {
     fn bytes_read_stream() {
         assert!(bytes(b"abc")
             .parse(buffered::Stream::new(
-                position::Stream::new(ReadStream::new("abc".as_bytes())),
+                position::Stream::new(read::Stream::new("abc".as_bytes())),
                 1
             ))
             .is_ok());

@@ -13,12 +13,6 @@
 
 use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, mem, str::Chars};
 
-#[cfg(feature = "std")]
-use std::io::{Bytes, Read};
-
-#[cfg(feature = "std")]
-use crate::stream::easy::Errors;
-
 use crate::{
     error::{
         ParseError,
@@ -57,6 +51,9 @@ pub mod buffered;
 pub mod easy;
 /// Stream wrapper which provides more detailed position information.
 pub mod position;
+/// Stream wrapper allowing `std::io::Read` to be used
+#[cfg(feature = "std")]
+pub mod read;
 /// Stream wrapper allowing custom state to be used.
 pub mod state;
 
@@ -1086,64 +1083,6 @@ where
         match self.next() {
             Some(x) => Ok(x),
             None => Err(UnexpectedParse::Eoi),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-pub struct ReadStream<R> {
-    bytes: Bytes<R>,
-}
-
-#[cfg(feature = "std")]
-impl<R: Read> StreamOnce for ReadStream<R> {
-    type Token = u8;
-    type Range = &'static [u8];
-    type Position = usize;
-    type Error = Errors<Self::Token, Self::Range, usize>;
-
-    #[inline]
-    fn uncons(&mut self) -> Result<u8, StreamErrorFor<Self>> {
-        match self.bytes.next() {
-            Some(Ok(b)) => Ok(b),
-            Some(Err(err)) => Err(StreamErrorFor::<Self>::other(err)),
-            None => Err(StreamErrorFor::<Self>::end_of_input()),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl<R> ReadStream<R>
-where
-    R: Read,
-{
-    /// Creates a `StreamOnce` instance from a value implementing `std::io::Read`.
-    ///
-    /// NOTE: This type do not implement `Positioned` and `Clone` and must be wrapped with types
-    ///     such as `BufferedStreamRef` and `State` to become a `Stream` which can be parsed
-    ///
-    /// ```rust
-    /// # #![cfg(feature = "std")]
-    /// # extern crate combine;
-    /// use combine::*;
-    /// use combine::parser::byte::*;
-    /// use combine::stream::ReadStream;
-    /// use combine::stream::buffered;
-    /// use combine::stream::position;
-    /// use std::io::Read;
-    ///
-    /// # fn main() {
-    /// let input: &[u8] = b"123,";
-    /// let stream = buffered::Stream::new(position::Stream::new(ReadStream::new(input)), 1);
-    /// let result = (many(digit()), byte(b','))
-    ///     .parse(stream)
-    ///     .map(|t| t.0);
-    /// assert_eq!(result, Ok((vec![b'1', b'2', b'3'], b',')));
-    /// # }
-    /// ```
-    pub fn new(read: R) -> ReadStream<R> {
-        ReadStream {
-            bytes: read.bytes(),
         }
     }
 }
