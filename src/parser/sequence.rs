@@ -71,7 +71,7 @@ macro_rules! tuple_parser {
                 pub $id: $id,
             )*
             offset: u8,
-            _marker: PhantomData <( $h $(, $id)* )>,
+            _marker: PhantomData <( $h, $( $id),* )>,
         }
 
 
