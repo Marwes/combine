@@ -31,7 +31,7 @@ pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 /// extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::char::digit;
-/// # use combine::error::{Consumed, StreamError};
+/// # use combine::error::{Commit, StreamError};
 /// # use combine::stream::easy;
 /// # fn main() {
 /// let mut even_digit = parser(|input| {
@@ -49,7 +49,7 @@ pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 ///             position,
 ///             StreamError::expected("even number")
 ///         );
-///         Err(Consumed::Empty(errors.into()))
+///         Err(Commit::Peek(errors.into()))
 ///     }
 /// });
 /// let result = even_digit

@@ -135,8 +135,8 @@ where
     forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
-/// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
-/// after consuming input.
+/// `attempt(p)` behaves as `p` except it always acts as `p` peeked instead of commited on its
+/// parse.
 ///
 /// ```
 /// # extern crate combine;
@@ -392,9 +392,7 @@ where
                     if input.is_partial() && input_at_eof(input) {
                         ctry!(input.reset(checkpoint).consumed());
                     }
-                    CommitErr(
-                        <Input as StreamOnce>::Error::from_error(position, err.into()).into(),
-                    )
+                    CommitErr(<Input as StreamOnce>::Error::from_error(position, err.into()).into())
                 }
             },
             PeekErr(err) => PeekErr(err),

@@ -730,7 +730,7 @@ mod std_tests {
         },
     };
 
-    use super::{easy::Error, error::Consumed, stream::IteratorStream, *};
+    use super::{easy::Error, error::Commit, stream::IteratorStream, *};
 
     #[test]
     fn optional_error_consume() {
@@ -753,14 +753,14 @@ mod std_tests {
                 if c.is_alphanumeric() {
                     input.reset(before).unwrap();
                     let e = Error::Unexpected(c.into());
-                    Err(Consumed::Empty(
+                    Err(Commit::Peek(
                         easy::Errors::new(input.position(), e).into(),
                     ))
                 } else {
-                    Ok(((), Consumed::Empty(())))
+                    Ok(((), Commit::Peek(())))
                 }
             }
-            Err(_) => Ok(((), Consumed::Empty(()))),
+            Err(_) => Ok(((), Commit::Peek(()))),
         }
     }
 
@@ -819,7 +819,7 @@ mod std_tests {
             .map(|t| t.1)
             .parse_stream(&mut parsed_state)
             .into_result();
-        let state = Consumed::Consumed(position::Stream {
+        let state = Commit::Commit(position::Stream {
             positioner: SourcePosition { line: 3, column: 1 },
             input: "",
         });

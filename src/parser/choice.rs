@@ -12,7 +12,8 @@ use crate::{
 };
 
 /// Takes a number of parsers and tries to apply them each in order.
-/// Fails if all the parsers fails or if an applied parser consumes input before failing.
+/// Fails if all the parsers fails or if an applied parser fails after it has committed to its
+/// parse.
 ///
 /// ```
 /// # #[macro_use]
@@ -178,7 +179,7 @@ macro_rules! do_choice {
             PeekOk(x) => PeekOk(x),
             CommitErr(err) => {
                 // If we get `CommitErr` but the input is the same this is a partial parse we
-                // cannot commit to so leave the state as `Empty` to retry all the parsers
+                // cannot commit to so leave the state as `Peek` to retry all the parsers
                 // on the next call to  `parse_partial`
                 if $input.position() != $before_position {
                     *$state = self::$partial_state::$head(state);
@@ -217,7 +218,7 @@ macro_rules! tuple_choice_parser_inner {
     ($partial_state: ident; $($id: ident)+) => {
         #[doc(hidden)]
         pub enum $partial_state<$($id),+> {
-            Empty,
+            Peek,
             $(
                 $id($id),
             )+
@@ -225,7 +226,7 @@ macro_rules! tuple_choice_parser_inner {
 
         impl<$($id),+> Default for self::$partial_state<$($id),+> {
             fn default() -> Self {
-                self::$partial_state::Empty
+                self::$partial_state::Peek
             }
         }
 
@@ -252,7 +253,7 @@ macro_rules! tuple_choice_parser_inner {
             {
                 let ($(ref mut $id,)+) = *self;
                 let empty = match *state {
-                    self::$partial_state::Empty => true,
+                    self::$partial_state::Peek => true,
                     _ => false,
                 };
                 if mode.is_first() || empty {
@@ -261,7 +262,7 @@ macro_rules! tuple_choice_parser_inner {
                     do_choice!(input before_position before $partial_state state ( $($id)+ ) )
                 } else {
                     match *state {
-                        self::$partial_state::Empty => unreachable!(),
+                        self::$partial_state::Peek => unreachable!(),
                         $(
                             self::$partial_state::$id(_) => {
                                 let result = match *state {
@@ -271,7 +272,7 @@ macro_rules! tuple_choice_parser_inner {
                                     _ => unreachable!()
                                 };
                                 if result.is_ok() {
-                                    *state = self::$partial_state::Empty;
+                                    *state = self::$partial_state::Peek;
                                 }
                                 result
                             }

@@ -3,7 +3,7 @@
 use crate::{
     combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value},
     error::{
-        Consumed, ParseError,
+        Commit, ParseError,
         ParseResult::{self, *},
         ResultExt, StdParseResult, StreamError, Tracked,
     },
@@ -589,7 +589,7 @@ where
         M: ParseMode,
     {
         sep_by1(&mut self.parser, &mut self.separator)
-            .or(parser(|_| Ok((F::default(), Consumed::Empty(())))))
+            .or(parser(|_| Ok((F::default(), Commit::Peek(())))))
             .parse_mode(mode, input, state)
     }
 
@@ -648,7 +648,7 @@ where
 {
     type Output = F;
     type PartialState = (
-        Option<Consumed<()>>,
+        Option<Commit<()>>,
         F,
         <With<S, P> as Parser<Input>>::PartialState,
     );
@@ -772,7 +772,7 @@ where
         M: ParseMode,
     {
         sep_end_by1(&mut self.parser, &mut self.separator)
-            .or(parser(|_| Ok((F::default(), Consumed::Empty(())))))
+            .or(parser(|_| Ok((F::default(), Commit::Peek(())))))
             .parse_mode(mode, input, state)
     }
 
@@ -830,7 +830,7 @@ where
 {
     type Output = F;
     type PartialState = (
-        Option<Consumed<()>>,
+        Option<Commit<()>>,
         F,
         <With<S, Optional<P>> as Parser<Input>>::PartialState,
     );
@@ -932,7 +932,7 @@ where
 {
     type Output = P::Output;
     type PartialState = (
-        Option<(P::Output, Consumed<()>)>,
+        Option<(P::Output, Commit<()>)>,
         <(Op, P) as Parser<Input>>::PartialState,
     );
 
@@ -969,11 +969,11 @@ where
                     consumed = consumed.merge(rest);
                     mode.set_first();
                 }
-                Err(Consumed::Consumed(err)) => {
+                Err(Commit::Commit(err)) => {
                     *l_state = Some((l, consumed));
                     return CommitErr(err.error);
                 }
-                Err(Consumed::Empty(_)) => {
+                Err(Commit::Peek(_)) => {
                     ctry!(input.reset(before).consumed());
                     break;
                 }
@@ -1033,8 +1033,8 @@ where
                     consumed = consumed.merge(rest);
                     x
                 }
-                Err(Consumed::Consumed(err)) => return CommitErr(err.error),
-                Err(Consumed::Empty(_)) => {
+                Err(Commit::Commit(err)) => return CommitErr(err.error),
+                Err(Commit::Peek(_)) => {
                     ctry!(input.reset(before).consumed());
                     break;
                 }
@@ -1045,8 +1045,8 @@ where
                     l = op(l, r);
                     consumed = consumed.merge(rest);
                 }
-                Err(Consumed::Consumed(err)) => return CommitErr(err.error),
-                Err(Consumed::Empty(_)) => {
+                Err(Commit::Commit(err)) => return CommitErr(err.error),
+                Err(Commit::Peek(_)) => {
                     ctry!(input.reset(before).consumed());
                     break;
                 }
@@ -1110,23 +1110,23 @@ where
     {
         let (ref mut output, ref mut end_state) = *state;
 
-        let mut consumed = Consumed::Empty(());
+        let mut consumed = Commit::Peek(());
         loop {
             let before = input.checkpoint();
             match self.end.parse_mode(mode, input, end_state).into() {
                 Ok((_, rest)) => {
                     ctry!(input.reset(before).consumed());
                     return match consumed.merge(rest) {
-                        Consumed::Consumed(()) => CommitOk(mem::replace(output, F::default())),
-                        Consumed::Empty(()) => PeekOk(mem::replace(output, F::default())),
+                        Commit::Commit(()) => CommitOk(mem::replace(output, F::default())),
+                        Commit::Peek(()) => PeekOk(mem::replace(output, F::default())),
                     };
                 }
-                Err(Consumed::Empty(_)) => {
+                Err(Commit::Peek(_)) => {
                     ctry!(input.reset(before).consumed());
                     output.extend(Some(ctry!(uncons(input)).0));
-                    consumed = Consumed::Consumed(());
+                    consumed = Commit::Commit(());
                 }
-                Err(Consumed::Consumed(e)) => {
+                Err(Commit::Commit(e)) => {
                     ctry!(input.reset(before).consumed());
                     return CommitErr(e.error);
                 }
@@ -1234,7 +1234,7 @@ where
     {
         let (output, is_parse, parse_state, end_state) = state;
 
-        let mut consumed = Consumed::Empty(());
+        let mut consumed = Commit::Peek(());
         loop {
             if *is_parse {
                 let (token, c) = ctry!(self.parser.parse_mode(mode, input, parse_state));
@@ -1247,18 +1247,18 @@ where
                     Ok((_, rest)) => {
                         ctry!(input.reset(before).consumed());
                         return match consumed.merge(rest) {
-                            Consumed::Consumed(()) => {
+                            Commit::Commit(()) => {
                                 CommitOk(mem::replace(output, F::default()))
                             }
-                            Consumed::Empty(()) => PeekOk(mem::replace(output, F::default())),
+                            Commit::Peek(()) => PeekOk(mem::replace(output, F::default())),
                         };
                     }
-                    Err(Consumed::Empty(_)) => {
+                    Err(Commit::Peek(_)) => {
                         ctry!(input.reset(before).consumed());
                         mode.set_first();
                         *is_parse = true;
                     }
-                    Err(Consumed::Consumed(e)) => {
+                    Err(Commit::Commit(e)) => {
                         ctry!(input.reset(before).consumed());
                         return CommitErr(e.error);
                     }
@@ -1337,12 +1337,12 @@ where
     type PartialState = EscapedState<P::PartialState, Q::PartialState>;
 
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Self::Output, Input::Error> {
-        let mut consumed = Consumed::Empty(());
+        let mut consumed = Commit::Peek(());
         loop {
             match self.parser.parse_lazy(input) {
                 PeekOk(_) => {}
                 CommitOk(_) => {
-                    consumed = Consumed::Consumed(());
+                    consumed = Commit::Commit(());
                 }
                 PeekErr(_) => {
                     let checkpoint = input.checkpoint();
@@ -1355,7 +1355,7 @@ where
                             ) {
                                 PeekOk(_) => {}
                                 CommitOk(_) => {
-                                    consumed = Consumed::Consumed(());
+                                    consumed = Commit::Commit(());
                                 }
                                 CommitErr(err) => return CommitErr(err),
                                 PeekErr(err) => {

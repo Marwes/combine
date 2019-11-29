@@ -25,8 +25,8 @@ impl<E, T> ResultExt<E, T> for Result<E, T> {
 macro_rules! ctry {
     ($result:expr) => {
         match $result {
-            $crate::error::ParseResult::CommitOk(x) => (x, $crate::error::Consumed::Consumed(())),
-            $crate::error::ParseResult::PeekOk(x) => (x, $crate::error::Consumed::Empty(())),
+            $crate::error::ParseResult::CommitOk(x) => (x, $crate::error::Commit::Commit(())),
+            $crate::error::ParseResult::PeekOk(x) => (x, $crate::error::Commit::Peek(())),
             $crate::error::ParseResult::CommitErr(err) => {
                 return $crate::error::ParseResult::CommitErr(err.into())
             }
@@ -208,80 +208,80 @@ where
 /// with another parser as they will only be able to provide good error reporting if the preceding
 /// parser did not consume any tokens.
 #[derive(Clone, PartialEq, Debug, Copy)]
-pub enum Consumed<T> {
+pub enum Commit<T> {
     /// Constructor indicating that the parser has consumed elements
-    Consumed(T),
+    Commit(T),
     /// Constructor indicating that the parser did not consume any elements
-    Empty(T),
+    Peek(T),
 }
 
-impl<T> AsMut<T> for Consumed<T> {
+impl<T> AsMut<T> for Commit<T> {
     fn as_mut(&mut self) -> &mut T {
         match *self {
-            Consumed::Empty(ref mut t) | Consumed::Consumed(ref mut t) => t,
+            Commit::Peek(ref mut t) | Commit::Commit(ref mut t) => t,
         }
     }
 }
 
-impl<T> AsRef<T> for Consumed<T> {
+impl<T> AsRef<T> for Commit<T> {
     fn as_ref(&self) -> &T {
         match *self {
-            Consumed::Empty(ref t) | Consumed::Consumed(ref t) => t,
+            Commit::Peek(ref t) | Commit::Commit(ref t) => t,
         }
     }
 }
 
-impl<T> Consumed<T> {
+impl<T> Commit<T> {
     /// Returns true if `self` is empty.
     pub fn is_empty(&self) -> bool {
         match *self {
-            Consumed::Empty(_) => true,
-            Consumed::Consumed(_) => false,
+            Commit::Peek(_) => true,
+            Commit::Commit(_) => false,
         }
     }
 
     /// Extracts the contained value.
     pub fn into_inner(self) -> T {
         match self {
-            Consumed::Empty(x) | Consumed::Consumed(x) => x,
+            Commit::Peek(x) | Commit::Commit(x) => x,
         }
     }
 
-    /// Converts `self` into the `Consumed` state.
-    pub fn into_consumed(self) -> Consumed<T> {
-        Consumed::Consumed(self.into_inner())
+    /// Converts `self` into the `Commit` state.
+    pub fn into_consumed(self) -> Commit<T> {
+        Commit::Commit(self.into_inner())
     }
 
-    /// Converts `self` into the `Empty` state.
-    pub fn into_empty(self) -> Consumed<T> {
-        Consumed::Empty(self.into_inner())
+    /// Converts `self` into the `Peek` state.
+    pub fn into_empty(self) -> Commit<T> {
+        Commit::Peek(self.into_inner())
     }
 
     /// Maps over the contained value without changing the consumed state.
-    pub fn map<F, U>(self, f: F) -> Consumed<U>
+    pub fn map<F, U>(self, f: F) -> Commit<U>
     where
         F: FnOnce(T) -> U,
     {
         match self {
-            Consumed::Empty(x) => Consumed::Empty(f(x)),
-            Consumed::Consumed(x) => Consumed::Consumed(f(x)),
+            Commit::Peek(x) => Commit::Peek(f(x)),
+            Commit::Commit(x) => Commit::Commit(f(x)),
         }
     }
 
-    pub fn merge(&self, current: Consumed<T>) -> Consumed<T> {
+    pub fn merge(&self, current: Commit<T>) -> Commit<T> {
         match *self {
-            Consumed::Empty(_) => current,
-            Consumed::Consumed(_) => current.into_consumed(),
+            Commit::Peek(_) => current,
+            Commit::Commit(_) => current.into_consumed(),
         }
     }
 
-    /// Combines the `Consumed` flags from `self` and the result of `f`.
+    /// Combines the `Commit` flags from `self` and the result of `f`.
     ///
     /// ```text
-    /// Empty    <> Empty    -> Empty
-    /// Consumed <> Empty    -> Consumed
-    /// Empty    <> Consumed -> Consumed
-    /// Consumed <> Consumed -> Consumed
+    /// Peek    <> Peek    -> Peek
+    /// Commit <> Peek    -> Commit
+    /// Peek    <> Commit -> Commit
+    /// Commit <> Commit -> Commit
     /// ```
     ///
     /// ```
@@ -323,12 +323,12 @@ impl<T> Consumed<T> {
         F: FnOnce(T) -> StdParseResult2<U, E>,
     {
         match self {
-            Consumed::Consumed(x) => match f(x) {
-                Ok((v, Consumed::Empty(rest))) => Ok((v, Consumed::Consumed(rest))),
-                Err(Consumed::Empty(err)) => Err(Consumed::Consumed(err)),
+            Commit::Commit(x) => match f(x) {
+                Ok((v, Commit::Peek(rest))) => Ok((v, Commit::Commit(rest))),
+                Err(Commit::Peek(err)) => Err(Commit::Commit(err)),
                 y => y,
             },
-            Consumed::Empty(x) => f(x),
+            Commit::Peek(x) => f(x),
         }
     }
     pub fn combine_consumed<F, U, E>(self, f: F) -> ParseResult<U, E>
@@ -338,12 +338,12 @@ impl<T> Consumed<T> {
         use self::ParseResult::*;
 
         match self {
-            Consumed::Consumed(x) => match f(x) {
+            Commit::Commit(x) => match f(x) {
                 PeekOk(v) => CommitOk(v),
                 PeekErr(err) => CommitErr(err.error),
                 y => y,
             },
-            Consumed::Empty(x) => f(x),
+            Commit::Peek(x) => f(x),
         }
     }
 }
@@ -353,8 +353,8 @@ impl<T> Consumed<T> {
 /// `O` is the type that is output on success.
 /// `Input` is the specific stream type used in the parser.
 pub type StdParseResult<O, Input> =
-    Result<(O, Consumed<()>), Consumed<Tracked<<Input as StreamOnce>::Error>>>;
-pub type StdParseResult2<O, E> = Result<(O, Consumed<()>), Consumed<Tracked<E>>>;
+    Result<(O, Commit<()>), Commit<Tracked<<Input as StreamOnce>::Error>>>;
+pub type StdParseResult2<O, E> = Result<(O, Commit<()>), Commit<Tracked<E>>>;
 
 /// `StreamError` represents a single error returned from a `Stream` or a `Parser`.
 ///
@@ -910,14 +910,14 @@ impl<O, E> ParseResult<O, E> {
     }
 }
 
-impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E> {
+impl<T, E> Into<Result<Commit<T>, Commit<Tracked<E>>>> for ParseResult<T, E> {
     #[inline]
-    fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
+    fn into(self) -> Result<Commit<T>, Commit<Tracked<E>>> {
         match self {
-            CommitOk(t) => Ok(Consumed::Consumed(t)),
-            PeekOk(t) => Ok(Consumed::Empty(t)),
-            CommitErr(e) => Err(Consumed::Consumed(e.into())),
-            PeekErr(e) => Err(Consumed::Empty(e)),
+            CommitOk(t) => Ok(Commit::Commit(t)),
+            PeekOk(t) => Ok(Commit::Peek(t)),
+            CommitErr(e) => Err(Commit::Commit(e.into())),
+            PeekErr(e) => Err(Commit::Peek(e)),
         }
     }
 }
@@ -928,10 +928,10 @@ impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
         use self::ParseResult::*;
 
         match self {
-            CommitOk(t) => Ok((t, Consumed::Consumed(()))),
-            PeekOk(t) => Ok((t, Consumed::Empty(()))),
-            CommitErr(e) => Err(Consumed::Consumed(e.into())),
-            PeekErr(e) => Err(Consumed::Empty(e)),
+            CommitOk(t) => Ok((t, Commit::Commit(()))),
+            PeekOk(t) => Ok((t, Commit::Peek(()))),
+            CommitErr(e) => Err(Commit::Commit(e.into())),
+            PeekErr(e) => Err(Commit::Peek(e)),
         }
     }
 }
@@ -942,10 +942,10 @@ impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
         use self::ParseResult::*;
 
         match result {
-            Ok((t, Consumed::Consumed(()))) => CommitOk(t),
-            Ok((t, Consumed::Empty(()))) => PeekOk(t),
-            Err(Consumed::Consumed(e)) => CommitErr(e.error),
-            Err(Consumed::Empty(e)) => PeekErr(e),
+            Ok((t, Commit::Commit(()))) => CommitOk(t),
+            Ok((t, Commit::Peek(()))) => PeekOk(t),
+            Err(Commit::Commit(e)) => CommitErr(e.error),
+            Err(Commit::Peek(e)) => PeekErr(e),
         }
     }
 }

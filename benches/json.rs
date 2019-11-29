@@ -11,7 +11,7 @@ use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 use {
     combine::{
-        error::{Consumed, ParseError},
+        error::{Commit, ParseError},
         parser::{
             char::{char, digit, spaces, string},
             choice::{choice, optional},
@@ -125,7 +125,7 @@ where
         });
         match c {
             '\\' => consumed.combine(|_| back_slash_char.parse_stream(input).into_result()),
-            '"' => Err(Consumed::Empty(
+            '"' => Err(Commit::Peek(
                 Input::Error::empty(input.position()).into(),
             )),
             _ => Ok((c, consumed)),
