@@ -39,7 +39,7 @@ macro_rules! ctry {
 
 /// Trait for types which can be used to construct error information.
 ///
-/// To call functions expecting this trait, use the wrappar types defined in this module
+/// To call functions expecting this trait, use the wrapper types defined in this module
 /// `Token`, `Range`, `Format` or `Static`/`&'static str`
 pub trait ErrorInfo<'s, T, R> {
     type Format: fmt::Display;
@@ -458,7 +458,11 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
     fn empty(position: Position) -> Self;
 
     /// Creates a `ParseError` from a single `Self::StreamError`
-    fn from_error(position: Position, err: Self::StreamError) -> Self;
+    fn from_error(position: Position, err: Self::StreamError) -> Self {
+        let mut errors = Self::empty(position);
+        errors.add(err);
+        errors
+    }
 
     /// Sets the position of this `ParseError`
     fn set_position(&mut self, position: Position);
