@@ -147,8 +147,8 @@ macro_rules! do_choice {
     ) => { {
         let mut error = Tracked::from(merge!($($error)+));
         // If offset != 1 then the nested parser is a sequence of parsers where 1 or
-        // more parsers returned `EmptyOk` before the parser finally failed with
-        // `EmptyErr`. Since we lose the offsets of the nested parsers when we merge
+        // more parsers returned `PeekOk` before the parser finally failed with
+        // `PeekErr`. Since we lose the offsets of the nested parsers when we merge
         // the errors we must first extract the errors before we do the merge.
         // If the offset == 0 on the other hand (which should be the common case) then
         // we can delay the addition of the error since we know for certain that only
@@ -160,7 +160,7 @@ macro_rules! do_choice {
                 error.offset = ErrorOffset(0);
             }
         )+
-        EmptyErr(error)
+        PeekErr(error)
     } };
     (
         $input: ident
@@ -174,18 +174,18 @@ macro_rules! do_choice {
         let parser = $head;
         let mut state = $head::PartialState::default();
         match parser.parse_mode(crate::parser::FirstMode, $input, &mut state) {
-            ConsumedOk(x) => ConsumedOk(x),
-            EmptyOk(x) => EmptyOk(x),
-            ConsumedErr(err) => {
-                // If we get `ConsumedErr` but the input is the same this is a partial parse we
+            CommitOk(x) => CommitOk(x),
+            PeekOk(x) => PeekOk(x),
+            CommitErr(err) => {
+                // If we get `CommitErr` but the input is the same this is a partial parse we
                 // cannot commit to so leave the state as `Empty` to retry all the parsers
                 // on the next call to  `parse_partial`
                 if $input.position() != $before_position {
                     *$state = self::$partial_state::$head(state);
                 }
-                ConsumedErr(err)
+                CommitErr(err)
             }
-            EmptyErr($head) => {
+            PeekErr($head) => {
                 ctry!($input.reset($before.clone()).consumed());
                 do_choice!(
                     $input
@@ -409,18 +409,18 @@ where
         ctry!(input.reset(before.clone()).consumed());
 
         match self_[i].parse_mode(mode, input, child_state) {
-            consumed_err @ ConsumedErr(_) => {
+            consumed_err @ CommitErr(_) => {
                 *index_state = i + 1;
                 return consumed_err;
             }
-            EmptyErr(err) => {
+            PeekErr(err) => {
                 prev_err = match prev_err {
                     None => Some(err),
                     Some(mut prev_err) => {
                         if prev_err.offset != ErrorOffset(1) {
                             // First add the errors of all the preceding parsers which did not
-                            // have a sequence of parsers returning `EmptyOk` before failing
-                            // with `EmptyErr`.
+                            // have a sequence of parsers returning `PeekOk` before failing
+                            // with `PeekErr`.
                             let offset = prev_err.offset;
                             for p in &mut self_[last_parser_having_non_1_offset..(i - 1)] {
                                 prev_err.offset = ErrorOffset(1);
@@ -438,13 +438,13 @@ where
                     }
                 };
             }
-            ok @ ConsumedOk(_) | ok @ EmptyOk(_) => {
+            ok @ CommitOk(_) | ok @ PeekOk(_) => {
                 *index_state = 0;
                 return ok;
             }
         }
     }
-    EmptyErr(match prev_err {
+    PeekErr(match prev_err {
         None => Input::Error::from_error(
             input.position(),
             StreamError::message_static_message("parser choice is empty"),
@@ -651,12 +651,12 @@ where
     {
         let before = input.checkpoint();
         match self.0.parse_mode(mode, input, state) {
-            EmptyOk(x) => EmptyOk(Some(x)),
-            ConsumedOk(x) => ConsumedOk(Some(x)),
-            ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(_) => {
+            PeekOk(x) => PeekOk(Some(x)),
+            CommitOk(x) => CommitOk(Some(x)),
+            CommitErr(err) => CommitErr(err),
+            PeekErr(_) => {
                 ctry!(input.reset(before).consumed());
-                EmptyOk(None)
+                PeekOk(None)
             }
         }
     }

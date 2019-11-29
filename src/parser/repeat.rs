@@ -202,8 +202,8 @@ where
 
 enum State<E> {
     Ok,
-    EmptyErr,
-    ConsumedErr(E),
+    PeekErr,
+    CommitErr(E),
 }
 
 impl<'a, Input, P, S, M> Iter<'a, Input, P, S, M>
@@ -230,14 +230,14 @@ where
 
     fn into_result_<O>(self, value: O) -> ParseResult<O, Input::Error> {
         match self.state {
-            State::Ok | State::EmptyErr => {
+            State::Ok | State::PeekErr => {
                 if self.consumed {
-                    ConsumedOk(value)
+                    CommitOk(value)
                 } else {
-                    EmptyOk(value)
+                    PeekOk(value)
                 }
             }
-            State::ConsumedErr(e) => ConsumedErr(e),
+            State::CommitErr(e) => CommitErr(e),
         }
     }
 
@@ -246,15 +246,15 @@ where
         O: Default,
     {
         match self.state {
-            State::Ok | State::EmptyErr => {
+            State::Ok | State::PeekErr => {
                 let value = mem::replace(value, O::default());
                 if self.consumed {
-                    ConsumedOk(value)
+                    CommitOk(value)
                 } else {
-                    EmptyOk(value)
+                    PeekOk(value)
                 }
             }
-            State::ConsumedErr(e) => ConsumedErr(e),
+            State::CommitErr(e) => CommitErr(e),
         }
     }
 
@@ -267,17 +267,17 @@ where
         >>::StreamError,
     ) -> ParseResult<T, Input::Error> {
         match self.state {
-            State::Ok | State::EmptyErr => {
+            State::Ok | State::PeekErr => {
                 let err = <Input as StreamOnce>::Error::from_error(self.input.position(), err);
                 if self.consumed {
-                    ConsumedErr(err)
+                    CommitErr(err)
                 } else {
-                    EmptyErr(err.into())
+                    PeekErr(err.into())
                 }
             }
-            State::ConsumedErr(mut e) => {
+            State::CommitErr(mut e) => {
                 e.add(err);
-                ConsumedErr(e)
+                CommitErr(e)
             }
         }
     }
@@ -298,25 +298,25 @@ where
             .parser
             .parse_mode(self.mode, self.input, self.partial_state.borrow_mut())
         {
-            EmptyOk(v) => {
+            PeekOk(v) => {
                 self.mode.set_first();
                 Some(v)
             }
-            ConsumedOk(v) => {
+            CommitOk(v) => {
                 self.mode.set_first();
                 self.consumed = true;
                 Some(v)
             }
-            EmptyErr(_) => {
+            PeekErr(_) => {
                 self.state = match self.input.reset(before) {
-                    Err(err) => State::ConsumedErr(err),
-                    Ok(_) => State::EmptyErr,
+                    Err(err) => State::CommitErr(err),
+                    Ok(_) => State::PeekErr,
                 };
-                self.state = State::EmptyErr;
+                self.state = State::PeekErr;
                 None
             }
-            ConsumedErr(e) => {
-                self.state = State::ConsumedErr(e);
+            CommitErr(e) => {
+                self.state = State::CommitErr(e);
                 None
             }
         }
@@ -426,7 +426,7 @@ where
 
             let (first, consumed) = ctry!(self.0.parse_mode(mode, input, child_state));
             elements.extend(Some(first));
-            // TODO Should EmptyOk be an error?
+            // TODO Should PeekOk be an error?
             *consumed_state = !consumed.is_empty();
             *parsed_one = true;
             mode.set_first();
@@ -971,7 +971,7 @@ where
                 }
                 Err(Consumed::Consumed(err)) => {
                     *l_state = Some((l, consumed));
-                    return ConsumedErr(err.error);
+                    return CommitErr(err.error);
                 }
                 Err(Consumed::Empty(_)) => {
                     ctry!(input.reset(before).consumed());
@@ -1033,7 +1033,7 @@ where
                     consumed = consumed.merge(rest);
                     x
                 }
-                Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
+                Err(Consumed::Consumed(err)) => return CommitErr(err.error),
                 Err(Consumed::Empty(_)) => {
                     ctry!(input.reset(before).consumed());
                     break;
@@ -1045,7 +1045,7 @@ where
                     l = op(l, r);
                     consumed = consumed.merge(rest);
                 }
-                Err(Consumed::Consumed(err)) => return ConsumedErr(err.error),
+                Err(Consumed::Consumed(err)) => return CommitErr(err.error),
                 Err(Consumed::Empty(_)) => {
                     ctry!(input.reset(before).consumed());
                     break;
@@ -1117,8 +1117,8 @@ where
                 Ok((_, rest)) => {
                     ctry!(input.reset(before).consumed());
                     return match consumed.merge(rest) {
-                        Consumed::Consumed(()) => ConsumedOk(mem::replace(output, F::default())),
-                        Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
+                        Consumed::Consumed(()) => CommitOk(mem::replace(output, F::default())),
+                        Consumed::Empty(()) => PeekOk(mem::replace(output, F::default())),
                     };
                 }
                 Err(Consumed::Empty(_)) => {
@@ -1128,7 +1128,7 @@ where
                 }
                 Err(Consumed::Consumed(e)) => {
                     ctry!(input.reset(before).consumed());
-                    return ConsumedErr(e.error);
+                    return CommitErr(e.error);
                 }
             };
         }
@@ -1248,9 +1248,9 @@ where
                         ctry!(input.reset(before).consumed());
                         return match consumed.merge(rest) {
                             Consumed::Consumed(()) => {
-                                ConsumedOk(mem::replace(output, F::default()))
+                                CommitOk(mem::replace(output, F::default()))
                             }
-                            Consumed::Empty(()) => EmptyOk(mem::replace(output, F::default())),
+                            Consumed::Empty(()) => PeekOk(mem::replace(output, F::default())),
                         };
                     }
                     Err(Consumed::Empty(_)) => {
@@ -1260,7 +1260,7 @@ where
                     }
                     Err(Consumed::Consumed(e)) => {
                         ctry!(input.reset(before).consumed());
-                        return ConsumedErr(e.error);
+                        return CommitErr(e.error);
                     }
                 }
             }
@@ -1340,43 +1340,43 @@ where
         let mut consumed = Consumed::Empty(());
         loop {
             match self.parser.parse_lazy(input) {
-                EmptyOk(_) => {}
-                ConsumedOk(_) => {
+                PeekOk(_) => {}
+                CommitOk(_) => {
                     consumed = Consumed::Consumed(());
                 }
-                EmptyErr(_) => {
+                PeekErr(_) => {
                     let checkpoint = input.checkpoint();
                     match uncons(input) {
-                        ConsumedOk(ref c) | EmptyOk(ref c) if *c == self.escape => {
+                        CommitOk(ref c) | PeekOk(ref c) if *c == self.escape => {
                             match self.escape_parser.parse_consumed_mode(
                                 FirstMode,
                                 input,
                                 &mut Default::default(),
                             ) {
-                                EmptyOk(_) => {}
-                                ConsumedOk(_) => {
+                                PeekOk(_) => {}
+                                CommitOk(_) => {
                                     consumed = Consumed::Consumed(());
                                 }
-                                ConsumedErr(err) => return ConsumedErr(err),
-                                EmptyErr(err) => {
-                                    return ConsumedErr(err.error);
+                                CommitErr(err) => return CommitErr(err),
+                                PeekErr(err) => {
+                                    return CommitErr(err.error);
                                 }
                             }
                         }
-                        ConsumedErr(err) => {
-                            return ConsumedErr(err);
+                        CommitErr(err) => {
+                            return CommitErr(err);
                         }
                         _ => {
                             ctry!(input.reset(checkpoint).consumed());
                             return if consumed.is_empty() {
-                                EmptyOk(())
+                                PeekOk(())
                             } else {
-                                ConsumedOk(())
+                                CommitOk(())
                             };
                         }
                     }
                 }
-                ConsumedErr(err) => return ConsumedErr(err),
+                CommitErr(err) => return CommitErr(err),
             }
         }
     }
@@ -1477,27 +1477,27 @@ where
             let mut parser = (self.parser)(elem, input);
             let before = input.checkpoint();
             match parser.parse_mode(mode, input, next) {
-                EmptyOk(v) => {
+                PeekOk(v) => {
                     mode.set_first();
                     buf.extend(Some(v));
                 }
-                ConsumedOk(v) => {
+                CommitOk(v) => {
                     mode.set_first();
                     *consumed = true;
                     buf.extend(Some(v));
                 }
-                EmptyErr(err) => {
+                PeekErr(err) => {
                     match input.reset(before) {
-                        Err(err) => return ConsumedErr(err),
+                        Err(err) => return CommitErr(err),
                         Ok(_) => (),
                     };
                     return if *consumed {
-                        ConsumedErr(err.error)
+                        CommitErr(err.error)
                     } else {
-                        EmptyErr(err)
+                        PeekErr(err)
                     };
                 }
-                ConsumedErr(err) => return ConsumedErr(err),
+                CommitErr(err) => return CommitErr(err),
             }
             iter.next();
         }
@@ -1507,9 +1507,9 @@ where
         let value = mem::replace(buf, F::default());
         if *consumed {
             *consumed = false;
-            ConsumedOk(value)
+            CommitOk(value)
         } else {
-            EmptyOk(value)
+            PeekOk(value)
         }
     }
 }

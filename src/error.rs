@@ -14,8 +14,8 @@ pub(crate) trait ResultExt<E, T> {
 impl<E, T> ResultExt<E, T> for Result<E, T> {
     fn consumed(self) -> ParseResult<E, T> {
         match self {
-            Ok(x) => ConsumedOk(x),
-            Err(x) => ConsumedErr(x),
+            Ok(x) => CommitOk(x),
+            Err(x) => CommitErr(x),
         }
     }
 }
@@ -25,13 +25,13 @@ impl<E, T> ResultExt<E, T> for Result<E, T> {
 macro_rules! ctry {
     ($result:expr) => {
         match $result {
-            $crate::error::ParseResult::ConsumedOk(x) => (x, $crate::error::Consumed::Consumed(())),
-            $crate::error::ParseResult::EmptyOk(x) => (x, $crate::error::Consumed::Empty(())),
-            $crate::error::ParseResult::ConsumedErr(err) => {
-                return $crate::error::ParseResult::ConsumedErr(err.into())
+            $crate::error::ParseResult::CommitOk(x) => (x, $crate::error::Consumed::Consumed(())),
+            $crate::error::ParseResult::PeekOk(x) => (x, $crate::error::Consumed::Empty(())),
+            $crate::error::ParseResult::CommitErr(err) => {
+                return $crate::error::ParseResult::CommitErr(err.into())
             }
-            $crate::error::ParseResult::EmptyErr(err) => {
-                return $crate::error::ParseResult::EmptyErr(err.into())
+            $crate::error::ParseResult::PeekErr(err) => {
+                return $crate::error::ParseResult::PeekErr(err.into())
             }
         }
     };
@@ -339,8 +339,8 @@ impl<T> Consumed<T> {
 
         match self {
             Consumed::Consumed(x) => match f(x) {
-                EmptyOk(v) => ConsumedOk(v),
-                EmptyErr(err) => ConsumedErr(err.error),
+                PeekOk(v) => CommitOk(v),
+                PeekErr(err) => CommitErr(err.error),
                 y => y,
             },
             Consumed::Empty(x) => f(x),
@@ -828,18 +828,18 @@ impl<E> From<E> for Tracked<E> {
 /// `From::from(result)`
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum ParseResult<T, E> {
-    ConsumedOk(T),
-    EmptyOk(T),
-    ConsumedErr(E),
-    EmptyErr(Tracked<E>),
+    CommitOk(T),
+    PeekOk(T),
+    CommitErr(E),
+    PeekErr(Tracked<E>),
 }
 
 impl<T, E> ParseResult<T, E> {
     #[inline]
     pub fn is_ok(&self) -> bool {
         match *self {
-            ConsumedOk(_) | EmptyOk(_) => true,
-            ConsumedErr(_) | EmptyErr(_) => false,
+            CommitOk(_) | PeekOk(_) => true,
+            CommitErr(_) | PeekErr(_) => false,
         }
     }
 
@@ -850,10 +850,10 @@ impl<T, E> ParseResult<T, E> {
 
     pub fn as_ref(&self) -> ParseResult<&T, &E> {
         match *self {
-            ConsumedOk(ref t) => ConsumedOk(t),
-            EmptyOk(ref t) => EmptyOk(t),
-            ConsumedErr(ref e) => ConsumedErr(e),
-            EmptyErr(ref e) => EmptyErr(Tracked {
+            CommitOk(ref t) => CommitOk(t),
+            PeekOk(ref t) => PeekOk(t),
+            CommitErr(ref e) => CommitErr(e),
+            PeekErr(ref e) => PeekErr(Tracked {
                 error: &e.error,
                 offset: e.offset,
             }),
@@ -865,14 +865,14 @@ impl<T, E> ParseResult<T, E> {
         F: FnOnce(T) -> ParseResult<T2, E>,
     {
         match self {
-            ConsumedOk(t) => match f(t) {
-                ConsumedOk(t2) | EmptyOk(t2) => ConsumedOk(t2),
-                EmptyErr(e) => ConsumedErr(e.error),
-                ConsumedErr(e) => ConsumedErr(e),
+            CommitOk(t) => match f(t) {
+                CommitOk(t2) | PeekOk(t2) => CommitOk(t2),
+                PeekErr(e) => CommitErr(e.error),
+                CommitErr(e) => CommitErr(e),
             },
-            EmptyOk(t) => f(t),
-            ConsumedErr(e) => ConsumedErr(e),
-            EmptyErr(e) => EmptyErr(e),
+            PeekOk(t) => f(t),
+            CommitErr(e) => CommitErr(e),
+            PeekErr(e) => PeekErr(e),
         }
     }
 
@@ -881,10 +881,10 @@ impl<T, E> ParseResult<T, E> {
         F: FnOnce(E) -> E2,
     {
         match self {
-            ConsumedOk(t) => ConsumedOk(t),
-            EmptyOk(t) => EmptyOk(t),
-            ConsumedErr(e) => ConsumedErr(f(e)),
-            EmptyErr(e) => EmptyErr(Tracked {
+            CommitOk(t) => CommitOk(t),
+            PeekOk(t) => PeekOk(t),
+            CommitErr(e) => CommitErr(f(e)),
+            PeekErr(e) => PeekErr(Tracked {
                 error: f(e.error),
                 offset: e.offset,
             }),
@@ -896,10 +896,10 @@ impl<T, E> ParseResult<T, E> {
         F: FnOnce(T) -> T2,
     {
         match self {
-            ConsumedOk(t) => ConsumedOk(f(t)),
-            EmptyOk(t) => EmptyOk(f(t)),
-            ConsumedErr(e) => ConsumedErr(e),
-            EmptyErr(e) => EmptyErr(e),
+            CommitOk(t) => CommitOk(f(t)),
+            PeekOk(t) => PeekOk(f(t)),
+            CommitErr(e) => CommitErr(e),
+            PeekErr(e) => PeekErr(e),
         }
     }
 }
@@ -914,10 +914,10 @@ impl<T, E> Into<Result<Consumed<T>, Consumed<Tracked<E>>>> for ParseResult<T, E>
     #[inline]
     fn into(self) -> Result<Consumed<T>, Consumed<Tracked<E>>> {
         match self {
-            ConsumedOk(t) => Ok(Consumed::Consumed(t)),
-            EmptyOk(t) => Ok(Consumed::Empty(t)),
-            ConsumedErr(e) => Err(Consumed::Consumed(e.into())),
-            EmptyErr(e) => Err(Consumed::Empty(e)),
+            CommitOk(t) => Ok(Consumed::Consumed(t)),
+            PeekOk(t) => Ok(Consumed::Empty(t)),
+            CommitErr(e) => Err(Consumed::Consumed(e.into())),
+            PeekErr(e) => Err(Consumed::Empty(e)),
         }
     }
 }
@@ -928,10 +928,10 @@ impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
         use self::ParseResult::*;
 
         match self {
-            ConsumedOk(t) => Ok((t, Consumed::Consumed(()))),
-            EmptyOk(t) => Ok((t, Consumed::Empty(()))),
-            ConsumedErr(e) => Err(Consumed::Consumed(e.into())),
-            EmptyErr(e) => Err(Consumed::Empty(e)),
+            CommitOk(t) => Ok((t, Consumed::Consumed(()))),
+            PeekOk(t) => Ok((t, Consumed::Empty(()))),
+            CommitErr(e) => Err(Consumed::Consumed(e.into())),
+            PeekErr(e) => Err(Consumed::Empty(e)),
         }
     }
 }
@@ -942,10 +942,10 @@ impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
         use self::ParseResult::*;
 
         match result {
-            Ok((t, Consumed::Consumed(()))) => ConsumedOk(t),
-            Ok((t, Consumed::Empty(()))) => EmptyOk(t),
-            Err(Consumed::Consumed(e)) => ConsumedErr(e.error),
-            Err(Consumed::Empty(e)) => EmptyErr(e),
+            Ok((t, Consumed::Consumed(()))) => CommitOk(t),
+            Ok((t, Consumed::Empty(()))) => PeekOk(t),
+            Err(Consumed::Consumed(e)) => CommitErr(e.error),
+            Err(Consumed::Empty(e)) => PeekErr(e),
         }
     }
 }
