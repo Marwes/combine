@@ -20,7 +20,8 @@ use {
         many1, parser,
         parser::{
             byte::{num, take_until_bytes},
-            char::{char, digit, letter},
+            char::{char, digit, letter, string},
+            combinator::no_partial,
             range::{
                 self, range, recognize_with_value, take, take_fn, take_until_range, take_while,
                 take_while1,
@@ -181,7 +182,7 @@ use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
     D: Decoder<Error = Error>,
-    D::Item: ::std::fmt::Display,
+    D::Item: ::std::fmt::Debug,
     S: IntoIterator<Item = PartialOp> + 'static,
     S::IntoIter: Send,
     B: ?Sized + AsRef<[u8]>,
@@ -190,7 +191,7 @@ where
     let partial_reader = PartialAsyncRead::new(reader, seq);
     FramedRead::new(partial_reader, decoder)
         .map(|x| {
-            println!("Decoded `{}`", x);
+            println!("Decoded `{:?}`", x);
             x
         })
         .collect()
@@ -578,6 +579,20 @@ quickcheck! {
 
         assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
         assert_eq!(result.unwrap(), ints);
+    }
+
+    fn sep_end_by_test(seq: PartialWithErrors<GenWouldBlock>) -> () {
+        impl_decoder!{ TestParser, Vec<String>,
+            repeat::sep_end_by((digit(), digit(), digit()).map(|(a, b, c)| vec![a, b, c].into_iter().collect()), no_partial(string("::")))
+                .skip(no_partial(string("\r\n")))
+        }
+
+        let input = "123::456::789::\r\n";
+
+        let result = run_decoder(&input, seq, TestParser(Default::default()));
+
+        assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
+        assert_eq!(result.unwrap(), vec![vec!["123".to_string(), "456".to_string(), "789".to_string()]]);
     }
 }
 
