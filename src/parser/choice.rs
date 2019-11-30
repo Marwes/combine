@@ -19,7 +19,7 @@ use crate::{
 /// # #[macro_use]
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{digit, letter, string};
+/// # use combine::parser::char::{digit, letter, string};
 /// # use combine::stream::easy::Error;
 /// # fn main() {
 /// let mut parser = choice!(
@@ -523,7 +523,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{digit, string};
+/// # use combine::parser::char::{digit, string};
 /// # fn main() {
 /// // `choice` is overloaded on tuples so that different types of parsers can be used
 /// // (each parser must still have the same input and output types)

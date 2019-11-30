@@ -207,12 +207,17 @@ pub use crate::parser::Parser;
 pub use crate::stream::{Positioned, RangeStream, RangeStreamOnce, Stream, StreamOnce};
 
 #[doc(inline)]
-#[allow(deprecated)] // Needed to re-export `try`
-pub use crate::combinator::{
-    any, attempt, between, chainl1, chainr1, count, count_min_max, env_parser, eof, look_ahead,
-    many, many1, none_of, not_followed_by, one_of, optional, parser, position, satisfy,
-    satisfy_map, sep_by, sep_by1, sep_end_by, sep_end_by1, skip_count, skip_count_min_max,
-    skip_many, skip_many1, token, tokens, unexpected, unexpected_any, value,
+pub use crate::parser::{
+    choice::optional,
+    combinator::{attempt, look_ahead, not_followed_by},
+    error::{unexpected, unexpected_any},
+    function::parser,
+    repeat::{
+        chainl1, chainr1, count, count_min_max, many, many1, sep_by, sep_by1, sep_end_by,
+        sep_end_by1, skip_count, skip_count_min_max, skip_many, skip_many1,
+    },
+    sequence::between,
+    token::{any, eof, none_of, one_of, position, satisfy, satisfy_map, token, tokens, value},
 };
 
 #[doc(inline)]
@@ -223,26 +228,6 @@ pub use crate::parser::combinator::from_str;
 
 #[doc(inline)]
 pub use crate::parser::token::tokens_cmp;
-
-macro_rules! impl_token_parser {
-    ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
-    #[derive(Clone)]
-    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
-        where I: Stream<Token=$ty>,
-              I::Error: ParseError<$ty, I::Range, I::Position>
-              $(, $ty_var : Parser<I>)*;
-    impl <I $(,$ty_var)*> Parser<I> for $name<I $(,$ty_var)*>
-        where I: Stream<Token=$ty>,
-              I::Error: ParseError<$ty, I::Range, I::Position>
-              $(, $ty_var : Parser<I>)*
-    {
-        type Output = <$inner_type as Parser<I>>::Output;
-        type PartialState = <$inner_type as Parser<I>>::PartialState;
-
-        forward_parser!(I, 0);
-    }
-}
-}
 
 /// Declares a named parser which can easily be reused.
 ///
@@ -536,8 +521,6 @@ macro_rules! combine_parser_impl {
 }
 
 pub extern crate byteorder;
-#[cfg(feature = "bytes")]
-extern crate bytes;
 pub extern crate either;
 
 extern crate memchr;
@@ -634,58 +617,6 @@ pub mod stream;
 #[macro_use]
 pub mod parser;
 
-/// Re-exported parsers for compatibility with older versions
-#[doc(hidden)]
-#[deprecated(
-    since = "3.0.0",
-    note = "Please import parsers from the `parser` module and its submodules instead"
-)]
-pub mod combinator {
-    #[doc(inline)]
-    pub use crate::parser::choice::*;
-
-    #[doc(inline)]
-    pub use crate::parser::combinator::*;
-
-    #[doc(inline)]
-    pub use crate::parser::error::*;
-
-    #[doc(inline)]
-    pub use crate::parser::function::*;
-
-    #[doc(inline)]
-    pub use crate::parser::repeat::*;
-
-    #[doc(inline)]
-    pub use crate::parser::sequence::*;
-
-    #[doc(inline)]
-    pub use crate::parser::token::*;
-}
-
-#[doc(hidden)]
-#[deprecated(since = "3.0.0", note = "Please use the `parser::char` module instead")]
-pub use crate::parser::char;
-
-#[doc(hidden)]
-#[deprecated(since = "3.0.0", note = "Please use the `parser::byte` module instead")]
-pub use crate::parser::byte;
-
-#[doc(hidden)]
-#[deprecated(
-    since = "3.0.0",
-    note = "Please use the `parser::range` module instead"
-)]
-pub use crate::parser::range;
-
-#[doc(hidden)]
-#[deprecated(
-    since = "3.0.0",
-    note = "Please use the `parser::regex` module instead"
-)]
-#[cfg(any(feature = "regex", feature = "regex-1"))]
-pub use crate::parser::regex;
-
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
 pub struct ErrorOffset(u8);
@@ -704,18 +635,6 @@ mod tests {
         }
         let mut p = chainl1(string("abc"), char(',').map(|_| first));
         assert!(p.parse("abc,ab").is_err());
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn attempt_try() {
-        // `attempt` is an alias for `try`. This is a small smoke test for
-        // `try`, since the main functionality is tested with `attempt`
-        let mut parser = choice((
-            attempt((string("abc"), string("def"))),
-            attempt((string("abc"), string("ghi"))),
-        ));
-        assert_eq!(parser.parse("abcghi"), Ok((("abc", "ghi"), "")));
     }
 
     #[test]
@@ -773,9 +692,7 @@ mod std_tests {
                 if c.is_alphanumeric() {
                     input.reset(before).unwrap();
                     let e = Error::Unexpected(c.into());
-                    Err(Commit::Peek(
-                        easy::Errors::new(input.position(), e).into(),
-                    ))
+                    Err(Commit::Peek(easy::Errors::new(input.position(), e).into()))
                 } else {
                     Ok(((), Commit::Peek(())))
                 }

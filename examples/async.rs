@@ -13,10 +13,10 @@ use std::{cell::Cell, io::Cursor, rc::Rc, str};
 use {
     bytes::BytesMut,
     combine::{
-        combinator::{any_partial_state, AnyPartialState},
         error::{ParseError, StreamError},
         parser::{
             byte::digit,
+            combinator::{any_partial_state, AnyPartialState},
             range::{range, recognize, take},
         },
         skip_many, skip_many1,

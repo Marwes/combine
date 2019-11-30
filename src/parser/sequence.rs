@@ -1,14 +1,16 @@
 //! Combinators which take multiple parsers and applies them one after another.
 
 use crate::{
-    combinator::{ignore, Ignore, Map},
     error::{
         ParseError,
         ParseResult::{self, *},
         StreamError, Tracked,
     },
     lib::marker::PhantomData,
-    parser::ParseMode,
+    parser::{
+        combinator::{ignore, Ignore, Map},
+        ParseMode,
+    },
     ErrorOffset, Parser, Stream, StreamOnce,
 };
 
@@ -375,7 +377,7 @@ macro_rules! seq_parser_impl {
 /// #[macro_use]
 /// extern crate combine;
 /// use combine::{Parser, many, token};
-/// use combine::byte::{letter, spaces};
+/// use combine::parser::byte::{letter, spaces};
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct Field {

@@ -2,16 +2,16 @@
 extern crate ascii;
 
 use crate::{
-    combinator::{no_partial, satisfy, skip_many, token, Token},
     error::{
         self, ParseError,
         ParseResult::{self, *},
     },
     lib::marker::PhantomData,
     parser::{
-        error::Expected,
+        combinator::no_partial,
         range::{take_fn, TakeRange},
-        token::{tokens_cmp, Satisfy},
+        repeat::skip_many,
+        token::{satisfy, token, tokens_cmp, Token},
         ParseMode,
     },
     stream::{RangeStream, Stream, StreamOnce},
@@ -39,11 +39,11 @@ where
 
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f: ident) => {{
-        satisfy((|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f()).unwrap_or(false)) as fn (u8) -> bool)
+        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f()).unwrap_or(false))
             .expected(stringify!($name))
     }};
     ($name:ident, $ty:ident, $f: ident $($args:tt)+) => {{
-        satisfy((|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f $($args)+).unwrap_or(false)) as fn (u8) -> bool)
+        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f $($args)+).unwrap_or(false))
             .expected(stringify!($name))
     }};
 }
@@ -64,7 +64,6 @@ where
     byte_parser!(digit, Digit, is_digit(10))
 }
 
-impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>, &'static str> }
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 ///
 /// ```
@@ -75,12 +74,12 @@ impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>, &'static
 /// assert!(space().parse(&b"!"[..]).is_err());
 /// assert!(space().parse(&b""[..]).is_err());
 /// ```
-pub fn space<Input>() -> Space<Input>
+pub fn space<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    Space(byte_parser!(space, Space, is_whitespace), PhantomData)
+    byte_parser!(space, Space, is_whitespace)
 }
 
 /// Skips over [`space`] zero or more times
@@ -199,7 +198,6 @@ where
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
 
-impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
 ///
 /// ```
@@ -209,12 +207,12 @@ impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>, &'stati
 /// assert_eq!(letter().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(letter().parse(&b"9"[..]).is_err());
 /// ```
-pub fn letter<Input>() -> Letter<Input>
+pub fn letter<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    Letter(byte_parser!(letter, Letter, is_alphabetic), PhantomData)
+    byte_parser!(letter, Letter, is_alphabetic)
 }
 
 /// Parses an octal digit.

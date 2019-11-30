@@ -10,18 +10,17 @@ use std::{
 use {
     bytes_0_4::BytesMut,
     combine::{
-        any,
-        combinator::{
-            any_partial_state, any_send_partial_state, attempt, from_str, optional, recognize,
-            skip_many1, AnyPartialState, AnySendPartialState,
-        },
-        count_min_max,
+        any, count_min_max,
         error::{ParseError, StreamError},
         many1, parser,
         parser::{
             byte::{num, take_until_bytes},
             char::{char, digit, letter, string},
-            combinator::no_partial,
+            choice::optional,
+            combinator::{
+                any_partial_state, any_send_partial_state, attempt, from_str, no_partial,
+                recognize, AnyPartialState, AnySendPartialState,
+            },
             range::{
                 self, range, recognize_with_value, take, take_fn, take_until_range, take_while,
                 take_while1,
@@ -29,7 +28,7 @@ use {
             repeat,
             token::token,
         },
-        skip_many,
+        skip_many, skip_many1,
         stream::{easy, RangeStream, StreamErrorFor},
         Parser,
     },

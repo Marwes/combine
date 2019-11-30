@@ -1,9 +1,12 @@
 //! Module containing parsers specialized on character streams.
 
 use crate::{
-    combinator::{no_partial, satisfy, skip_many, token, Token},
     error::ParseError,
-    parser::token::tokens_cmp,
+    parser::{
+        combinator::no_partial,
+        repeat::skip_many,
+        token::{satisfy, token, tokens_cmp, Token},
+    },
     stream::Stream,
     Parser,
 };
