@@ -526,8 +526,7 @@ where
 ///
 /// ```
 /// use combine::Parser;
-/// use combine::combinator::{skip_many1, token, recognize};
-/// use combine::parser::char::digit;
+/// use combine::parser::{repeat::skip_many1, token::token, combinator::recognize, char::digit};
 ///
 /// let mut parser = recognize((skip_many1(digit()), token('.'), skip_many1(digit())));
 /// assert_eq!(parser.parse("123.45"), Ok(("123.45".to_string(), "")));
@@ -767,7 +766,7 @@ where
 /// ```
 /// # #[macro_use]
 /// # extern crate combine;
-/// # use combine::combinator::{AnyPartialState, any_partial_state};
+/// # use combine::parser::combinator::{AnyPartialState, any_partial_state};
 /// # use combine::parser::char::letter;
 /// # use combine::*;
 ///
@@ -867,7 +866,7 @@ where
 /// ```
 /// # #[macro_use]
 /// # extern crate combine;
-/// # use combine::combinator::{AnySendPartialState, any_send_partial_state};
+/// # use combine::parser::combinator::{AnySendPartialState, any_send_partial_state};
 /// # use combine::parser::char::letter;
 /// # use combine::*;
 ///
@@ -1121,7 +1120,8 @@ type PartialState = P::PartialState;
 /// # use combine::parser::range;
 /// # use combine::parser::repeat::many1;
 /// # use combine::parser::combinator::from_str;
-/// # use combine::char;
+/// # use combine::parser::char;
+/// # use combine::parser::byte;
 /// # use combine::*;
 /// # fn main() {
 /// let mut parser = from_str(many1::<String, _, _>(char::digit()));
@@ -1232,7 +1232,7 @@ pub type FnOpaque<Input, O, S = ()> =
 /// ```
 /// # #[macro_use]
 /// # extern crate combine;
-/// # use combine::combinator::{FnOpaque, no_partial};
+/// # use combine::parser::combinator::{FnOpaque, no_partial};
 /// # use combine::parser::char::{char, digit};
 /// # use combine::*;
 ///

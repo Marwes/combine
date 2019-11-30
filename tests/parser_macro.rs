@@ -6,7 +6,7 @@ parser! {
         where [Input: ::combine::Stream<Token = char>]
     {
 
-use combine::combinator::value;
+use combine::parser::token::value;
 
 let _ = ();
         fn _test() { }
@@ -23,7 +23,7 @@ parser! {
         where [Input: ::combine::Stream<Token = char>]
     {
 
-use combine::combinator::value;
+use combine::parser::token::value;
 
 value(())
     }

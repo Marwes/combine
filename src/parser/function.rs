@@ -137,7 +137,8 @@ where
 /// # extern crate combine;
 /// # use std::collections::HashMap;
 /// # use combine::*;
-/// # use combine::char::letter;
+/// # use combine::parser::function::env_parser;
+/// # use combine::parser::char::letter;
 /// # fn main() {
 /// struct Interner(HashMap<String, u32>);
 /// impl Interner {

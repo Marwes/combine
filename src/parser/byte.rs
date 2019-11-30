@@ -2,15 +2,16 @@
 extern crate ascii;
 
 use crate::{
-    combinator::{no_partial, satisfy, skip_many, token, Token},
     error::{
         self, ParseError,
         ParseResult::{self, *},
     },
     lib::marker::PhantomData,
     parser::{
+        combinator::no_partial,
         range::{take_fn, TakeRange},
-        token::tokens_cmp,
+        repeat::skip_many,
+        token::{satisfy, token, tokens_cmp, Token},
         ParseMode,
     },
     stream::{RangeStream, Stream, StreamOnce},

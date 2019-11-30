@@ -1,14 +1,20 @@
 //! Combinators which take one or more parsers and applies them repeatedly.
 
 use crate::{
-    combinator::{ignore, optional, parser, value, FnParser, Ignore, Optional, Value},
     error::{
         Commit, ParseError,
         ParseResult::{self, *},
         ResultExt, StdParseResult, StreamError, Tracked,
     },
     lib::{borrow::BorrowMut, iter, marker::PhantomData, mem},
-    parser::{choice::Or, sequence::With, FirstMode, ParseMode},
+    parser::{
+        choice::{optional, Optional, Or},
+        combinator::{ignore, Ignore},
+        function::{parser, FnParser},
+        sequence::With,
+        token::{value, Value},
+        FirstMode, ParseMode,
+    },
     stream::{uncons, Stream, StreamOnce},
     ErrorOffset, Parser,
 };
@@ -62,7 +68,7 @@ parser! {
         P: Parser<Input>
     ]
     {
-        crate::combinator::count::<Sink, _, _>(*count, parser.map(|_| ())).with(value(()))
+        self::count::<Sink, _, _>(*count, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -183,7 +189,7 @@ parser! {
         P: Parser<Input>,
     ]
     {
-       crate::combinator::count_min_max::<Sink, _, _>(*min, *max, parser.map(|_| ())).with(value(()))
+       count_min_max::<Sink, _, _>(*min, *max, parser.map(|_| ())).with(value(()))
     }
 }
 
@@ -855,6 +861,7 @@ where
                     ctry!(self
                         .parser
                         .parse_mode(mode, input, &mut child_state.B.state));
+                *parsed_one = Some(rest);
                 elements.extend(Some(first));
                 rest
             }
@@ -866,6 +873,10 @@ where
 
             // Parse elements until `self.parser` returns `None`
             elements.extend(iter.by_ref().scan((), |_, x| x));
+
+            if iter.consumed {
+                *parsed_one = Some(Commit::Commit(()));
+            }
 
             iter.into_result_fast(elements).map(|x| {
                 *parsed_one = None;
@@ -1247,9 +1258,7 @@ where
                     Ok((_, rest)) => {
                         ctry!(input.reset(before).consumed());
                         return match consumed.merge(rest) {
-                            Commit::Commit(()) => {
-                                CommitOk(mem::replace(output, F::default()))
-                            }
+                            Commit::Commit(()) => CommitOk(mem::replace(output, F::default())),
                             Commit::Peek(()) => PeekOk(mem::replace(output, F::default())),
                         };
                     }

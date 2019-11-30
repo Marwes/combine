@@ -19,7 +19,7 @@ use crate::{
 /// # #[macro_use]
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{digit, letter, string};
+/// # use combine::parser::char::{digit, letter, string};
 /// # use combine::stream::easy::Error;
 /// # fn main() {
 /// let mut parser = choice!(
@@ -523,7 +523,7 @@ where
 /// ```
 /// # extern crate combine;
 /// # use combine::*;
-/// # use combine::char::{digit, string};
+/// # use combine::parser::char::{digit, string};
 /// # fn main() {
 /// // `choice` is overloaded on tuples so that different types of parsers can be used
 /// // (each parser must still have the same input and output types)
@@ -710,6 +710,7 @@ macro_rules! parse_mode_dispatch {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! dispatch_parser_impl {
     ($parser_name: ident [$first_ident: ident $($id: ident)*] [$($collected_idents: ident)*] $expr: expr, $($rest: expr,)*) => {
         $crate::dispatch_parser_impl!{ $parser_name [ $($id)* ] [$($collected_idents)* $first_ident] $($rest,)*}
@@ -775,6 +776,7 @@ macro_rules! dispatch_parser_impl {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! dispatch_inner {
     ($expr_ident: ident [$first_ident: ident $($id: ident)*] [$($collected: tt)*] $($pat: pat)|+ $(if $pred:expr)? => $expr: expr, $($rest_alt: tt)*) => {
         $crate::dispatch_inner!{ $expr_ident [ $($id)* ] [$($collected)* $first_ident $($pat)|+ $(if $pred)? => $expr,] $($rest_alt)*}
@@ -794,6 +796,25 @@ macro_rules! dispatch_inner {
     }
 }
 
+/// `dispatch!` allows a parser to be constructed depending on earlier input, without forcing each
+/// branch to have the same type of parser
+///
+/// ```
+/// use combine::{dispatch, any, token, satisfy, EasyParser, Parser};
+///
+/// let mut parser = any().then(|e| {
+///     dispatch!(e;
+///         'a' => token('a'),
+///         'b' => satisfy(|b| b == 'b'),
+///         t if t == 'c' => any(),
+///         _ => token('d')
+///     )
+/// });
+/// assert_eq!(parser.easy_parse("aa"), Ok(('a', "")));
+/// assert_eq!(parser.easy_parse("cc"), Ok(('c', "")));
+/// assert_eq!(parser.easy_parse("cd"), Ok(('d', "")));
+/// assert!(parser.easy_parse("ab").is_err());
+/// ```
 #[macro_export]
 macro_rules! dispatch {
     ($match_expr: expr; $( $($pat: pat)|+ $(if $pred:expr)? => $expr: expr ),+ $(,)? ) => {
@@ -816,28 +837,12 @@ macro_rules! dispatch {
 #[cfg(test)]
 mod tests {
 
-    use crate::parser::{
-        token::{any, token},
-        EasyParser,
-    };
+    use crate::parser::{token::any, EasyParser};
 
     use super::*;
 
     #[test]
     fn choice_single_parser() {
         assert!(choice((any(),),).easy_parse("a").is_ok());
-    }
-
-    #[test]
-    fn dispatch() {
-        let mut parser = any().then(|e| {
-            dispatch!(e;
-                'a' => token('a'),
-                'b' => token('b'),
-                t if t == 'c' => token('c'),
-                _ => token('d')
-            )
-        });
-        assert_eq!(parser.easy_parse("aa"), Ok(('a', "")));
     }
 }

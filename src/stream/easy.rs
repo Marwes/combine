@@ -80,9 +80,7 @@
 //! ```
 //!
 //! [`Parser::easy_parse`]: ../../parser/trait.Parser.html#method.easy_parse
-use std::error::Error as StdError;
-
-use std::fmt;
+use std::{error::Error as StdError, fmt};
 
 use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
 
@@ -577,32 +575,32 @@ pub type ParseError<S> =
 /// Struct which hold information about an error that occurred at a specific position.
 /// Can hold multiple instances of `Error` if more that one error occurred in the same position.
 #[derive(Debug, PartialEq)]
-pub struct Errors<Input, R, P> {
+pub struct Errors<T, R, P> {
     /// The position where the error occurred
     pub position: P,
     /// A vector containing specific information on what errors occurred at `position`. Usually
     /// a fully formed message contains one `Unexpected` error and one or more `Expected` errors.
     /// `Message` and `Other` may also appear (`combine` never generates these errors on its own)
     /// and may warrant custom handling.
-    pub errors: Vec<Error<Input, R>>,
+    pub errors: Vec<Error<T, R>>,
 }
 
-impl<Input, R, P> Errors<Input, R, P> {
+impl<T, R, P> Errors<T, R, P> {
     /// Constructs a new `ParseError` which occurred at `position`.
     #[inline]
-    pub fn new(position: P, error: Error<Input, R>) -> Errors<Input, R, P> {
+    pub fn new(position: P, error: Error<T, R>) -> Errors<T, R, P> {
         Self::from_errors(position, vec![error])
     }
 
     /// Constructs an error with no other information than the position it occurred at.
     #[inline]
-    pub fn empty(position: P) -> Errors<Input, R, P> {
+    pub fn empty(position: P) -> Errors<T, R, P> {
         Self::from_errors(position, vec![])
     }
 
     /// Constructs a `ParseError` with multiple causes.
     #[inline]
-    pub fn from_errors(position: P, errors: Vec<Error<Input, R>>) -> Errors<Input, R, P> {
+    pub fn from_errors(position: P, errors: Vec<Error<T, R>>) -> Errors<T, R, P> {
         Errors {
             position: position,
             errors: errors,
@@ -612,15 +610,15 @@ impl<Input, R, P> Errors<Input, R, P> {
     /// Constructs an end of input error. Should be returned by parsers which encounter end of
     /// input unexpectedly.
     #[inline]
-    pub fn end_of_input(position: P) -> Errors<Input, R, P> {
+    pub fn end_of_input(position: P) -> Errors<T, R, P> {
         Self::new(position, Error::end_of_input())
     }
 
     /// Adds an error if `error` does not exist in this `ParseError` already (as determined byte
     /// `PartialEq`).
-    pub fn add_error(&mut self, error: Error<Input, R>)
+    pub fn add_error(&mut self, error: Error<T, R>)
     where
-        Input: PartialEq,
+        T: PartialEq,
         R: PartialEq,
     {
         // Don't add duplicate errors
@@ -630,7 +628,7 @@ impl<Input, R, P> Errors<Input, R, P> {
     }
 
     /// Removes all `Expected` errors in `self` and adds `info` instead.
-    pub fn set_expected(&mut self, info: Info<Input, R>) {
+    pub fn set_expected(&mut self, info: Info<T, R>) {
         // Remove all other expected messages
         self.errors.retain(|e| match *e {
             Error::Expected(_) => false,
@@ -642,10 +640,10 @@ impl<Input, R, P> Errors<Input, R, P> {
     /// Merges two `ParseError`s. If they exist at the same position the errors of `other` are
     /// added to `self` (using `add_error` to skip duplicates). If they are not at the same
     /// position the error furthest ahead are returned, ignoring the other `ParseError`.
-    pub fn merge(mut self, mut other: Errors<Input, R, P>) -> Errors<Input, R, P>
+    pub fn merge(mut self, mut other: Errors<T, R, P>) -> Errors<T, R, P>
     where
         P: Ord,
-        Input: PartialEq,
+        T: PartialEq,
         R: PartialEq,
     {
         use std::cmp::Ordering;
@@ -664,7 +662,7 @@ impl<Input, R, P> Errors<Input, R, P> {
     }
 
     /// Maps the position to a new value
-    pub fn map_position<F, Q>(self, f: F) -> Errors<Input, R, Q>
+    pub fn map_position<F, Q>(self, f: F) -> Errors<T, R, Q>
     where
         F: FnOnce(P) -> Q,
     {
@@ -674,7 +672,7 @@ impl<Input, R, P> Errors<Input, R, P> {
     /// Maps all token variants to a new value
     pub fn map_token<F, U>(self, mut f: F) -> Errors<U, R, P>
     where
-        F: FnMut(Input) -> U,
+        F: FnMut(T) -> U,
     {
         Errors::from_errors(
             self.position,
@@ -698,7 +696,7 @@ impl<Input, R, P> Errors<Input, R, P> {
     ///         .map_range(|bytes| format!("{:?}", bytes))
     /// );
     /// ```
-    pub fn map_range<F, S>(self, mut f: F) -> Errors<Input, S, P>
+    pub fn map_range<F, S>(self, mut f: F) -> Errors<T, S, P>
     where
         F: FnMut(R) -> S,
     {
@@ -712,10 +710,10 @@ impl<Input, R, P> Errors<Input, R, P> {
     }
 }
 
-impl<Input, R, P> StdError for Errors<Input, R, P>
+impl<T, R, P> StdError for Errors<T, R, P>
 where
     P: fmt::Display + fmt::Debug,
-    Input: fmt::Display + fmt::Debug,
+    T: fmt::Display + fmt::Debug,
     R: fmt::Display + fmt::Debug,
 {
     fn description(&self) -> &str {
@@ -723,10 +721,10 @@ where
     }
 }
 
-impl<Input, R, P> fmt::Display for Errors<Input, R, P>
+impl<T, R, P> fmt::Display for Errors<T, R, P>
 where
     P: fmt::Display,
-    Input: fmt::Display,
+    T: fmt::Display,
     R: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

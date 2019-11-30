@@ -6,16 +6,17 @@
 use either::Either;
 
 use crate::{
-    combinator::{
-        and_then, expected, flat_map, map, map_input, message, then, then_partial, AndThen,
-        Expected, FlatMap, Iter, Map, MapInput, Message, Then, ThenPartial,
-    },
     error::{
         ErrorInfo, ParseError,
         ParseResult::{self, *},
         ResultExt, Token, Tracked,
     },
-    parser::error::{silent, Silent},
+    parser::{
+        combinator::{and_then, flat_map, map, map_input, AndThen, FlatMap, Map, MapInput},
+        error::{expected, message, silent, Expected, Message, Silent},
+        repeat::Iter,
+        sequence::{then, then_partial, Then, ThenPartial},
+    },
     stream::{Stream, StreamOnce},
     ErrorOffset,
 };
@@ -57,7 +58,8 @@ pub mod combinator;
 pub mod error;
 pub mod function;
 pub mod range;
-#[cfg(any(feature = "regex", feature = "regex-1"))]
+#[cfg(feature = "regex")]
+#[cfg_attr(docsrs, doc(cfg(feature = "regex")))]
 pub mod regex;
 pub mod repeat;
 pub mod sequence;
@@ -791,7 +793,6 @@ pub trait Parser<Input: Stream> {
     /// return parsers from functions without naming the type.
     ///
     /// ```
-    /// # extern crate combine;
     /// # use combine::*;
     /// # fn main() {
     /// fn test<'input, F>(
@@ -800,7 +801,7 @@ pub trait Parser<Input: Stream> {
     ///     -> Box<dyn Parser<&'input str, Output = (char, char), PartialState = ()> + 'input>
     ///     where F: FnMut(char) -> bool + 'static
     /// {
-    ///     ::combine::combinator::no_partial((token(c), satisfy(f))).boxed()
+    ///     combine::parser::combinator::no_partial((token(c), satisfy(f))).boxed()
     /// }
     /// let result = test('a', |c| c >= 'a' && c <= 'f')
     ///     .parse("ac");
@@ -886,6 +887,7 @@ pub trait Parser<Input: Stream> {
     }
 }
 
+/// Provides the `easy_parse` method which provides good error messages by default
 #[cfg(feature = "std")]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where

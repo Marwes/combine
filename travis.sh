@@ -2,8 +2,8 @@
 set -ex
 
 cargo build
-cargo test --features doc
-cargo test --features doc --examples
+cargo test --all-features
+cargo test --all-features --examples
 
 cargo test --bench json --bench http -- --test
 cargo check --bench mp4 --features mp4
