@@ -1289,7 +1289,9 @@ use crate::stream::position::IndexPositioner;
 use std::io::{self, BufRead};
 
 #[cfg(feature = "std")]
+#[cfg_attr(feature = "pin-project", pin_project::pin_project)]
 pub struct Decoder<R, S, P = IndexPositioner> {
+    #[cfg_attr(feature = "pin-project", pin)]
     reader: R,
     pub positioner: P,
     state: S,
@@ -1311,15 +1313,17 @@ where
     }
 }
 
-impl<R, S, P> Decoder<R, S, P>
-where
-    R: BufRead,
-{
+impl<R, S, P> Decoder<R, S, P> {
     #[doc(hidden)]
     pub fn remaining_len(&self) -> usize {
         self.remaining.len()
     }
+}
 
+impl<R, S, P> Decoder<R, S, P>
+where
+    R: BufRead,
+{
     #[doc(hidden)]
     pub fn before_parse(&mut self) -> io::Result<(&mut S, &mut P, &[u8], bool)> {
         let mut end_of_input = false;
@@ -1375,23 +1379,116 @@ where
     }
 }
 
+#[cfg(feature = "tokio")]
+use std::pin::Pin;
+
+// https://github.com/tokio-rs/tokio/pull/1687
+#[cfg(feature = "tokio")]
+async fn fill_buf<R>(reader: Pin<&mut R>) -> io::Result<&[u8]>
+where
+    R: tokio_dep::io::AsyncBufRead,
+{
+    let mut reader = Some(reader);
+    use futures_03::{future, task::Poll};
+    future::poll_fn(move |cx| match reader.take() {
+        Some(mut r) => match r.as_mut().poll_fill_buf(cx) {
+            // SAFETY We either drop `self.reader` and return a slice with the lifetime of the
+            // reader or we return Pending/Err (neither which contains `'a`).
+            // In either case `poll_fill_buf` can not be called while it's contents are exposed
+            Poll::Ready(Ok(x)) => unsafe { return Ok(&*(x as *const _)).into() },
+            Poll::Ready(Err(err)) => Err(err).into(),
+            Poll::Pending => {
+                reader = Some(r);
+                Poll::Pending
+            }
+        },
+        None => panic!("fill_buf polled after completion"),
+    })
+    .await
+}
+
+#[cfg(feature = "tokio")]
+impl<R, S, P> Decoder<R, S, P>
+where
+    R: tokio_dep::io::AsyncBufRead,
+{
+    #[doc(hidden)]
+    pub async fn before_parse_async(
+        self: Pin<&mut Self>,
+    ) -> io::Result<(&mut S, &mut P, &[u8], bool)> {
+        let self_ = self.project();
+        let mut end_of_input = false;
+        let buffer = fill_buf(self_.reader).await?;
+        if buffer.len() == 0 {
+            end_of_input = true;
+        }
+        Ok((
+            self_.state,
+            self_.positioner,
+            if !self_.remaining.is_empty() {
+                self_.remaining.extend(buffer);
+                &self_.remaining[..]
+            } else {
+                buffer
+            },
+            end_of_input,
+        ))
+    }
+
+    #[doc(hidden)]
+    pub async fn after_parse_async(
+        self: Pin<&mut Self>,
+        remaining_data: usize,
+        mut removed: usize,
+        done: bool,
+    ) -> io::Result<()> {
+        let mut self_ = self.project();
+        if !self_.remaining.is_empty() {
+            // Remove the data we have parsed and adjust `removed` to be the amount of data we
+            // consumed from `self.reader`
+            self_.remaining.drain(..removed);
+            if removed >= remaining_data {
+                removed -= remaining_data;
+            } else {
+                removed = 0;
+            }
+        }
+
+        let consume = if done {
+            removed
+        } else {
+            // We have not enough data to produce a Value but we know that all the data of
+            // the current buffer are necessary. Consume all the buffered data to ensure
+            // that the next iteration actually reads more data.
+            let buffer = fill_buf(self_.reader.as_mut()).await?;
+            if remaining_data == 0 {
+                self_.remaining.extend(&buffer[removed..]);
+            }
+            buffer.len()
+        };
+        self_.reader.consume(consume);
+        Ok(())
+    }
+}
+
 /// Parses an instance of `std::io::BufRead` as a `&[u8]` without reading the entire file into
 /// memory.
 ///
 /// This is defined as a macro to work around the lack of Higher Ranked Types. See the
 /// example for how to pass a parser to the macro (constructing parts of the parser outside of
-/// the `decode_sync!` call is unlikely to work.
+/// the `decode!` call is unlikely to work.
 ///
 /// ```
 /// use std::{
 ///     fs::File,
 ///     io::BufReader
 /// };
-/// use combine::{satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+/// use combine::{decode, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+///
 /// let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(100, File::open("README.md").unwrap()));
 /// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 /// assert_eq!(
-///     combine::decode_sync!(
+///     decode!(
 ///         decoder,
 ///         {
 ///             let word = many1(satisfy(|b| !is_whitespace(b)));
@@ -1402,11 +1499,100 @@ where
 ///     Ok(819),
 /// );
 /// ```
+///
+/// Decoding can also be done asynchronously with [tokio](https://github.com/tokio-rs/tokio)
+///
+/// ```
+/// # use tokio_dep as tokio;
+/// use futures_03::pin_mut;
+/// use tokio::{
+///     fs::File,
+///     io::BufReader
+/// };
+///
+/// use combine::{decode, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(100, File::open("README.md").await.unwrap()));
+///     pin_mut!(decoder);
+///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+///     assert_eq!(
+///         decode!(
+///             async
+///             decoder,
+///             {
+///                 let word = many1(satisfy(|b| !is_whitespace(b)));
+///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
+///             },
+///             combine::easy::Stream::from
+///         ).map_err(|err: combine::easy::Errors<u8, &[u8], usize>| err),
+///         Ok(819),
+///     );
+/// }
+/// ```
 #[cfg(feature = "std")]
 #[macro_export]
-macro_rules! decode_sync {
+macro_rules! decode {
+    (async $decoder: expr, $parser: expr) => {
+        $crate::decode!(async $decoder, $parser, |x| x)
+    };
+
+    (async $decoder: expr, $parser: expr, $input_stream: expr) => {
+        match $decoder {
+            ref mut decoder => 'outer: loop {
+                use $crate::stream::position::Positioner;
+
+                let remaining_data = decoder.remaining_len();
+
+                let (opt, removed) = {
+                    let (state, positioner, buffer, end_of_input) =
+                        match decoder.as_mut().before_parse_async().await {
+                            Ok(x) => x,
+                            Err(err) => {
+                                break 'outer Err($crate::error::ParseError::from_error(
+                                    Positioner::<u8>::position(&decoder.positioner),
+                                    $crate::error::StreamError::other(err),
+                                ))
+                            }
+                        };
+
+                    let mut stream = $crate::stream::MaybePartialStream(
+                        $input_stream($crate::stream::position::Stream {
+                            input: buffer,
+                            positioner,
+                        }),
+                        !end_of_input,
+                    );
+                    match $crate::stream::decode($parser, &mut stream, state) {
+                        Ok(x) => x,
+                        Err(err) => break 'outer Err(err.into()),
+                    }
+                };
+
+                match decoder
+                    .as_mut()
+                    .after_parse_async(remaining_data, removed, opt.is_some())
+                    .await
+                {
+                    Ok(x) => x,
+                    Err(err) => {
+                        break 'outer Err($crate::error::ParseError::from_error(
+                            Positioner::<u8>::position(&decoder.positioner),
+                            $crate::error::StreamError::other(err),
+                        ))
+                    }
+                }
+
+                if let Some(v) = opt {
+                    break 'outer Ok(v);
+                }
+            },
+        }
+    };
+
     ($decoder: expr, $parser: expr) => {
-        $crate::decode_sync!($decoder, $parser, |x| x)
+        $crate::decode!($decoder, $parser, |x| x)
     };
 
     ($decoder: expr, $parser: expr, $input_stream: expr) => {
@@ -1488,29 +1674,5 @@ mod tests {
 
         input.reset(before.clone()).unwrap();
         assert_eq!(input.distance(&before), 0);
-    }
-
-    #[test]
-    fn decode() {
-        use crate::{many1, satisfy, sep_end_by, skip_many1, stream::Decoder, Parser};
-        use std::{fs::File, io::BufReader};
-        let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(
-            100,
-            File::open("README.md").unwrap(),
-        ));
-        let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
-        assert_eq!(
-            crate::decode_sync!(
-                decoder,
-                {
-                    let word = many1(satisfy(|b| !is_whitespace(b)));
-                    sep_end_by(word, skip_many1(satisfy(is_whitespace)))
-                        .map(|words: Vec<Vec<u8>>| words.len())
-                },
-                crate::easy::Stream::from
-            )
-            .map_err(|err: crate::easy::Errors<u8, &[u8], usize>| err),
-            Ok(819),
-        );
     }
 }
