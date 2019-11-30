@@ -1392,7 +1392,7 @@ use std::pin::Pin;
 #[cfg(feature = "tokio-02")]
 async fn fill_buf<R>(reader: Pin<&mut R>) -> io::Result<&[u8]>
 where
-    R: tokio_dep::io::AsyncBufRead,
+    R: tokio_02_dep::io::AsyncBufRead,
 {
     let mut reader = Some(reader);
     use futures_03::{future, task::Poll};
@@ -1416,7 +1416,7 @@ where
 #[cfg(feature = "tokio-02")]
 impl<R, S, P> Decoder<R, S, P>
 where
-    R: tokio_dep::io::AsyncBufRead,
+    R: tokio_02_dep::io::AsyncBufRead,
 {
     #[doc(hidden)]
     pub async fn before_parse_async(
@@ -1570,7 +1570,7 @@ macro_rules! decode_buf_read {
 /// the `decode_buf_read!` call is unlikely to work.
 ///
 /// ```
-/// # use tokio_dep as tokio;
+/// # use tokio_02_dep as tokio;
 /// use futures_03::pin_mut;
 /// use tokio::{
 ///     fs::File,
