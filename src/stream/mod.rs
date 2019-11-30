@@ -1282,95 +1282,180 @@ where
     }
 }
 
-/// Parses an instance of `std::io::BufRead` while parsing
+#[cfg(feature = "std")]
+use crate::stream::position::IndexPositioner;
+
+#[cfg(feature = "std")]
+use std::io::{self, BufRead};
+
+#[cfg(feature = "std")]
+pub struct Decoder<R, S, P = IndexPositioner> {
+    reader: R,
+    pub positioner: P,
+    state: S,
+    remaining: Vec<u8>,
+}
+
+impl<R, S, P> Decoder<R, S, P>
+where
+    P: Default,
+    S: Default,
+{
+    pub fn new(reader: R) -> Self {
+        Decoder {
+            reader,
+            positioner: P::default(),
+            state: S::default(),
+            remaining: Vec::new(),
+        }
+    }
+}
+
+impl<R, S, P> Decoder<R, S, P>
+where
+    R: BufRead,
+{
+    #[doc(hidden)]
+    pub fn remaining_len(&self) -> usize {
+        self.remaining.len()
+    }
+
+    #[doc(hidden)]
+    pub fn before_parse(&mut self) -> io::Result<(&mut S, &mut P, &[u8], bool)> {
+        let mut end_of_input = false;
+        let buffer = self.reader.fill_buf()?;
+        if buffer.len() == 0 {
+            end_of_input = true;
+        }
+        Ok((
+            &mut self.state,
+            &mut self.positioner,
+            if !self.remaining.is_empty() {
+                self.remaining.extend(buffer);
+                &self.remaining[..]
+            } else {
+                buffer
+            },
+            end_of_input,
+        ))
+    }
+
+    #[doc(hidden)]
+    pub fn after_parse(
+        &mut self,
+        remaining_data: usize,
+        mut removed: usize,
+        done: bool,
+    ) -> io::Result<()> {
+        if !self.remaining.is_empty() {
+            // Remove the data we have parsed and adjust `removed` to be the amount of data we
+            // consumed from `self.reader`
+            self.remaining.drain(..removed);
+            if removed >= remaining_data {
+                removed -= remaining_data;
+            } else {
+                removed = 0;
+            }
+        }
+
+        let consume = if done {
+            removed
+        } else {
+            // We have not enough data to produce a Value but we know that all the data of
+            // the current buffer are necessary. Consume all the buffered data to ensure
+            // that the next iteration actually reads more data.
+            let buffer = self.reader.fill_buf()?;
+            if remaining_data == 0 {
+                self.remaining.extend(&buffer[removed..]);
+            }
+            buffer.len()
+        };
+        self.reader.consume(consume);
+        Ok(())
+    }
+}
+
+/// Parses an instance of `std::io::BufRead` as a `&[u8]` without reading the entire file into
+/// memory.
+///
+/// This is defined as a macro to work around the lack of Higher Ranked Types. See the
+/// example for how to pass a parser to the macro (constructing parts of the parser outside of
+/// the `decode_sync!` call is unlikely to work.
 ///
 /// ```
 /// use std::{
 ///     fs::File,
 ///     io::BufReader
 /// };
-/// use combine::{satisfy, skip_many1, many1, byte::{letter, space}, sep_end_by, Parser};
-/// let mut input = BufReader::with_capacity(100, File::open("README.md").unwrap());
+/// use combine::{satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+/// let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(100, File::open("README.md").unwrap()));
 /// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 /// assert_eq!(
-///     combine::decode_sync!(input, {
-///         let word = many1(satisfy(|b| !is_whitespace(b)));
-///         sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
-///     }).map_err(|err: Box<dyn std::error::Error>| err).ok(),
-///     Some(819),
+///     combine::decode_sync!(
+///         decoder,
+///         {
+///             let word = many1(satisfy(|b| !is_whitespace(b)));
+///             sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
+///         },
+///         combine::easy::Stream::from
+///     ).map_err(|err: combine::easy::Errors<u8, &[u8], usize>| err),
+///     Ok(819),
 /// );
 /// ```
 #[cfg(feature = "std")]
 #[macro_export]
 macro_rules! decode_sync {
-    ($reader: expr, $parser: expr) => {{
-        let mut reader = { $reader };
-        let mut state = Default::default();
-        let mut remaining = Vec::new();
-        let remaining_data = remaining.len();
+    ($decoder: expr, $parser: expr) => {
+        $crate::decode_sync!($decoder, $parser, |x| x)
+    };
 
-        let mut end_of_input = false;
+    ($decoder: expr, $parser: expr, $input_stream: expr) => {
+        match $decoder {
+            ref mut decoder => 'outer: loop {
+                use $crate::stream::position::Positioner;
 
-        'outer: loop {
-            use std::io::BufRead;
+                let remaining_data = decoder.remaining_len();
 
-            let (opt, mut removed) = {
-                let buffer = match reader.fill_buf() {
-                    Ok(x) => x,
-                    Err(err) => break 'outer Err(err.into()),
-                };
-                if buffer.len() == 0 {
-                    end_of_input = true;
-                }
-                let buffer = if !remaining.is_empty() {
-                    remaining.extend(buffer);
-                    &remaining[..]
-                } else {
-                    buffer
-                };
-
-                let mut stream = $crate::stream::MaybePartialStream(&buffer[..], !end_of_input);
-                match $crate::stream::decode($parser, &mut stream, &mut state) {
-                    Ok(x) => x,
-                    Err(err) => break 'outer Err(err.into()),
-                }
-            };
-
-            if !remaining.is_empty() {
-                // Remove the data we have parsed and adjust `removed` to be the amount of data we
-                // consumed from `self.reader`
-                remaining.drain(..removed);
-                if removed >= remaining_data {
-                    removed -= remaining_data;
-                } else {
-                    removed = 0;
-                }
-            }
-
-            match opt {
-                Some(value) => {
-                    reader.consume(removed);
-                    break 'outer Ok(value);
-                }
-                None => {
-                    // We have not enough data to produce a Value but we know that all the data of
-                    // the current buffer are necessary. Consume all the buffered data to ensure
-                    // that the next iteration actually reads more data.
-                    let buffer_len = {
-                        let buffer = match reader.fill_buf() {
-                            Ok(x) => x,
-                            Err(err) => break 'outer Err(err.into()),
-                        };
-                        if remaining_data == 0 {
-                            remaining.extend(&buffer[removed..]);
+                let (opt, removed) = {
+                    let (state, positioner, buffer, end_of_input) = match decoder.before_parse() {
+                        Ok(x) => x,
+                        Err(err) => {
+                            break 'outer Err($crate::error::ParseError::from_error(
+                                Positioner::<u8>::position(&decoder.positioner),
+                                $crate::error::StreamError::other(err),
+                            ))
                         }
-                        buffer.len()
                     };
-                    reader.consume(buffer_len);
+
+                    let mut stream = $crate::stream::MaybePartialStream(
+                        $input_stream($crate::stream::position::Stream {
+                            input: buffer,
+                            positioner,
+                        }),
+                        !end_of_input,
+                    );
+                    match $crate::stream::decode($parser, &mut stream, state) {
+                        Ok(x) => x,
+                        Err(err) => break 'outer Err(err.into()),
+                    }
+                };
+
+                match decoder.after_parse(remaining_data, removed, opt.is_some()) {
+                    Ok(x) => x,
+                    Err(err) => {
+                        break 'outer Err($crate::error::ParseError::from_error(
+                            Positioner::<u8>::position(&decoder.positioner),
+                            $crate::error::StreamError::other(err),
+                        ))
+                    }
                 }
-            }
+
+                if let Some(v) = opt {
+                    break 'outer Ok(v);
+                }
+            },
         }
-    }};
+    };
 }
 
 #[cfg(test)]
@@ -1403,5 +1488,29 @@ mod tests {
 
         input.reset(before.clone()).unwrap();
         assert_eq!(input.distance(&before), 0);
+    }
+
+    #[test]
+    fn decode() {
+        use crate::{many1, satisfy, sep_end_by, skip_many1, stream::Decoder, Parser};
+        use std::{fs::File, io::BufReader};
+        let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(
+            100,
+            File::open("README.md").unwrap(),
+        ));
+        let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+        assert_eq!(
+            crate::decode_sync!(
+                decoder,
+                {
+                    let word = many1(satisfy(|b| !is_whitespace(b)));
+                    sep_end_by(word, skip_many1(satisfy(is_whitespace)))
+                        .map(|words: Vec<Vec<u8>>| words.len())
+                },
+                crate::easy::Stream::from
+            )
+            .map_err(|err: crate::easy::Errors<u8, &[u8], usize>| err),
+            Ok(819),
+        );
     }
 }

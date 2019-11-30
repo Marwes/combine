@@ -14,10 +14,16 @@ use crate::stream::read;
 pub trait Positioner<Item> {
     /// The type which keeps track of the position
     type Position: Clone + Ord;
+
+    type Checkpoint: Clone;
+
     /// Returns the current position
     fn position(&self) -> Self::Position;
     /// Updates the position given that `token` has been taken from the stream
     fn update(&mut self, token: &Item);
+
+    fn checkpoint(&self) -> Self::Checkpoint;
+    fn reset(&mut self, checkpoint: Self::Checkpoint);
 }
 
 /// Trait for tracking the current position of a `RangeStream`.
@@ -124,8 +130,8 @@ where
     Input: StreamOnce,
     X: Positioner<Input::Token>,
     S: StreamError<Input::Token, Input::Range>,
-    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>
+        + ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
 {
     type Token = Input::Token;
     type Range = Input::Range;
@@ -145,6 +151,46 @@ where
     }
 }
 
+impl<Item, T> Positioner<Item> for &'_ mut T
+where
+    Item: PartialEq + Clone,
+    T: ?Sized + Positioner<Item>,
+{
+    type Position = T::Position;
+    type Checkpoint = T::Checkpoint;
+
+    #[inline]
+    fn position(&self) -> T::Position {
+        (**self).position()
+    }
+
+    #[inline]
+    fn update(&mut self, item: &Item) {
+        (**self).update(item)
+    }
+
+    #[inline]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        (**self).checkpoint()
+    }
+
+    #[inline]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        (**self).reset(checkpoint)
+    }
+}
+
+impl<Item, Range, T> RangePositioner<Item, Range> for &'_ mut T
+where
+    Item: PartialEq + Clone,
+    Range: PartialEq + Clone + crate::stream::Range,
+    T: ?Sized + RangePositioner<Item, Range>,
+{
+    fn update_range(&mut self, range: &Range) {
+        (**self).update_range(range);
+    }
+}
+
 /// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `Input`.  The
 /// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
 /// increments the position by `range.len()`.
@@ -156,6 +202,7 @@ where
     Item: PartialEq + Clone,
 {
     type Position = usize;
+    type Checkpoint = Self;
 
     #[inline]
     fn position(&self) -> usize {
@@ -165,6 +212,16 @@ where
     #[inline]
     fn update(&mut self, _item: &Item) {
         self.0 += 1
+    }
+
+    #[inline]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.clone()
+    }
+
+    #[inline]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        *self = checkpoint;
     }
 }
 
@@ -217,6 +274,7 @@ impl SourcePosition {
 
 impl Positioner<char> for SourcePosition {
     type Position = SourcePosition;
+    type Checkpoint = Self;
 
     #[inline]
     fn position(&self) -> SourcePosition {
@@ -231,10 +289,21 @@ impl Positioner<char> for SourcePosition {
             self.line += 1;
         }
     }
+
+    #[inline]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.clone()
+    }
+
+    #[inline]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        *self = checkpoint;
+    }
 }
 
 impl Positioner<u8> for SourcePosition {
     type Position = SourcePosition;
+    type Checkpoint = Self;
 
     #[inline]
     fn position(&self) -> SourcePosition {
@@ -249,6 +318,16 @@ impl Positioner<u8> for SourcePosition {
             self.line += 1;
         }
     }
+
+    #[inline]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.clone()
+    }
+
+    #[inline]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) {
+        *self = checkpoint;
+    }
 }
 
 impl<'a> RangePositioner<char, &'a str> for SourcePosition {
@@ -262,7 +341,7 @@ impl<'a> RangePositioner<char, &'a str> for SourcePosition {
 impl<Input, X, S> RangeStreamOnce for Stream<Input, X>
 where
     Input: RangeStreamOnce,
-    X: Clone + RangePositioner<Input::Token, Input::Range>,
+    X: RangePositioner<Input::Token, Input::Range>,
     S: StreamError<Input::Token, Input::Range>,
     Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
@@ -324,21 +403,21 @@ where
 impl<Input, X, S> ResetStream for Stream<Input, X>
 where
     Input: ResetStream,
-    X: Clone + Positioner<Input::Token>,
+    X: Positioner<Input::Token>,
     S: StreamError<Input::Token, Input::Range>,
     Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
 {
-    type Checkpoint = Stream<Input::Checkpoint, X>;
+    type Checkpoint = Stream<Input::Checkpoint, X::Checkpoint>;
     fn checkpoint(&self) -> Self::Checkpoint {
         Stream {
             input: self.input.checkpoint(),
-            positioner: self.positioner.clone(),
+            positioner: self.positioner.checkpoint(),
         }
     }
     fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), Self::Error> {
         self.input.reset(checkpoint.input)?;
-        self.positioner = checkpoint.positioner;
+        self.positioner.reset(checkpoint.positioner);
         Ok(())
     }
 }
