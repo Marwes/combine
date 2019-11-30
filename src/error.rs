@@ -525,16 +525,17 @@ pub enum UnexpectedParse {
 
 impl fmt::Display for UnexpectedParse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::UnexpectedParse::*;
+        write!(f, "{}", self.description())
+    }
+}
 
-        write!(
-            f,
-            "{}",
-            match *self {
-                Unexpected => "unexpected parse",
-                Eoi => "unexpected end of input",
-            }
-        )
+impl std::error::Error for UnexpectedParse {
+    fn description(&self) -> &str {
+        use self::UnexpectedParse::*;
+        match *self {
+            Unexpected => "unexpected parse",
+            Eoi => "unexpected end of input",
+        }
     }
 }
 
@@ -667,17 +668,18 @@ pub(crate) const CHAR_BOUNDARY_ERROR_MESSAGE: &str = "unexpected slice on charac
 
 impl fmt::Display for StringStreamError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::StringStreamError::*;
+        write!(f, "{}", self.description())
+    }
+}
 
-        write!(
-            f,
-            "{}",
-            match *self {
-                UnexpectedParse => "unexpected parse",
-                Eoi => "unexpected end of input",
-                CharacterBoundary => CHAR_BOUNDARY_ERROR_MESSAGE,
-            }
-        )
+impl std::error::Error for StringStreamError {
+    fn description(&self) -> &str {
+        use self::StringStreamError::*;
+        match *self {
+            UnexpectedParse => "unexpected parse",
+            Eoi => "unexpected end of input",
+            CharacterBoundary => CHAR_BOUNDARY_ERROR_MESSAGE,
+        }
     }
 }
 

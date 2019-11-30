@@ -908,6 +908,90 @@ where
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct MaybePartialStream<S>(pub S, pub bool);
+
+impl<S> Positioned for MaybePartialStream<S>
+where
+    S: Positioned,
+{
+    #[inline]
+    fn position(&self) -> Self::Position {
+        self.0.position()
+    }
+}
+
+impl<S> ResetStream for MaybePartialStream<S>
+where
+    S: ResetStream,
+{
+    type Checkpoint = S::Checkpoint;
+
+    #[inline]
+    fn checkpoint(&self) -> Self::Checkpoint {
+        self.0.checkpoint()
+    }
+
+    #[inline]
+    fn reset(&mut self, checkpoint: Self::Checkpoint) -> Result<(), S::Error> {
+        self.0.reset(checkpoint)
+    }
+}
+
+impl<S> StreamOnce for MaybePartialStream<S>
+where
+    S: StreamOnce,
+{
+    type Token = S::Token;
+    type Range = S::Range;
+    type Position = S::Position;
+    type Error = S::Error;
+
+    #[inline]
+    fn uncons(&mut self) -> Result<S::Token, StreamErrorFor<Self>> {
+        self.0.uncons()
+    }
+
+    fn is_partial(&self) -> bool {
+        self.1
+    }
+}
+
+impl<S> RangeStreamOnce for MaybePartialStream<S>
+where
+    S: RangeStreamOnce,
+{
+    #[inline]
+    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
+        self.0.uncons_range(size)
+    }
+
+    #[inline]
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Token) -> bool,
+    {
+        self.0.uncons_while(f)
+    }
+
+    fn uncons_while1<F>(&mut self, f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Token) -> bool,
+    {
+        self.0.uncons_while1(f)
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self::Checkpoint) -> usize {
+        self.0.distance(end)
+    }
+
+    #[inline]
+    fn range(&self) -> Self::Range {
+        self.0.range()
+    }
+}
+
 /// Newtype for constructing a stream from a slice where the items in the slice are not copyable.
 #[derive(Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct SliceStream<'a, T: 'a>(pub &'a [T]);
@@ -1196,6 +1280,97 @@ where
             }
         }
     }
+}
+
+/// Parses an instance of `std::io::BufRead` while parsing
+///
+/// ```
+/// use std::{
+///     fs::File,
+///     io::BufReader
+/// };
+/// use combine::{satisfy, skip_many1, many1, byte::{letter, space}, sep_end_by, Parser};
+/// let mut input = BufReader::with_capacity(100, File::open("README.md").unwrap());
+/// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+/// assert_eq!(
+///     combine::decode_sync!(input, {
+///         let word = many1(satisfy(|b| !is_whitespace(b)));
+///         sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
+///     }).map_err(|err: Box<dyn std::error::Error>| err).ok(),
+///     Some(819),
+/// );
+/// ```
+#[cfg(feature = "std")]
+#[macro_export]
+macro_rules! decode_sync {
+    ($reader: expr, $parser: expr) => {{
+        let mut reader = { $reader };
+        let mut state = Default::default();
+        let mut remaining = Vec::new();
+        let remaining_data = remaining.len();
+
+        let mut end_of_input = false;
+
+        'outer: loop {
+            use std::io::BufRead;
+
+            let (opt, mut removed) = {
+                let buffer = match reader.fill_buf() {
+                    Ok(x) => x,
+                    Err(err) => break 'outer Err(err.into()),
+                };
+                if buffer.len() == 0 {
+                    end_of_input = true;
+                }
+                let buffer = if !remaining.is_empty() {
+                    remaining.extend(buffer);
+                    &remaining[..]
+                } else {
+                    buffer
+                };
+
+                let mut stream = $crate::stream::MaybePartialStream(&buffer[..], !end_of_input);
+                match $crate::stream::decode($parser, &mut stream, &mut state) {
+                    Ok(x) => x,
+                    Err(err) => break 'outer Err(err.into()),
+                }
+            };
+
+            if !remaining.is_empty() {
+                // Remove the data we have parsed and adjust `removed` to be the amount of data we
+                // consumed from `self.reader`
+                remaining.drain(..removed);
+                if removed >= remaining_data {
+                    removed -= remaining_data;
+                } else {
+                    removed = 0;
+                }
+            }
+
+            match opt {
+                Some(value) => {
+                    reader.consume(removed);
+                    break 'outer Ok(value);
+                }
+                None => {
+                    // We have not enough data to produce a Value but we know that all the data of
+                    // the current buffer are necessary. Consume all the buffered data to ensure
+                    // that the next iteration actually reads more data.
+                    let buffer_len = {
+                        let buffer = match reader.fill_buf() {
+                            Ok(x) => x,
+                            Err(err) => break 'outer Err(err.into()),
+                        };
+                        if remaining_data == 0 {
+                            remaining.extend(&buffer[removed..]);
+                        }
+                        buffer.len()
+                    };
+                    reader.consume(buffer_len);
+                }
+            }
+        }
+    }};
 }
 
 #[cfg(test)]

@@ -9,8 +9,9 @@ use crate::{
     },
     lib::marker::PhantomData,
     parser::{
+        error::Expected,
         range::{take_fn, TakeRange},
-        token::tokens_cmp,
+        token::{tokens_cmp, Satisfy},
         ParseMode,
     },
     stream::{RangeStream, Stream, StreamOnce},
@@ -38,11 +39,11 @@ where
 
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f: ident) => {{
-        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f()).unwrap_or(false))
+        satisfy((|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f()).unwrap_or(false)) as fn (u8) -> bool)
             .expected(stringify!($name))
     }};
     ($name:ident, $ty:ident, $f: ident $($args:tt)+) => {{
-        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f $($args)+).unwrap_or(false))
+        satisfy((|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f $($args)+).unwrap_or(false)) as fn (u8) -> bool)
             .expected(stringify!($name))
     }};
 }
@@ -63,6 +64,7 @@ where
     byte_parser!(digit, Digit, is_digit(10))
 }
 
+impl_token_parser! { Space(), u8, Expected<Satisfy<I, fn (u8) -> bool>, &'static str> }
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
 ///
 /// ```
@@ -73,12 +75,12 @@ where
 /// assert!(space().parse(&b"!"[..]).is_err());
 /// assert!(space().parse(&b""[..]).is_err());
 /// ```
-pub fn space<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
+pub fn space<Input>() -> Space<Input>
 where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(space, Space, is_whitespace)
+    Space(byte_parser!(space, Space, is_whitespace), PhantomData)
 }
 
 /// Skips over [`space`] zero or more times
@@ -197,6 +199,7 @@ where
     byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
 }
 
+impl_token_parser! { Letter(), u8, Expected<Satisfy<I, fn (u8) -> bool>, &'static str> }
 /// Parses an ASCII alphabet letter (a–z, A–Z).
 ///
 /// ```
@@ -206,12 +209,12 @@ where
 /// assert_eq!(letter().parse(&b"A"[..]), Ok((b'A', &b""[..])));
 /// assert!(letter().parse(&b"9"[..]).is_err());
 /// ```
-pub fn letter<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
+pub fn letter<Input>() -> Letter<Input>
 where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(letter, Letter, is_alphabetic)
+    Letter(byte_parser!(letter, Letter, is_alphabetic), PhantomData)
 }
 
 /// Parses an octal digit.

@@ -224,6 +224,26 @@ pub use crate::parser::combinator::from_str;
 #[doc(inline)]
 pub use crate::parser::token::tokens_cmp;
 
+macro_rules! impl_token_parser {
+    ($name: ident($($ty_var: ident),*), $ty: ty, $inner_type: ty) => {
+    #[derive(Clone)]
+    pub struct $name<I $(,$ty_var)*>($inner_type, PhantomData<fn (I) -> I>)
+        where I: Stream<Token=$ty>,
+              I::Error: ParseError<$ty, I::Range, I::Position>
+              $(, $ty_var : Parser<I>)*;
+    impl <I $(,$ty_var)*> Parser<I> for $name<I $(,$ty_var)*>
+        where I: Stream<Token=$ty>,
+              I::Error: ParseError<$ty, I::Range, I::Position>
+              $(, $ty_var : Parser<I>)*
+    {
+        type Output = <$inner_type as Parser<I>>::Output;
+        type PartialState = <$inner_type as Parser<I>>::PartialState;
+
+        forward_parser!(I, 0);
+    }
+}
+}
+
 /// Declares a named parser which can easily be reused.
 ///
 /// The expression which creates the parser should have no side effects as it may be called
@@ -570,12 +590,12 @@ macro_rules! forward_parser {
     };
     ($input: ty, add_error $($field: tt)+) => {
 
-        fn add_error(&mut self, error: &mut Tracked<<$input as $crate::StreamOnce>::Error>) {
+        fn add_error(&mut self, error: &mut $crate::error::Tracked<<$input as $crate::StreamOnce>::Error>) {
             self.$($field)+.add_error(error)
         }
     };
     ($input: ty, add_consumed_expected_error $($field: tt)+) => {
-        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<$input as $crate::StreamOnce>::Error>) {
+        fn add_consumed_expected_error(&mut self, error: &mut $crate::error::Tracked<<$input as $crate::StreamOnce>::Error>) {
             self.$($field)+.add_consumed_expected_error(error)
         }
     };
