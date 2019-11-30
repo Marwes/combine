@@ -31,7 +31,7 @@ futures_03 = { version = "0.3", package = "futures", optional = true }
 regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 pin-project = { version = "0.4", optional = true }
-tokio-dep = { version = "0.2", package = "tokio", optional = true }
+tokio-02-dep = { version = "0.2", package = "tokio", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.3", default-features = false }
@@ -51,7 +51,7 @@ default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
 doc = ["regex"]
-tokio = ["futures_03", "pin-project", "tokio-dep"]
+tokio-02 = ["futures_03", "pin-project", "tokio-02-dep"]
 std = ["memchr/use_std", "either/use_std", "byteorder/std", "ascii/std"]
 
 [[bench]]

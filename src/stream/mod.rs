@@ -1385,11 +1385,11 @@ where
     }
 }
 
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-02")]
 use std::pin::Pin;
 
 // https://github.com/tokio-rs/tokio/pull/1687
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-02")]
 async fn fill_buf<R>(reader: Pin<&mut R>) -> io::Result<&[u8]>
 where
     R: tokio_dep::io::AsyncBufRead,
@@ -1413,7 +1413,7 @@ where
     .await
 }
 
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-02")]
 impl<R, S, P> Decoder<R, S, P>
 where
     R: tokio_dep::io::AsyncBufRead,
@@ -1597,8 +1597,8 @@ macro_rules! decode_buf_read {
 ///     );
 /// }
 /// ```
-#[cfg(feature = "tokio")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
+#[cfg(feature = "tokio-02")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-02")))]
 #[macro_export]
 macro_rules! decode_tokio_buf_read {
     ($decoder: expr, $parser: expr) => {
