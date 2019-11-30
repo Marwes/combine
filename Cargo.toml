@@ -50,8 +50,6 @@ quick-error = "1.0"
 default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
-# Features for testing on rust 1.33
-rust-1-33 = ["regex"]
 tokio-02 = ["futures_03", "pin-project", "tokio-02-dep"]
 std = ["memchr/use_std", "either/use_std", "byteorder/std", "ascii/std"]
 
