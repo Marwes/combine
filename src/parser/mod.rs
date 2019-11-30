@@ -57,7 +57,8 @@ pub mod combinator;
 pub mod error;
 pub mod function;
 pub mod range;
-#[cfg(any(feature = "regex", feature = "regex-1"))]
+#[cfg(feature = "regex")]
+#[cfg_attr(docsrs, doc(cfg(feature = "regex")))]
 pub mod regex;
 pub mod repeat;
 pub mod sequence;
@@ -886,6 +887,7 @@ pub trait Parser<Input: Stream> {
     }
 }
 
+/// Provides the `easy_parse` method which provides good error messages by default
 #[cfg(feature = "std")]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where
