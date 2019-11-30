@@ -1290,6 +1290,7 @@ use std::io::{self, BufRead};
 
 /// Used together with the `decode!` macro
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[cfg_attr(feature = "pin-project", pin_project::pin_project)]
 pub struct Decoder<R, S, P = IndexPositioner> {
     #[cfg_attr(feature = "pin-project", pin)]
@@ -1299,6 +1300,8 @@ pub struct Decoder<R, S, P = IndexPositioner> {
     remaining: Vec<u8>,
 }
 
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<R, S, P> Decoder<R, S, P>
 where
     P: Default,
@@ -1314,6 +1317,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<R, S, P> Decoder<R, S, P> {
     #[doc(hidden)]
     pub fn remaining_len(&self) -> usize {
@@ -1321,6 +1325,7 @@ impl<R, S, P> Decoder<R, S, P> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<R, S, P> Decoder<R, S, P>
 where
     R: BufRead,
@@ -1501,6 +1506,7 @@ where
 /// );
 /// ```
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[macro_export]
 macro_rules! decode_buf_read {
     ($decoder: expr, $parser: expr) => {
@@ -1592,6 +1598,7 @@ macro_rules! decode_buf_read {
 /// }
 /// ```
 #[cfg(feature = "tokio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 #[macro_export]
 macro_rules! decode_tokio_buf_read {
     ($decoder: expr, $parser: expr) => {
