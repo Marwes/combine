@@ -10,7 +10,7 @@ use std::{fs::File, io::Read, str::from_utf8};
 use {
     byteorder::{BigEndian, ByteOrder},
     combine::{
-        range::{range, take},
+        parser::range::{range, take},
         stream::easy::ParseError,
         *,
     },

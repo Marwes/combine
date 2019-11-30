@@ -8,7 +8,7 @@ use std::fmt;
 use {
     combine::{
         many, many1,
-        range::{range, take_while1},
+        parser::range::{range, take_while1},
         stream::easy,
         token, ParseError, Parser, RangeStream,
     },
