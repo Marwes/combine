@@ -491,7 +491,7 @@ pub mod num {
                         for elem in &mut *buffer {
                             *elem = ctry!(uncons(input)).0;
                         }
-                        ConsumedOk(B::$read_name(buffer))
+                        CommitOk(B::$read_name(buffer))
                     })();
                     if result.is_err() {
                         ctry!(input.reset(checkpoint).consumed());

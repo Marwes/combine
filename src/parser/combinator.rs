@@ -39,8 +39,8 @@ where
         let result = self.0.parse_mode(mode, input, state);
         ctry!(input.reset(checkpoint).consumed());
         match result {
-            ConsumedOk(_) | EmptyOk(_) => EmptyErr(Input::Error::empty(input.position()).into()),
-            ConsumedErr(_) | EmptyErr(_) => EmptyOk(()),
+            CommitOk(_) | PeekOk(_) => PeekErr(Input::Error::empty(input.position()).into()),
+            CommitErr(_) | PeekErr(_) => PeekOk(()),
         }
     }
 
@@ -121,12 +121,12 @@ where
         M: ParseMode,
     {
         match self.0.parse_consumed_mode(mode, input, state) {
-            v @ ConsumedOk(_) | v @ EmptyOk(_) | v @ EmptyErr(_) => v,
-            ConsumedErr(err) => {
+            v @ CommitOk(_) | v @ PeekOk(_) | v @ PeekErr(_) => v,
+            CommitErr(err) => {
                 if input.is_partial() && err.is_unexpected_end_of_input() {
-                    ConsumedErr(err)
+                    CommitErr(err)
                 } else {
-                    EmptyErr(err.into())
+                    PeekErr(err.into())
                 }
             }
         }
@@ -135,8 +135,8 @@ where
     forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
 }
 
-/// `attempt(p)` behaves as `p` except it acts as if the parser hadn't consumed any input if `p` fails
-/// after consuming input.
+/// `attempt(p)` behaves as `p` except it always acts as `p` peeked instead of commited on its
+/// parse.
 ///
 /// ```
 /// # extern crate combine;
@@ -176,7 +176,7 @@ where
         let result = self.0.parse_lazy(input);
         ctry!(input.reset(before).consumed());
         let (o, _input) = ctry!(result);
-        EmptyOk(o)
+        PeekOk(o)
     }
 
     forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
@@ -229,10 +229,10 @@ where
         M: ParseMode,
     {
         match self.0.parse_mode(mode, input, state) {
-            ConsumedOk(x) => ConsumedOk((self.1)(x)),
-            EmptyOk(x) => EmptyOk((self.1)(x)),
-            ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(err) => EmptyErr(err),
+            CommitOk(x) => CommitOk((self.1)(x)),
+            PeekOk(x) => PeekOk((self.1)(x)),
+            CommitErr(err) => CommitErr(err),
+            PeekErr(err) => PeekErr(err),
         }
     }
 
@@ -274,10 +274,10 @@ where
         M: ParseMode,
     {
         match self.0.parse_mode(mode, input, state) {
-            ConsumedOk(x) => ConsumedOk((self.1)(x, input)),
-            EmptyOk(x) => EmptyOk((self.1)(x, input)),
-            ConsumedErr(err) => ConsumedErr(err),
-            EmptyErr(err) => EmptyErr(err),
+            CommitOk(x) => CommitOk((self.1)(x, input)),
+            PeekOk(x) => PeekOk((self.1)(x, input)),
+            CommitErr(err) => CommitErr(err),
+            PeekErr(err) => PeekErr(err),
         }
     }
 
@@ -319,16 +319,16 @@ where
         M: ParseMode,
     {
         match self.0.parse_mode(mode, input, state) {
-            EmptyOk(o) => match (self.1)(o) {
-                Ok(x) => EmptyOk(x),
-                Err(err) => EmptyErr(err.into()),
+            PeekOk(o) => match (self.1)(o) {
+                Ok(x) => PeekOk(x),
+                Err(err) => PeekErr(err.into()),
             },
-            ConsumedOk(o) => match (self.1)(o) {
-                Ok(x) => ConsumedOk(x),
-                Err(err) => ConsumedErr(err.into()),
+            CommitOk(o) => match (self.1)(o) {
+                Ok(x) => CommitOk(x),
+                Err(err) => CommitErr(err.into()),
             },
-            EmptyErr(err) => EmptyErr(err),
-            ConsumedErr(err) => ConsumedErr(err),
+            PeekErr(err) => PeekErr(err),
+            CommitErr(err) => CommitErr(err),
         }
     }
 
@@ -373,32 +373,30 @@ where
         let position = input.position();
         let checkpoint = input.checkpoint();
         match self.0.parse_mode(mode, input, state) {
-            EmptyOk(o) => match (self.1)(o) {
-                Ok(o) => EmptyOk(o),
+            PeekOk(o) => match (self.1)(o) {
+                Ok(o) => PeekOk(o),
                 Err(err) => {
                     let err = <Input as StreamOnce>::Error::from_error(position, err.into());
 
                     if input.is_partial() && input_at_eof(input) {
                         ctry!(input.reset(checkpoint).consumed());
-                        ConsumedErr(err)
+                        CommitErr(err)
                     } else {
-                        EmptyErr(err.into())
+                        PeekErr(err.into())
                     }
                 }
             },
-            ConsumedOk(o) => match (self.1)(o) {
-                Ok(o) => ConsumedOk(o),
+            CommitOk(o) => match (self.1)(o) {
+                Ok(o) => CommitOk(o),
                 Err(err) => {
                     if input.is_partial() && input_at_eof(input) {
                         ctry!(input.reset(checkpoint).consumed());
                     }
-                    ConsumedErr(
-                        <Input as StreamOnce>::Error::from_error(position, err.into()).into(),
-                    )
+                    CommitErr(<Input as StreamOnce>::Error::from_error(position, err.into()).into())
                 }
             },
-            EmptyErr(err) => EmptyErr(err),
-            ConsumedErr(err) => ConsumedErr(err),
+            PeekErr(err) => PeekErr(err),
+            CommitErr(err) => CommitErr(err),
         }
     }
 
@@ -435,7 +433,7 @@ impl<F, P> Recognize<F, P> {
         F: Default + Extend<Input::Token>,
     {
         match result {
-            EmptyOk(_) => {
+            PeekOk(_) => {
                 let last_position = input.position();
                 ctry!(input.reset(before).consumed());
 
@@ -443,16 +441,16 @@ impl<F, P> Recognize<F, P> {
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return EmptyErr(
+                            return PeekErr(
                                 <Input as StreamOnce>::Error::from_error(input.position(), err)
                                     .into(),
                             );
                         }
                     }
                 }
-                EmptyOk(mem::replace(elements, F::default()))
+                PeekOk(mem::replace(elements, F::default()))
             }
-            ConsumedOk(_) => {
+            CommitOk(_) => {
                 let last_position = input.position();
                 ctry!(input.reset(before).consumed());
 
@@ -460,16 +458,16 @@ impl<F, P> Recognize<F, P> {
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(<Input as StreamOnce>::Error::from_error(
+                            return CommitErr(<Input as StreamOnce>::Error::from_error(
                                 input.position(),
                                 err,
                             ));
                         }
                     }
                 }
-                ConsumedOk(mem::replace(elements, F::default()))
+                CommitOk(mem::replace(elements, F::default()))
             }
-            ConsumedErr(err) => {
+            CommitErr(err) => {
                 let last_position = input.position();
                 ctry!(input.reset(before).consumed());
 
@@ -477,16 +475,16 @@ impl<F, P> Recognize<F, P> {
                     match input.uncons() {
                         Ok(elem) => elements.extend(Some(elem)),
                         Err(err) => {
-                            return ConsumedErr(<Input as StreamOnce>::Error::from_error(
+                            return CommitErr(<Input as StreamOnce>::Error::from_error(
                                 input.position(),
                                 err,
                             ));
                         }
                     }
                 }
-                ConsumedErr(err)
+                CommitErr(err)
             }
-            EmptyErr(err) => EmptyErr(err),
+            PeekErr(err) => PeekErr(err),
         }
     }
 }
@@ -750,7 +748,7 @@ where
             self.0.parse_mode(mode, input, child_state)
         };
 
-        if let ConsumedErr(_) = result {
+        if let CommitErr(_) = result {
             if state.0.is_none() {
                 // FIXME Make None unreachable for LLVM
                 state.0 = Some(Box::new(new_child_state.unwrap()));
@@ -850,7 +848,7 @@ where
             self.0.parse_mode(mode, input, child_state)
         };
 
-        if let ConsumedErr(_) = result {
+        if let CommitErr(_) = result {
             if state.0.is_none() {
                 // FIXME Make None unreachable for LLVM
                 state.0 = Some(Box::new(new_child_state.unwrap()));
@@ -1330,7 +1328,7 @@ where
     {
         let mut input_inner = match self.converter.convert(input) {
             Ok(x) => x,
-            Err(err) => return EmptyErr(err.into()),
+            Err(err) => return PeekErr(err.into()),
         };
         self.parser
             .parse_mode(mode, &mut input_inner, state)

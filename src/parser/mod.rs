@@ -125,11 +125,11 @@ pub trait Parser<Input: Stream> {
     /// Parses using the stream `input` by calling [`Stream::uncons`] one or more times.
     ///
     /// Semantically equivalent to [`parse_stream`], except this method returns a flattened result
-    /// type, combining `Result` and [`Consumed`] into a single [`ParseResult`].
+    /// type, combining `Result` and [`Commit`] into a single [`ParseResult`].
     ///
     /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Consumed`]: ../error/enum.Consumed.html
+    /// [`Commit`]: ../error/enum.Commit.html
     /// [`ParseResult`]: ../error/enum.ParseResult.html
     #[inline]
     fn parse_stream(
@@ -139,7 +139,7 @@ pub trait Parser<Input: Stream> {
         let before = input.checkpoint();
         let mut state = Default::default();
         let mut result = self.parse_first(input, &mut state);
-        if let ParseResult::EmptyErr(ref mut error) = result {
+        if let ParseResult::PeekErr(ref mut error) = result {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
@@ -155,7 +155,7 @@ pub trait Parser<Input: Stream> {
     /// Specialized version of [`parse_stream`] which permits error value creation to be
     /// skipped in the common case.
     ///
-    /// When this parser returns `EmptyErr`, this method is allowed to return an empty
+    /// When this parser returns `PeekErr`, this method is allowed to return an empty
     /// [`Error`]. The error value that would have been returned can instead be obtained by
     /// calling [`add_error`]. This allows a parent parser such as `choice` to skip the creation of
     /// an unnecessary error value, if an alternative parser succeeds.
@@ -180,7 +180,7 @@ pub trait Parser<Input: Stream> {
             // resume itself
             let before = input.checkpoint();
             let result = self.parse_first(input, &mut Default::default());
-            if let ConsumedErr(_) = result {
+            if let CommitErr(_) = result {
                 ctry!(input.reset(before).consumed());
             }
             result
@@ -190,7 +190,7 @@ pub trait Parser<Input: Stream> {
     }
 
     /// Adds the first error that would normally be returned by this parser if it failed with an
-    /// `EmptyErr` result.
+    /// `PeekErr` result.
     ///
     /// See [`parse_lazy`] for details.
     ///
@@ -206,7 +206,7 @@ pub trait Parser<Input: Stream> {
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let mut result = self.parse_partial(input, state);
-        if let ParseResult::EmptyErr(ref mut error) = result {
+        if let ParseResult::PeekErr(ref mut error) = result {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());
@@ -330,7 +330,7 @@ pub trait Parser<Input: Stream> {
     /// ```
     /// # extern crate combine;
     /// # use combine::*;
-    /// # use combine::error::Consumed;
+    /// # use combine::error::Commit;
     /// # use combine::parser::char::{digit, letter};
     /// fn test(input: &mut &'static str) -> StdParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
@@ -343,7 +343,7 @@ pub trait Parser<Input: Stream> {
     ///     let mut input = "1a23";
     ///     assert_eq!(
     ///         test(&mut input).map(|(t, c)| (t, c.map(|_| input))),
-    ///         Ok((('1', '2'), Consumed::Consumed("3")))
+    ///         Ok((('1', '2'), Commit::Commit("3")))
     ///     );
     /// }
     /// ```
@@ -424,8 +424,8 @@ pub trait Parser<Input: Stream> {
         (self, p)
     }
 
-    /// Returns a parser which attempts to parse using `self`. If `self` fails without consuming
-    /// any input it tries to consume the same input using `p`.
+    /// Returns a parser which attempts to parse using `self`. If `self` fails without committing
+    /// it tries to consume the same input using `p`.
     ///
     /// If you are looking to chain 3 or more parsers using `or` you may consider using the
     /// [`choice!`] macro instead, which can be clearer and may result in a faster parser.
@@ -474,7 +474,7 @@ pub trait Parser<Input: Stream> {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char::digit;
-    /// # use combine::error::Consumed;
+    /// # use combine::error::Commit;
     /// # use combine::stream::easy;
     /// # fn main() {
     /// let result = digit()
@@ -513,7 +513,7 @@ pub trait Parser<Input: Stream> {
     /// # extern crate combine;
     /// # use combine::*;
     /// # use combine::parser::char::digit;
-    /// # use combine::error::Consumed;
+    /// # use combine::error::Commit;
     /// # use combine::stream::easy;
     /// # fn main() {
     /// let result = digit()
@@ -1048,7 +1048,7 @@ pub trait ParseMode: Copy {
     {
         let before = input.checkpoint();
         let mut result = parser.parse_mode_impl(self, input, state);
-        if let ParseResult::EmptyErr(ref mut error) = result {
+        if let ParseResult::PeekErr(ref mut error) = result {
             ctry!(input.reset(before.clone()).consumed());
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).consumed());

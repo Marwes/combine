@@ -45,9 +45,9 @@ where
         match input.uncons_range(self.0.len()) {
             Ok(other) => {
                 if other == self.0 {
-                    ConsumedOk(other)
+                    CommitOk(other)
                 } else {
-                    EmptyErr(Input::Error::empty(position).into())
+                    PeekErr(Input::Error::empty(position).into())
                 }
             }
             Err(err) => wrap_stream_error(input, err),
@@ -112,7 +112,7 @@ where
         first(input, state)
     } else if mode.is_first() || *distance_state == 0 {
         let result = first(input, state);
-        if let ConsumedErr(_) = result {
+        if let CommitErr(_) = result {
             *distance_state = input.distance(&before);
             ctry!(input.reset(before).consumed());
         }
@@ -123,12 +123,12 @@ where
         }
 
         match resume(input, state) {
-            ConsumedOk(_) | EmptyOk(_) => (),
-            EmptyErr(err) => return EmptyErr(err),
-            ConsumedErr(err) => {
+            CommitOk(_) | PeekOk(_) => (),
+            PeekErr(err) => return PeekErr(err),
+            CommitErr(err) => {
                 *distance_state = input.distance(&before);
                 ctry!(input.reset(before).consumed());
-                return ConsumedErr(err);
+                return CommitErr(err);
             }
         }
 
@@ -174,12 +174,12 @@ where
         }
 
         let value = match self.0.parse_mode(mode, input, child_state) {
-            ConsumedOk(x) | EmptyOk(x) => x,
-            EmptyErr(err) => return EmptyErr(err),
-            ConsumedErr(err) => {
+            CommitOk(x) | PeekOk(x) => x,
+            PeekErr(err) => return PeekErr(err),
+            CommitErr(err) => {
                 *distance_state = input.distance(&before);
                 ctry!(input.reset(before).consumed());
-                return ConsumedErr(err);
+                return CommitErr(err);
             }
         };
 
@@ -450,10 +450,10 @@ where
 
                         if let Ok(consumed) = input.uncons_range(distance) {
                             if distance == 0 {
-                                return EmptyOk(consumed);
+                                return PeekOk(consumed);
                             } else {
                                 *to_consume = 0;
-                                return ConsumedOk(consumed);
+                                return CommitOk(consumed);
                             }
                         }
 
@@ -598,9 +598,9 @@ where
 
                 let err = Input::Error::from_error(position, StreamError::end_of_input());
                 if !input.is_partial() && range.is_empty() {
-                    EmptyErr(err.into())
+                    PeekErr(err.into())
                 } else {
-                    ConsumedErr(err)
+                    CommitErr(err)
                 }
             }
         }

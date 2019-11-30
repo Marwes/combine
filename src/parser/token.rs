@@ -61,12 +61,12 @@ where
 {
     let position = input.position();
     match uncons(input) {
-        EmptyOk(c) | ConsumedOk(c) => match predicate(c.clone()) {
-            Some(c) => ConsumedOk(c),
-            None => EmptyErr(Input::Error::empty(position).into()),
+        PeekOk(c) | CommitOk(c) => match predicate(c.clone()) {
+            Some(c) => CommitOk(c),
+            None => PeekErr(Input::Error::empty(position).into()),
         },
-        EmptyErr(err) => EmptyErr(err),
-        ConsumedErr(err) => ConsumedErr(err),
+        PeekErr(err) => PeekErr(err),
+        CommitErr(err) => CommitErr(err),
     }
 }
 
@@ -242,7 +242,7 @@ where
         let mut consumed = false;
         for c in self.tokens.clone() {
             match crate::stream::uncons(input) {
-                ConsumedOk(other) | EmptyOk(other) => {
+                CommitOk(other) | PeekOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
                             let mut errors = <Input as StreamOnce>::Error::from_error(
@@ -250,31 +250,31 @@ where
                                 StreamError::unexpected_token(other),
                             );
                             errors.add_expected(&self.expected);
-                            ConsumedErr(errors)
+                            CommitErr(errors)
                         } else {
-                            EmptyErr(<Input as StreamOnce>::Error::empty(start).into())
+                            PeekErr(<Input as StreamOnce>::Error::empty(start).into())
                         };
                     }
                     consumed = true;
                 }
-                EmptyErr(mut error) => {
+                PeekErr(mut error) => {
                     error.error.set_position(start);
                     return if consumed {
-                        ConsumedErr(error.error)
+                        CommitErr(error.error)
                     } else {
-                        EmptyErr(error.into())
+                        PeekErr(error.into())
                     };
                 }
-                ConsumedErr(mut error) => {
+                CommitErr(mut error) => {
                     error.set_position(start);
-                    return ConsumedErr(error);
+                    return CommitErr(error);
                 }
             }
         }
         if consumed {
-            ConsumedOk(self.tokens.clone())
+            CommitOk(self.tokens.clone())
         } else {
-            EmptyOk(self.tokens.clone())
+            PeekOk(self.tokens.clone())
         }
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -346,38 +346,38 @@ where
         let mut consumed = false;
         for c in self.tokens.clone() {
             match crate::stream::uncons(input) {
-                ConsumedOk(other) | EmptyOk(other) => {
+                CommitOk(other) | PeekOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
                         return if consumed {
                             let errors = <Input as StreamOnce>::Error::from_error(
                                 start,
                                 StreamError::unexpected_token(other),
                             );
-                            ConsumedErr(errors)
+                            CommitErr(errors)
                         } else {
-                            EmptyErr(<Input as StreamOnce>::Error::empty(start).into())
+                            PeekErr(<Input as StreamOnce>::Error::empty(start).into())
                         };
                     }
                     consumed = true;
                 }
-                EmptyErr(mut error) => {
+                PeekErr(mut error) => {
                     error.error.set_position(start);
                     return if consumed {
-                        ConsumedErr(error.error)
+                        CommitErr(error.error)
                     } else {
-                        EmptyErr(error)
+                        PeekErr(error)
                     };
                 }
-                ConsumedErr(mut error) => {
+                CommitErr(mut error) => {
                     error.set_position(start);
-                    return ConsumedErr(error);
+                    return CommitErr(error);
                 }
             }
         }
         if consumed {
-            ConsumedOk(self.tokens.clone())
+            CommitOk(self.tokens.clone())
         } else {
-            EmptyOk(self.tokens.clone())
+            PeekOk(self.tokens.clone())
         }
     }
 }
@@ -437,7 +437,7 @@ where
 
     #[inline]
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Input::Position, Input::Error> {
-        EmptyOk(input.position())
+        PeekOk(input.position())
     }
 }
 
@@ -587,7 +587,7 @@ where
     type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, _: &mut Input) -> ParseResult<T, Input::Error> {
-        EmptyOk(self.0.clone())
+        PeekOk(self.0.clone())
     }
 }
 
@@ -624,10 +624,10 @@ where
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<(), Input::Error> {
         let before = input.checkpoint();
         match input.uncons() {
-            Err(ref err) if err.is_unexpected_end_of_input() => EmptyOk(()),
+            Err(ref err) if err.is_unexpected_end_of_input() => PeekOk(()),
             _ => {
                 ctry!(input.reset(before).consumed());
-                EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
+                PeekErr(<Input as StreamOnce>::Error::empty(input.position()).into())
             }
         }
     }

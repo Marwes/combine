@@ -117,9 +117,9 @@ macro_rules! tuple_parser {
                         );
                         true
                     }; $h $(, $id)*);
-                    ConsumedErr(err.error)
+                    CommitErr(err.error)
                 } else {
-                    EmptyErr(err)
+                    PeekErr(err)
                 }
             }
         }
@@ -165,13 +165,13 @@ macro_rules! tuple_parser {
 
                 if mode.is_first() || state.$h.value.is_none() {
                     let temp = match $h.parse_mode(mode, input, &mut state.$h.state) {
-                        ConsumedOk(x) => {
+                        CommitOk(x) => {
                             first_empty_parser = current_parser + 1;
                             x
                         }
-                        EmptyErr(err) => return EmptyErr(err),
-                        ConsumedErr(err) => return ConsumedErr(err),
-                        EmptyOk(x) => {
+                        PeekErr(err) => return PeekErr(err),
+                        CommitErr(err) => return CommitErr(err),
+                        PeekOk(x) => {
                             x
                         }
                     };
@@ -188,22 +188,22 @@ macro_rules! tuple_parser {
                         current_parser += 1;
                         let before = input.checkpoint();
                         let temp = match $id.parse_mode(mode, input, &mut state.$id.state) {
-                            ConsumedOk(x) => {
+                            CommitOk(x) => {
                                 first_empty_parser = current_parser + 1;
                                 x
                             }
-                            EmptyErr(err) => {
+                            PeekErr(err) => {
                                 if let Err(err) = input.reset(before) {
                                     return if first_empty_parser != 0 {
-                                        ConsumedErr(err.into())
+                                        CommitErr(err.into())
                                     } else {
-                                        EmptyErr(err.into())
+                                        PeekErr(err.into())
                                     };
                                 }
                                 return add_errors!(err, state.offset)
                             }
-                            ConsumedErr(err) => return ConsumedErr(err),
-                            EmptyOk(x) => {
+                            CommitErr(err) => return CommitErr(err),
+                            PeekOk(x) => {
                                 x
                             }
                         };
@@ -218,9 +218,9 @@ macro_rules! tuple_parser {
 
                 let value = unsafe { (state.$h.unwrap_value(), $(state.$id.unwrap_value()),*) };
                 if first_empty_parser != 0 {
-                    ConsumedOk(value)
+                    CommitOk(value)
                 } else {
-                    EmptyOk(value)
+                    PeekOk(value)
                 }
             }
 
@@ -556,14 +556,14 @@ where
             debug_assert!(n_parser_cache.is_none());
 
             match self.0.parse_mode(mode, input, p_state) {
-                EmptyOk(value) => {
+                PeekOk(value) => {
                     *n_parser_cache = Some((false, (self.1)(value)));
                 }
-                ConsumedOk(value) => {
+                CommitOk(value) => {
                     *n_parser_cache = Some((true, (self.1)(value)));
                 }
-                EmptyErr(err) => return EmptyErr(err),
-                ConsumedErr(err) => return ConsumedErr(err),
+                PeekErr(err) => return PeekErr(err),
+                CommitErr(err) => return CommitErr(err),
             }
             mode.set_first();
         }
@@ -574,29 +574,29 @@ where
             .1
             .parse_consumed_mode(mode, input, n_state);
         match result {
-            EmptyOk(x) => {
+            PeekOk(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
                 if consumed {
-                    ConsumedOk(x)
+                    CommitOk(x)
                 } else {
-                    EmptyOk(x)
+                    PeekOk(x)
                 }
             }
-            ConsumedOk(x) => {
+            CommitOk(x) => {
                 *n_parser_cache = None;
-                ConsumedOk(x)
+                CommitOk(x)
             }
-            EmptyErr(x) => {
+            PeekErr(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
                 if consumed {
-                    ConsumedErr(x.error)
+                    CommitErr(x.error)
                 } else {
-                    EmptyErr(x)
+                    PeekErr(x)
                 }
             }
-            ConsumedErr(x) => ConsumedErr(x),
+            CommitErr(x) => CommitErr(x),
         }
     }
 
@@ -647,14 +647,14 @@ where
             debug_assert!(n_parser_cache.is_none());
 
             match self.0.parse_mode(mode, input, p_state) {
-                EmptyOk(value) => {
+                PeekOk(value) => {
                     *n_parser_cache = Some((false, value));
                 }
-                ConsumedOk(value) => {
+                CommitOk(value) => {
                     *n_parser_cache = Some((true, value));
                 }
-                EmptyErr(err) => return EmptyErr(err),
-                ConsumedErr(err) => return ConsumedErr(err),
+                PeekErr(err) => return PeekErr(err),
+                CommitErr(err) => return CommitErr(err),
             }
             mode.set_first();
         }
@@ -662,29 +662,29 @@ where
         let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
             .parse_consumed_mode(mode, input, n_state);
         match result {
-            EmptyOk(x) => {
+            PeekOk(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
                 if consumed {
-                    ConsumedOk(x)
+                    CommitOk(x)
                 } else {
-                    EmptyOk(x)
+                    PeekOk(x)
                 }
             }
-            ConsumedOk(x) => {
+            CommitOk(x) => {
                 *n_parser_cache = None;
-                ConsumedOk(x)
+                CommitOk(x)
             }
-            EmptyErr(x) => {
+            PeekErr(x) => {
                 let (consumed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
                 if consumed {
-                    ConsumedErr(x.error)
+                    CommitErr(x.error)
                 } else {
-                    EmptyErr(x)
+                    PeekErr(x)
                 }
             }
-            ConsumedErr(x) => ConsumedErr(x),
+            CommitErr(x) => CommitErr(x),
         }
     }
 

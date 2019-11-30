@@ -24,7 +24,7 @@ where
     type PartialState = ();
     #[inline]
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, <Input as StreamOnce>::Error> {
-        EmptyErr(<Input as StreamOnce>::Error::empty(input.position()).into())
+        PeekErr(<Input as StreamOnce>::Error::empty(input.position()).into())
     }
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         errors.error.add(StreamError::unexpected(&self.0));
@@ -115,17 +115,17 @@ where
         M: ParseMode,
     {
         match self.0.parse_mode(mode, input, state) {
-            ConsumedOk(x) => ConsumedOk(x),
-            EmptyOk(x) => EmptyOk(x),
+            CommitOk(x) => CommitOk(x),
+            PeekOk(x) => PeekOk(x),
 
             // The message should always be added even if some input was consumed before failing
-            ConsumedErr(mut err) => {
+            CommitErr(mut err) => {
                 err.add_message(&self.1);
-                ConsumedErr(err)
+                CommitErr(err)
             }
 
             // The message will be added in `add_error`
-            EmptyErr(err) => EmptyErr(err),
+            PeekErr(err) => PeekErr(err),
         }
     }
 

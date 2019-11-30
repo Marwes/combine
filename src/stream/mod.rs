@@ -160,7 +160,7 @@ where
     Input: ?Sized + Stream,
 {
     match input.uncons() {
-        Ok(x) => ConsumedOk(x),
+        Ok(x) => CommitOk(x),
         Err(err) => wrap_stream_error(input, err),
     }
 }
@@ -183,7 +183,7 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
     ///
     /// # Note
     ///
-    /// This may not return `EmptyOk` as it should uncons at least one token.
+    /// This may not return `PeekOk` as it should uncons at least one token.
     fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
     where
         F: FnMut(Self::Token) -> bool,
@@ -196,11 +196,11 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
         });
         if consumed {
             match result {
-                Ok(x) => ConsumedOk(x),
-                Err(x) => ConsumedErr(x),
+                Ok(x) => CommitOk(x),
+                Err(x) => CommitErr(x),
             }
         } else {
-            EmptyErr(Tracked::from(
+            PeekErr(Tracked::from(
                 StreamErrorFor::<Self>::unexpected_static_message(""),
             ))
         }
@@ -234,9 +234,9 @@ where
 {
     let err = Input::Error::from_error(input.position(), err);
     if input.is_partial() {
-        ConsumedErr(err)
+        CommitErr(err)
     } else {
-        EmptyErr(err.into())
+        PeekErr(err.into())
     }
 }
 
@@ -252,9 +252,9 @@ where
         Err(err) => wrap_stream_error(input, err),
         Ok(x) => {
             if size == 0 {
-                EmptyOk(x)
+                PeekOk(x)
             } else {
-                ConsumedOk(x)
+                CommitOk(x)
             }
         }
     }
@@ -290,14 +290,14 @@ where
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(Input::Error::from_error(
+                CommitErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
             } else if x.len() == 0 {
-                EmptyOk(x)
+                PeekOk(x)
             } else {
-                ConsumedOk(x)
+                CommitOk(x)
             }
         }
     }
@@ -309,7 +309,7 @@ where
 ///
 /// # Note
 ///
-/// This may not return `EmptyOk` as it should uncons at least one token.
+/// This may not return `PeekOk` as it should uncons at least one token.
 pub fn uncons_while1<Input, F>(
     input: &mut Input,
     predicate: F,
@@ -319,35 +319,35 @@ where
     Input: ?Sized + RangeStream,
 {
     match input.uncons_while1(predicate) {
-        ConsumedOk(x) => {
+        CommitOk(x) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(Input::Error::from_error(
+                CommitErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
             } else {
-                ConsumedOk(x)
+                CommitOk(x)
             }
         }
-        EmptyErr(_) => {
+        PeekErr(_) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(Input::Error::from_error(
+                CommitErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
             } else {
-                EmptyErr(Input::Error::empty(input.position()).into())
+                PeekErr(Input::Error::empty(input.position()).into())
             }
         }
-        ConsumedErr(err) => {
+        CommitErr(err) => {
             if input.is_partial() && input_at_eof(input) {
                 // Partial inputs which encounter end of file must fail to let more input be
                 // retrieved
-                ConsumedErr(Input::Error::from_error(
+                CommitErr(Input::Error::from_error(
                     input.position(),
                     StreamError::end_of_input(),
                 ))
@@ -355,7 +355,7 @@ where
                 wrap_stream_error(input, err)
             }
         }
-        EmptyOk(_) => unreachable!(),
+        PeekOk(_) => unreachable!(),
     }
 }
 
@@ -539,13 +539,13 @@ impl<'a> RangeStreamOnce for &'a str {
         match chars.next() {
             Some(c) => {
                 if !f(c) {
-                    return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse));
+                    return PeekErr(Tracked::from(StringStreamError::UnexpectedParse));
                 }
             }
-            None => return EmptyErr(Tracked::from(StringStreamError::UnexpectedParse)),
+            None => return PeekErr(Tracked::from(StringStreamError::UnexpectedParse)),
         }
 
-        ConsumedOk(str_uncons_while(self, chars, f))
+        CommitOk(str_uncons_while(self, chars, f))
     }
 
     #[inline]
@@ -668,10 +668,10 @@ where
         F: FnMut(Self::Token) -> bool,
     {
         if self.is_empty() || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
-            return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
+            return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
         }
 
-        ConsumedOk(slice_uncons_while(self, 1, f))
+        CommitOk(slice_uncons_while(self, 1, f))
     }
 
     #[inline]
@@ -1020,10 +1020,10 @@ where
         F: FnMut(Self::Token) -> bool,
     {
         if self.0.is_empty() || !f(unsafe { self.0.get_unchecked(0) }) {
-            return EmptyErr(Tracked::from(UnexpectedParse::Unexpected));
+            return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
         }
 
-        ConsumedOk(slice_uncons_while_ref(&mut self.0, 1, f))
+        CommitOk(slice_uncons_while_ref(&mut self.0, 1, f))
     }
 
     #[inline]

@@ -234,9 +234,9 @@ where
         input: &mut Input,
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         if self.0.is_match(input.range()) {
-            EmptyOk(input.range())
+            PeekOk(input.range())
         } else {
-            EmptyErr(Input::Error::empty(input.position()).into())
+            PeekErr(Input::Error::empty(input.position()).into())
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -293,7 +293,7 @@ where
         let (end, First(value)) = self.0.find_iter(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
-            None => EmptyErr(Input::Error::empty(input.position()).into()),
+            None => PeekErr(Input::Error::empty(input.position()).into()),
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
@@ -413,7 +413,7 @@ where
         let (end, First(value)) = self.0.captures(input.range());
         match value {
             Some(value) => take(end).parse_lazy(input).map(|_| value),
-            None => EmptyErr(Input::Error::empty(input.position()).into()),
+            None => PeekErr(Input::Error::empty(input.position()).into()),
         }
     }
     fn add_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
