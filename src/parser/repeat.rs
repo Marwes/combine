@@ -433,7 +433,7 @@ where
             let (first, consumed) = ctry!(self.0.parse_mode(mode, input, child_state));
             elements.extend(Some(first));
             // TODO Should PeekOk be an error?
-            *consumed_state = !consumed.is_empty();
+            *consumed_state = !consumed.is_peek();
             *parsed_one = true;
             mode.set_first();
         }
@@ -684,7 +684,7 @@ where
             }
         };
 
-        rest.combine_consumed(move |_| {
+        rest.combine_commit(move |_| {
             let rest = (&mut self.separator).with(&mut self.parser);
             let mut iter = Iter::new(rest, mode, input, child_state);
 
@@ -867,7 +867,7 @@ where
             }
         };
 
-        rest.combine_consumed(|_| {
+        rest.combine_commit(|_| {
             let rest = (&mut self.separator).with(optional(&mut self.parser));
             let mut iter = Iter::new(rest, mode, input, child_state);
 
@@ -1377,7 +1377,7 @@ where
                         }
                         _ => {
                             ctry!(input.reset(checkpoint).consumed());
-                            return if consumed.is_empty() {
+                            return if consumed.is_peek() {
                                 PeekOk(())
                             } else {
                                 CommitOk(())

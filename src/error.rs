@@ -234,8 +234,8 @@ impl<T> AsRef<T> for Commit<T> {
 }
 
 impl<T> Commit<T> {
-    /// Returns true if `self` is empty.
-    pub fn is_empty(&self) -> bool {
+    /// Returns true if `self` is peek.
+    pub fn is_peek(&self) -> bool {
         match *self {
             Commit::Peek(_) => true,
             Commit::Commit(_) => false,
@@ -250,12 +250,12 @@ impl<T> Commit<T> {
     }
 
     /// Converts `self` into the `Commit` state.
-    pub fn into_consumed(self) -> Commit<T> {
+    pub fn into_commit(self) -> Commit<T> {
         Commit::Commit(self.into_inner())
     }
 
     /// Converts `self` into the `Peek` state.
-    pub fn into_empty(self) -> Commit<T> {
+    pub fn into_peek(self) -> Commit<T> {
         Commit::Peek(self.into_inner())
     }
 
@@ -273,7 +273,7 @@ impl<T> Commit<T> {
     pub fn merge(&self, current: Commit<T>) -> Commit<T> {
         match *self {
             Commit::Peek(_) => current,
-            Commit::Commit(_) => current.into_consumed(),
+            Commit::Commit(_) => current.into_commit(),
         }
     }
 
@@ -333,7 +333,7 @@ impl<T> Commit<T> {
             Commit::Peek(x) => f(x),
         }
     }
-    pub fn combine_consumed<F, U, E>(self, f: F) -> ParseResult<U, E>
+    pub fn combine_commit<F, U, E>(self, f: F) -> ParseResult<U, E>
     where
         F: FnOnce(T) -> ParseResult<U, E>,
     {
