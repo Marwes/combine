@@ -206,12 +206,14 @@ where
 ///
 /// This is used by parsers such as `or` and `choice` to determine if they should try to parse
 /// with another parser as they will only be able to provide good error reporting if the preceding
-/// parser did not consume any tokens.
+/// parser did not commit to the parse.
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum Commit<T> {
-    /// Constructor indicating that the parser has consumed elements
+    /// Constructor indicating that the parser has committed to this parse. If a parser after this fails,
+    /// other parser alternatives will not be attempted (`CommitErr` will be returned)
     Commit(T),
-    /// Constructor indicating that the parser did not consume any elements
+    /// Constructor indicating that the parser has not committed to this parse. If a parser after this fails,
+    /// other parser alternatives will be attempted (`EmptyErr` will be returned)
     Peek(T),
 }
 
@@ -844,9 +846,15 @@ impl<E> From<E> for Tracked<E> {
 /// `From::from(result)`
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum ParseResult<T, E> {
+    /// The parser has succeeded and has committed to this parse. If a parser after this fails,
+    /// other parser alternatives will not be attempted (`CommitErr` will be returned)
     CommitOk(T),
+    /// The parser has succeeded and has not committed to this parse. If a parser after this fails,
+    /// other parser alternatives will be attempted (`PeekErr` will be returned)
     PeekOk(T),
+    /// The parser failed other parse alternatives will not be attempted.
     CommitErr(E),
+    /// The parser failed but other parse alternatives may be attempted.
     PeekErr(Tracked<E>),
 }
 
