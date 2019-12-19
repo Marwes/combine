@@ -1,3 +1,29 @@
+<a name="4.0.0-beta.2"></a>
+## 4.0.0-beta.2 (2019-12-19)
+
+
+#### Features
+
+*   Increase tuple parsers to 20 elements ([45781fea](https://github.com/Marwes/combine/commit/45781feac3cd2da252fcc999aa69c9a207af5f6a))
+*   Remove deprecated re-exports ([b4e23207](https://github.com/Marwes/combine/commit/b4e23207f9c3e47111c69865389853d89b8ce12d), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Add decode_tokio_buf_read! to parse tokio::io::BufRead ([4d38f7c2](https://github.com/Marwes/combine/commit/4d38f7c25cb0cde10cdc869955c0a98079b5fa08))
+*   Add `decode_buf_read!` to parse `BufRead` without ([dbe23ce9](https://github.com/Marwes/combine/commit/dbe23ce90803d409c591b02aaeb7005d0f58622a))
+*   Add a macro to incrementally decode std::io::BufRead ([6e2f1121](https://github.com/Marwes/combine/commit/6e2f1121203c54b1623f9f5a8b35907867c83874))
+*   Rename Consumed to Commit and Empty to Peek ([129046e3](https://github.com/Marwes/combine/commit/129046e3a555318c3e60f658988f1be8fe83a2fd), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Rename Consumed{Ok,Err} to Commit{Ok,Err} and Empty{Ok,Err} to Peek{Ok,Err} ([0ac1fd4f](https://github.com/Marwes/combine/commit/0ac1fd4fee89bd540b38b0d3224e0dcf5260ab77))
+*   Add a dedicated error for ReadStream ([37bbd843](https://github.com/Marwes/combine/commit/37bbd84383ecaa632df537322426407be7712748))
+
+#### Bug Fixes
+
+*   Handle partial parsing in sep_end_by ([281e0d30](https://github.com/Marwes/combine/commit/281e0d30276cd8d2b730680fb24117bb1b72b198))
+
+#### Breaking Changes
+
+*   Remove deprecated re-exports ([b4e23207](https://github.com/Marwes/combine/commit/b4e23207f9c3e47111c69865389853d89b8ce12d), breaks [#](https://github.com/Marwes/combine/issues/))
+*   Rename Consumed to Commit and Empty to Peek ([129046e3](https://github.com/Marwes/combine/commit/129046e3a555318c3e60f658988f1be8fe83a2fd), breaks [#](https://github.com/Marwes/combine/issues/))
+
+
+
 <a name="4.0.0-beta.1"></a>
 ## 4.0.0-beta.1 (2019-10-08)
 
