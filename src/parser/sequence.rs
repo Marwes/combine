@@ -142,14 +142,14 @@ macro_rules! tuple_parser {
 
             parse_mode!(Input);
             #[inline]
-            fn parse_mode_impl<M>(
+            fn parse_mode_impl<MODE>(
                 &mut self,
-                mut mode: M,
+                mut mode: MODE,
                 input: &mut Input,
                 state: &mut Self::PartialState,
             ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
             where
-                M: ParseMode,
+                MODE: ParseMode,
             {
                 let (ref mut $h, $(ref mut $id),*) = *self;
                 let mut first_empty_parser = 0;
@@ -290,6 +290,14 @@ tuple_parser!(PartialState9; A, B, C, D, E, F, G, H, I);
 tuple_parser!(PartialState10; A, B, C, D, E, F, G, H, I, J);
 tuple_parser!(PartialState11; A, B, C, D, E, F, G, H, I, J, K);
 tuple_parser!(PartialState12; A, B, C, D, E, F, G, H, I, J, K, L);
+tuple_parser!(PartialState13; A, B, C, D, E, F, G, H, I, J, K, L, M);
+tuple_parser!(PartialState14; A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+tuple_parser!(PartialState15; A, B, C, D, E, F, G, H, I, J, K, L, M, N, P);
+tuple_parser!(PartialState16; A, B, C, D, E, F, G, H, I, J, K, L, M, N, P, Q);
+tuple_parser!(PartialState17; A, B, C, D, E, F, G, H, I, J, K, L, M, N, P, Q, R);
+tuple_parser!(PartialState18; A, B, C, D, E, F, G, H, I, J, K, L, M, N, P, Q, R, S);
+tuple_parser!(PartialState19; A, B, C, D, E, F, G, H, I, J, K, L, M, N, P, Q, R, S, T);
+tuple_parser!(PartialState20; A, B, C, D, E, F, G, H, I, J, K, L, M, N, P, Q, R, S, T, U);
 
 #[macro_export]
 #[doc(hidden)]
