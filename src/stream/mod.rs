@@ -1394,23 +1394,36 @@ async fn fill_buf<R>(reader: Pin<&mut R>) -> io::Result<&[u8]>
 where
     R: tokio_02_dep::io::AsyncBufRead,
 {
-    let mut reader = Some(reader);
-    use futures_03::{future, task::Poll};
-    future::poll_fn(move |cx| match reader.take() {
-        Some(mut r) => match r.as_mut().poll_fill_buf(cx) {
-            // SAFETY We either drop `self.reader` and return a slice with the lifetime of the
-            // reader or we return Pending/Err (neither which contains `'a`).
-            // In either case `poll_fill_buf` can not be called while it's contents are exposed
-            Poll::Ready(Ok(x)) => unsafe { return Ok(&*(x as *const _)).into() },
-            Poll::Ready(Err(err)) => Err(err).into(),
-            Poll::Pending => {
-                reader = Some(r);
-                Poll::Pending
+    use std::{
+        future::Future,
+        task::{self, Poll},
+    };
+
+    struct FillBuf<'a, R>(Option<Pin<&'a mut R>>);
+    impl<'a, R> Future for FillBuf<'a, R>
+    where
+        R: tokio_02_dep::io::AsyncBufRead,
+    {
+        type Output = io::Result<&'a [u8]>;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<io::Result<&'a [u8]>> {
+            match self.0.take() {
+                Some(mut r) => match r.as_mut().poll_fill_buf(cx) {
+                    // SAFETY We either drop `self.reader` and return a slice with the lifetime of the
+                    // reader or we return Pending/Err (neither which contains `'a`).
+                    // In either case `poll_fill_buf` can not be called while it's contents are exposed
+                    Poll::Ready(Ok(x)) => unsafe { return Ok(&*(x as *const _)).into() },
+                    Poll::Ready(Err(err)) => Err(err).into(),
+                    Poll::Pending => {
+                        self.0 = Some(r);
+                        Poll::Pending
+                    }
+                },
+                None => panic!("fill_buf polled after completion"),
             }
-        },
-        None => panic!("fill_buf polled after completion"),
-    })
-    .await
+        }
+    }
+    FillBuf(Some(reader)).await
 }
 
 #[cfg(feature = "tokio-02")]
@@ -1571,7 +1584,7 @@ macro_rules! decode_buf_read {
 ///
 /// ```
 /// # use tokio_02_dep as tokio;
-/// use futures_03::pin_mut;
+/// use futures::pin_mut;
 /// use tokio::{
 ///     fs::File,
 ///     io::BufReader

@@ -1,17 +1,9 @@
 #![cfg(feature = "std")]
 
-extern crate bytes_0_4 as bytes;
-extern crate combine;
-
-extern crate futures;
-extern crate partial_io;
-extern crate tokio_codec_0_1 as tokio_codec;
-extern crate tokio_io;
-
 use std::{cell::Cell, io::Cursor, rc::Rc, str};
 
 use {
-    bytes::BytesMut,
+    bytes::{Buf, BytesMut},
     combine::{
         error::{ParseError, StreamError},
         parser::{
@@ -23,8 +15,16 @@ use {
         stream::{easy, PartialStream, RangeStream, StreamErrorFor},
         Parser,
     },
-    tokio_io::codec::Decoder,
+    futures::prelude::*,
+    partial_io::PartialOp,
+    tokio_02_dep as tokio,
+    tokio_util::codec::{Decoder, FramedRead},
 };
+
+// Workaround partial_io not working with tokio-0.2
+#[path = "../tests/support/mod.rs"]
+mod support;
+use support::*;
 
 pub struct LanguageServerDecoder {
     state: AnyPartialState,
@@ -102,7 +102,7 @@ impl Decoder for LanguageServerDecoder {
         )
         .map_err(|err| {
             // Since err contains references into `src` we must replace these before
-            // we can return an error or call `split_to` to remove the input we
+            // we can return an error or call `advance` to remove the input we
             // just consumed
             let err = err
                 .map_range(|r| {
@@ -124,7 +124,7 @@ impl Decoder for LanguageServerDecoder {
         // Ideally this would be done automatically by the call to
         // `stream::decode` but it does unfortunately not work due
         // to lifetime issues (Non lexical lifetimes might fix it!)
-        src.split_to(removed_len);
+        src.advance(removed_len);
 
         match opt {
             // `None` means we did not have enough input and we require that the
@@ -145,13 +145,8 @@ impl Decoder for LanguageServerDecoder {
     }
 }
 
-fn main() {
-    use {
-        futures::{Future, Stream},
-        partial_io::{PartialAsyncRead, PartialOp},
-        tokio_codec::FramedRead,
-    };
-
+#[tokio::main]
+async fn main() {
     let input = "Content-Length: 6\r\n\
                  \r\n\
                  123456\r\n\
@@ -173,10 +168,10 @@ fn main() {
     let decoder = LanguageServerDecoder::new();
     let content_length_parses = decoder.content_length_parses.clone();
 
-    let result = FramedRead::new(partial_reader, decoder).collect().wait();
+    let result = FramedRead::new(partial_reader, decoder).try_collect().await;
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
-    let values = result.unwrap();
+    let values: Vec<_> = result.unwrap();
 
     let expected_values = ["123456", "true"];
     assert_eq!(values, expected_values);

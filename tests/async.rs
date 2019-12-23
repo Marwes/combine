@@ -8,7 +8,7 @@ use std::{
 };
 
 use {
-    bytes_0_4::BytesMut,
+    bytes::{Buf, BytesMut},
     combine::{
         any, count_min_max,
         error::{ParseError, StreamError},
@@ -32,11 +32,15 @@ use {
         stream::{easy, RangeStream, StreamErrorFor},
         Parser,
     },
-    futures::{Future, Stream},
+    futures::prelude::*,
     quick_error::quick_error,
     quickcheck::quickcheck,
-    tokio_codec_0_1::{Decoder, FramedRead},
+    tokio_util::codec::{Decoder, FramedRead},
 };
+
+// Workaround partial_io not working with tokio-0.2
+mod support;
+use support::*;
 
 quick_error! {
     #[derive(Debug)]
@@ -103,7 +107,7 @@ macro_rules! impl_decoder {
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
-                        // returning the error and before we call `split_to` to remove the input we
+                        // returning the error and before we call `advance` to remove the input we
                         // just consumed
                         let err = err.map_range(|r| r.to_string())
                             .map_position(|p| p.translate_position(&str_src[..]));
@@ -111,7 +115,7 @@ macro_rules! impl_decoder {
                     })?
                 };
 
-                src.split_to(removed_len);
+                src.advance(removed_len);
                 match opt {
                     None => println!("Need more input!"),
                     Some(_) => (),
@@ -157,7 +161,7 @@ macro_rules! impl_byte_decoder {
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
-                        // returning the error and before we call `split_to` to remove the input we
+                        // returning the error and before we call `advance` to remove the input we
                         // just consumed
                         let err = err.map_range(|r| format!("{:?}", r))
                             .map_position(|p| p.translate_position(&str_src[..]));
@@ -165,7 +169,7 @@ macro_rules! impl_byte_decoder {
                     })?
                 };
 
-                src.split_to(removed_len);
+                src.advance(removed_len);
                 match opt {
                     None => println!("Need more input!"),
                     Some(_) => (),
@@ -176,7 +180,7 @@ macro_rules! impl_byte_decoder {
     }
 }
 
-use partial_io::{GenWouldBlock, PartialAsyncRead, PartialOp, PartialWithErrors};
+use partial_io::{GenWouldBlock, PartialOp, PartialWithErrors};
 
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
@@ -188,13 +192,19 @@ where
 {
     let ref mut reader = Cursor::new(input.as_ref());
     let partial_reader = PartialAsyncRead::new(reader, seq);
-    FramedRead::new(partial_reader, decoder)
-        .map(|x| {
-            println!("Decoded `{:?}`", x);
-            x
-        })
-        .collect()
-        .wait()
+
+    tokio_02_dep::runtime::Builder::new()
+        .basic_scheduler()
+        .build()
+        .unwrap()
+        .block_on(
+            FramedRead::new(partial_reader, decoder)
+                .map_ok(|x| {
+                    println!("Decoded `{:?}`", x);
+                    x
+                })
+                .try_collect(),
+        )
 }
 
 parser! {
