@@ -2,15 +2,14 @@
 #[macro_use]
 extern crate criterion;
 
-extern crate byteorder;
-extern crate combine;
-
 use std::{fs::File, io::Read, str::from_utf8};
 
 use {
-    byteorder::{BigEndian, ByteOrder},
     combine::{
-        parser::range::{range, take},
+        parser::{
+            byte::num::be_u32,
+            range::{range, take},
+        },
         stream::easy::ParseError,
         *,
     },
@@ -51,9 +50,7 @@ fn parse_mp4(data: &[u8]) -> Result<(Vec<MP4Box>, &[u8]), ParseError<&[u8]>> {
             })
         });
 
-    let mp4_box = take(4)
-        .map(BigEndian::read_u32)
-        .then(|offset| take(offset as usize - 4));
+    let mp4_box = be_u32().then(|offset| take(offset as usize - 4));
     let mut box_parser = choice((
         filetype_box,
         range(&b"moov"[..]).map(|_| MP4Box::Moov),
