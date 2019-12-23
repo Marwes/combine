@@ -1,5 +1,4 @@
 //! Module containing parsers specialized on byte streams.
-extern crate ascii;
 
 use crate::{
     error::{
@@ -17,8 +16,6 @@ use crate::{
     stream::{RangeStream, Stream, StreamOnce},
     Parser,
 };
-
-use self::ascii::AsciiChar;
 
 /// Parses a byte and succeeds if the byte is equal to `c`.
 ///
@@ -39,11 +36,11 @@ where
 
 macro_rules! byte_parser {
     ($name:ident, $ty:ident, $f: ident) => {{
-        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f()).unwrap_or(false))
+        satisfy(|c: u8| c.$f())
             .expected(stringify!($name))
     }};
     ($name:ident, $ty:ident, $f: ident $($args:tt)+) => {{
-        satisfy(|c: u8| AsciiChar::from_ascii(c).map(|c| c.$f $($args)+).unwrap_or(false))
+        satisfy(|c: u8| c.$f $($args)+)
             .expected(stringify!($name))
     }};
 }
@@ -61,7 +58,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(digit, Digit, is_digit(10))
+    byte_parser!(digit, Digit, is_ascii_digit())
 }
 
 /// Parses a `b' '`, `b'\t'`, `b'\n'` or `'b\'r'`.
@@ -79,7 +76,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(space, Space, is_whitespace)
+    byte_parser!(space, Space, is_ascii_whitespace)
 }
 
 /// Skips over [`space`] zero or more times
@@ -162,7 +159,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(upper, Upper, is_uppercase)
+    byte_parser!(upper, Upper, is_ascii_uppercase)
 }
 
 /// Parses an lowercase ASCII letter (a–z).
@@ -178,7 +175,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(lower, Lower, is_lowercase)
+    byte_parser!(lower, Lower, is_ascii_lowercase)
 }
 
 /// Parses either an ASCII alphabet letter or digit (a–z, A–Z, 0–9).
@@ -195,7 +192,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(alpha_num, AlphaNum, is_alphanumeric)
+    byte_parser!(alpha_num, AlphaNum, is_ascii_alphanumeric)
 }
 
 /// Parses an ASCII alphabet letter (a–z, A–Z).
@@ -212,7 +209,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(letter, Letter, is_alphabetic)
+    byte_parser!(letter, Letter, is_ascii_alphabetic)
 }
 
 /// Parses an octal digit.
@@ -244,7 +241,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    byte_parser!(hex_digit, HexDigit, is_digit(16))
+    byte_parser!(hex_digit, HexDigit, is_ascii_hexdigit())
 }
 
 parser! {
@@ -289,7 +286,6 @@ parser! {
 /// # use combine::parser::byte::bytes_cmp;
 /// # use combine::stream::easy::Info;
 /// # fn main() {
-/// use std::ascii::AsciiExt;
 /// let result = bytes_cmp(&b"abc"[..], |l, r| l.eq_ignore_ascii_case(&r))
 ///     .parse(&b"AbC"[..]);
 /// assert_eq!(result, Ok((&b"abc"[..], &b""[..])));
