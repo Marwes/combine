@@ -1,7 +1,5 @@
 //! Various combinators which do not fit anywhere else.
 
-use either::Either;
-
 use crate::{
     error::{
         Info, ParseError,
@@ -541,6 +539,11 @@ where
     Recognize(parser, PhantomData)
 }
 
+pub enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
 impl<Input, L, R> Parser<Input> for Either<L, R>
 where
     Input: Stream,
@@ -583,7 +586,10 @@ where
                 x.parse_mode(
                     mode,
                     input,
-                    state.as_mut().unwrap().as_mut().left().unwrap(),
+                    match state {
+                        Some(Either::Left(state)) => state,
+                        _ => unreachable!(),
+                    },
                 )
             }
             Either::Right(ref mut x) => {
@@ -596,7 +602,10 @@ where
                 x.parse_mode(
                     mode,
                     input,
-                    state.as_mut().unwrap().as_mut().right().unwrap(),
+                    match state {
+                        Some(Either::Right(state)) => state,
+                        _ => unreachable!(),
+                    },
                 )
             }
         }

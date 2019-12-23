@@ -3,8 +3,6 @@
 //! Implements the `Parser` trait which is the core of `combine` and contains the submodules
 //! implementing all combine parsers.
 
-use either::Either;
-
 use crate::{
     error::{
         ErrorInfo, ParseError,
@@ -12,7 +10,7 @@ use crate::{
         ResultExt, Token, Tracked,
     },
     parser::{
-        combinator::{and_then, flat_map, map, map_input, AndThen, FlatMap, Map, MapInput},
+        combinator::{and_then, flat_map, map, map_input, AndThen, Either, FlatMap, Map, MapInput},
         error::{expected, message, silent, Expected, Message, Silent},
         repeat::Iter,
         sequence::{then, then_partial, Then, ThenPartial},

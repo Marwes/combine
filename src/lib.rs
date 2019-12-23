@@ -521,9 +521,6 @@ macro_rules! combine_parser_impl {
 }
 
 pub extern crate byteorder;
-pub extern crate either;
-
-extern crate memchr;
 
 /// Internal API. May break without a semver bump
 macro_rules! forward_parser {
