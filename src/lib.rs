@@ -520,8 +520,6 @@ macro_rules! combine_parser_impl {
     };
 }
 
-pub extern crate byteorder;
-
 /// Internal API. May break without a semver bump
 macro_rules! forward_parser {
     ($input: ty, $method: ident $( $methods: ident)*, $($field: tt)*) => {

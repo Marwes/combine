@@ -23,7 +23,6 @@ name = "combine"
 path = "src/lib.rs"
 
 [dependencies]
-byteorder = { version = "1.1.0", default-features = false }
 regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 pin-project = { version = "0.4", optional = true }
@@ -46,7 +45,7 @@ default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
 tokio-02 = ["pin-project", "tokio-02-dep"]
-std = ["memchr/use_std", "byteorder/std"]
+std = ["memchr/use_std"]
 
 [[bench]]
 name = "json"

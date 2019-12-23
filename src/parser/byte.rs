@@ -1,19 +1,14 @@
 //! Module containing parsers specialized on byte streams.
 
 use crate::{
-    error::{
-        self, ParseError,
-        ParseResult::{self, *},
-    },
-    lib::marker::PhantomData,
+    error::{self, ParseError, ParseResult::*},
     parser::{
         combinator::no_partial,
         range::{take_fn, TakeRange},
         repeat::skip_many,
         token::{satisfy, token, tokens_cmp, Token},
-        ParseMode,
     },
-    stream::{RangeStream, Stream, StreamOnce},
+    stream::{RangeStream, Stream},
     Parser,
 };
 
@@ -447,9 +442,7 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
 /// Parsers for decoding numbers in big-endian or little-endian order.
 pub mod num {
 
-    use byteorder::{ByteOrder, BE, LE};
-
-    use crate::{error::ResultExt, lib::mem::size_of, stream::uncons};
+    use crate::{error::ResultExt, lib::mem::size_of, parser::function::parser, stream::uncons};
 
     use super::*;
 
@@ -457,72 +450,50 @@ pub mod num {
         (
             $(#[$attr:meta])*
             pub $type_name: ident,
-            $func_name: ident, $be_name: ident, $le_name: ident, $read_name: ident
+            $output_type: ident, $be_name: ident, $le_name: ident, $read_name: ident
         ) => {
-            #[derive(Clone)]
-            pub struct $type_name<B, Input>(PhantomData<(B, Input)>);
-
-            impl<'a, Input, B> Parser<Input> for $type_name<B, Input>
+            $(#[$attr])*
+            pub fn $be_name<'a, Input>() -> impl Parser<Input, Output = $output_type, PartialState = ()>
             where
                 Input: Stream<Token = u8>,
                 Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-                B: ByteOrder,
             {
-
-                type Output = $func_name;
-                type PartialState = ();
-
-                parse_mode!(Input);
-                fn parse_mode_impl<M>(
-                    &mut self,
-                    _mode: M,
-                    input: &mut Input,
-                    _state: &mut Self::PartialState,
-                ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
-                where
-                    M: ParseMode,
-                {
+                parser(|input: &mut Input| {
                     let checkpoint = input.checkpoint();
-                    let result = (|| {
-                        let buffer = &mut [0u8; 8][..size_of::<Self::Output>()];
-                        for elem in &mut *buffer {
+                    let result = (|input: &mut Input| {
+                        let mut buffer = [0u8; size_of::<$output_type>()];
+                        for elem in &mut buffer[..] {
                             *elem = ctry!(uncons(input)).0;
                         }
-                        CommitOk(B::$read_name(buffer))
-                    })();
+                        CommitOk($output_type::from_be_bytes(buffer))
+                    })(input);
                     if result.is_err() {
-                        ctry!(input.reset(checkpoint).consumed());
+                        input.reset(checkpoint).consumed().into_result()?;
                     }
-                    result
-                }
+                    result.into_result()
+                })
             }
 
             $(#[$attr])*
-            pub fn $func_name<'a, B, Input>() -> $type_name<B, Input>
-            where
-                Input: Stream<Token = u8>,
-                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-                B: ByteOrder,
-            {
-                $type_name(PhantomData)
-            }
-
-            $(#[$attr])*
-            pub fn $be_name<'a, Input>() -> $type_name<BE, Input>
+            pub fn $le_name<'a, Input>() -> impl Parser<Input, Output = $output_type, PartialState = ()>
             where
                 Input: Stream<Token = u8>,
                 Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
             {
-                $func_name()
-            }
-
-            $(#[$attr])*
-            pub fn $le_name<'a, Input>() -> $type_name<LE, Input>
-            where
-                Input: Stream<Token = u8>,
-                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-            {
-                $func_name()
+                parser(|input: &mut Input| {
+                    let checkpoint = input.checkpoint();
+                    let result = (|input: &mut Input| {
+                        let mut buffer = [0u8; size_of::<$output_type>()];
+                        for elem in &mut buffer[..] {
+                            *elem = ctry!(uncons(input)).0;
+                        }
+                        CommitOk($output_type::from_le_bytes(buffer))
+                    })(input);
+                    if result.is_err() {
+                        input.reset(checkpoint).consumed().into_result()?;
+                    }
+                    result.into_result()
+                })
             }
         }
     }
@@ -531,12 +502,11 @@ pub mod num {
         /// Reads a u16 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::parser::byte::num::u16;
+        /// use combine::parser::byte::num::le_u16;
         ///
-        /// assert_eq!(u16::<LE, _>().parse(&b"\x01\0"[..]), Ok((1, &b""[..])));
-        /// assert!(u16::<LE, _>().parse(&b"\0"[..]).is_err());
+        /// assert_eq!(le_u16().parse(&b"\x01\0"[..]), Ok((1, &b""[..])));
+        /// assert!(le_u16().parse(&b"\0"[..]).is_err());
         /// ```
         pub U16, u16, be_u16, le_u16, read_u16
     );
@@ -544,12 +514,11 @@ pub mod num {
         /// Reads a u32 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::parser::byte::num::u32;
+        /// use combine::parser::byte::num::le_u32;
         ///
-        /// assert_eq!(u32::<LE, _>().parse(&b"\x01\0\0\0"[..]), Ok((1, &b""[..])));
-        /// assert!(u32::<LE, _>().parse(&b"\x01\0\0"[..]).is_err());
+        /// assert_eq!(le_u32().parse(&b"\x01\0\0\0"[..]), Ok((1, &b""[..])));
+        /// assert!(le_u32().parse(&b"\x01\0\0"[..]).is_err());
         /// ```
         pub U32, u32, be_u32, le_u32, read_u32
     );
@@ -557,12 +526,11 @@ pub mod num {
         /// Reads a u64 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::parser::byte::num::u64;
+        /// use combine::parser::byte::num::le_u64;
         ///
-        /// assert_eq!(u64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0\0"[..]), Ok((1, &b""[..])));
-        /// assert!(u64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
+        /// assert_eq!(le_u64().parse(&b"\x01\0\0\0\0\0\0\0"[..]), Ok((1, &b""[..])));
+        /// assert!(le_u64().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
         /// ```
         pub U64, u64, be_u64, le_u64, read_u64
     );
@@ -571,12 +539,11 @@ pub mod num {
         /// Reads a i16 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::parser::byte::num::i16;
+        /// use combine::parser::byte::num::le_i16;
         ///
-        /// assert_eq!(i16::<LE, _>().parse(&b"\x01\0"[..]), Ok((1, &b""[..])));
-        /// assert!(i16::<LE, _>().parse(&b"\x01"[..]).is_err());
+        /// assert_eq!(le_i16().parse(&b"\x01\0"[..]), Ok((1, &b""[..])));
+        /// assert!(le_i16().parse(&b"\x01"[..]).is_err());
         /// ```
         pub I16, i16, be_i16, le_i16, read_i16
     );
@@ -585,12 +552,11 @@ pub mod num {
         /// Reads a i32 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::parser::byte::num::i32;
+        /// use combine::parser::byte::num::le_i32;
         ///
-        /// assert_eq!(i32::<LE, _>().parse(&b"\x01\0\0\0"[..]), Ok((1, &b""[..])));
-        /// assert!(i32::<LE, _>().parse(&b"\x01\0\0"[..]).is_err());
+        /// assert_eq!(le_i32().parse(&b"\x01\0\0\0"[..]), Ok((1, &b""[..])));
+        /// assert!(le_i32().parse(&b"\x01\0\0"[..]).is_err());
         /// ```
         pub I32, i32, be_i32, le_i32, read_i32
     );
@@ -598,12 +564,11 @@ pub mod num {
         /// Reads a i64 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::LE;
         /// use combine::Parser;
-        /// use combine::parser::byte::num::i64;
+        /// use combine::parser::byte::num::le_i64;
         ///
-        /// assert_eq!(i64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0\0"[..]), Ok((1, &b""[..])));
-        /// assert!(i64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
+        /// assert_eq!(le_i64().parse(&b"\x01\0\0\0\0\0\0\0"[..]), Ok((1, &b""[..])));
+        /// assert!(le_i64().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
         /// ```
         pub I64, i64, be_i64, le_i64, read_i64
     );
@@ -612,14 +577,12 @@ pub mod num {
         /// Reads a i32 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::{LE, ByteOrder};
         /// use combine::Parser;
-        /// use combine::parser::byte::num::f32;
+        /// use combine::parser::byte::num::le_f32;
         ///
-        /// let mut buf = [0; 4];
-        /// LE::write_f32(&mut buf, 123.45);
-        /// assert_eq!(f32::<LE, _>().parse(&buf[..]), Ok((123.45, &b""[..])));
-        /// assert!(f32::<LE, _>().parse(&b"\x01\0\0"[..]).is_err());
+        /// let buf = 123.45f32.to_le_bytes();
+        /// assert_eq!(le_f32().parse(&buf[..]), Ok((123.45, &b""[..])));
+        /// assert!(le_f32().parse(&b"\x01\0\0"[..]).is_err());
         /// ```
         pub F32, f32, be_f32, le_f32, read_f32
     );
@@ -627,14 +590,12 @@ pub mod num {
         /// Reads a i64 out of the byte stream with the specified endianess
         ///
         /// ```
-        /// use combine::byteorder::{LE, ByteOrder};
         /// use combine::Parser;
-        /// use combine::parser::byte::num::f64;
+        /// use combine::parser::byte::num::le_f64;
         ///
-        /// let mut buf = [0; 8];
-        /// LE::write_f64(&mut buf, 123.45);
-        /// assert_eq!(f64::<LE, _>().parse(&buf[..]), Ok((123.45, &b""[..])));
-        /// assert!(f64::<LE, _>().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
+        /// let buf = 123.45f64.to_le_bytes();
+        /// assert_eq!(le_f64().parse(&buf[..]), Ok((123.45, &b""[..])));
+        /// assert!(le_f64().parse(&b"\x01\0\0\0\0\0\0"[..]).is_err());
         /// ```
         pub F64, f64, be_f64, le_f64, read_f64
     );
@@ -648,10 +609,9 @@ pub mod num {
 
         #[test]
         fn no_rangestream() {
-            let mut buf = [0; 8];
-            LE::write_f64(&mut buf, 123.45);
+            let buf = 123.45f64.to_le_bytes();
             assert_eq!(
-                f64::<LE, _>()
+                le_f64()
                     .parse(buffered::Stream::new(
                         position::Stream::new(IteratorStream::new(buf.iter().cloned())),
                         1
@@ -668,8 +628,7 @@ pub mod num {
                     .map(|(t, _)| t),
                 Ok(123.45)
             );
-            let mut buf = [0; 8];
-            BE::write_f64(&mut buf, 123.45);
+            let buf = 123.45f64.to_be_bytes();
             assert_eq!(
                 be_f64()
                     .parse(buffered::Stream::new(
