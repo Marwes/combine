@@ -1290,24 +1290,23 @@ where
     }
 }
 
-/// Parses an instance of `std::io::BufRead` as a `&[u8]` without reading the entire file into
+/// Parses an instance of `std::io::Read` as a `&[u8]` without reading the entire file into
 /// memory.
 ///
 /// This is defined as a macro to work around the lack of Higher Ranked Types. See the
 /// example for how to pass a parser to the macro (constructing parts of the parser outside of
-/// the `decode_buf_read!` call is unlikely to work.
+/// the `decode!` call is unlikely to work.
 ///
 /// ```
 /// use std::{
 ///     fs::File,
-///     io::BufReader
 /// };
-/// use combine::{decode_buf_read, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+/// use combine::{decode, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
-/// let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(100, File::open("README.md").unwrap()));
+/// let decoder = Decoder::<_, _>::new(File::open("README.md").unwrap());
 /// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 /// assert_eq!(
-///     decode_buf_read!(
+///     decode!(
 ///         decoder,
 ///         {
 ///             let word = many1(satisfy(|b| !is_whitespace(b)));
@@ -1321,17 +1320,15 @@ where
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[macro_export]
-macro_rules! decode_buf_read {
+macro_rules! decode {
     ($decoder: expr, $parser: expr) => {
-        $crate::decode_buf_read!($decoder, $parser, |x| x)
+        $crate::decode!($decoder, $parser, |x| x)
     };
 
     ($decoder: expr, $parser: expr, $input_stream: expr) => {
         match $decoder {
             ref mut decoder => 'outer: loop {
                 use $crate::stream::position::Positioner;
-
-                let remaining_data = decoder.remaining_len();
 
                 let (opt, removed) = {
                     let (state, positioner, buffer, end_of_input) = match decoder.before_parse() {
@@ -1357,15 +1354,7 @@ macro_rules! decode_buf_read {
                     }
                 };
 
-                match decoder.after_parse(remaining_data, removed, opt.is_some()) {
-                    Ok(x) => x,
-                    Err(err) => {
-                        break 'outer Err($crate::error::ParseError::from_error(
-                            Positioner::<u8>::position(&decoder.positioner),
-                            $crate::error::StreamError::other(err),
-                        ))
-                    }
-                }
+                decoder.after_parse(removed);
 
                 if let Some(v) = opt {
                     break 'outer Ok(v);
@@ -1375,33 +1364,33 @@ macro_rules! decode_buf_read {
     };
 }
 
-/// Parses an instance of `futures::io::BufRead` as a `&[u8]` without reading the entire file into
+/// Parses an instance of `futures::io::AsyncRead` as a `&[u8]` without reading the entire file into
 /// memory.
 ///
 /// This is defined as a macro to work around the lack of Higher Ranked Types. See the
 /// example for how to pass a parser to the macro (constructing parts of the parser outside of
-/// the `decode_buf_read!` call is unlikely to work.
+/// the `decode!` call is unlikely to work.
 ///
 /// ```
+/// # use futures_03_dep as futures;
 /// use futures::pin_mut;
 /// use async_std::{
 ///     fs::File,
-///     io::BufReader,
 ///     task,
 /// };
 ///
-/// use combine::{decode_futures_03_buf_read, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+/// use combine::{decode_futures_03, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
 /// fn main() {
 ///     task::block_on(main_());
 /// }
 ///
 /// async fn main_() {
-///     let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(100, File::open("README.md").await.unwrap()));
+///     let decoder = Decoder::<_, _>::new(File::open("README.md").await.unwrap());
 ///     pin_mut!(decoder);
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
-///         decode_futures_03_buf_read!(
+///         decode_futures_03!(
 ///             decoder,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
@@ -1416,17 +1405,15 @@ macro_rules! decode_buf_read {
 #[cfg(feature = "futures-io-03")]
 #[cfg_attr(docsrs, doc(cfg(feature = "futures-io-03")))]
 #[macro_export]
-macro_rules! decode_futures_03_buf_read {
+macro_rules! decode_futures_03 {
     ($decoder: expr, $parser: expr) => {
-        $crate::decode_futures_03_buf_read!(async $decoder, $parser, |x| x)
+        $crate::decode_futures_03!(async $decoder, $parser, |x| x)
     };
 
     ($decoder: expr, $parser: expr, $input_stream: expr) => {
         match $decoder {
             ref mut decoder => 'outer: loop {
                 use $crate::stream::position::Positioner;
-
-                let remaining_data = decoder.remaining_len();
 
                 let (opt, removed) = {
                     let (state, positioner, buffer, end_of_input) =
@@ -1453,19 +1440,7 @@ macro_rules! decode_futures_03_buf_read {
                     }
                 };
 
-                match decoder
-                    .as_mut()
-                    .after_parse_async(remaining_data, removed, opt.is_some())
-                    .await
-                {
-                    Ok(x) => x,
-                    Err(err) => {
-                        break 'outer Err($crate::error::ParseError::from_error(
-                            Positioner::<u8>::position(&decoder.positioner),
-                            $crate::error::StreamError::other(err),
-                        ))
-                    }
-                }
+                decoder.after_parse(removed);
 
                 if let Some(v) = opt {
                     break 'outer Ok(v);
@@ -1475,30 +1450,30 @@ macro_rules! decode_futures_03_buf_read {
     };
 }
 
-/// Parses an instance of `tokio::io::BufRead` as a `&[u8]` without reading the entire file into
+/// Parses an instance of `tokio::io::AsyncRead` as a `&[u8]` without reading the entire file into
 /// memory.
 ///
 /// This is defined as a macro to work around the lack of Higher Ranked Types. See the
 /// example for how to pass a parser to the macro (constructing parts of the parser outside of
-/// the `decode_buf_read!` call is unlikely to work.
+/// the `decode!` call is unlikely to work.
 ///
 /// ```
 /// # use tokio_02_dep as tokio;
+/// # use futures_03_dep as futures;
 /// use futures::pin_mut;
 /// use tokio::{
 ///     fs::File,
-///     io::BufReader
 /// };
 ///
-/// use combine::{decode_tokio_buf_read, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+/// use combine::{decode_tokio, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let mut decoder = Decoder::<_, _>::new(BufReader::with_capacity(100, File::open("README.md").await.unwrap()));
+///     let decoder = Decoder::<_, _>::new(File::open("README.md").await.unwrap());
 ///     pin_mut!(decoder);
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
-///         decode_tokio_buf_read!(
+///         decode_tokio!(
 ///             decoder,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
@@ -1513,17 +1488,15 @@ macro_rules! decode_futures_03_buf_read {
 #[cfg(feature = "tokio-02")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-02")))]
 #[macro_export]
-macro_rules! decode_tokio_buf_read {
+macro_rules! decode_tokio {
     ($decoder: expr, $parser: expr) => {
-        $crate::decode_tokio_buf_read!(async $decoder, $parser, |x| x)
+        $crate::decode_tokio!(async $decoder, $parser, |x| x)
     };
 
     ($decoder: expr, $parser: expr, $input_stream: expr) => {
         match $decoder {
             ref mut decoder => 'outer: loop {
                 use $crate::stream::position::Positioner;
-
-                let remaining_data = decoder.remaining_len();
 
                 let (opt, removed) = {
                     let (state, positioner, buffer, end_of_input) =
@@ -1550,19 +1523,7 @@ macro_rules! decode_tokio_buf_read {
                     }
                 };
 
-                match decoder
-                    .as_mut()
-                    .after_parse_tokio(remaining_data, removed, opt.is_some())
-                    .await
-                {
-                    Ok(x) => x,
-                    Err(err) => {
-                        break 'outer Err($crate::error::ParseError::from_error(
-                            Positioner::<u8>::position(&decoder.positioner),
-                            $crate::error::StreamError::other(err),
-                        ))
-                    }
-                }
+                decoder.after_parse(removed);
 
                 if let Some(v) = opt {
                     break 'outer Ok(v);

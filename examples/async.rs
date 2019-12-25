@@ -2,8 +2,10 @@
 
 use std::{cell::Cell, io::Cursor, rc::Rc, str};
 
+use {futures_03_dep as futures, tokio_02_dep as tokio};
+
 use {
-    bytes::{Buf, BytesMut},
+    bytes_05::{Buf, BytesMut},
     combine::{
         error::{ParseError, StreamError},
         parser::{
@@ -17,7 +19,6 @@ use {
     },
     futures::prelude::*,
     partial_io::PartialOp,
-    tokio_02_dep as tokio,
     tokio_util::codec::{Decoder, FramedRead},
 };
 
