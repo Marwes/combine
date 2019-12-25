@@ -1,9 +1,6 @@
 use crate::stream::position::IndexPositioner;
 
-use std::{
-    io::{self, Read},
-    mem::MaybeUninit,
-};
+use std::io::{self, Read};
 
 #[cfg(any(feature = "futures-03", feature = "tokio-02"))]
 use std::pin::Pin;
@@ -109,6 +106,8 @@ where
     pub async fn before_parse_async(
         self: Pin<&mut Self>,
     ) -> io::Result<(&mut S, &mut P, &[u8], bool)> {
+        use std::mem::MaybeUninit;
+
         use futures_util_03::io::AsyncReadExt;
 
         let mut self_ = self.project();
