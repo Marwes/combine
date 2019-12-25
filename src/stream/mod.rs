@@ -1303,7 +1303,7 @@ where
 /// };
 /// use combine::{decode, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
-/// let decoder = Decoder::<_, _>::new(File::open("README.md").unwrap());
+/// let mut decoder = Decoder::<_, _>::new(File::open("README.md").unwrap());
 /// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 /// assert_eq!(
 ///     decode!(
