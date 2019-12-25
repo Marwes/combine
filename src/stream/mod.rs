@@ -1111,7 +1111,7 @@ where
     where
         F: FnMut(Self::Token) -> bool,
     {
-        if self.0.is_empty() || !f(unsafe { self.0.get_unchecked(0) }) {
+        if !self.0.first().map_or(false, &mut f) {
             return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
         }
 
