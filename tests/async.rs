@@ -650,7 +650,7 @@ fn decode_std() {
 }
 
 #[test]
-fn decode_tokio() {
+fn decode_tokio_02() {
     quickcheck(
         (|ops: PartialWithErrors<GenWouldBlock>| {
             let buf = include_bytes!("../README.md");
@@ -664,7 +664,7 @@ fn decode_tokio() {
                 pin_mut!(decoder);
                 let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
                 assert_eq!(
-                    combine::decode_tokio!(
+                    combine::decode_tokio_02!(
                         decoder,
                         {
                             let word = many1(satisfy(|b| !is_whitespace(b)));

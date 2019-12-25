@@ -1465,7 +1465,7 @@ macro_rules! decode_futures_03 {
 ///     fs::File,
 /// };
 ///
-/// use combine::{decode_tokio, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
+/// use combine::{decode_tokio_02, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -1473,7 +1473,7 @@ macro_rules! decode_futures_03 {
 ///     pin_mut!(decoder);
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
-///         decode_tokio!(
+///         decode_tokio_02!(
 ///             decoder,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
@@ -1488,9 +1488,9 @@ macro_rules! decode_futures_03 {
 #[cfg(feature = "tokio-02")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-02")))]
 #[macro_export]
-macro_rules! decode_tokio {
+macro_rules! decode_tokio_02 {
     ($decoder: expr, $parser: expr) => {
-        $crate::decode_tokio!(async $decoder, $parser, |x| x)
+        $crate::decode_tokio_02!(async $decoder, $parser, |x| x)
     };
 
     ($decoder: expr, $parser: expr, $input_stream: expr) => {
