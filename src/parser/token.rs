@@ -612,6 +612,44 @@ where
 }
 
 #[derive(Copy, Clone)]
+pub struct Produce<Input, F>(F, PhantomData<fn(Input) -> Input>);
+impl<Input, F, R> Parser<Input> for Produce<Input, F>
+where
+    Input: Stream,
+    F: FnMut() -> R,
+{
+    type Output = R;
+    type PartialState = ();
+    #[inline]
+    fn parse_lazy(&mut self, _: &mut Input) -> ParseResult<R, Input::Error> {
+        PeekOk((self.0)())
+    }
+}
+
+/// Always returns the value produced by calling `f`.
+///
+/// Can be used when `value` is unable to be used for lack of `Clone` implementation on the value.
+///
+/// ```
+/// # use combine::*;
+/// # fn main() {
+/// #[derive(Debug, PartialEq)]
+/// struct NoClone;
+/// let result = produce(|| vec![NoClone])
+///     .parse("hello world")
+///     .map(|x| x.0);
+/// assert_eq!(result, Ok(vec![NoClone]));
+/// # }
+/// ```
+pub fn produce<Input, F, R>(f: F) -> Produce<Input, F>
+where
+    Input: Stream,
+    F: FnMut() -> R,
+{
+    Produce(f, PhantomData)
+}
+
+#[derive(Copy, Clone)]
 pub struct Eof<Input>(PhantomData<Input>);
 impl<Input> Parser<Input> for Eof<Input>
 where

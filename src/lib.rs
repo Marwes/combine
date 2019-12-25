@@ -217,7 +217,9 @@ pub use crate::parser::{
         sep_end_by1, skip_count, skip_count_min_max, skip_many, skip_many1,
     },
     sequence::between,
-    token::{any, eof, none_of, one_of, position, satisfy, satisfy_map, token, tokens, value},
+    token::{
+        any, eof, none_of, one_of, position, produce, satisfy, satisfy_map, token, tokens, value,
+    },
 };
 
 #[doc(inline)]
