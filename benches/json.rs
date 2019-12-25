@@ -109,7 +109,7 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     parser(|input: &mut Input| {
-        let (c, consumed) = any().parse_lazy(input).into_result()?;
+        let (c, committed) = any().parse_lazy(input).into_result()?;
         let mut back_slash_char = satisfy_map(|c| {
             Some(match c {
                 '"' => '"',
@@ -124,11 +124,11 @@ where
             })
         });
         match c {
-            '\\' => consumed.combine(|_| back_slash_char.parse_stream(input).into_result()),
+            '\\' => committed.combine(|_| back_slash_char.parse_stream(input).into_result()),
             '"' => Err(Commit::Peek(
                 Input::Error::empty(input.position()).into(),
             )),
-            _ => Ok((c, consumed)),
+            _ => Ok((c, committed)),
         }
     })
 }

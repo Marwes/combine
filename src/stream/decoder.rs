@@ -39,14 +39,9 @@ where
 
 impl<R, S, P> Decoder<R, S, P> {
     #[doc(hidden)]
-    pub fn buffer_len(&self) -> usize {
-        self.buffer.len()
-    }
-
-    #[doc(hidden)]
-    pub fn after_parse(&mut self, removed: usize) {
+    pub fn advance(&mut self, removed: usize) {
         // Remove the data we have parsed and adjust `removed` to be the amount of data we
-        // consumed from `self.reader`
+        // committed from `self.reader`
         self.buffer.advance(removed);
     }
 }

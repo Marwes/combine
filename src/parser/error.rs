@@ -118,7 +118,7 @@ where
             CommitOk(x) => CommitOk(x),
             PeekOk(x) => PeekOk(x),
 
-            // The message should always be added even if some input was consumed before failing
+            // The message should always be added even if some input was committed before failing
             CommitErr(mut err) => {
                 err.add_message(&self.1);
                 CommitErr(err)
@@ -134,7 +134,7 @@ where
         errors.error.add_message(&self.1);
     }
 
-    forward_parser!(Input, parser_count add_consumed_expected_error, 0);
+    forward_parser!(Input, parser_count add_committed_expected_error, 0);
 }
 
 /// Equivalent to [`p1.message(msg)`].
@@ -180,7 +180,7 @@ where
         })
     }
 
-    forward_parser!(Input, parser_count add_consumed_expected_error, 0);
+    forward_parser!(Input, parser_count add_committed_expected_error, 0);
 }
 
 /// Equivalent to [`p.expected(info)`].
@@ -224,7 +224,10 @@ where
 
     fn add_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
-    fn add_consumed_expected_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {
+    fn add_committed_expected_error(
+        &mut self,
+        _errors: &mut Tracked<<Input as StreamOnce>::Error>,
+    ) {
     }
 
     forward_parser!(Input, parser_count, 0);

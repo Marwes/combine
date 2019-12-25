@@ -38,10 +38,10 @@ pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 ///     // Help type inference out
 ///     let _: &mut easy::Stream<&str> = input;
 ///     let position = input.position();
-///     let (char_digit, consumed) = digit().parse_stream(input).into_result()?;
+///     let (char_digit, committed) = digit().parse_stream(input).into_result()?;
 ///     let d = (char_digit as i32) - ('0' as i32);
 ///     if d % 2 == 0 {
-///         Ok((d, consumed))
+///         Ok((d, committed))
 ///     }
 ///     else {
 ///         //Return an empty error since we only tested the first token of the stream

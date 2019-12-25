@@ -468,7 +468,7 @@ pub mod num {
                         CommitOk($output_type::from_be_bytes(buffer))
                     })(input);
                     if result.is_err() {
-                        input.reset(checkpoint).consumed().into_result()?;
+                        input.reset(checkpoint).committed().into_result()?;
                     }
                     result.into_result()
                 })
@@ -490,7 +490,7 @@ pub mod num {
                         CommitOk($output_type::from_le_bytes(buffer))
                     })(input);
                     if result.is_err() {
-                        input.reset(checkpoint).consumed().into_result()?;
+                        input.reset(checkpoint).committed().into_result()?;
                     }
                     result.into_result()
                 })

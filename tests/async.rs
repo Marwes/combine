@@ -110,7 +110,7 @@ macro_rules! impl_decoder {
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
                         // returning the error and before we call `advance` to remove the input we
-                        // just consumed
+                        // just committed
                         let err = err.map_range(|r| r.to_string())
                             .map_position(|p| p.translate_position(&str_src[..]));
                         format!("{}\nIn input: `{}`", err, str_src)
@@ -164,7 +164,7 @@ macro_rules! impl_byte_decoder {
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
                         // returning the error and before we call `advance` to remove the input we
-                        // just consumed
+                        // just committed
                         let err = err.map_range(|r| format!("{:?}", r))
                             .map_position(|p| p.translate_position(&str_src[..]));
                         format!("{}\nIn input: `{:?}`", err, str_src)
@@ -469,7 +469,7 @@ quickcheck! {
         assert_eq!(counter.get(), 3);
     }
 
-    fn take_until_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn take_until_committed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             |count: Rc<Cell<i32>>| {
                 let end = attempt((token(':').map(move |_| count.set(count.get() + 1)), token(':')));
@@ -492,7 +492,7 @@ quickcheck! {
         assert_eq!(counter.get(), 3);
     }
 
-    fn take_until_range_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn take_until_range_committed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             take_until_range("::").map(String::from).skip((token(':'), token(':')))
         }

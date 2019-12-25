@@ -239,12 +239,12 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, Input::Error> {
         let start = input.position();
-        let mut consumed = false;
+        let mut committed = false;
         for c in self.tokens.clone() {
             match crate::stream::uncons(input) {
                 CommitOk(other) | PeekOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
-                        return if consumed {
+                        return if committed {
                             let mut errors = <Input as StreamOnce>::Error::from_error(
                                 start,
                                 StreamError::unexpected_token(other),
@@ -255,11 +255,11 @@ where
                             PeekErr(<Input as StreamOnce>::Error::empty(start).into())
                         };
                     }
-                    consumed = true;
+                    committed = true;
                 }
                 PeekErr(mut error) => {
                     error.error.set_position(start);
-                    return if consumed {
+                    return if committed {
                         CommitErr(error.error)
                     } else {
                         PeekErr(error.into())
@@ -271,7 +271,7 @@ where
                 }
             }
         }
-        if consumed {
+        if committed {
             CommitOk(self.tokens.clone())
         } else {
             PeekOk(self.tokens.clone())
@@ -343,12 +343,12 @@ where
     #[inline]
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, Input::Error> {
         let start = input.position();
-        let mut consumed = false;
+        let mut committed = false;
         for c in self.tokens.clone() {
             match crate::stream::uncons(input) {
                 CommitOk(other) | PeekOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
-                        return if consumed {
+                        return if committed {
                             let errors = <Input as StreamOnce>::Error::from_error(
                                 start,
                                 StreamError::unexpected_token(other),
@@ -358,11 +358,11 @@ where
                             PeekErr(<Input as StreamOnce>::Error::empty(start).into())
                         };
                     }
-                    consumed = true;
+                    committed = true;
                 }
                 PeekErr(mut error) => {
                     error.error.set_position(start);
-                    return if consumed {
+                    return if committed {
                         CommitErr(error.error)
                     } else {
                         PeekErr(error)
@@ -374,7 +374,7 @@ where
                 }
             }
         }
-        if consumed {
+        if committed {
             CommitOk(self.tokens.clone())
         } else {
             PeekOk(self.tokens.clone())
@@ -664,7 +664,7 @@ where
         match input.uncons() {
             Err(ref err) if err.is_unexpected_end_of_input() => PeekOk(()),
             _ => {
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 PeekErr(<Input as StreamOnce>::Error::empty(input.position()).into())
             }
         }

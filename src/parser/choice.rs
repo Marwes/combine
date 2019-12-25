@@ -187,7 +187,7 @@ macro_rules! do_choice {
                 CommitErr(err)
             }
             PeekErr($head) => {
-                ctry!($input.reset($before.clone()).consumed());
+                ctry!($input.reset($before.clone()).committed());
                 do_choice!(
                     $input
                     $before_position
@@ -407,12 +407,12 @@ where
     }
 
     for i in 0..self_.len() {
-        ctry!(input.reset(before.clone()).consumed());
+        ctry!(input.reset(before.clone()).committed());
 
         match self_[i].parse_mode(mode, input, child_state) {
-            consumed_err @ CommitErr(_) => {
+            committed_err @ CommitErr(_) => {
                 *index_state = i + 1;
-                return consumed_err;
+                return committed_err;
             }
             PeekErr(err) => {
                 prev_err = match prev_err {
@@ -543,7 +543,7 @@ where
 /// // Fails as the parser for "two" consumes the first 't' before failing
 /// assert!(parser2.parse("three").is_err());
 ///
-/// // Use 'attempt' to make failing parsers always act as if they have not consumed any input
+/// // Use 'attempt' to make failing parsers always act as if they have not committed any input
 /// let mut parser3 = choice([attempt(string("one")), attempt(string("two")), attempt(string("three"))]);
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
@@ -612,7 +612,7 @@ where
 /// // Fails as the parser for "two" consumes the first 't' before failing
 /// assert!(parser2.parse("three").is_err());
 ///
-/// // Use 'attempt' to make failing parsers always act as if they have not consumed any input
+/// // Use 'attempt' to make failing parsers always act as if they have not committed any input
 /// let mut parser3 = or(attempt(string("two")), attempt(string("three")));
 /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
 /// # }
@@ -656,7 +656,7 @@ where
             CommitOk(x) => CommitOk(Some(x)),
             CommitErr(err) => CommitErr(err),
             PeekErr(_) => {
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 PeekOk(None)
             }
         }
@@ -666,7 +666,7 @@ where
 }
 
 /// Parses `parser` and outputs `Some(value)` if it succeeds, `None` if it fails without
-/// consuming any input. Fails if `parser` fails after having consumed some input.
+/// consuming any input. Fails if `parser` fails after having committed some input.
 ///
 /// ```
 /// # extern crate combine;

@@ -196,13 +196,13 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
     where
         F: FnMut(Self::Token) -> bool,
     {
-        let mut consumed = false;
+        let mut committed = false;
         let result = self.uncons_while(|c| {
             let ok = f(c);
-            consumed |= ok;
+            committed |= ok;
             ok
         });
-        if consumed {
+        if committed {
             match result {
                 Ok(x) => CommitOk(x),
                 Err(x) => CommitErr(x),
@@ -1262,9 +1262,9 @@ where
 
 /// Decodes `input` using `parser`.
 ///
-/// Return `Ok(Some(token), consumed_data)` if there was enough data to finish parsing using
+/// Return `Ok(Some(token), committed_data)` if there was enough data to finish parsing using
 /// `parser`.
-/// Returns `Ok(None, consumed_data)` if `input` did not contain enough data to finish parsing
+/// Returns `Ok(None, committed_data)` if `input` did not contain enough data to finish parsing
 /// using `parser`.
 ///
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
@@ -1354,7 +1354,7 @@ macro_rules! decode {
                     }
                 };
 
-                decoder.after_parse(removed);
+                decoder.advance(removed);
 
                 if let Some(v) = opt {
                     break 'outer Ok(v);
@@ -1440,7 +1440,7 @@ macro_rules! decode_futures_03 {
                     }
                 };
 
-                decoder.after_parse(removed);
+                decoder.advance(removed);
 
                 if let Some(v) = opt {
                     break 'outer Ok(v);
@@ -1523,7 +1523,7 @@ macro_rules! decode_tokio_02 {
                     }
                 };
 
-                decoder.after_parse(removed);
+                decoder.advance(removed);
 
                 if let Some(v) = opt {
                     break 'outer Ok(v);

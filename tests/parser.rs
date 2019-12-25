@@ -84,7 +84,7 @@ mod tests_std {
     }
 
     #[test]
-    fn sep_by_consumed_error() {
+    fn sep_by_committed_error() {
         let mut parser2 = sep_by((letter(), letter()), token(','));
         let result_err: Result<(Vec<(char, char)>, &str), easy::ParseError<&str>> =
             parser2.easy_parse("a,bc");
@@ -129,7 +129,7 @@ mod tests_std {
 
     #[test]
     fn message_tests() {
-        // Ensure message adds to both consumed and empty errors, interacting with parse_lazy and
+        // Ensure message adds to both committed and empty errors, interacting with parse_lazy and
         // parse_stream correctly on either side
         let input = "hi";
 
@@ -137,12 +137,12 @@ mod tests_std {
         let mut empty0 = char('o').message("expected message");
         let mut empty1 = char('o').message("expected message").map(|x| x);
         let mut empty2 = char('o').map(|x| x).message("expected message");
-        let mut consumed0 = char('h').with(char('o')).message("expected message");
-        let mut consumed1 = char('h')
+        let mut committed0 = char('h').with(char('o')).message("expected message");
+        let mut committed1 = char('h')
             .with(char('o'))
             .message("expected message")
             .map(|x| x);
-        let mut consumed2 = char('h')
+        let mut committed2 = char('h')
             .with(char('o'))
             .map(|x| x)
             .message("expected message");
@@ -158,7 +158,7 @@ mod tests_std {
             ],
         });
 
-        let consumed_expected = Err(Errors {
+        let committed_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 2 },
             errors: vec![
                 Error::Unexpected('i'.into()),
@@ -181,16 +181,16 @@ mod tests_std {
         );
 
         assert_eq!(
-            consumed0.easy_parse(position::Stream::new(input)),
-            consumed_expected
+            committed0.easy_parse(position::Stream::new(input)),
+            committed_expected
         );
         assert_eq!(
-            consumed1.easy_parse(position::Stream::new(input)),
-            consumed_expected
+            committed1.easy_parse(position::Stream::new(input)),
+            committed_expected
         );
         assert_eq!(
-            consumed2.easy_parse(position::Stream::new(input)),
-            consumed_expected
+            committed2.easy_parse(position::Stream::new(input)),
+            committed_expected
         );
     }
 
@@ -204,12 +204,12 @@ mod tests_std {
         let mut empty0 = char('o').expected("expected message");
         let mut empty1 = char('o').expected("expected message").map(|x| x);
         let mut empty2 = char('o').map(|x| x).expected("expected message");
-        let mut consumed0 = char('h').with(char('o')).expected("expected message");
-        let mut consumed1 = char('h')
+        let mut committed0 = char('h').with(char('o')).expected("expected message");
+        let mut committed1 = char('h')
             .with(char('o'))
             .expected("expected message")
             .map(|x| x);
-        let mut consumed2 = char('h')
+        let mut committed2 = char('h')
             .with(char('o'))
             .map(|x| x)
             .expected("expected message");
@@ -224,7 +224,7 @@ mod tests_std {
             ],
         });
 
-        let consumed_expected = Err(Errors {
+        let committed_expected = Err(Errors {
             position: SourcePosition { line: 1, column: 2 },
             errors: vec![Error::Unexpected('i'.into()), Error::Expected('o'.into())],
         });
@@ -243,16 +243,16 @@ mod tests_std {
         );
 
         assert_eq!(
-            consumed0.easy_parse(position::Stream::new(input)),
-            consumed_expected
+            committed0.easy_parse(position::Stream::new(input)),
+            committed_expected
         );
         assert_eq!(
-            consumed1.easy_parse(position::Stream::new(input)),
-            consumed_expected
+            committed1.easy_parse(position::Stream::new(input)),
+            committed_expected
         );
         assert_eq!(
-            consumed2.easy_parse(position::Stream::new(input)),
-            consumed_expected
+            committed2.easy_parse(position::Stream::new(input)),
+            committed_expected
         );
     }
 
@@ -337,7 +337,7 @@ mod tests_std {
     }
 
     #[test]
-    fn consumed_then_optional_empty_ok_then_error() {
+    fn committed_then_optional_empty_ok_then_error() {
         let mut parser = (char('b'), optional(char('a')), char('b'));
 
         assert_eq!(

@@ -192,7 +192,7 @@ where
 }
 
 /// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `Input`.  The
-/// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
+/// initial index is index 0.  Each `Item` committed increments the index by 1; each `range` committed
 /// increments the position by `range.len()`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct IndexPositioner(usize);

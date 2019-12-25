@@ -100,7 +100,7 @@ macro_rules! tuple_parser {
                     }
                     dispatch_on!(0, |i, mut p| {
                         if i + 1 == first_empty_parser {
-                            Parser::add_consumed_expected_error(&mut p, &mut err);
+                            Parser::add_committed_expected_error(&mut p, &mut err);
                         }
                         if i >= first_empty_parser {
                             if err.offset <= ErrorOffset(1) {
@@ -269,10 +269,10 @@ macro_rules! tuple_parser {
                 )*
             }
 
-            fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
+            fn add_committed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
                 #[allow(unused_variables)]
                 let (ref mut $h, $(ref mut $id),*) = *self;
-                last_ident!($h $(, $id)*).add_consumed_expected_error(errors)
+                last_ident!($h $(, $id)*).add_committed_expected_error(errors)
             }
         }
     }
@@ -452,7 +452,7 @@ where
         self.0.parse_mode(mode, input, state).map(|(_, b)| b)
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p1.with(p2)`].
@@ -492,7 +492,7 @@ where
         self.0.parse_mode(mode, input, state).map(|(a, _)| a)
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 pub fn skip<Input, P1, P2>(p1: P1, p2: P2) -> Skip<P1, P2>
@@ -582,12 +582,12 @@ where
             .as_mut()
             .unwrap()
             .1
-            .parse_consumed_mode(mode, input, n_state);
+            .parse_committed_mode(mode, input, n_state);
         match result {
             PeekOk(x) => {
-                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                let (committed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
-                if consumed {
+                if committed {
                     CommitOk(x)
                 } else {
                     PeekOk(x)
@@ -598,9 +598,9 @@ where
                 CommitOk(x)
             }
             PeekErr(x) => {
-                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                let (committed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
-                if consumed {
+                if committed {
                     CommitErr(x.error)
                 } else {
                     PeekErr(x)
@@ -670,12 +670,12 @@ where
         }
 
         let result = (self.1)(&mut n_parser_cache.as_mut().unwrap().1)
-            .parse_consumed_mode(mode, input, n_state);
+            .parse_committed_mode(mode, input, n_state);
         match result {
             PeekOk(x) => {
-                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                let (committed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
-                if consumed {
+                if committed {
                     CommitOk(x)
                 } else {
                     PeekOk(x)
@@ -686,9 +686,9 @@ where
                 CommitOk(x)
             }
             PeekErr(x) => {
-                let (consumed, _) = *n_parser_cache.as_ref().unwrap();
+                let (committed, _) = *n_parser_cache.as_ref().unwrap();
                 *n_parser_cache = None;
-                if consumed {
+                if committed {
                     CommitErr(x.error)
                 } else {
                     PeekErr(x)
