@@ -634,8 +634,8 @@ where
     }
 
     if !found {
-        while i < len {
-            if !f(unsafe { slice.get_unchecked(i).clone() }) {
+        while let Some(c) = slice.get(i) {
+            if !f(c.clone()) {
                 break;
             }
             i += 1;
@@ -675,7 +675,7 @@ where
     where
         F: FnMut(Self::Token) -> bool,
     {
-        if self.is_empty() || !f(unsafe { (*self.get_unchecked(0)).clone() }) {
+        if !self.first().cloned().map_or(false, &mut f) {
             return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
         }
 
@@ -1070,8 +1070,8 @@ where
     }
 
     if !found {
-        while i < len {
-            if !f(unsafe { slice.get_unchecked(i) }) {
+        while let Some(c) = slice.get(i) {
+            if !f(c) {
                 break;
             }
             i += 1;
