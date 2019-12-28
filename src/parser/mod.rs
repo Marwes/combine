@@ -321,7 +321,8 @@ pub trait Parser<Input: Stream> {
 
     /// Internal API: This should not be implemented explicitly outside of combine.
     #[doc(hidden)]
-    fn add_committed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {}
+    fn add_committed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {
+    }
 
     /// Borrows a parser instead of consuming it.
     ///
