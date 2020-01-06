@@ -264,11 +264,7 @@ pub trait Parser<Input: Stream> {
         M: ParseMode,
         Self: Sized,
     {
-        if mode.is_first() {
-            self.parse_mode_impl(FirstMode, input, state)
-        } else {
-            self.parse_mode_impl(PartialMode::default(), input, state)
-        }
+        mode.parse(self, input, state)
     }
 
     /// Internal API. May break without a semver bump
@@ -1036,6 +1032,16 @@ pub trait ParseMode: Copy {
     /// Puts the mode into `first` parsing.
     fn set_first(&mut self);
 
+    fn parse<P, Input>(
+        self,
+        parser: &mut P,
+        input: &mut Input,
+        state: &mut P::PartialState,
+    ) -> ParseResult<P::Output, Input::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream;
+
     #[inline]
     fn parse_committed<P, Input>(
         self,
@@ -1072,6 +1078,19 @@ impl ParseMode for FirstMode {
     }
     #[inline]
     fn set_first(&mut self) {}
+
+    fn parse<P, Input>(
+        self,
+        parser: &mut P,
+        input: &mut Input,
+        state: &mut P::PartialState,
+    ) -> ParseResult<P::Output, Input::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream,
+    {
+        parser.parse_mode_impl(FirstMode, input, state)
+    }
 }
 
 /// Internal API. May break without a semver bump
@@ -1089,5 +1108,22 @@ impl ParseMode for PartialMode {
     #[inline]
     fn set_first(&mut self) {
         self.first = true;
+    }
+
+    fn parse<P, Input>(
+        self,
+        parser: &mut P,
+        input: &mut Input,
+        state: &mut P::PartialState,
+    ) -> ParseResult<P::Output, Input::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream,
+    {
+        if self.is_first() {
+            parser.parse_mode_impl(FirstMode, input, state)
+        } else {
+            parser.parse_mode_impl(self, input, state)
+        }
     }
 }
