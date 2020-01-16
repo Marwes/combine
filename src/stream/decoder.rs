@@ -1,19 +1,59 @@
-use crate::stream::position::IndexPositioner;
+use crate::error::ParseError;
 
-use std::io::{self, Read};
+use std::{
+    fmt,
+    io::{self, Read},
+};
 
 #[cfg(any(feature = "futures-03", feature = "tokio-02"))]
 use std::pin::Pin;
 
 use bytes_05::{buf::BufMutExt, Buf, BufMut, BytesMut};
 
+#[derive(Debug)]
+pub enum Error<E, P> {
+    Parse(E),
+    Io { position: P, error: io::Error },
+}
+
+impl<'a, P> From<Error<crate::easy::Errors<u8, &'a [u8], P>, P>>
+    for crate::easy::Errors<u8, &'a [u8], P>
+where
+    P: Ord,
+{
+    fn from(e: Error<crate::easy::Errors<u8, &'a [u8], P>, P>) -> Self {
+        match e {
+            Error::Parse(e) => e,
+            Error::Io { position, error } => {
+                crate::easy::Errors::from_error(position, crate::easy::Error::Other(error.into()))
+            }
+        }
+    }
+}
+
+impl<E, P> std::error::Error for Error<E, P>
+where
+    E: std::error::Error,
+    P: fmt::Display + fmt::Debug,
+{
+}
+
+impl<E: fmt::Display, P: fmt::Display> fmt::Display for Error<E, P> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Parse(e) => e.fmt(f),
+            Error::Io { position: _, error } => error.fmt(f),
+        }
+    }
+}
+
 /// Used together with the `decode!` macro
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[cfg_attr(feature = "pin-project", pin_project::pin_project)]
-pub struct Decoder<R, S, P = IndexPositioner> {
+pub struct Decoder<R, S, P> {
     #[cfg_attr(feature = "pin-project", pin)]
     reader: R,
-    pub positioner: P,
+    position: P,
     state: S,
     buffer: BytesMut,
 }
@@ -27,7 +67,7 @@ where
     pub fn new(reader: R) -> Self {
         Decoder {
             reader,
-            positioner: P::default(),
+            position: P::default(),
             state: S::default(),
             buffer: Default::default(),
         }
@@ -40,6 +80,14 @@ impl<R, S, P> Decoder<R, S, P> {
         // Remove the data we have parsed and adjust `removed` to be the amount of data we
         // committed from `self.reader`
         self.buffer.advance(removed);
+    }
+
+    pub fn buffer(&self) -> &[u8] {
+        &self.buffer
+    }
+
+    pub fn position(&self) -> &P {
+        &self.position
     }
 }
 
@@ -61,7 +109,7 @@ where
         }
         Ok((
             &mut self.state,
-            &mut self.positioner,
+            &mut self.position,
             &self.buffer,
             end_of_input,
         ))
@@ -88,12 +136,7 @@ where
         if copied == 0 {
             end_of_input = true;
         }
-        Ok((
-            self_.state,
-            self_.positioner,
-            &self_.buffer[..],
-            end_of_input,
-        ))
+        Ok((self_.state, self_.position, &self_.buffer[..], end_of_input))
     }
 }
 
@@ -136,11 +179,6 @@ where
         };
 
         let end_of_input = copied == 0;
-        Ok((
-            self_.state,
-            self_.positioner,
-            &self_.buffer[..],
-            end_of_input,
-        ))
+        Ok((self_.state, self_.position, &self_.buffer[..], end_of_input))
     }
 }

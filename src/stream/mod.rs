@@ -63,7 +63,7 @@ pub mod state;
 
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-mod decoder;
+pub mod decoder;
 
 /// A type which has a position.
 pub trait Positioned: StreamOnce {
@@ -1303,7 +1303,7 @@ where
 /// };
 /// use combine::{decode, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
-/// let mut decoder = Decoder::<_, _>::new(File::open("README.md").unwrap());
+/// let mut decoder = Decoder::<_, _, _>::new(File::open("README.md").unwrap());
 /// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 /// assert_eq!(
 ///     decode!(
@@ -1312,8 +1312,8 @@ where
 ///             let word = many1(satisfy(|b| !is_whitespace(b)));
 ///             sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
 ///         },
-///         combine::easy::Stream::from
-///     ).map_err(|err: combine::easy::Errors<u8, &[u8], usize>| err),
+///         |input, _position| combine::easy::Stream::from(input),
+///     ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
 ///     Ok(819),
 /// );
 /// ```
@@ -1321,36 +1321,53 @@ where
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[macro_export]
 macro_rules! decode {
-    ($decoder: expr, $parser: expr) => {
-        $crate::decode!($decoder, $parser, |x| x)
+    ($decoder: expr, $parser: expr $(,)?) => {
+        $crate::decode!($decoder, $parser, |input, _position| input, |x| x)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr) => {
+    ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode!($decoder, $parser, $input_stream, |x| x)
+    };
+
+    ($decoder: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
         match $decoder {
             ref mut decoder => 'outer: loop {
-                use $crate::stream::position::Positioner;
-
                 let (opt, removed) = {
-                    let (state, positioner, buffer, end_of_input) = match decoder.before_parse() {
+                    let (state, position, buffer, end_of_input) = match decoder.before_parse() {
                         Ok(x) => x,
-                        Err(err) => {
-                            break 'outer Err($crate::error::ParseError::from_error(
-                                Positioner::<u8>::position(&decoder.positioner),
-                                $crate::error::StreamError::other(err),
-                            ))
+                        Err(error) => {
+                            break 'outer Err($crate::stream::decoder::Error::Io {
+                                error,
+                                position: Clone::clone(decoder.position()),
+                            })
                         }
                     };
 
-                    let mut stream = $crate::stream::MaybePartialStream(
-                        $input_stream($crate::stream::position::Stream {
-                            input: buffer,
-                            positioner,
-                        }),
-                        !end_of_input,
+                    fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
+                    where
+                        F: FnOnce(A, B) -> R,
+                    {
+                        f(a, b)
+                    }
+
+                    fn call_with<F, A, R>(a: A, f: F) -> R
+                    where
+                        F: FnOnce(A) -> R,
+                    {
+                        f(a)
+                    }
+
+                    let mut stream = call_with2(
+                        $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                        *position,
+                        $input_stream,
                     );
-                    match $crate::stream::decode($parser, &mut stream, state) {
+                    let result = $crate::stream::decode($parser, &mut stream, state);
+                    *position = $crate::stream::Positioned::position(&stream);
+                    call_with(stream, $post_decode);
+                    match result {
                         Ok(x) => x,
-                        Err(err) => break 'outer Err(err.into()),
+                        Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
                     }
                 };
 
@@ -1386,7 +1403,7 @@ macro_rules! decode {
 /// }
 ///
 /// async fn main_() {
-///     let decoder = Decoder::<_, _>::new(File::open("README.md").await.unwrap());
+///     let decoder = Decoder::<_, _, _>::new(File::open("README.md").await.unwrap());
 ///     pin_mut!(decoder);
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
@@ -1396,8 +1413,8 @@ macro_rules! decode {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
 ///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
 ///             },
-///             combine::easy::Stream::from
-///         ).map_err(|err: combine::easy::Errors<u8, &[u8], usize>| err),
+///             |input, _position| combine::easy::Stream::from(input),
+///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
 ///         Ok(819),
 ///     );
 /// }
@@ -1407,36 +1424,56 @@ macro_rules! decode {
 #[macro_export]
 macro_rules! decode_futures_03 {
     ($decoder: expr, $parser: expr) => {
-        $crate::decode_futures_03!(async $decoder, $parser, |x| x)
+        $crate::decode_futures_03!($decoder, $parser, |x| x $(,)?)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr) => {
+
+    ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode_futures_03!($decoder, $parser, $input_stream, |x| x)
+    };
+
+    ($decoder: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
         match $decoder {
             ref mut decoder => 'outer: loop {
-                use $crate::stream::position::Positioner;
-
                 let (opt, removed) = {
-                    let (state, positioner, buffer, end_of_input) =
+
+                    let (state, position, buffer, end_of_input) =
                         match decoder.as_mut().before_parse_async().await {
                             Ok(x) => x,
-                            Err(err) => {
-                                break 'outer Err($crate::error::ParseError::from_error(
-                                    Positioner::<u8>::position(&decoder.positioner),
-                                    $crate::error::StreamError::other(err),
-                                ))
+                            Err(error) => {
+                                break 'outer Err($crate::stream::decoder::Error::Io {
+                                    error,
+                                    position: Clone::clone(decoder.position()),
+                                })
                             }
                         };
 
-                    let mut stream = $crate::stream::MaybePartialStream(
-                        $input_stream($crate::stream::position::Stream {
-                            input: buffer,
-                            positioner,
-                        }),
-                        !end_of_input,
+
+                    fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
+                    where
+                        F: FnOnce(A, B) -> R,
+                    {
+                        f(a, b)
+                    }
+
+                    fn call_with<F, A, R>(a: A, f: F) -> R
+                    where
+                        F: FnOnce(A) -> R,
+                    {
+                        f(a)
+                    }
+
+                    let mut stream = call_with2(
+                        $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                        *position,
+                        $input_stream,
                     );
-                    match $crate::stream::decode($parser, &mut stream, state) {
+                    let result = $crate::stream::decode($parser, &mut stream, state);
+                    *position = $crate::stream::Positioned::position(&stream);
+                    call_with(stream, $post_decode);
+                    match result {
                         Ok(x) => x,
-                        Err(err) => break 'outer Err(err.into()),
+                        Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
                     }
                 };
 
@@ -1469,7 +1506,7 @@ macro_rules! decode_futures_03 {
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let decoder = Decoder::<_, _>::new(File::open("README.md").await.unwrap());
+///     let decoder = Decoder::<_, _, _>::new(File::open("README.md").await.unwrap());
 ///     pin_mut!(decoder);
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
@@ -1479,8 +1516,8 @@ macro_rules! decode_futures_03 {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
 ///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
 ///             },
-///             combine::easy::Stream::from
-///         ).map_err(|err: combine::easy::Errors<u8, &[u8], usize>| err),
+///             |input, _position| combine::easy::Stream::from(input),
+///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
 ///         Ok(819),
 ///     );
 /// }
@@ -1489,37 +1526,54 @@ macro_rules! decode_futures_03 {
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-02")))]
 #[macro_export]
 macro_rules! decode_tokio_02 {
-    ($decoder: expr, $parser: expr) => {
-        $crate::decode_tokio_02!(async $decoder, $parser, |x| x)
+    ($decoder: expr, $parser: expr $(,)?) => {
+        $crate::decode_tokio_02!($decoder, $parser, |input, _position| x)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr) => {
+    ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode_tokio_02!($decoder, $parser, $input_stream, |x| x)
+    };
+
+    ($decoder: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
         match $decoder {
             ref mut decoder => 'outer: loop {
-                use $crate::stream::position::Positioner;
-
                 let (opt, removed) = {
-                    let (state, positioner, buffer, end_of_input) =
+                    let (state, position, buffer, end_of_input) =
                         match decoder.as_mut().before_parse_tokio().await {
                             Ok(x) => x,
-                            Err(err) => {
-                                break 'outer Err($crate::error::ParseError::from_error(
-                                    Positioner::<u8>::position(&decoder.positioner),
-                                    $crate::error::StreamError::other(err),
-                                ))
+                            Err(error) => {
+                                break 'outer Err($crate::stream::decoder::Error::Io {
+                                    error,
+                                    position: Clone::clone(decoder.position()),
+                                })
                             }
                         };
 
-                    let mut stream = $crate::stream::MaybePartialStream(
-                        $input_stream($crate::stream::position::Stream {
-                            input: buffer,
-                            positioner,
-                        }),
-                        !end_of_input,
+                    fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
+                    where
+                        F: FnOnce(A, B) -> R,
+                    {
+                        f(a, b)
+                    }
+
+                    fn call_with<F, A, R>(a: A, f: F) -> R
+                    where
+                        F: FnOnce(A) -> R,
+                    {
+                        f(a)
+                    }
+
+                    let mut stream = call_with2(
+                        $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                        *position,
+                        $input_stream,
                     );
-                    match $crate::stream::decode($parser, &mut stream, state) {
+                    let result = $crate::stream::decode($parser, &mut stream, state);
+                    *position = $crate::stream::Positioned::position(&stream);
+                    call_with(stream, $post_decode);
+                    match result {
                         Ok(x) => x,
-                        Err(err) => break 'outer Err(err.into()),
+                        Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
                     }
                 };
 
