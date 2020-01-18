@@ -140,9 +140,9 @@ pub trait Parser<Input: Stream> {
         let mut state = Default::default();
         let mut result = self.parse_first(input, &mut state);
         if let ParseResult::PeekErr(ref mut error) = result {
-            ctry!(input.reset(before.clone()).consumed());
+            ctry!(input.reset(before.clone()).committed());
             if let Ok(t) = input.uncons() {
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 error.error.add_unexpected(Token(t));
             }
             self.add_error(error);
@@ -175,13 +175,13 @@ pub trait Parser<Input: Stream> {
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
         if input.is_partial() {
             // If a partial parser were called from a non-partial parser (as it is here) we must
-            // reset the input to before the partial parser were called on errors that consumed
+            // reset the input to before the partial parser were called on errors that committed
             // data as that parser's partial state was just temporary and it will not be able to
             // resume itself
             let before = input.checkpoint();
             let result = self.parse_first(input, &mut Default::default());
             if let CommitErr(_) = result {
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
             }
             result
         } else {
@@ -207,9 +207,9 @@ pub trait Parser<Input: Stream> {
         let before = input.checkpoint();
         let mut result = self.parse_partial(input, state);
         if let ParseResult::PeekErr(ref mut error) = result {
-            ctry!(input.reset(before.clone()).consumed());
+            ctry!(input.reset(before.clone()).committed());
             if let Ok(t) = input.uncons() {
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 error.error.add_unexpected(Token(t));
             }
             self.add_error(error);
@@ -264,11 +264,7 @@ pub trait Parser<Input: Stream> {
         M: ParseMode,
         Self: Sized,
     {
-        if mode.is_first() {
-            self.parse_mode_impl(FirstMode, input, state)
-        } else {
-            self.parse_mode_impl(PartialMode::default(), input, state)
-        }
+        mode.parse(self, input, state)
     }
 
     /// Internal API. May break without a semver bump
@@ -294,7 +290,7 @@ pub trait Parser<Input: Stream> {
     /// Internal API. May break without a semver bump
     #[doc(hidden)]
     #[inline]
-    fn parse_consumed_mode<M>(
+    fn parse_committed_mode<M>(
         &mut self,
         mode: M,
         input: &mut Input,
@@ -305,9 +301,9 @@ pub trait Parser<Input: Stream> {
         Self: Sized,
     {
         if mode.is_first() {
-            FirstMode.parse_consumed(self, input, state)
+            FirstMode.parse_committed(self, input, state)
         } else {
-            PartialMode::default().parse_consumed(self, input, state)
+            PartialMode::default().parse_committed(self, input, state)
         }
     }
 
@@ -321,7 +317,8 @@ pub trait Parser<Input: Stream> {
 
     /// Internal API: This should not be implemented explicitly outside of combine.
     #[doc(hidden)]
-    fn add_consumed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {}
+    fn add_committed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {
+    }
 
     /// Borrows a parser instead of consuming it.
     ///
@@ -334,9 +331,9 @@ pub trait Parser<Input: Stream> {
     /// # use combine::parser::char::{digit, letter};
     /// fn test(input: &mut &'static str) -> StdParseResult<(char, char), &'static str> {
     ///     let mut p = digit();
-    ///     let ((d, _), consumed) = (p.by_ref(), letter()).parse_stream(input).into_result()?;
-    ///     let (d2, consumed) = consumed.combine(|_| p.parse_stream(input).into_result())?;
-    ///     Ok(((d, d2), consumed))
+    ///     let ((d, _), committed) = (p.by_ref(), letter()).parse_stream(input).into_result()?;
+    ///     let (d2, committed) = committed.combine(|_| p.parse_stream(input).into_result())?;
+    ///     Ok(((d, d2), committed))
     /// }
     ///
     /// fn main() {
@@ -446,7 +443,7 @@ pub trait Parser<Input: Stream> {
     /// // Fails as the parser for "two" consumes the first 't' before failing
     /// assert!(parser2.parse("three").is_err());
     ///
-    /// // Use 'attempt' to make failing parsers always act as if they have not consumed any input
+    /// // Use 'attempt' to make failing parsers always act as if they have not committed any input
     /// let mut parser3 = attempt(string("two")).or(attempt(string("three")));
     /// assert_eq!(parser3.parse("three"), Ok(("three", "")));
     /// # }
@@ -997,8 +994,8 @@ macro_rules! forward_deref {
         }
 
         #[inline]
-        fn add_consumed_expected_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
-            (**self).add_consumed_expected_error(error)
+        fn add_committed_expected_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
+            (**self).add_committed_expected_error(error)
         }
 
         #[inline]
@@ -1035,8 +1032,18 @@ pub trait ParseMode: Copy {
     /// Puts the mode into `first` parsing.
     fn set_first(&mut self);
 
+    fn parse<P, Input>(
+        self,
+        parser: &mut P,
+        input: &mut Input,
+        state: &mut P::PartialState,
+    ) -> ParseResult<P::Output, Input::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream;
+
     #[inline]
-    fn parse_consumed<P, Input>(
+    fn parse_committed<P, Input>(
         self,
         parser: &mut P,
         input: &mut Input,
@@ -1049,9 +1056,9 @@ pub trait ParseMode: Copy {
         let before = input.checkpoint();
         let mut result = parser.parse_mode_impl(self, input, state);
         if let ParseResult::PeekErr(ref mut error) = result {
-            ctry!(input.reset(before.clone()).consumed());
+            ctry!(input.reset(before.clone()).committed());
             if let Ok(t) = input.uncons() {
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 error.error.add_unexpected(Token(t));
             }
             parser.add_error(error);
@@ -1071,6 +1078,19 @@ impl ParseMode for FirstMode {
     }
     #[inline]
     fn set_first(&mut self) {}
+
+    fn parse<P, Input>(
+        self,
+        parser: &mut P,
+        input: &mut Input,
+        state: &mut P::PartialState,
+    ) -> ParseResult<P::Output, Input::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream,
+    {
+        parser.parse_mode_impl(FirstMode, input, state)
+    }
 }
 
 /// Internal API. May break without a semver bump
@@ -1088,5 +1108,22 @@ impl ParseMode for PartialMode {
     #[inline]
     fn set_first(&mut self) {
         self.first = true;
+    }
+
+    fn parse<P, Input>(
+        self,
+        parser: &mut P,
+        input: &mut Input,
+        state: &mut P::PartialState,
+    ) -> ParseResult<P::Output, Input::Error>
+    where
+        P: Parser<Input>,
+        Input: Stream,
+    {
+        if self.is_first() {
+            parser.parse_mode_impl(FirstMode, input, state)
+        } else {
+            parser.parse_mode_impl(self, input, state)
+        }
     }
 }

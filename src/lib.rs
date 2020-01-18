@@ -485,7 +485,7 @@ macro_rules! combine_parser_impl {
                 parser.add_error(errors)
             }
 
-            fn add_consumed_expected_error(
+            fn add_committed_expected_error(
                 &mut self,
                 errors: &mut $crate::error::Tracked<
                     <$input_type as $crate::stream::StreamOnce>::Error
@@ -496,7 +496,7 @@ macro_rules! combine_parser_impl {
                 {
                     let _: &mut dyn $crate::Parser< $input_type, Output = $output_type, PartialState = _> = &mut parser;
                 }
-                parser.add_consumed_expected_error(errors)
+                parser.add_committed_expected_error(errors)
             }
         }
 
@@ -574,9 +574,9 @@ macro_rules! forward_parser {
             self.$($field)+.add_error(error)
         }
     };
-    ($input: ty, add_consumed_expected_error $($field: tt)+) => {
-        fn add_consumed_expected_error(&mut self, error: &mut $crate::error::Tracked<<$input as $crate::StreamOnce>::Error>) {
-            self.$($field)+.add_consumed_expected_error(error)
+    ($input: ty, add_committed_expected_error $($field: tt)+) => {
+        fn add_committed_expected_error(&mut self, error: &mut $crate::error::Tracked<<$input as $crate::StreamOnce>::Error>) {
+            self.$($field)+.add_committed_expected_error(error)
         }
     };
     ($input: ty, parser_count $($field: tt)+) => {
@@ -585,7 +585,7 @@ macro_rules! forward_parser {
         }
     };
     ($input: ty, $field: tt) => {
-        forward_parser!($input, parse_lazy parse_first parse_partial add_error add_consumed_expected_error parser_count, $field);
+        forward_parser!($input, parse_lazy parse_first parse_partial add_error add_committed_expected_error parser_count, $field);
     };
     ($input: ty, $($field: tt)+) => {
     };

@@ -35,7 +35,7 @@ where
     {
         let checkpoint = input.checkpoint();
         let result = self.0.parse_mode(mode, input, state);
-        ctry!(input.reset(checkpoint).consumed());
+        ctry!(input.reset(checkpoint).committed());
         match result {
             CommitOk(_) | PeekOk(_) => PeekErr(Input::Error::empty(input.position()).into()),
             CommitErr(_) | PeekErr(_) => PeekOk(()),
@@ -45,7 +45,8 @@ where
     #[inline]
     fn add_error(&mut self, _errors: &mut Tracked<<Input as StreamOnce>::Error>) {}
 
-    fn add_consumed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {}
+    fn add_committed_expected_error(&mut self, _error: &mut Tracked<<Input as StreamOnce>::Error>) {
+    }
 
     forward_parser!(Input, parser_count, 0);
 }
@@ -96,7 +97,7 @@ where
 
     parse_mode!(Input);
     #[inline]
-    fn parse_consumed_mode<M>(
+    fn parse_committed_mode<M>(
         &mut self,
         mode: M,
         input: &mut Input,
@@ -118,7 +119,7 @@ where
     where
         M: ParseMode,
     {
-        match self.0.parse_consumed_mode(mode, input, state) {
+        match self.0.parse_committed_mode(mode, input, state) {
             v @ CommitOk(_) | v @ PeekOk(_) | v @ PeekErr(_) => v,
             CommitErr(err) => {
                 if input.is_partial() && err.is_unexpected_end_of_input() {
@@ -130,10 +131,10 @@ where
         }
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
-/// `attempt(p)` behaves as `p` except it always acts as `p` peeked instead of commited on its
+/// `attempt(p)` behaves as `p` except it always acts as `p` peeked instead of committed on its
 /// parse.
 ///
 /// ```
@@ -172,12 +173,12 @@ where
     fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
         let before = input.checkpoint();
         let result = self.0.parse_lazy(input);
-        ctry!(input.reset(before).consumed());
+        ctry!(input.reset(before).committed());
         let (o, _input) = ctry!(result);
         PeekOk(o)
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// `look_ahead(p)` acts as `p` but doesn't consume input on success.
@@ -234,7 +235,7 @@ where
         }
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.map(f)`].
@@ -279,7 +280,7 @@ where
         }
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.map_input(f)`].
@@ -330,7 +331,7 @@ where
         }
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.flat_map(f)`].
@@ -377,7 +378,7 @@ where
                     let err = <Input as StreamOnce>::Error::from_error(position, err.into());
 
                     if input.is_partial() && input_at_eof(input) {
-                        ctry!(input.reset(checkpoint).consumed());
+                        ctry!(input.reset(checkpoint).committed());
                         CommitErr(err)
                     } else {
                         PeekErr(err.into())
@@ -388,7 +389,7 @@ where
                 Ok(o) => CommitOk(o),
                 Err(err) => {
                     if input.is_partial() && input_at_eof(input) {
-                        ctry!(input.reset(checkpoint).consumed());
+                        ctry!(input.reset(checkpoint).committed());
                     }
                     CommitErr(<Input as StreamOnce>::Error::from_error(position, err.into()).into())
                 }
@@ -398,7 +399,7 @@ where
         }
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Equivalent to [`p.and_then(f)`].
@@ -433,7 +434,7 @@ impl<F, P> Recognize<F, P> {
         match result {
             PeekOk(_) => {
                 let last_position = input.position();
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
 
                 while input.position() != last_position {
                     match input.uncons() {
@@ -450,7 +451,7 @@ impl<F, P> Recognize<F, P> {
             }
             CommitOk(_) => {
                 let last_position = input.position();
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
 
                 while input.position() != last_position {
                     match input.uncons() {
@@ -467,7 +468,7 @@ impl<F, P> Recognize<F, P> {
             }
             CommitErr(err) => {
                 let last_position = input.position();
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
 
                 while input.position() != last_position {
                     match input.uncons() {
@@ -652,7 +653,7 @@ where
         self.0.parse_lazy(input)
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 pub fn no_partial<Input, P>(p: P) -> NoPartial<P>
@@ -695,7 +696,7 @@ where
         self.0.parse_mode(mode, input, state).map(|_| ())
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 #[doc(hidden)]
@@ -766,7 +767,7 @@ where
         result
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
@@ -866,7 +867,7 @@ where
         result
     }
 
-    forward_parser!(Input, add_error add_consumed_expected_error parser_count, 0);
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
 /// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
@@ -928,7 +929,7 @@ where
 
     parse_mode!(Input);
 
-    fn parse_consumed_mode<M>(
+    fn parse_committed_mode<M>(
         &mut self,
         mode: M,
         input: &mut Input,
@@ -956,8 +957,8 @@ where
         (self.0)().add_error(errors);
     }
 
-    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        (self.0)().add_consumed_expected_error(errors);
+    fn add_committed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
+        (self.0)().add_committed_expected_error(errors);
     }
 }
 
@@ -1028,9 +1029,9 @@ where
         }
     }
 
-    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
+    fn add_committed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
         if let Some(parser) = &mut self.1 {
-            parser.add_consumed_expected_error(errors);
+            parser.add_committed_expected_error(errors);
         }
     }
 }
@@ -1218,8 +1219,8 @@ where
         (self.0)(&mut |parser| parser.add_error(errors));
     }
 
-    fn add_consumed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        (self.0)(&mut |parser| parser.add_consumed_expected_error(errors));
+    fn add_committed_expected_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
+        (self.0)(&mut |parser| parser.add_committed_expected_error(errors));
     }
 }
 
@@ -1295,7 +1296,7 @@ where
 #[macro_export]
 macro_rules! opaque {
     ($e: expr) => {
-        opaque!($e,);
+        $crate::opaque!($e,);
     };
     ($e: expr,) => {
         $crate::parser::combinator::opaque(

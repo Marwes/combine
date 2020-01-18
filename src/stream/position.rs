@@ -153,7 +153,7 @@ where
 
 impl<Item, T> Positioner<Item> for &'_ mut T
 where
-    Item: PartialEq + Clone,
+    Item: Clone,
     T: ?Sized + Positioner<Item>,
 {
     type Position = T::Position;
@@ -182,8 +182,8 @@ where
 
 impl<Item, Range, T> RangePositioner<Item, Range> for &'_ mut T
 where
-    Item: PartialEq + Clone,
-    Range: PartialEq + Clone + crate::stream::Range,
+    Item: Clone,
+    Range: Clone + crate::stream::Range,
     T: ?Sized + RangePositioner<Item, Range>,
 {
     fn update_range(&mut self, range: &Range) {
@@ -192,14 +192,14 @@ where
 }
 
 /// The `IndexPositioner<Item, Range>` struct maintains the current index into the stream `Input`.  The
-/// initial index is index 0.  Each `Item` consumed increments the index by 1; each `range` consumed
+/// initial index is index 0.  Each `Item` committed increments the index by 1; each `range` committed
 /// increments the position by `range.len()`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct IndexPositioner(usize);
 
 impl<Item> Positioner<Item> for IndexPositioner
 where
-    Item: PartialEq + Clone,
+    Item: Clone,
 {
     type Position = usize;
     type Checkpoint = Self;
@@ -237,8 +237,8 @@ impl IndexPositioner {
 
 impl<Item, Range> RangePositioner<Item, Range> for IndexPositioner
 where
-    Item: PartialEq + Clone,
-    Range: PartialEq + Clone + crate::stream::Range,
+    Item: Clone,
+    Range: Clone + crate::stream::Range,
 {
     fn update_range(&mut self, range: &Range) {
         self.0 += range.len()

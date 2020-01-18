@@ -8,7 +8,7 @@ use std::{
 };
 
 use {
-    bytes::{Buf, BytesMut},
+    bytes_05::{Buf, BytesMut},
     combine::{
         any, count_min_max,
         error::{ParseError, StreamError},
@@ -26,15 +26,17 @@ use {
                 take_while1,
             },
             repeat,
-            token::token,
         },
-        skip_many, skip_many1,
+        satisfy, sep_end_by, skip_many, skip_many1,
         stream::{easy, RangeStream, StreamErrorFor},
-        Parser,
+        token, Parser,
     },
-    futures::prelude::*,
+    futures::{pin_mut, prelude::*},
+    futures_03_dep as futures,
+    partial_io::PartialRead,
     quick_error::quick_error,
     quickcheck::quickcheck,
+    tokio_02_dep as tokio,
     tokio_util::codec::{Decoder, FramedRead},
 };
 
@@ -108,7 +110,7 @@ macro_rules! impl_decoder {
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
                         // returning the error and before we call `advance` to remove the input we
-                        // just consumed
+                        // just committed
                         let err = err.map_range(|r| r.to_string())
                             .map_position(|p| p.translate_position(&str_src[..]));
                         format!("{}\nIn input: `{}`", err, str_src)
@@ -162,7 +164,7 @@ macro_rules! impl_byte_decoder {
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
                         // returning the error and before we call `advance` to remove the input we
-                        // just consumed
+                        // just committed
                         let err = err.map_range(|r| format!("{:?}", r))
                             .map_position(|p| p.translate_position(&str_src[..]));
                         format!("{}\nIn input: `{:?}`", err, str_src)
@@ -180,7 +182,7 @@ macro_rules! impl_byte_decoder {
     }
 }
 
-use partial_io::{GenWouldBlock, PartialOp, PartialWithErrors};
+use partial_io::{GenNoErrors, GenWouldBlock, PartialOp, PartialWithErrors};
 
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
@@ -467,7 +469,7 @@ quickcheck! {
         assert_eq!(counter.get(), 3);
     }
 
-    fn take_until_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn take_until_committed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             |count: Rc<Cell<i32>>| {
                 let end = attempt((token(':').map(move |_| count.set(count.get() + 1)), token(':')));
@@ -490,7 +492,7 @@ quickcheck! {
         assert_eq!(counter.get(), 3);
     }
 
-    fn take_until_range_consumed(seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn take_until_range_committed(seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, String,
             take_until_range("::").map(String::from).skip((token(':'), token(':')))
         }
@@ -618,4 +620,103 @@ fn skip_count_min_max_test() {
 
     assert!(result.as_ref().is_ok(), "{}", result.unwrap_err());
     assert_eq!(result.unwrap(), [""]);
+}
+
+const WORDS_IN_README: usize = 819;
+
+#[test]
+fn decode_std() {
+    quickcheck(
+        (|ops: PartialWithErrors<GenNoErrors>| {
+            let buf = include_bytes!("../README.md");
+            let mut decoder =
+                combine::stream::Decoder::<_, _, combine::stream::PointerOffset<_>>::new(
+                    PartialRead::new(&buf[..], ops),
+                );
+            let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+            assert_eq!(
+                combine::decode!(
+                    decoder,
+                    {
+                        let word = many1(satisfy(|b| !is_whitespace(b)));
+                        sep_end_by(word, skip_many1(satisfy(is_whitespace)))
+                            .map(|words: Vec<Vec<u8>>| words.len())
+                    },
+                    |input, _| combine::easy::Stream::from(input)
+                )
+                .map_err(From::from)
+                .map_err(
+                    |err: combine::easy::Errors<u8, &[u8], combine::stream::PointerOffset<_>>| err
+                        .map_position(|p| p.0)
+                ),
+                Ok(WORDS_IN_README),
+            );
+        }) as fn(_) -> _,
+    )
+}
+
+#[test]
+fn decode_tokio_02() {
+    quickcheck(
+        (|ops: PartialWithErrors<GenWouldBlock>| {
+            let buf = include_bytes!("../README.md");
+            let mut runtime = tokio::runtime::Builder::new()
+                .basic_scheduler()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                let decoder =
+                    combine::stream::Decoder::<_, _, combine::stream::PointerOffset<[u8]>>::new(
+                        PartialAsyncRead::new(&buf[..], ops),
+                    );
+                pin_mut!(decoder);
+                let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+                assert_eq!(
+                    combine::decode_tokio_02!(
+                        decoder,
+                        {
+                            let word = many1(satisfy(|b| !is_whitespace(b)));
+                            sep_end_by(word, skip_many1(satisfy(is_whitespace)))
+                                .map(|words: Vec<Vec<u8>>| words.len())
+                        },
+                        |input, _| combine::easy::Stream::from(input)
+                    )
+                    .map_err(From::from)
+                    .map_err(|err: combine::easy::Errors<u8, &[u8], _>| err),
+                    Ok(WORDS_IN_README),
+                );
+            })
+        }) as fn(_) -> _,
+    )
+}
+
+#[test]
+fn decode_async_std() {
+    quickcheck(
+        (|ops: PartialWithErrors<GenWouldBlock>| {
+            let buf = include_bytes!("../README.md");
+            async_std::task::block_on(async {
+                let decoder =
+                    combine::stream::Decoder::<_, _, combine::stream::PointerOffset<[u8]>>::new(
+                        FuturesPartialAsyncRead::new(&buf[..], ops),
+                    );
+                pin_mut!(decoder);
+                let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+                assert_eq!(
+                    combine::decode_futures_03!(
+                        decoder,
+                        {
+                            let word = many1(satisfy(|b| !is_whitespace(b)));
+                            sep_end_by(word, skip_many1(satisfy(is_whitespace)))
+                                .map(|words: Vec<Vec<u8>>| words.len())
+                        },
+                        |input, _| combine::easy::Stream::from(input),
+                    )
+                    .map_err(From::from)
+                    .map_err(|err: combine::easy::Errors<u8, &[u8], _>| err),
+                    Ok(WORDS_IN_README),
+                );
+            })
+        }) as fn(_) -> _,
+    )
 }

@@ -8,11 +8,11 @@ use crate::{stream::StreamOnce, ErrorOffset};
 use self::ParseResult::*;
 
 pub(crate) trait ResultExt<E, T> {
-    fn consumed(self) -> ParseResult<E, T>;
+    fn committed(self) -> ParseResult<E, T>;
 }
 
 impl<E, T> ResultExt<E, T> for Result<E, T> {
-    fn consumed(self) -> ParseResult<E, T> {
+    fn committed(self) -> ParseResult<E, T> {
         match self {
             Ok(x) => CommitOk(x),
             Err(x) => CommitErr(x),
@@ -202,7 +202,7 @@ where
     }
 }
 
-/// Enum used to indicate if a parser consumed any items of the stream it was given as an input.
+/// Enum used to indicate if a parser committed any items of the stream it was given as an input.
 ///
 /// This is used by parsers such as `or` and `choice` to determine if they should try to parse
 /// with another parser as they will only be able to provide good error reporting if the preceding
@@ -259,7 +259,7 @@ impl<T> Commit<T> {
         Commit::Peek(self.into_inner())
     }
 
-    /// Maps over the contained value without changing the consumed state.
+    /// Maps over the contained value without changing the committed state.
     pub fn map<F, U>(self, f: F) -> Commit<U>
     where
         F: FnOnce(T) -> U,
@@ -296,11 +296,11 @@ impl<T> Commit<T> {
     ///     where Input: Stream<Token = char>,
     ///           Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     /// {
-    ///     let (c, consumed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
+    ///     let (c, committed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
     ///     match c {
-    ///         //Since the `char` parser has already consumed some of the input `combine` is used
-    ///         //propagate the consumed state to the next part of the parser
-    ///         '\\' => consumed.combine(|_| {
+    ///         //Since the `char` parser has already committed some of the input `combine` is used
+    ///         //propagate the committed state to the next part of the parser
+    ///         '\\' => committed.combine(|_| {
     ///             satisfy(|c| c == '"' || c == '\\')
     ///                 .map(|c| {
     ///                     match c {
@@ -312,7 +312,7 @@ impl<T> Commit<T> {
     ///                 .parse_stream(input)
     ///                 .into_result()
     ///             }),
-    ///         _ => Ok((c, consumed))
+    ///         _ => Ok((c, committed))
     ///     }
     /// }
     /// let result = many(parser(char))
@@ -841,7 +841,7 @@ impl<E> From<E> for Tracked<E> {
     }
 }
 
-/// A `Result` type which has the consumed status flattened into the result.
+/// A `Result` type which has the committed status flattened into the result.
 /// Conversions to and from `std::result::Result` can be done using `result.into()` or
 /// `From::from(result)`
 #[derive(Clone, PartialEq, Debug, Copy)]

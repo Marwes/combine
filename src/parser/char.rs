@@ -312,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn string_consumed() {
+    fn string_committed() {
         let result = string("a").easy_parse(position::Stream::new("b"));
         assert!(result.is_err());
         assert_eq!(

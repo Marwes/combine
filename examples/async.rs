@@ -2,8 +2,10 @@
 
 use std::{cell::Cell, io::Cursor, rc::Rc, str};
 
+use {futures_03_dep as futures, tokio_02_dep as tokio};
+
 use {
-    bytes::{Buf, BytesMut},
+    bytes_05::{Buf, BytesMut},
     combine::{
         error::{ParseError, StreamError},
         parser::{
@@ -17,7 +19,6 @@ use {
     },
     futures::prelude::*,
     partial_io::PartialOp,
-    tokio_02_dep as tokio,
     tokio_util::codec::{Decoder, FramedRead},
 };
 
@@ -103,7 +104,7 @@ impl Decoder for LanguageServerDecoder {
         .map_err(|err| {
             // Since err contains references into `src` we must replace these before
             // we can return an error or call `advance` to remove the input we
-            // just consumed
+            // just committed
             let err = err
                 .map_range(|r| {
                     str::from_utf8(r)
@@ -120,7 +121,7 @@ impl Decoder for LanguageServerDecoder {
             str::from_utf8(&src[..removed_len]).unwrap_or("NOT UTF8")
         );
 
-        // Remove the input we just consumed.
+        // Remove the input we just committed.
         // Ideally this would be done automatically by the call to
         // `stream::decode` but it does unfortunately not work due
         // to lifetime issues (Non lexical lifetimes might fix it!)

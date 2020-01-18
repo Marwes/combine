@@ -1,6 +1,12 @@
-<a name=""></a>
-##  (2019-12-24)
+<a name="4.0.0"></a>
+## 4.0.0 (2020-01-16)
 
+
+#### Features
+
+*   Relax the decode*! macros to no longer need BufRead ([bc5b7794](https://github.com/Marwes/combine/commit/bc5b779491c66a18289bc4b237d281bd391b1d69))
+*   Add decode_futures_03_buf_read ([f403ecda](https://github.com/Marwes/combine/commit/f403ecda68e5d7c5d5cf89d8feb26aa1b715609e))
+*   Add the produce parser ([ac15b87c](https://github.com/Marwes/combine/commit/ac15b87c4eb23065920b3bb7ad8d590f29937895))
 
 
 
@@ -64,7 +70,7 @@
 
 
 
-<a name="4.1.0-alpha.1"></a>
+<a name="4.1.0-alpha.2"></a>
 ## 4.0.0-alpha.2 (2019-06-17)
 
 
@@ -473,7 +479,7 @@ at https://marwes.github.io/2018/02/08/combine-3.html and https://www.reddit.com
 #### Features
 
 *   Add the choice! macro ([6f2cec69](6f2cec69))
-*   Add map functions for Error<> and Info<> ranges. (#86) 
+*   Add map functions for Error<> and Info<> ranges. (#86)
 *   Add Parser::boxed ([3af9c9b3](3af9c9b3))
 
 <a name="2.1.0"></a>

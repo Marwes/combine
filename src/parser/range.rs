@@ -63,7 +63,7 @@ parser! {
     #[derive(Clone)]
     pub struct Recognize;
     type PartialState = <RecognizeWithValue<P> as Parser<Input>>::PartialState;
-    /// Zero-copy parser which returns consumed input range.
+    /// Zero-copy parser which returns committed input range.
     ///
     /// [`combinator::recognize`][] is a non-`RangeStream` alternative.
     ///
@@ -114,7 +114,7 @@ where
         let result = first(input, state);
         if let CommitErr(_) = result {
             *distance_state = input.distance(&before);
-            ctry!(input.reset(before).consumed());
+            ctry!(input.reset(before).committed());
         }
         result
     } else {
@@ -127,13 +127,13 @@ where
             PeekErr(err) => return PeekErr(err),
             CommitErr(err) => {
                 *distance_state = input.distance(&before);
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 return CommitErr(err);
             }
         }
 
         let distance = input.distance(&before);
-        ctry!(input.reset(before).consumed());
+        ctry!(input.reset(before).committed());
         take(distance).parse_lazy(input).map(|range| {
             *distance_state = 0;
             range
@@ -178,13 +178,13 @@ where
             PeekErr(err) => return PeekErr(err),
             CommitErr(err) => {
                 *distance_state = input.distance(&before);
-                ctry!(input.reset(before).consumed());
+                ctry!(input.reset(before).committed());
                 return CommitErr(err);
             }
         };
 
         let distance = input.distance(&before);
-        ctry!(input.reset(before).consumed());
+        ctry!(input.reset(before).committed());
         take(distance).parse_lazy(input).map(|range| {
             *distance_state = 0;
             (range, value)
@@ -195,7 +195,7 @@ where
     }
 }
 
-/// Zero-copy parser which returns a pair: (consumed input range, parsed value).
+/// Zero-copy parser which returns a pair: (committed input range, parsed value).
 ///
 ///
 /// [`combinator::recognize_with_value`][] is a non-`RangeStream` alternative.
@@ -446,14 +446,14 @@ where
                 Ok(xs) => {
                     if xs == self.0 {
                         let distance = input.distance(&before) - len;
-                        ctry!(input.reset(before).consumed());
+                        ctry!(input.reset(before).committed());
 
-                        if let Ok(consumed) = input.uncons_range(distance) {
+                        if let Ok(committed) = input.uncons_range(distance) {
                             if distance == 0 {
-                                return PeekOk(consumed);
+                                return PeekOk(committed);
                             } else {
                                 *to_consume = 0;
-                                return CommitOk(consumed);
+                                return CommitOk(committed);
                             }
                         }
 
@@ -462,7 +462,7 @@ where
                         unreachable!();
                     } else {
                         // Reset the stream back to where it was when we entered the top of the loop
-                        ctry!(input.reset(look_ahead_input).consumed());
+                        ctry!(input.reset(look_ahead_input).committed());
 
                         // Advance the stream by one token
                         if input.uncons().is_err() {
@@ -482,14 +482,14 @@ where
                     }
 
                     // Reset the stream back to where it was when we entered the top of the loop
-                    ctry!(input.reset(look_ahead_input).consumed());
+                    ctry!(input.reset(look_ahead_input).committed());
 
                     // See if we can advance anyway
                     if input.uncons().is_err() {
                         let (first_error, first_error_distance) = first_stream_error.unwrap();
 
                         // Reset the stream
-                        ctry!(input.reset(before).consumed());
+                        ctry!(input.reset(before).committed());
                         *to_consume = first_error_distance;
 
                         // Return the original error if uncons failed
@@ -503,7 +503,7 @@ where
 
 /// Zero-copy parser which reads a range of 0 or more tokens until `r` is found.
 ///
-/// The range `r` will not be consumed. If `r` is not found, the parser will
+/// The range `r` will not be committed. If `r` is not found, the parser will
 /// return an error.
 ///
 /// [`repeat::take_until`][] is a non-`RangeStream` alternative.
@@ -581,7 +581,7 @@ where
 
         match (self.searcher)(input.range()).into() {
             TakeRange::Found(i) => {
-                ctry!(input.reset(checkpoint).consumed());
+                ctry!(input.reset(checkpoint).committed());
                 let result = uncons_range(input, *offset + i);
                 if result.is_ok() {
                     *offset = 0;
@@ -594,7 +594,7 @@ where
                 let range = input.range();
                 let _ = input.uncons_range(range.len());
                 let position = input.position();
-                ctry!(input.reset(checkpoint).consumed());
+                ctry!(input.reset(checkpoint).committed());
 
                 let err = Input::Error::from_error(position, StreamError::end_of_input());
                 if !input.is_partial() && range.is_empty() {
