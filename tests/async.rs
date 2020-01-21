@@ -682,7 +682,10 @@ fn decode_tokio_02() {
                         |input, _| combine::easy::Stream::from(input)
                     )
                     .map_err(From::from)
-                    .map_err(|err: combine::easy::Errors<u8, &[u8], _>| err),
+                    .map_err(
+                        |err: combine::easy::Errors<u8, &[u8], _>| err.map_range(|r| r.to_owned())
+                    )
+                    .map_err(|err| err.map_position(|p| p.translate_position(&decoder.buffer()))),
                     Ok(WORDS_IN_README),
                 );
             })

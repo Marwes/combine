@@ -27,9 +27,9 @@ regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 pin-project-lite = { version = "0.1", optional = true }
 # Future proofing so that tokio-0.3, tokio-0.1 etc can be supported
-tokio-02-dep = { version = "0.2", package = "tokio", optional = true }
-futures-io-03 = { version = "0.3.1", package = "futures-io", optional = true }
-futures-util-03 = { version = "0.3.1", package = "futures-util", optional = true }
+tokio-02-dep = { version = "0.2", package = "tokio", features = ["io-util"], default-features = false, optional = true }
+futures-io-03 = { version = "0.3.1", package = "futures-io", default-features = false, optional = true }
+futures-util-03 = { version = "0.3.1", package = "futures-util", features = ["io", "std"], default-features = false, optional = true }
 bytes_05 = { version = "0.5", package = "bytes", optional =  true }
 
 [dev-dependencies]
@@ -43,6 +43,7 @@ tokio-util = { version = "0.2", features = ["codec"] }
 partial-io = { version = "0.3", features = ["tokio", "quickcheck"] }
 quickcheck = "0.6"
 quick-error = "1.0"
+
 
 [features]
 default = ["std"]

@@ -1527,7 +1527,7 @@ macro_rules! decode_futures_03 {
 #[macro_export]
 macro_rules! decode_tokio_02 {
     ($decoder: expr, $parser: expr $(,)?) => {
-        $crate::decode_tokio_02!($decoder, $parser, |input, _position| x)
+        $crate::decode_tokio_02!($decoder, $parser, |input, _position| input)
     };
 
     ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {

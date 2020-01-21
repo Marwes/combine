@@ -8,7 +8,7 @@ use std::{
 #[cfg(any(feature = "futures-03", feature = "tokio-02"))]
 use std::pin::Pin;
 
-use bytes_05::{buf::BufMutExt, Buf, BufMut, BytesMut};
+use bytes_05::{Buf, BufMut, BytesMut};
 
 #[derive(Debug)]
 pub enum Error<E, P> {
@@ -111,12 +111,20 @@ where
     pub fn before_parse(&mut self) -> io::Result<(&mut S, &mut P, &[u8], bool)> {
         let mut end_of_input = false;
 
-        let take = (8 * 1024).max(self.buffer.remaining_mut() as u64);
-        let copied = io::copy(
-            &mut (&mut self.reader).take(take),
-            &mut (&mut self.buffer).writer(),
-        )?;
-        if copied == 0 {
+        let len = self.buffer.len();
+        self.buffer.resize(len.saturating_add(8 * 1024), 0);
+
+        let n = match self.reader.read(&mut self.buffer[len..]) {
+            Ok(n) => {
+                self.buffer.truncate(len + n);
+                n
+            }
+            Err(err) => {
+                self.buffer.truncate(len);
+                return Err(err);
+            }
+        };
+        if n == 0 {
             end_of_input = true;
         }
         Ok((
@@ -137,14 +145,16 @@ where
     pub async fn before_parse_tokio(
         self: Pin<&mut Self>,
     ) -> io::Result<(&mut S, &mut P, &[u8], bool)> {
-        use tokio_02_dep::io::AsyncReadExt;
-
         let mut self_ = self.project();
         let mut end_of_input = false;
         if !self_.buffer.has_remaining_mut() {
             self_.buffer.reserve(8 * 1024);
         }
-        let copied = self_.reader.read_buf(self_.buffer).await?;
+        let copied = <Pin<&mut R> as tokio_02_dep::io::AsyncReadExt>::read_buf(
+            &mut self_.reader,
+            self_.buffer,
+        )
+        .await?;
         if copied == 0 {
             end_of_input = true;
         }
