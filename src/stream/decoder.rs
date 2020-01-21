@@ -47,11 +47,23 @@ impl<E: fmt::Display, P: fmt::Display> fmt::Display for Error<E, P> {
     }
 }
 
-/// Used together with the `decode!` macro
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-#[cfg_attr(feature = "pin-project", pin_project::pin_project)]
+#[cfg(feature = "pin-project")]
+pin_project_lite::pin_project! {
+    /// Used together with the `decode!` macro
+    pub struct Decoder<R, S, P> {
+        #[pin]
+        reader: R,
+        position: P,
+        state: S,
+        buffer: BytesMut,
+    }
+}
+
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+#[cfg(not(feature = "pin-project"))]
+/// Used together with the `decode!` macro
 pub struct Decoder<R, S, P> {
-    #[cfg_attr(feature = "pin-project", pin)]
     reader: R,
     position: P,
     state: S,
