@@ -50,6 +50,7 @@ pub struct Decoder<S, P> {
     position: P,
     state: S,
     buffer: BytesMut,
+    end_of_input: bool,
 }
 
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
@@ -63,6 +64,7 @@ where
             position: P::default(),
             state: S::default(),
             buffer: Default::default(),
+            end_of_input: false,
         }
     }
 }
@@ -82,16 +84,24 @@ impl<S, P> Decoder<S, P> {
     pub fn position(&self) -> &P {
         &self.position
     }
+
+    #[doc(hidden)]
+    pub fn __inner(&mut self) -> (&mut S, &mut P, &[u8], bool) {
+        (
+            &mut self.state,
+            &mut self.position,
+            &self.buffer,
+            self.end_of_input,
+        )
+    }
 }
 
 impl<S, P> Decoder<S, P> {
     #[doc(hidden)]
-    pub fn before_parse<R>(&mut self, mut reader: R) -> io::Result<(&mut S, &mut P, &[u8], bool)>
+    pub fn __before_parse<R>(&mut self, mut reader: R) -> io::Result<()>
     where
         R: Read,
     {
-        let mut end_of_input = false;
-
         let len = self.buffer.len();
         self.buffer.resize(len.saturating_add(8 * 1024), 0);
 
@@ -106,55 +116,39 @@ impl<S, P> Decoder<S, P> {
             }
         };
         if n == 0 {
-            end_of_input = true;
+            self.end_of_input = true;
         }
-        Ok((
-            &mut self.state,
-            &mut self.position,
-            &self.buffer,
-            end_of_input,
-        ))
+        Ok(())
     }
 }
 
 #[cfg(feature = "tokio-02")]
 impl<S, P> Decoder<S, P> {
     #[doc(hidden)]
-    pub async fn before_parse_tokio<R>(
-        &mut self,
-        reader: R,
-    ) -> io::Result<(&mut S, &mut P, &[u8], bool)>
+    pub async fn __before_parse_tokio<R>(&mut self, reader: R) -> io::Result<()>
     where
         R: tokio_02_dep::io::AsyncRead,
     {
         use bytes_05::BufMut;
         use tokio_02_dep::io::AsyncReadExt;
 
-        let mut end_of_input = false;
         if !self.buffer.has_remaining_mut() {
             self.buffer.reserve(8 * 1024);
         }
         futures_util_03::pin_mut!(reader);
         let copied = reader.read_buf(&mut self.buffer).await?;
         if copied == 0 {
-            end_of_input = true;
+            self.end_of_input = true;
         }
-        Ok((
-            &mut self.state,
-            &mut self.position,
-            &self.buffer[..],
-            end_of_input,
-        ))
+
+        Ok(())
     }
 }
 
 #[cfg(feature = "futures-03")]
 impl<S, P> Decoder<S, P> {
     #[doc(hidden)]
-    pub async fn before_parse_async<R>(
-        &mut self,
-        reader: R,
-    ) -> io::Result<(&mut S, &mut P, &[u8], bool)>
+    pub async fn __before_parse_async<R>(&mut self, reader: R) -> io::Result<()>
     where
         R: futures_io_03::AsyncRead,
     {
@@ -188,12 +182,7 @@ impl<S, P> Decoder<S, P> {
             n
         };
 
-        let end_of_input = copied == 0;
-        Ok((
-            &mut self.state,
-            &mut self.position,
-            &self.buffer[..],
-            end_of_input,
-        ))
+        self.end_of_input = copied == 0;
+        Ok(())
     }
 }

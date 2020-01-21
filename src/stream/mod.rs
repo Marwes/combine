@@ -1332,53 +1332,58 @@ macro_rules! decode {
     };
 
     ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
-        match (&mut $decoder, &mut $read) {
-            (decoder, read) => 'outer: loop {
-                let (opt, removed) = {
-                    let (state, position, buffer, end_of_input) =
-                        match decoder.before_parse(&mut *read) {
+        match $decoder {
+            ref mut decoder => match $read {
+                ref mut read => 'outer: loop {
+                    let (opt, removed) = {
+                        let (state, position, buffer, end_of_input) = decoder.__inner();
+
+                        fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
+                        where
+                            F: FnOnce(A, B) -> R,
+                        {
+                            f(a, b)
+                        }
+
+                        fn call_with<F, A, R>(a: A, f: F) -> R
+                        where
+                            F: FnOnce(A) -> R,
+                        {
+                            f(a)
+                        }
+
+                        let mut stream = call_with2(
+                            $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                            *position,
+                            $input_stream,
+                        );
+                        let result = $crate::stream::decode($parser, &mut stream, state);
+                        *position = $crate::stream::Positioned::position(&stream);
+                        call_with(stream, $post_decode);
+                        match result {
                             Ok(x) => x,
-                            Err(error) => {
-                                break 'outer Err($crate::stream::decoder::Error::Io {
-                                    error,
-                                    position: Clone::clone(decoder.position()),
-                                })
+                            Err(err) => {
+                                break 'outer Err($crate::stream::decoder::Error::Parse(err))
                             }
-                        };
+                        }
+                    };
 
-                    fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
-                    where
-                        F: FnOnce(A, B) -> R,
-                    {
-                        f(a, b)
+                    decoder.advance(removed);
+
+                    if let Some(v) = opt {
+                        break 'outer Ok(v);
                     }
 
-                    fn call_with<F, A, R>(a: A, f: F) -> R
-                    where
-                        F: FnOnce(A) -> R,
-                    {
-                        f(a)
-                    }
-
-                    let mut stream = call_with2(
-                        $crate::stream::MaybePartialStream(buffer, !end_of_input),
-                        *position,
-                        $input_stream,
-                    );
-                    let result = $crate::stream::decode($parser, &mut stream, state);
-                    *position = $crate::stream::Positioned::position(&stream);
-                    call_with(stream, $post_decode);
-                    match result {
+                    match decoder.__before_parse(&mut *read) {
                         Ok(x) => x,
-                        Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
-                    }
-                };
-
-                decoder.advance(removed);
-
-                if let Some(v) = opt {
-                    break 'outer Ok(v);
-                }
+                        Err(error) => {
+                            break 'outer Err($crate::stream::decoder::Error::Io {
+                                error,
+                                position: Clone::clone(decoder.position()),
+                            })
+                        }
+                    };
+                },
             },
         }
     };
@@ -1437,56 +1442,60 @@ macro_rules! decode_futures_03 {
     };
 
     ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
-        match (&mut $decoder, &mut $read) {
-            (decoder, read) => 'outer: loop {
-                let (opt, removed) = {
+        match $decoder {
+            ref mut decoder => match $read {
+                ref mut read => 'outer: loop {
+                    let (opt, removed) = {
 
-                    let (state, position, buffer, end_of_input) =
-                        match decoder.before_parse_async(&mut *read).await {
+                        let (state, position, buffer, end_of_input) = decoder.__inner();
+
+
+                        fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
+                        where
+                            F: FnOnce(A, B) -> R,
+                        {
+                            f(a, b)
+                        }
+
+                        fn call_with<F, A, R>(a: A, f: F) -> R
+                        where
+                            F: FnOnce(A) -> R,
+                        {
+                            f(a)
+                        }
+
+                        let mut stream = call_with2(
+                            $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                            *position,
+                            $input_stream,
+                        );
+                        let result = $crate::stream::decode($parser, &mut stream, state);
+                        *position = $crate::stream::Positioned::position(&stream);
+                        call_with(stream, $post_decode);
+                        match result {
                             Ok(x) => x,
-                            Err(error) => {
-                                break 'outer Err($crate::stream::decoder::Error::Io {
-                                    error,
-                                    position: Clone::clone(decoder.position()),
-                                })
-                            }
-                        };
+                            Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
+                        }
+                    };
 
+                    decoder.advance(removed);
 
-                    fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
-                    where
-                        F: FnOnce(A, B) -> R,
-                    {
-                        f(a, b)
+                    if let Some(v) = opt {
+                        break 'outer Ok(v);
                     }
 
-                    fn call_with<F, A, R>(a: A, f: F) -> R
-                    where
-                        F: FnOnce(A) -> R,
-                    {
-                        f(a)
-                    }
 
-                    let mut stream = call_with2(
-                        $crate::stream::MaybePartialStream(buffer, !end_of_input),
-                        *position,
-                        $input_stream,
-                    );
-                    let result = $crate::stream::decode($parser, &mut stream, state);
-                    *position = $crate::stream::Positioned::position(&stream);
-                    call_with(stream, $post_decode);
-                    match result {
-                        Ok(x) => x,
-                        Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
-                    }
-                };
-
-                decoder.advance(removed);
-
-                if let Some(v) = opt {
-                    break 'outer Ok(v);
+                    match decoder.__before_parse_async(&mut *read).await {
+                        Ok(_) => (),
+                        Err(error) => {
+                            break 'outer Err($crate::stream::decoder::Error::Io {
+                                error,
+                                position: Clone::clone(decoder.position()),
+                            })
+                        }
+                    };
                 }
-            },
+            }
         }
     };
 }
@@ -1540,53 +1549,58 @@ macro_rules! decode_tokio_02 {
     };
 
     ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
-        match (&mut $decoder, &mut $read) {
-            (decoder, read) => 'outer: loop {
-                let (opt, removed) = {
-                    let (state, position, buffer, end_of_input) =
-                        match decoder.before_parse_tokio(&mut *read).await {
+        match $decoder {
+            ref mut decoder => match $read {
+                ref mut read => 'outer: loop {
+                    let (opt, removed) = {
+                        let (state, position, buffer, end_of_input) = decoder.__inner();
+
+                        fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
+                        where
+                            F: FnOnce(A, B) -> R,
+                        {
+                            f(a, b)
+                        }
+
+                        fn call_with<F, A, R>(a: A, f: F) -> R
+                        where
+                            F: FnOnce(A) -> R,
+                        {
+                            f(a)
+                        }
+
+                        let mut stream = call_with2(
+                            $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                            *position,
+                            $input_stream,
+                        );
+                        let result = $crate::stream::decode($parser, &mut stream, state);
+                        *position = $crate::stream::Positioned::position(&stream);
+                        call_with(stream, $post_decode);
+                        match result {
                             Ok(x) => x,
-                            Err(error) => {
-                                break 'outer Err($crate::stream::decoder::Error::Io {
-                                    error,
-                                    position: Clone::clone(decoder.position()),
-                                })
+                            Err(err) => {
+                                break 'outer Err($crate::stream::decoder::Error::Parse(err))
                             }
-                        };
+                        }
+                    };
 
-                    fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
-                    where
-                        F: FnOnce(A, B) -> R,
-                    {
-                        f(a, b)
+                    decoder.advance(removed);
+
+                    if let Some(v) = opt {
+                        break 'outer Ok(v);
                     }
 
-                    fn call_with<F, A, R>(a: A, f: F) -> R
-                    where
-                        F: FnOnce(A) -> R,
-                    {
-                        f(a)
-                    }
-
-                    let mut stream = call_with2(
-                        $crate::stream::MaybePartialStream(buffer, !end_of_input),
-                        *position,
-                        $input_stream,
-                    );
-                    let result = $crate::stream::decode($parser, &mut stream, state);
-                    *position = $crate::stream::Positioned::position(&stream);
-                    call_with(stream, $post_decode);
-                    match result {
+                    match decoder.__before_parse_tokio(&mut *read).await {
                         Ok(x) => x,
-                        Err(err) => break 'outer Err($crate::stream::decoder::Error::Parse(err)),
-                    }
-                };
-
-                decoder.advance(removed);
-
-                if let Some(v) = opt {
-                    break 'outer Ok(v);
-                }
+                        Err(error) => {
+                            break 'outer Err($crate::stream::decoder::Error::Io {
+                                error,
+                                position: Clone::clone(decoder.position()),
+                            })
+                        }
+                    };
+                },
             },
         }
     };
