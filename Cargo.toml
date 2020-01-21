@@ -27,7 +27,7 @@ regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
 pin-project-lite = { version = "0.1", optional = true }
 # Future proofing so that tokio-0.3, tokio-0.1 etc can be supported
-tokio-02-dep = { version = "0.2", package = "tokio", features = ["io-util"], default-features = false, optional = true }
+tokio-02-dep = { version = "0.2.3", package = "tokio", features = ["io-util"], default-features = false, optional = true }
 futures-io-03 = { version = "0.3.1", package = "futures-io", default-features = false, optional = true }
 futures-util-03 = { version = "0.3.1", package = "futures-util", features = ["io", "std"], default-features = false, optional = true }
 bytes_05 = { version = "0.5", package = "bytes", optional =  true }
@@ -50,7 +50,7 @@ default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
 pin-project = ["pin-project-lite"]
-tokio-02 = ["pin-project", "tokio-02-dep"]
+tokio-02 = ["pin-project", "tokio-02-dep", "futures-util-03"]
 futures-03 = ["pin-project", "futures-io-03", "futures-util-03"]
 std = ["memchr/use_std", "bytes_05"]
 

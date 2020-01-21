@@ -31,7 +31,7 @@ use {
         stream::{easy, RangeStream, StreamErrorFor},
         token, Parser,
     },
-    futures::{pin_mut, prelude::*},
+    futures::prelude::*,
     futures_03_dep as futures,
     partial_io::PartialRead,
     quick_error::quick_error,
@@ -629,14 +629,15 @@ fn decode_std() {
     quickcheck(
         (|ops: PartialWithErrors<GenNoErrors>| {
             let buf = include_bytes!("../README.md");
+
+            let mut read = PartialRead::new(&buf[..], ops);
             let mut decoder =
-                combine::stream::Decoder::<_, _, combine::stream::PointerOffset<_>>::new(
-                    PartialRead::new(&buf[..], ops),
-                );
+                combine::stream::Decoder::<_, combine::stream::PointerOffset<_>>::new();
             let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
             assert_eq!(
                 combine::decode!(
                     decoder,
+                    &mut read,
                     {
                         let word = many1(satisfy(|b| !is_whitespace(b)));
                         sep_end_by(word, skip_many1(satisfy(is_whitespace)))
@@ -665,15 +666,14 @@ fn decode_tokio_02() {
                 .build()
                 .unwrap();
             runtime.block_on(async {
-                let decoder =
-                    combine::stream::Decoder::<_, _, combine::stream::PointerOffset<[u8]>>::new(
-                        PartialAsyncRead::new(&buf[..], ops),
-                    );
-                pin_mut!(decoder);
+                let mut read = PartialAsyncRead::new(&buf[..], ops);
+                let mut decoder =
+                    combine::stream::Decoder::<_, combine::stream::PointerOffset<[u8]>>::new();
                 let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
                 assert_eq!(
                     combine::decode_tokio_02!(
                         decoder,
+                        &mut read,
                         {
                             let word = many1(satisfy(|b| !is_whitespace(b)));
                             sep_end_by(word, skip_many1(satisfy(is_whitespace)))
@@ -699,15 +699,14 @@ fn decode_async_std() {
         (|ops: PartialWithErrors<GenWouldBlock>| {
             let buf = include_bytes!("../README.md");
             async_std::task::block_on(async {
-                let decoder =
-                    combine::stream::Decoder::<_, _, combine::stream::PointerOffset<[u8]>>::new(
-                        FuturesPartialAsyncRead::new(&buf[..], ops),
-                    );
-                pin_mut!(decoder);
+                let mut read = FuturesPartialAsyncRead::new(&buf[..], ops);
+                let mut decoder =
+                    combine::stream::Decoder::<_, combine::stream::PointerOffset<[u8]>>::new();
                 let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
                 assert_eq!(
                     combine::decode_futures_03!(
                         decoder,
+                        &mut read,
                         {
                             let word = many1(satisfy(|b| !is_whitespace(b)));
                             sep_end_by(word, skip_many1(satisfy(is_whitespace)))

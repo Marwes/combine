@@ -1303,11 +1303,13 @@ where
 /// };
 /// use combine::{decode, satisfy, skip_many1, many1, sep_end_by, Parser, stream::Decoder};
 ///
-/// let mut decoder = Decoder::<_, _, _>::new(File::open("README.md").unwrap());
+/// let mut read = File::open("README.md").unwrap();
+/// let mut decoder = Decoder::new();
 /// let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 /// assert_eq!(
 ///     decode!(
 ///         decoder,
+///         &mut read,
 ///         {
 ///             let word = many1(satisfy(|b| !is_whitespace(b)));
 ///             sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
@@ -1321,27 +1323,28 @@ where
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[macro_export]
 macro_rules! decode {
-    ($decoder: expr, $parser: expr $(,)?) => {
-        $crate::decode!($decoder, $parser, |input, _position| input, |x| x)
+    ($decoder: expr, $read: expr, $parser: expr $(,)?) => {
+        $crate::decode!($decoder, $read, $parser, |input, _position| input, |x| x)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {
-        $crate::decode!($decoder, $parser, $input_stream, |x| x)
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode!($decoder, $read, $parser, $input_stream, |x| x)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
-        match $decoder {
-            ref mut decoder => 'outer: loop {
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
+        match (&mut $decoder, &mut $read) {
+            (decoder, read) => 'outer: loop {
                 let (opt, removed) = {
-                    let (state, position, buffer, end_of_input) = match decoder.before_parse() {
-                        Ok(x) => x,
-                        Err(error) => {
-                            break 'outer Err($crate::stream::decoder::Error::Io {
-                                error,
-                                position: Clone::clone(decoder.position()),
-                            })
-                        }
-                    };
+                    let (state, position, buffer, end_of_input) =
+                        match decoder.before_parse(&mut *read) {
+                            Ok(x) => x,
+                            Err(error) => {
+                                break 'outer Err($crate::stream::decoder::Error::Io {
+                                    error,
+                                    position: Clone::clone(decoder.position()),
+                                })
+                            }
+                        };
 
                     fn call_with2<F, A, B, R>(a: A, b: B, f: F) -> R
                     where
@@ -1403,12 +1406,13 @@ macro_rules! decode {
 /// }
 ///
 /// async fn main_() {
-///     let decoder = Decoder::<_, _, _>::new(File::open("README.md").await.unwrap());
-///     pin_mut!(decoder);
+///     let mut read = File::open("README.md").await.unwrap();
+///     let mut decoder = Decoder::new();
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
 ///         decode_futures_03!(
 ///             decoder,
+///             &mut read,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
 ///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
@@ -1423,22 +1427,22 @@ macro_rules! decode {
 #[cfg_attr(docsrs, doc(cfg(feature = "futures-io-03")))]
 #[macro_export]
 macro_rules! decode_futures_03 {
-    ($decoder: expr, $parser: expr) => {
-        $crate::decode_futures_03!($decoder, $parser, |x| x $(,)?)
+    ($decoder: expr, $read: expr, $parser: expr) => {
+        $crate::decode_futures_03!($decoder, $read, $parser, |x| x $(,)?)
     };
 
 
-    ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {
-        $crate::decode_futures_03!($decoder, $parser, $input_stream, |x| x)
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode_futures_03!($decoder, $read, $parser, $input_stream, |x| x)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
-        match $decoder {
-            ref mut decoder => 'outer: loop {
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
+        match (&mut $decoder, &mut $read) {
+            (decoder, read) => 'outer: loop {
                 let (opt, removed) = {
 
                     let (state, position, buffer, end_of_input) =
-                        match decoder.as_mut().before_parse_async().await {
+                        match decoder.before_parse_async(&mut *read).await {
                             Ok(x) => x,
                             Err(error) => {
                                 break 'outer Err($crate::stream::decoder::Error::Io {
@@ -1506,12 +1510,13 @@ macro_rules! decode_futures_03 {
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let decoder = Decoder::<_, _, _>::new(File::open("README.md").await.unwrap());
-///     pin_mut!(decoder);
+///     let mut read = File::open("README.md").await.unwrap();
+///     let mut decoder = Decoder::new();
 ///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
 ///     assert_eq!(
 ///         decode_tokio_02!(
 ///             decoder,
+///             &mut read,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
 ///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
@@ -1526,20 +1531,20 @@ macro_rules! decode_futures_03 {
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-02")))]
 #[macro_export]
 macro_rules! decode_tokio_02 {
-    ($decoder: expr, $parser: expr $(,)?) => {
-        $crate::decode_tokio_02!($decoder, $parser, |input, _position| input)
+    ($decoder: expr, $read: expr, $parser: expr $(,)?) => {
+        $crate::decode_tokio_02!($decoder, $read, $parser, |input, _position| input)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr $(,)?) => {
-        $crate::decode_tokio_02!($decoder, $parser, $input_stream, |x| x)
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode_tokio_02!($decoder, $read, $parser, $input_stream, |x| x)
     };
 
-    ($decoder: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
-        match $decoder {
-            ref mut decoder => 'outer: loop {
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
+        match (&mut $decoder, &mut $read) {
+            (decoder, read) => 'outer: loop {
                 let (opt, removed) = {
                     let (state, position, buffer, end_of_input) =
-                        match decoder.as_mut().before_parse_tokio().await {
+                        match decoder.before_parse_tokio(&mut *read).await {
                             Ok(x) => x,
                             Err(error) => {
                                 break 'outer Err($crate::stream::decoder::Error::Io {
