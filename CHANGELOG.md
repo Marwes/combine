@@ -1,3 +1,22 @@
+<a name="4.0.1"></a>
+### 4.0.1 (2020-01-23)
+
+
+#### Breaking Changes
+
+*   Make the decode macros take read by parameter ([aa813fb1](https://github.com/Marwes/combine/commit/aa813fb1b486ecdc5258bf2c89e0b18a8f4fc876), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Features
+
+*   Make the decode macros take read by parameter ([aa813fb1](https://github.com/Marwes/combine/commit/aa813fb1b486ecdc5258bf2c89e0b18a8f4fc876), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Bug Fixes
+
+*   Don't block decoding if there are more data in the buffer ([6659f993](https://github.com/Marwes/combine/commit/6659f993784876bdc5d6f6145aaffe2844ada760))
+*   Don't try to read into the entire buffer for std decoding ([d613dc93](https://github.com/Marwes/combine/commit/d613dc937de6e0b745f8cbcca974e3cfcb3db723))
+
+
+
 <a name="4.0.0"></a>
 ## 4.0.0 (2020-01-16)
 
