@@ -1,6 +1,6 @@
 [package]
 name = "combine"
-version = "4.0.0"
+version = "4.0.1"
 authors = ["Markus Westerlind <marwes91@gmail.com>"]
 
 description = "Fast parser combinators on arbitrary streams with zero-copy support."
@@ -17,6 +17,9 @@ categories = ["parsing", "no-std"]
 license = "MIT"
 
 edition = "2018"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "combine"
@@ -86,9 +89,6 @@ name = "readme"
 
 [[example]]
 name = "ini"
-
-[package.metadata.docs.rs]
-all-features = true
 
 [profile.bench]
 lto = true
