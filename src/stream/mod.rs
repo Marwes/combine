@@ -1368,8 +1368,6 @@ macro_rules! decode {
                         }
                     };
 
-                    decoder.advance(removed);
-
                     if let Some(v) = opt {
                         break 'outer Ok(v);
                     }
@@ -1478,7 +1476,6 @@ macro_rules! decode_futures_03 {
                         }
                     };
 
-                    decoder.advance(removed);
 
                     if let Some(v) = opt {
                         break 'outer Ok(v);
@@ -1585,8 +1582,6 @@ macro_rules! decode_tokio_02 {
                         }
                     };
 
-                    decoder.advance(removed);
-
                     if let Some(v) = opt {
                         break 'outer Ok(v);
                     }
@@ -1604,6 +1599,83 @@ macro_rules! decode_tokio_02 {
             },
         }
     };
+}
+
+impl StreamOnce for bytes_05::BytesMut {
+    type Token = u8;
+
+    type Range = Self;
+
+    type Position = PointerOffset<[u8]>;
+
+    type Error = UnexpectedParse;
+    fn uncons(&mut self) -> Result<Self::Token, StreamErrorFor<Self>> {
+        if let Some(&b) = self.first() {
+            use bytes_05::Buf;
+            self.advance(1);
+            Ok(b)
+        } else {
+            Err(UnexpectedParse::Eoi)
+        }
+    }
+}
+
+clone_resetable!(() bytes_05::BytesMut);
+
+impl RangeStreamOnce for bytes_05::BytesMut {
+    #[inline]
+    fn uncons_range(&mut self, size: usize) -> Result<Self::Range, StreamErrorFor<Self>> {
+        if size <= self.len() {
+            let range = self.split_to(size);
+            Ok(range)
+        } else {
+            Err(UnexpectedParse::Eoi)
+        }
+    }
+
+    #[inline]
+    fn uncons_while<F>(&mut self, f: F) -> Result<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Token) -> bool,
+    {
+        let len = slice_uncons_while(&mut &self[..], 0, f).len();
+        Ok(self.split_to(len))
+    }
+
+    #[inline]
+    fn uncons_while1<F>(&mut self, mut f: F) -> ParseResult<Self::Range, StreamErrorFor<Self>>
+    where
+        F: FnMut(Self::Token) -> bool,
+    {
+        if !self.first().cloned().map_or(false, &mut f) {
+            return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
+        }
+
+        let len = slice_uncons_while(&mut &self[..], 1, f).len();
+        CommitOk(self.split_to(len))
+    }
+
+    #[inline]
+    fn distance(&self, end: &Self) -> usize {
+        end.len() - self.len()
+    }
+
+    fn range(&self) -> Self::Range {
+        self.clone()
+    }
+}
+
+impl Positioned for bytes_05::BytesMut {
+    #[inline]
+    fn position(&self) -> Self::Position {
+        (&self[..]).position()
+    }
+}
+
+impl Range for bytes_05::BytesMut {
+    fn len(&self) -> usize {
+        self[..].len()
+    }
 }
 
 #[cfg(test)]

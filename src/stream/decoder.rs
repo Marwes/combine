@@ -86,11 +86,11 @@ impl<S, P> Decoder<S, P> {
     }
 
     #[doc(hidden)]
-    pub fn __inner(&mut self) -> (&mut S, &mut P, &[u8], bool) {
+    pub fn __inner(&mut self) -> (&mut S, &mut P, &mut bytes_05::BytesMut, bool) {
         (
             &mut self.state,
             &mut self.position,
-            &self.buffer,
+            &mut self.buffer,
             self.end_of_input,
         )
     }
