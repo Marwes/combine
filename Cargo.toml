@@ -53,8 +53,8 @@ default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
 pin-project = ["pin-project-lite"]
-tokio-02 = ["pin-project", "tokio-02-dep", "futures-util-03"]
-futures-03 = ["pin-project", "futures-io-03", "futures-util-03"]
+tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-util-03"]
+futures-03 = ["pin-project", "std", "futures-io-03", "futures-util-03"]
 std = ["memchr/use_std", "bytes_05"]
 
 [[test]]
