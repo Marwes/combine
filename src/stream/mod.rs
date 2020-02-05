@@ -53,6 +53,7 @@ macro_rules! clone_resetable {
 pub mod buffered;
 #[cfg(feature = "std")]
 pub mod easy;
+pub mod offset;
 /// Stream wrapper which provides more detailed position information.
 pub mod position;
 /// Stream wrapper allowing `std::io::Read` to be used
@@ -604,7 +605,7 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-fn slice_uncons_while<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+fn slice_uncons_while_pos<'a, T, F>(slice: &'a [T], mut i: usize, mut f: F) -> usize
 where
     F: FnMut(T) -> bool,
     T: Clone,
@@ -642,6 +643,15 @@ where
         }
     }
 
+    i
+}
+
+fn slice_uncons_while<'a, T, F>(slice: &mut &'a [T], i: usize, f: F) -> &'a [T]
+where
+    F: FnMut(T) -> bool,
+    T: Clone,
+{
+    let i = slice_uncons_while_pos(slice, i, f);
     let (result, remaining) = slice.split_at(i);
     *slice = remaining;
     result
