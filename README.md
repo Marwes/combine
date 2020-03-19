@@ -11,7 +11,7 @@ An implementation of parser combinators for Rust, inspired by the Haskell librar
 ```rust
 extern crate combine;
 use combine::{many1, Parser, sep_by};
-use combine::char::{letter, space};
+use combine::parser::char::{letter, space};
 
 // Construct a parser that parses *many* (and at least *1) *letter*s
 let word = many1(letter());
