@@ -13,7 +13,7 @@ use crate::{
         combinator::{and_then, flat_map, map, map_input, AndThen, Either, FlatMap, Map, MapInput},
         error::{expected, message, silent, Expected, Message, Silent},
         repeat::Iter,
-        sequence::{then, then_partial, Then, ThenPartial},
+        sequence::{then, then_partial, then_ref, Then, ThenPartial, ThenRef},
     },
     stream::{Stream, StreamOnce},
     ErrorOffset,
@@ -533,6 +533,42 @@ pub trait Parser<Input: Stream> {
         N: Parser<Input>,
     {
         then_partial(self, f)
+    }
+
+    /// Parses using `self` and then passes a reference to the value to `f` which returns a parser
+    /// used to parse the rest of the input. The value is then combined with the output of `f`.
+    ///
+    /// Since the parser returned from `f` must have a single type it can be useful to use the
+    /// `left` and `right` methods to merge parsers of differing types into one.
+    ///
+    /// ```
+    /// # #![cfg(feature = "std")]
+    /// # extern crate combine;
+    /// # use combine::*;
+    /// # use combine::parser::char::digit;
+    /// # use combine::error::Commit;
+    /// # use combine::stream::easy;
+    /// # fn main() {
+    /// let result = digit()
+    ///     .then_ref(|d| {
+    ///         if *d == '9' {
+    ///             digit().left()
+    ///         }
+    ///         else {
+    ///             unexpected_any(*d).message("Not a nine").right()
+    ///         }
+    ///     })
+    ///     .easy_parse("98");
+    /// assert_eq!(result, Ok((('9', '8'), "")));
+    /// # }
+    /// ```
+    fn then_ref<N, F>(self, f: F) -> ThenRef<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(&Self::Output) -> N,
+        N: Parser<Input>,
+    {
+        then_ref(self, f)
     }
 
     /// Uses `f` to map over the parsed value.
