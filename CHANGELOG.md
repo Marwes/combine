@@ -1,3 +1,13 @@
+<a name="v4.2.0"></a>
+## v4.2.0 (2020-05-17)
+
+
+#### Features
+
+*   Add any_send_sync_partial_state ([7e90807a](https://github.com/Marwes/combine/commit/7e90807a0949411b6aaf24a677e6530a530a1478))
+
+
+
 <a name="v4.1.0"></a>
 ## v4.1.0 (2020-04-22)
 
