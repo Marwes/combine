@@ -908,6 +908,105 @@ where
     AnySendPartialStateParser(p)
 }
 
+#[cfg(feature = "std")]
+#[derive(Default)]
+pub struct AnySendSyncPartialState(Option<Box<dyn std::any::Any + Send + Sync>>);
+
+#[cfg(feature = "std")]
+pub struct AnySendSyncPartialStateParser<P>(P);
+
+#[cfg(feature = "std")]
+impl<Input, P> Parser<Input> for AnySendSyncPartialStateParser<P>
+where
+    Input: Stream,
+    P: Parser<Input>,
+    P::PartialState: Send + Sync + 'static,
+{
+    type Output = P::Output;
+    type PartialState = AnySendSyncPartialState;
+
+    #[inline]
+    fn parse_lazy(
+        &mut self,
+        input: &mut Input,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
+        self.0.parse_lazy(input)
+    }
+
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        let mut new_child_state;
+        let result = {
+            let child_state = if let None = state.0 {
+                new_child_state = Some(Default::default());
+                new_child_state.as_mut().unwrap()
+            } else {
+                new_child_state = None;
+                state.0.as_mut().unwrap().downcast_mut().unwrap()
+            };
+
+            self.0.parse_mode(mode, input, child_state)
+        };
+
+        if let CommitErr(_) = result {
+            if state.0.is_none() {
+                // FIXME Make None unreachable for LLVM
+                state.0 = Some(Box::new(new_child_state.unwrap()));
+            }
+        }
+
+        result
+    }
+
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
+}
+
+/// Returns a parser where `P::PartialState` is boxed. Useful as a way to avoid writing the type
+/// since it can get very large after combining a few parsers.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::parser::combinator::{AnySendSyncPartialState, any_send_sync_partial_state};
+/// # use combine::parser::char::letter;
+/// # use combine::*;
+///
+/// # fn main() {
+///
+/// fn example<Input>() -> impl Parser<Input, Output = (char, char), PartialState = AnySendSyncPartialState>
+/// where
+///     Input: Stream<Token = char>,
+///     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+/// {
+///     any_send_sync_partial_state((letter(), letter()))
+/// }
+///
+/// assert_eq!(
+///     example().easy_parse("ab"),
+///     Ok((('a', 'b'), ""))
+/// );
+///
+/// # }
+/// ```
+#[cfg(feature = "std")]
+pub fn any_send_sync_partial_state<Input, P>(p: P) -> AnySendSyncPartialStateParser<P>
+where
+    Input: Stream,
+    P: Parser<Input>,
+    P::PartialState: Send + Sync + 'static,
+{
+    AnySendSyncPartialStateParser(p)
+}
+
 #[derive(Copy, Clone)]
 pub struct Lazy<P>(P);
 impl<Input, O, P, R> Parser<Input> for Lazy<P>
