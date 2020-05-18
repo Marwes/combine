@@ -80,6 +80,42 @@ pub struct CountMinMax<F, P> {
     _marker: PhantomData<fn() -> F>,
 }
 
+struct SuggestSizeHint<I> {
+    iterator: I,
+    min: usize,
+    max: usize,
+}
+
+impl<I> Iterator for SuggestSizeHint<I>
+where
+    I: Iterator,
+{
+    type Item = I::Item;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.min, Some(self.max))
+    }
+}
+
+fn suggest_size_hint<I>(iterator: I, min: usize, max: usize) -> SuggestSizeHint<I>
+where
+    I: Iterator,
+{
+    SuggestSizeHint {
+        iterator,
+        // Invalid input may could report an extreme size so we guard against that (while still
+        // optimizing by preallocating for the expected case of success)
+        min: std::cmp::min(min, 4096),
+        max,
+    }
+}
+
 impl<Input, P, F> Parser<Input> for CountMinMax<F, P>
 where
     Input: Stream,
@@ -100,14 +136,16 @@ where
     where
         M: ParseMode,
     {
-        let (ref mut count, ref mut elements, ref mut child_state) = *state;
+        let (count, elements, child_state) = state;
 
         let mut iter = self.parser.by_ref().partial_iter(mode, input, child_state);
-        elements.extend(
-            iter.by_ref()
-                .take(self.max - *count)
-                .inspect(|_| *count += 1),
-        );
+        let remaining_min = self.min.saturating_sub(*count);
+        let remaining_max = self.max - *count;
+        elements.extend(suggest_size_hint(
+            iter.by_ref().take(remaining_max).inspect(|_| *count += 1),
+            remaining_min,
+            remaining_max,
+        ));
         if *count < self.min {
             let err = StreamError::message_format(format_args!(
                 "expected {} more elements",
