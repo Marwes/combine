@@ -109,7 +109,7 @@ where
 {
     SuggestSizeHint {
         iterator,
-        // Invalid input may could report an extreme size so we guard against that (while still
+        // Invalid input may report an extreme size so we guard against that (while still
         // optimizing by preallocating for the expected case of success)
         min: std::cmp::min(min, 4096),
         max,
