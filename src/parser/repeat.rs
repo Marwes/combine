@@ -6,7 +6,7 @@ use crate::{
         ParseResult::{self, *},
         ResultExt, StdParseResult, StreamError, Tracked,
     },
-    lib::{borrow::BorrowMut, marker::PhantomData, mem},
+    lib::{borrow::BorrowMut, cmp, marker::PhantomData, mem},
     parser::{
         choice::{optional, Optional, Or},
         combinator::{ignore, Ignore},
@@ -111,7 +111,7 @@ where
         iterator,
         // Invalid input may report an extreme size so we guard against that (while still
         // optimizing by preallocating for the expected case of success)
-        min: std::cmp::min(min, 4096),
+        min: cmp::min(min, 4096),
         max,
     }
 }
