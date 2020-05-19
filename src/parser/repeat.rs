@@ -6,7 +6,7 @@ use crate::{
         ParseResult::{self, *},
         ResultExt, StdParseResult, StreamError, Tracked,
     },
-    lib::{borrow::BorrowMut, iter, marker::PhantomData, mem},
+    lib::{borrow::BorrowMut, cmp, marker::PhantomData, mem},
     parser::{
         choice::{optional, Optional, Or},
         combinator::{ignore, Ignore},
@@ -80,6 +80,42 @@ pub struct CountMinMax<F, P> {
     _marker: PhantomData<fn() -> F>,
 }
 
+struct SuggestSizeHint<I> {
+    iterator: I,
+    min: usize,
+    max: Option<usize>,
+}
+
+impl<I> Iterator for SuggestSizeHint<I>
+where
+    I: Iterator,
+{
+    type Item = I::Item;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.min, self.max)
+    }
+}
+
+fn suggest_size_hint<I>(iterator: I, (min, max): (usize, Option<usize>)) -> SuggestSizeHint<I>
+where
+    I: Iterator,
+{
+    SuggestSizeHint {
+        iterator,
+        // Invalid input may report an extreme size so we guard against that (while still
+        // optimizing by preallocating for the expected case of success)
+        min: cmp::min(min, 4096),
+        max,
+    }
+}
+
 impl<Input, P, F> Parser<Input> for CountMinMax<F, P>
 where
     Input: Stream,
@@ -100,14 +136,15 @@ where
     where
         M: ParseMode,
     {
-        let (ref mut count, ref mut elements, ref mut child_state) = *state;
+        let (count, elements, child_state) = state;
 
         let mut iter = self.parser.by_ref().partial_iter(mode, input, child_state);
-        elements.extend(
-            iter.by_ref()
-                .take(self.max - *count)
-                .inspect(|_| *count += 1),
-        );
+        let remaining_min = self.min.saturating_sub(*count);
+        let remaining_max = self.max - *count;
+        elements.extend(suggest_size_hint(
+            iter.by_ref().take(remaining_max).inspect(|_| *count += 1),
+            (remaining_min, Some(remaining_max)),
+        ));
         if *count < self.min {
             let err = StreamError::message_format(format_args!(
                 "expected {} more elements",
@@ -1456,7 +1493,7 @@ where
 {
     type Output = F;
     type PartialState = (
-        Option<iter::Peekable<J::IntoIter>>,
+        Option<(J::IntoIter, Option<J::Item>)>,
         bool,
         F,
         Q::PartialState,
@@ -1474,41 +1511,67 @@ where
         M: ParseMode,
     {
         let (opt_iter, committed, buf, next) = state;
-        let iter = match opt_iter {
+        let (iter, next_item) = match opt_iter {
             Some(iter) if !mode.is_first() => iter,
             _ => {
-                *opt_iter = Some(self.iterable.clone().into_iter().peekable());
+                *opt_iter = Some((self.iterable.clone().into_iter(), None));
                 opt_iter.as_mut().unwrap()
             }
         };
 
-        while let Some(elem) = iter.peek() {
-            let mut parser = (self.parser)(elem, input);
+        let mut consume = |item: J::Item| {
+            let mut parser = (self.parser)(&item, input);
             let before = input.checkpoint();
             match parser.parse_mode(mode, input, next) {
                 PeekOk(v) => {
                     mode.set_first();
-                    buf.extend(Some(v));
+                    Ok(v)
                 }
                 CommitOk(v) => {
                     mode.set_first();
                     *committed = true;
-                    buf.extend(Some(v));
+                    Ok(v)
                 }
                 PeekErr(err) => {
                     match input.reset(before) {
-                        Err(err) => return CommitErr(err),
+                        Err(err) => return Err((item, CommitErr(err))),
                         Ok(_) => (),
                     };
-                    return if *committed {
-                        CommitErr(err.error)
-                    } else {
-                        PeekErr(err)
-                    };
+                    Err((
+                        item,
+                        if *committed {
+                            CommitErr(err.error)
+                        } else {
+                            PeekErr(err)
+                        },
+                    ))
                 }
-                CommitErr(err) => return CommitErr(err),
+                CommitErr(err) => Err((item, CommitErr(err))),
             }
-            iter.next();
+        };
+
+        let result = (|| {
+            if let Some(item) = next_item.take() {
+                buf.extend(Some(consume(item)?));
+            }
+            let mut result = Ok(());
+            let size_hint = iter.size_hint();
+            buf.extend(suggest_size_hint(
+                iter.scan((), |_, item| match consume(item) {
+                    Ok(item) => Some(item),
+                    Err(err) => {
+                        result = Err(err);
+                        None
+                    }
+                }),
+                size_hint,
+            ));
+            result
+        })();
+
+        if let Err((item, err)) = result {
+            *next_item = Some(item);
+            return err;
         }
 
         opt_iter.take();
