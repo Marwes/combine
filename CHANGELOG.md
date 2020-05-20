@@ -1,3 +1,14 @@
+<a name="v4.2.1"></a>
+### v4.2.1 (2020-05-20)
+
+
+#### Performance
+
+*   Use size_hint in iterate ([b2649e3b](https://github.com/Marwes/combine/commit/b2649e3b467fc84ef48a91d56ec1fcb40291978e))
+*   Pre-allocate collections for count* parsers ([5f37857c](https://github.com/Marwes/combine/commit/5f37857c988b81c2b0613d6f2ab14576c794ae99))
+
+
+
 <a name="v4.2.0"></a>
 ## v4.2.0 (2020-05-17)
 
