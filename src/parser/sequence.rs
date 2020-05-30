@@ -306,22 +306,22 @@ macro_rules! seq_parser_expr {
         ( $($tt)* )
     };
     ( (_ : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
-        seq_parser_expr!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
+        $crate::seq_parser_expr!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
     };
     ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
-        seq_parser_expr!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
+        $crate::seq_parser_expr!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
     };
     ( (_ : $first_parser: expr ); $($tt: tt)*) => {
         ( $($tt)* $first_parser, )
     };
     ( ($first_field: ident : $first_parser: expr, ); $($tt: tt)*) => {
-        seq_parser_expr!(; $($tt)* $first_parser,)
+        $crate::seq_parser_expr!(; $($tt)* $first_parser,)
     };
     ( (_ : $first_parser: expr, ); $($tt: tt)*) => {
         ( $($tt)* $first_parser, )
     };
     ( ($first_field: ident : $first_parser: expr ); $($tt: tt)*) => {
-        seq_parser_expr!(; $($tt)* $first_parser,)
+        $crate::seq_parser_expr!(; $($tt)* $first_parser,)
     };
 }
 
@@ -332,22 +332,22 @@ macro_rules! seq_parser_pattern {
        ( $($tt)* )
     };
     ( (_ : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
-        seq_parser_pattern!( ( $($remaining)+ ) ; $($tt)* _, )
+        $crate::seq_parser_pattern!( ( $($remaining)+ ) ; $($tt)* _, )
     };
     ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
-        seq_parser_pattern!( ( $($remaining)+ ) ; $($tt)* $first_field, )
+        $crate::seq_parser_pattern!( ( $($remaining)+ ) ; $($tt)* $first_field, )
     };
     ( ( _ : $first_parser: expr ); $($tt: tt)*) => {
-        seq_parser_pattern!(; $($tt)* _, )
+        $crate::seq_parser_pattern!(; $($tt)* _, )
     };
     ( ($first_field: ident : $first_parser: expr ); $($tt: tt)*) => {
-        seq_parser_pattern!(; $($tt)* $first_field,)
+        $crate::seq_parser_pattern!(; $($tt)* $first_field,)
     };
     ( ( _ : $first_parser: expr, ); $($tt: tt)*) => {
-        seq_parser_pattern!(; $($tt)* _, )
+        $crate::seq_parser_pattern!(; $($tt)* _, )
     };
     ( ($first_field: ident : $first_parser: expr, ); $($tt: tt)*) => {
-        seq_parser_pattern!(; $($tt)* $first_field,)
+        $crate::seq_parser_pattern!(; $($tt)* $first_field,)
     };
 }
 
@@ -358,63 +358,134 @@ macro_rules! seq_parser_impl {
         $name { $($tt)* }
     };
     ( (_ : $first_parser: expr, $($remaining: tt)+ ); $name: ident $($tt: tt)*) => {
-        seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* )
+        $crate::seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* )
     };
     ( ($first_field: ident : $first_parser: expr, $($remaining: tt)+ );
         $name: ident $($tt: tt)*) =>
     {
-        seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* $first_field: $first_field, )
+        $crate::seq_parser_impl!( ( $($remaining)+ ) ; $name $($tt)* $first_field: $first_field, )
     };
     ( ( _ : $first_parser: expr ); $name: ident $($tt: tt)*) => {
-        seq_parser_impl!( ; $name $($tt)* )
+        $crate::seq_parser_impl!( ; $name $($tt)* )
     };
     ( ($first_field: ident : $first_parser: expr ); $name: ident $($tt: tt)*) => {
-        seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
+        $crate::seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
     };
     ( ( _ : $first_parser: expr, ); $name: ident $($tt: tt)*) => {
-        seq_parser_impl!(; $name $($tt)*)
+        $crate::seq_parser_impl!(; $name $($tt)*)
     };
     ( ($first_field: ident : $first_parser: expr, ); $name: ident $($tt: tt)*) => {
-        seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
+        $crate::seq_parser_impl!(; $name $($tt)* $first_field: $first_field,)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! seq_tuple_extract {
+    (; ; $name: ident ;  $($arg: expr),* $(,)? ) => {
+        $name( $($arg,)* )
+    };
+
+    ( (_ : $first_parser: expr, $($remaining: tt)+ ); ( $first_arg: expr, $($arg: expr),* ) ; $($tt: tt)*) => {
+        $crate::seq_tuple_extract!( ( $($remaining)+ ); ( $($arg),* ) ; $($tt)* )
+    };
+
+    ( ($first_parser: expr, $($remaining: tt)+ ); ( $first_arg: expr, $($arg: expr),* ) ; $($tt: tt)*) => {
+        $crate::seq_tuple_extract!( ( $($remaining)+ ) ; ( $($arg),* ) ; $($tt)* $first_arg, )
+    };
+
+    ( (_ : $first_parser: expr $(,)? ); ( $first_arg: expr, $($arg: expr),* ) ; $($tt: tt)*) => {
+        $crate::seq_tuple_extract!(; ; $($tt)*)
+    };
+
+    ( ($first_parser: expr $(,)? ); ( $first_arg: expr, $($arg: expr),* ) ; $($tt: tt)*) => {
+        $crate::seq_tuple_extract!(; ; $($tt)* $first_arg)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! seq_tuple_parser_impl {
+    (; $($tt: tt)*) => {
+        ($($tt)*)
+    };
+
+    ( (_ : $first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
+        $crate::seq_tuple_parser_impl!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
+    };
+
+    ( ($first_parser: expr, $($remaining: tt)+ ); $($tt: tt)*) => {
+        $crate::seq_tuple_parser_impl!( ( $($remaining)+ ) ; $($tt)* $first_parser, )
+    };
+
+    ( (_ : $first_parser: expr $(,)? ); $($tt: tt)*) => {
+        $crate::seq_tuple_parser_impl!(; $($tt)* $first_parser, )
+    };
+
+    ( ($first_parser: expr $(,)? ); $($tt: tt)*) => {
+        $crate::seq_tuple_parser_impl!(; $($tt)* $first_parser, )
     };
 }
 
 /// Sequences multiple parsers and builds a struct out of them.
 ///
 /// ```
-/// #[macro_use]
-/// extern crate combine;
-/// use combine::{Parser, many, token};
+/// use combine::{Parser, between, from_str, many, struct_parser, token};
+/// use combine::parser::range::take_while1;
 /// use combine::parser::byte::{letter, spaces};
+///
+/// #[derive(Debug, PartialEq)]
+/// struct Point(u32, u32);
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct Field {
 ///     name: Vec<u8>,
 ///     value: Vec<u8>,
+///     point: Point,
 /// }
 /// fn main() {
+///     let num = || from_str(take_while1(|b: u8| b >= b'0' && b <= b'9'));
+///     let spaced = |b| between(spaces(), spaces(), token(b));
 ///     let mut parser = struct_parser!{
 ///         Field {
 ///             name: many(letter()),
 ///             // `_` fields are ignored when building the struct
-///             _: spaces(),
-///             _: token(b':'),
-///             _: spaces(),
+///             _: spaced(b':'),
 ///             value: many(letter()),
+///             _: spaced(b':'),
+///             point: struct_parser!(Point(num(), _: spaced(b','), num())),
 ///         }
 ///     };
 ///     assert_eq!(
-///         parser.parse(&b"test: data"[..]),
-///         Ok((Field { name: b"test"[..].to_owned(), value: b"data"[..].to_owned() }, &b""[..]))
+///         parser.parse(&b"test: data: 123 , 4"[..]),
+///         Ok((
+///             Field {
+///                 name: b"test"[..].to_owned(),
+///                 value: b"data"[..].to_owned(),
+///                 point: Point(123, 4),
+///             },
+///             &b""[..]
+///         )),
 ///     );
 /// }
 /// ```
 #[macro_export]
 macro_rules! struct_parser {
     ($name: ident { $($tt: tt)* }) => {
-        seq_parser_expr!( ( $($tt)* ); )
-            .map(|seq_parser_pattern!( ( $($tt)* ); )|
-                seq_parser_impl!(( $($tt)* ); $name )
+        $crate::seq_parser_expr!( ( $($tt)* ); )
+            .map(|$crate::seq_parser_pattern!( ( $($tt)* ); )|
+                $crate::seq_parser_impl!(( $($tt)* ); $name )
+            )
+    };
+
+    ($name: ident ( $($arg: tt)* )) => {
+        $crate::seq_tuple_parser_impl!( ( $($arg)* ) ; )
+            .map(|t|
+                $crate::seq_tuple_extract!(
+                    ( $($arg)* );
+                    (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, t.12, t.13, t.14);
+                    $name ;
+                )
             )
     }
 }
@@ -565,14 +636,13 @@ where
         if mode.is_first() || n_parser_cache.is_none() {
             debug_assert!(n_parser_cache.is_none());
 
-            let (value, committed) =
-                match self.0.parse_mode(mode, input, p_state) {
-                    PeekOk(value) => (value, false),
-                    CommitOk(value) => (value, true),
+            let (value, committed) = match self.0.parse_mode(mode, input, p_state) {
+                PeekOk(value) => (value, false),
+                CommitOk(value) => (value, true),
 
-                    PeekErr(err) => return PeekErr(err),
-                    CommitErr(err) => return CommitErr(err),
-                };
+                PeekErr(err) => return PeekErr(err),
+                CommitErr(err) => return CommitErr(err),
+            };
 
             *n_parser_cache = Some((committed, (self.1)(value)));
             mode.set_first();
@@ -735,7 +805,11 @@ where
     N: Parser<Input>,
 {
     type Output = (P::Output, N::Output);
-    type PartialState = (P::PartialState, Option<(bool, P::Output, N)>, N::PartialState);
+    type PartialState = (
+        P::PartialState,
+        Option<(bool, P::Output, N)>,
+        N::PartialState,
+    );
 
     parse_mode!(Input);
     #[inline]
@@ -753,14 +827,13 @@ where
         if mode.is_first() || n_parser_cache.is_none() {
             debug_assert!(n_parser_cache.is_none());
 
-            let (value, committed) =
-                match self.0.parse_mode(mode, input, p_state) {
-                    PeekOk(value) => (value, false),
-                    CommitOk(value) => (value, true),
+            let (value, committed) = match self.0.parse_mode(mode, input, p_state) {
+                PeekOk(value) => (value, false),
+                CommitOk(value) => (value, true),
 
-                    PeekErr(err) => return PeekErr(err),
-                    CommitErr(err) => return CommitErr(err),
-                };
+                PeekErr(err) => return PeekErr(err),
+                CommitErr(err) => return CommitErr(err),
+            };
 
             let parser = (self.1)(&value);
             *n_parser_cache = Some((committed, value, parser));
