@@ -47,6 +47,9 @@ macro_rules! clone_resetable {
     }
 }
 
+#[cfg(feature = "tokio-02")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-02")))]
+pub mod buf_reader;
 #[cfg(feature = "std")]
 /// Stream wrapper which provides a `ResetStream` impl for `StreamOnce` impls which do not have
 /// one.
