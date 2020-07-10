@@ -11,7 +11,7 @@ use std::{
 };
 
 use {
-    bytes_05::{Buf, BytesMut},
+    bytes_05::{Buf, BufMut, BytesMut},
     pin_project_lite::pin_project,
 };
 
@@ -19,7 +19,7 @@ use {
 use tokio_02_dep::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 
 #[cfg(feature = "futures-util-03")]
-use {bytes_05::BufMut, futures_util_03::ready};
+use futures_util_03::ready;
 
 pin_project! {
     /// `BufReader` used by `Decoder` when it is constructed with [`Decoder::new_bufferless`][]
@@ -425,6 +425,14 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for BufReader<R> {
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
         self.get_pin_mut().poll_write(cx, buf)
+    }
+
+    fn poll_write_buf<B: Buf>(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut B,
+    ) -> Poll<io::Result<usize>> {
+        self.get_pin_mut().poll_write_buf(cx, buf)
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {

@@ -722,3 +722,46 @@ fn decode_async_std() {
         }) as fn(_) -> _,
     )
 }
+
+#[tokio::main]
+async fn decode_loop() {
+    use tokio::fs::File;
+    use tokio_02_dep as tokio;
+
+    use combine::{
+        decode_tokio_02, many1, satisfy, skip_many1,
+        stream::{buf_reader::BufReader, Decoder},
+    };
+    let mut read = BufReader::new(File::open("README.md").await.unwrap());
+    let mut decoder = Decoder::new_bufferless();
+    let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+
+    let mut count = 0;
+    loop {
+        // Suppresses a warning about duplicate label
+        async {
+            decode_tokio_02!(
+                decoder,
+                &mut read,
+                many1(satisfy(|b| !is_whitespace(b))),
+                |input, _position| combine::easy::Stream::from(input),
+            )
+            .unwrap();
+        }
+        .await;
+
+        count += 1;
+
+        if decode_tokio_02!(
+            decoder,
+            &mut read,
+            skip_many1(satisfy(is_whitespace)),
+            |input, _position| combine::easy::Stream::from(input),
+        )
+        .is_err()
+        {
+            break;
+        }
+    }
+    assert_eq!(819, count);
+}
