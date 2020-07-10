@@ -1,3 +1,15 @@
+<a name="v4.3.0"></a>
+## v4.3.0 (2020-07-10)
+
+
+#### Features
+
+*   Specialize decoding on BufReader ([9559e114](https://github.com/Marwes/combine/commit/9559e114658b60a59d570ffd78f4d7ecb597b814))
+*   Add a BufReader abstraction for Decoder ([d65a23e8](https://github.com/Marwes/combine/commit/d65a23e81f482c6a5482e53d63c17fcbcf67d623))
+*   Allow tuple structs and functions in struct_parser! ([48a16f6b](https://github.com/Marwes/combine/commit/48a16f6bf84939da9eacb1f82b4cff6ca7f324e0))
+
+
+
 <a name="v4.2.1"></a>
 ### v4.2.1 (2020-05-20)
 
