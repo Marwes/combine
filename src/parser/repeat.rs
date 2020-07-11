@@ -1194,17 +1194,17 @@ where
 /// # use combine::parser::combinator::attempt;
 /// # use combine::parser::repeat::take_until;
 /// # fn main() {
-///     let mut char_parser = take_until(char::digit());
-///     assert_eq!(char_parser.parse("abc123"), Ok(("abc".to_string(), "123")));
+/// let mut char_parser = take_until(char::digit());
+/// assert_eq!(char_parser.parse("abc123"), Ok(("abc".to_string(), "123")));
 ///
-///     let mut byte_parser = take_until(byte::bytes(&b"TAG"[..]));
-///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok((b"123".to_vec(), &b"TAG"[..])));
-///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
+/// let mut byte_parser = take_until(byte::bytes(&b"TAG"[..]));
+/// assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok((b"123".to_vec(), &b"TAG"[..])));
+/// assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
 ///
-///     // `attempt` must be used if the `end` should be consume input before failing
-///     let mut byte_parser = take_until(attempt(byte::bytes(&b"TAG"[..])));
-///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok((b"123TA".to_vec(), &b"TAG"[..])));
-/// }
+/// // `attempt` must be used if the `end` should be consume input before failing
+/// let mut byte_parser = take_until(attempt(byte::bytes(&b"TAG"[..])));
+/// assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok((b"123TA".to_vec(), &b"TAG"[..])));
+/// # }
 /// ```
 pub fn take_until<F, Input, P>(end: P) -> TakeUntil<F, P>
 where
