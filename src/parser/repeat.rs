@@ -1242,7 +1242,7 @@ parser! {
     ///     // `attempt` must be used if the `end` should consume input before failing
     ///     let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
     ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
-    /// }
+    /// #}
     /// ```
     pub fn skip_until[Input, P](end: P)(Input) -> ()
     where [
