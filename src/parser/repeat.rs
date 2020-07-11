@@ -1232,17 +1232,17 @@ parser! {
     /// # use combine::parser::combinator::attempt;
     /// # use combine::parser::repeat::skip_until;
     /// # fn main() {
-    ///     let mut char_parser = skip_until(char::digit());
-    ///     assert_eq!(char_parser.parse("abc123"), Ok(((), "123")));
+    /// let mut char_parser = skip_until(char::digit());
+    /// assert_eq!(char_parser.parse("abc123"), Ok(((), "123")));
     ///
-    ///     let mut byte_parser = skip_until(byte::bytes(&b"TAG"[..]));
-    ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
-    ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
+    /// let mut byte_parser = skip_until(byte::bytes(&b"TAG"[..]));
+    /// assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
+    /// assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
     ///
-    ///     // `attempt` must be used if the `end` should be consume input before failing
-    ///     let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
-    ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
-    /// }
+    /// // `attempt` must be used if the `end` should consume input before failing
+    /// let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
+    /// assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
+    /// # }
     /// ```
     pub fn skip_until[Input, P](end: P)(Input) -> ()
     where [
@@ -1332,7 +1332,7 @@ parser! {
     pub struct SkipRepeatUntil;
     type PartialState = <With<RepeatUntil<Sink, P, E>, Value<Input, ()>> as Parser<Input>>::PartialState;
     /// Skips input until `end` is encountered or `end` indicates that it has committed input before
-    /// failing (`attempt` can be used to make it look like it has not committed any input)
+    /// failing (`attempt` can be used to continue skipping even if `end` has committed input)
     ///
     /// ```
     /// # extern crate combine;
@@ -1349,7 +1349,8 @@ parser! {
     ///     assert_eq!(byte_parser.parse(&b"123TAG"[..]), Ok(((), &b"TAG"[..])));
     ///     assert!(byte_parser.parse(&b"123TATAG"[..]).is_err());
     ///
-    ///     // `attempt` must be used if the `end` should be consume input before failing
+    ///     // `attempt` must be used because the `end` will commit to `TA` before failing,
+    ///     // but we want to continue skipping
     ///     let mut byte_parser = skip_until(attempt(byte::bytes(&b"TAG"[..])));
     ///     assert_eq!(byte_parser.parse(&b"123TATAG"[..]), Ok(((), &b"TAG"[..])));
     /// }
