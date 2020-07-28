@@ -46,7 +46,7 @@ Larger examples can be found in the [examples][], [tests][] and [benches][] fold
 
 * __zero-copy parsing__ - When parsing in memory data, combine can parse without copying. See the [range module](https://docs.rs/combine/3.*/combine/parser/range/index.html) for parsers specialized for zero-copy parsing.
 
-* __partial parsing__ - Combine parsers can be stopped at any point during parsing and later be resumed without losing any progress. This makes it possible to start parsing partial data coming from and io device such as a socket without worrying about if enough data is present to complete the parse. If more data is needed the parser will stop and may be resumed at the same point once more data is available. See the [async example](https://github.com/Marwes/combine/blob/master/examples/async.rs) for an example and [this post](https://marwes.github.io/2018/02/08/combine-3.html) for an introduction.
+* __partial parsing__ - Combine parsers can be stopped at any point during parsing and later be resumed without losing any progress. This makes it possible to start parsing partial data coming from an io device such as a socket without worrying about if enough data is present to complete the parse. If more data is needed the parser will stop and may be resumed at the same point once more data is available. See the [async example](https://github.com/Marwes/combine/blob/master/examples/async.rs) for an example and [this post](https://marwes.github.io/2018/02/08/combine-3.html) for an introduction.
 
 ## About
 
