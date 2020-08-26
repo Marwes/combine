@@ -1,3 +1,13 @@
+<a name="v4.3.1"></a>
+### v4.3.1 (2020-08-26)
+
+
+#### Bug Fixes
+
+*   Make the decode macros work for redis ([82b908d8](https://github.com/Marwes/combine/commit/82b908d80ac21aeab27b169a1f1857a68a6bb11c))
+
+
+
 <a name="v4.3.0"></a>
 ## v4.3.0 (2020-07-10)
 
