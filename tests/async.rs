@@ -637,7 +637,7 @@ fn decode_std() {
             assert_eq!(
                 combine::decode!(
                     decoder,
-                    &mut read,
+                    read,
                     {
                         let word = many1(satisfy(|b| !is_whitespace(b)));
                         sep_end_by(word, skip_many1(satisfy(is_whitespace)))
@@ -673,7 +673,7 @@ fn decode_tokio_02() {
                 assert_eq!(
                     combine::decode_tokio_02!(
                         decoder,
-                        &mut read,
+                        read,
                         {
                             let word = many1(satisfy(|b| !is_whitespace(b)));
                             sep_end_by(word, skip_many1(satisfy(is_whitespace)))
@@ -706,7 +706,7 @@ fn decode_async_std() {
                 assert_eq!(
                     combine::decode_futures_03!(
                         decoder,
-                        &mut read,
+                        read,
                         {
                             let word = many1(satisfy(|b| !is_whitespace(b)));
                             sep_end_by(word, skip_many1(satisfy(is_whitespace)))
@@ -742,7 +742,7 @@ async fn decode_loop() {
         async {
             decode_tokio_02!(
                 decoder,
-                &mut read,
+                read,
                 many1(satisfy(|b| !is_whitespace(b))),
                 |input, _position| combine::easy::Stream::from(input),
             )
@@ -754,7 +754,7 @@ async fn decode_loop() {
 
         if decode_tokio_02!(
             decoder,
-            &mut read,
+            read,
             skip_many1(satisfy(is_whitespace)),
             |input, _position| combine::easy::Stream::from(input),
         )

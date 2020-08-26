@@ -341,7 +341,7 @@ where
     }
 }
 
-#[cfg(feature = "futures-util-03")]
+#[cfg(feature = "futures-03")]
 fn poll_extend_buf<R>(
     buf: &mut BytesMut,
     cx: &mut Context<'_>,
@@ -482,6 +482,7 @@ impl<R: Read> BufRead for BufReader<R> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "futures-util-03")]
 mod tests {
     use super::{BufReader, Bufferless, CombineRead};
 
@@ -537,6 +538,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "tokio-02")]
     async fn buf_reader_extend_buf() {
         let read = BufReader::with_capacity(3, &[1u8, 2, 3, 4, 5, 6, 7, 8, 9, 0][..]);
         futures_util_03::pin_mut!(read);

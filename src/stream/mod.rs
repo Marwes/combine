@@ -1312,7 +1312,7 @@ where
 /// assert_eq!(
 ///     decode!(
 ///         decoder,
-///         &mut read,
+///         read,
 ///         {
 ///             let word = many1(satisfy(|b| !is_whitespace(b)));
 ///             sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
@@ -1337,7 +1337,7 @@ macro_rules! decode {
     ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
         match $decoder {
             ref mut decoder => match $read {
-                mut read => 'outer: loop {
+                ref mut read => 'outer: loop {
                     let (opt, removed) = {
                         let (state, position, buffer, end_of_input) = decoder.__inner();
                         let buffer =
@@ -1359,13 +1359,13 @@ macro_rules! decode {
                         }
                     };
 
-                    decoder.advance(read, removed);
+                    decoder.advance(&mut *read, removed);
 
                     if let Some(v) = opt {
                         break 'outer Ok(v);
                     }
 
-                    match decoder.__before_parse(&mut read) {
+                    match decoder.__before_parse(&mut *read) {
                         Ok(x) => x,
                         Err(error) => {
                             break 'outer Err($crate::stream::decoder::Error::Io {
@@ -1408,7 +1408,7 @@ macro_rules! decode {
 ///     assert_eq!(
 ///         decode_futures_03!(
 ///             decoder,
-///             &mut read,
+///             read,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
 ///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
@@ -1435,11 +1435,11 @@ macro_rules! decode_futures_03 {
     ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
         match $decoder {
             ref mut decoder => match $read {
-                mut read => 'outer: loop {
+                ref mut read => 'outer: loop {
                     let (opt, removed) = {
                         let (state, position, buffer, end_of_input) = decoder.__inner();
                         let buffer =
-                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, read);
+                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &mut *read);
 
                         let mut stream = $crate::stream::call_with2(
                             $crate::stream::MaybePartialStream(buffer, !end_of_input),
@@ -1455,14 +1455,14 @@ macro_rules! decode_futures_03 {
                         }
                     };
 
-                    decoder.advance_pin(std::pin::Pin::new(&mut read), removed);
+                    decoder.advance_pin(std::pin::Pin::new(&mut *read), removed);
 
                     if let Some(v) = opt {
                         break 'outer Ok(v);
                     }
 
 
-                    match decoder.__before_parse_async(std::pin::Pin::new(&mut read)).await {
+                    match decoder.__before_parse_async(std::pin::Pin::new(&mut *read)).await {
                         Ok(_) => (),
                         Err(error) => {
                             break 'outer Err($crate::stream::decoder::Error::Io {
@@ -1502,7 +1502,7 @@ macro_rules! decode_futures_03 {
 ///     assert_eq!(
 ///         decode_tokio_02!(
 ///             decoder,
-///             &mut read,
+///             read,
 ///             {
 ///                 let word = many1(satisfy(|b| !is_whitespace(b)));
 ///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
@@ -1528,11 +1528,11 @@ macro_rules! decode_tokio_02 {
     ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
         match $decoder {
             ref mut decoder => match $read {
-                mut read => 'outer: loop {
+                ref mut read => 'outer: loop {
                     let (opt, removed) = {
                         let (state, position, buffer, end_of_input) = decoder.__inner();
                         let buffer =
-                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, read);
+                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &mut *read);
                         let mut stream = $crate::stream::call_with2(
                             $crate::stream::MaybePartialStream(buffer, !end_of_input),
                             *position,
@@ -1556,7 +1556,7 @@ macro_rules! decode_tokio_02 {
                     }
 
                     match decoder
-                        .__before_parse_tokio(std::pin::Pin::new(&mut read))
+                        .__before_parse_tokio(std::pin::Pin::new(&mut *read))
                         .await
                     {
                         Ok(x) => x,
