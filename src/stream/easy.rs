@@ -601,10 +601,7 @@ impl<T, R, P> Errors<T, R, P> {
     /// Constructs a `ParseError` with multiple causes.
     #[inline]
     pub fn from_errors(position: P, errors: Vec<Error<T, R>>) -> Errors<T, R, P> {
-        Errors {
-            position: position,
-            errors: errors,
-        }
+        Errors { position, errors }
     }
 
     /// Constructs an end of input error. Should be returned by parsers which encounter end of

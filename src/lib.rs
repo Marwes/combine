@@ -515,7 +515,7 @@ macro_rules! combine_parser_impl {
                 $($where_clause)*
         {
             $type_name {
-                $($arg : $arg,)*
+                $($arg,)*
                 __marker: $crate::lib::marker::PhantomData
             }
         }

@@ -193,8 +193,8 @@ where
 
     CountMinMax {
         parser,
-        min: min,
-        max: max,
+        min,
+        max,
         _marker: PhantomData,
     }
 }
@@ -290,7 +290,7 @@ where
     {
         match self.state {
             State::Ok | State::PeekErr => {
-                let value = mem::replace(value, O::default());
+                let value = mem::take(value);
                 if self.committed {
                     CommitOk(value)
                 } else {
@@ -1165,8 +1165,8 @@ where
                 Ok((_, rest)) => {
                     ctry!(input.reset(before).committed());
                     return match committed.merge(rest) {
-                        Commit::Commit(()) => CommitOk(mem::replace(output, F::default())),
-                        Commit::Peek(()) => PeekOk(mem::replace(output, F::default())),
+                        Commit::Commit(()) => CommitOk(mem::take(output)),
+                        Commit::Peek(()) => PeekOk(mem::take(output)),
                     };
                 }
                 Err(Commit::Peek(_)) => {
@@ -1295,8 +1295,8 @@ where
                     Ok((_, rest)) => {
                         ctry!(input.reset(before).committed());
                         return match committed.merge(rest) {
-                            Commit::Commit(()) => CommitOk(mem::replace(output, F::default())),
-                            Commit::Peek(()) => PeekOk(mem::replace(output, F::default())),
+                            Commit::Commit(()) => CommitOk(mem::take(output)),
+                            Commit::Peek(()) => PeekOk(mem::take(output)),
                         };
                     }
                     Err(Commit::Peek(_)) => {
@@ -1577,7 +1577,7 @@ where
 
         opt_iter.take();
 
-        let value = mem::replace(buf, F::default());
+        let value = mem::take(buf);
         if *committed {
             *committed = false;
             CommitOk(value)
