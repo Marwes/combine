@@ -430,8 +430,7 @@ fn memslice(needle: &[u8], haystack: &[u8]) -> Option<usize> {
         Some(x) => x,
         None => return Some(0),
     };
-    let mut iter = ::memchr::memchr_iter(prefix, haystack);
-    while let Some(i) = iter.next() {
+    for i in memchr::memchr_iter(prefix, haystack) {
         if haystack[i + 1..].starts_with(suffix) {
             return Some(i);
         }

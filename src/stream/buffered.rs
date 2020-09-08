@@ -70,7 +70,7 @@ where
     pub fn new(iter: Input, lookahead: usize) -> Stream<Input> {
         Stream {
             offset: 0,
-            iter: iter,
+            iter,
             buffer_offset: 0,
             buffer: VecDeque::with_capacity(lookahead),
         }
@@ -125,9 +125,7 @@ where
             Ok(token)
         } else if self.offset < self.buffer_offset - self.buffer.len() {
             // We have backtracked to far
-            Err(StreamError::message_static_message(
-                "Backtracked to far".into(),
-            ))
+            Err(StreamError::message_static_message("Backtracked to far"))
         } else {
             let value = self.buffer[self.buffer.len() - (self.buffer_offset - self.offset)]
                 .0

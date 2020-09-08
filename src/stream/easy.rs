@@ -372,7 +372,7 @@ where
     }
     #[inline]
     fn from_error(position: Position, err: Self::StreamError) -> Self {
-        Self::new(position, Error::from(err))
+        Self::new(position, err)
     }
 
     #[inline]
