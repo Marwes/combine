@@ -1005,7 +1005,7 @@ where
 
 /// Newtype for constructing a stream from a slice where the items in the slice are not copyable.
 #[derive(Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct SliceStream<'a, T: 'a>(pub &'a [T]);
+pub struct SliceStream<'a, T>(pub &'a [T]);
 
 impl<'a, T> Clone for SliceStream<'a, T> {
     fn clone(&self) -> SliceStream<'a, T> {

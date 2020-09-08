@@ -124,11 +124,11 @@ where
 
 static REQUESTS: &'static [u8] = include_bytes!("http-requests.txt");
 
-fn http_requests_small(b: &mut Bencher) {
+fn http_requests_small(b: &mut Bencher<'_>) {
     http_requests_bench(b, easy::Stream(REQUESTS))
 }
 
-fn http_requests_large(b: &mut Bencher) {
+fn http_requests_large(b: &mut Bencher<'_>) {
     use std::iter;
 
     let mut buffer = Vec::with_capacity(REQUESTS.len() * 5);
@@ -138,7 +138,7 @@ fn http_requests_large(b: &mut Bencher) {
     http_requests_bench(b, easy::Stream(&buffer[..]))
 }
 
-fn http_requests_large_cheap_error(b: &mut Bencher) {
+fn http_requests_large_cheap_error(b: &mut Bencher<'_>) {
     use std::iter;
 
     let mut buffer = Vec::with_capacity(REQUESTS.len() * 5);
@@ -148,7 +148,7 @@ fn http_requests_large_cheap_error(b: &mut Bencher) {
     http_requests_bench(b, &buffer[..])
 }
 
-fn http_requests_bench<'a, Input>(b: &mut Bencher, buffer: Input)
+fn http_requests_bench<'a, Input>(b: &mut Bencher<'_>, buffer: Input)
 where
     Input: RangeStream<Token = u8, Range = &'a [u8]> + Clone,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position> + fmt::Debug,

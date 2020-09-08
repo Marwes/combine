@@ -1,5 +1,5 @@
 #![cfg(feature = "std")]
-extern crate combine;
+
 
 use combine::{
     attempt, choice, many, many1,

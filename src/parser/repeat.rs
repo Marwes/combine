@@ -232,7 +232,7 @@ parser! {
 
 pub struct Iter<'a, Input, P, S, M>
 where
-    Input: Stream + 'a,
+    Input: Stream,
     P: Parser<Input>,
 {
     parser: P,

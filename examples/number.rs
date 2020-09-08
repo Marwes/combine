@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate combine;
+
 
 #[cfg(not(feature = "std"))]
 use core::str;

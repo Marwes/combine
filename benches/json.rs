@@ -238,7 +238,7 @@ fn test_data() -> String {
     data
 }
 
-fn bench_json(bencher: &mut Bencher) {
+fn bench_json(bencher: &mut Bencher<'_>) {
     let data = test_data();
     let mut parser = json_value();
     match parser.easy_parse(position::Stream::new(&data[..])) {
@@ -255,7 +255,7 @@ fn bench_json(bencher: &mut Bencher) {
     });
 }
 
-fn bench_json_core_error(bencher: &mut Bencher) {
+fn bench_json_core_error(bencher: &mut Bencher<'_>) {
     let data = test_data();
     let mut parser = json_value();
     match parser.parse(position::Stream::new(&data[..])) {
@@ -272,7 +272,7 @@ fn bench_json_core_error(bencher: &mut Bencher) {
     });
 }
 
-fn bench_json_core_error_no_position(bencher: &mut Bencher) {
+fn bench_json_core_error_no_position(bencher: &mut Bencher<'_>) {
     let data = test_data();
     let mut parser = json_value();
     match parser.parse(&data[..]) {
@@ -289,7 +289,7 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher) {
     });
 }
 
-fn bench_buffered_json(bencher: &mut Bencher) {
+fn bench_buffered_json(bencher: &mut Bencher<'_>) {
     let data = test_data();
     bencher.iter(|| {
         let buffer =

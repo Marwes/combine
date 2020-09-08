@@ -36,7 +36,7 @@ where
 {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut task::Context,
+        cx: &mut task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
         match self.ops.next() {
@@ -88,7 +88,7 @@ where
 {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut task::Context,
+        cx: &mut task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
         match self.ops.next() {

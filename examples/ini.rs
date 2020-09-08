@@ -1,5 +1,5 @@
 //! Parser example for INI files.
-extern crate combine;
+
 
 use std::{
     collections::HashMap,
@@ -25,7 +25,7 @@ impl<E> fmt::Display for Error<E>
 where
     E: fmt::Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::Io(ref err) => write!(f, "{}", err),
             Error::Parse(ref err) => write!(f, "{}", err),
