@@ -107,7 +107,7 @@ where
     P: FnMut(Input::Token) -> bool,
 {
     Satisfy {
-        predicate: predicate,
+        predicate,
         _marker: PhantomData,
     }
 }
@@ -161,7 +161,7 @@ where
     P: FnMut(Input::Token) -> Option<R>,
 {
     SatisfyMap {
-        predicate: predicate,
+        predicate,
         _marker: PhantomData,
     }
 }
@@ -211,7 +211,7 @@ where
     Input::Token: PartialEq,
 {
     Token {
-        c: c,
+        c,
         _marker: PhantomData,
     }
 }
@@ -414,8 +414,8 @@ where
     I: Stream,
 {
     TokensCmp {
-        cmp: cmp,
-        tokens: tokens,
+        cmp,
+        tokens,
         _marker: PhantomData,
     }
 }
@@ -513,7 +513,7 @@ where
     Input::Token: PartialEq<T::Item>,
 {
     OneOf {
-        tokens: tokens,
+        tokens,
         _marker: PhantomData,
     }
 }
@@ -571,7 +571,7 @@ where
     Input::Token: PartialEq<T::Item>,
 {
     NoneOf {
-        tokens: tokens,
+        tokens,
         _marker: PhantomData,
     }
 }

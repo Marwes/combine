@@ -1005,7 +1005,7 @@ where
 
 /// Newtype for constructing a stream from a slice where the items in the slice are not copyable.
 #[derive(Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct SliceStream<'a, T: 'a>(pub &'a [T]);
+pub struct SliceStream<'a, T>(pub &'a [T]);
 
 impl<'a, T> Clone for SliceStream<'a, T> {
     fn clone(&self) -> SliceStream<'a, T> {
@@ -1439,7 +1439,7 @@ macro_rules! decode_futures_03 {
                     let (opt, removed) = {
                         let (state, position, buffer, end_of_input) = decoder.__inner();
                         let buffer =
-                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &mut *read);
+                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &*read);
 
                         let mut stream = $crate::stream::call_with2(
                             $crate::stream::MaybePartialStream(buffer, !end_of_input),
@@ -1532,7 +1532,7 @@ macro_rules! decode_tokio_02 {
                     let (opt, removed) = {
                         let (state, position, buffer, end_of_input) = decoder.__inner();
                         let buffer =
-                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &mut *read);
+                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &*read);
                         let mut stream = $crate::stream::call_with2(
                             $crate::stream::MaybePartialStream(buffer, !end_of_input),
                             *position,

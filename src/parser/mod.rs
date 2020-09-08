@@ -777,7 +777,7 @@ pub trait Parser<Input: Stream> {
     /// ```
     ///
     /// [`many`]: ../combinator/fn.many.html
-    fn iter(self, input: &mut Input) -> Iter<Input, Self, Self::PartialState, FirstMode>
+    fn iter(self, input: &mut Input) -> Iter<'_, Input, Self, Self::PartialState, FirstMode>
     where
         Self: Parser<Input> + Sized,
     {

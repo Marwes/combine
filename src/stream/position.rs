@@ -278,7 +278,7 @@ impl Positioner<char> for SourcePosition {
 
     #[inline]
     fn position(&self) -> SourcePosition {
-        self.clone()
+        *self
     }
 
     #[inline]
@@ -292,7 +292,7 @@ impl Positioner<char> for SourcePosition {
 
     #[inline]
     fn checkpoint(&self) -> Self::Checkpoint {
-        self.clone()
+        *self
     }
 
     #[inline]
@@ -307,7 +307,7 @@ impl Positioner<u8> for SourcePosition {
 
     #[inline]
     fn position(&self) -> SourcePosition {
-        self.clone()
+        *self
     }
 
     #[inline]
@@ -321,7 +321,7 @@ impl Positioner<u8> for SourcePosition {
 
     #[inline]
     fn checkpoint(&self) -> Self::Checkpoint {
-        self.clone()
+        *self
     }
 
     #[inline]

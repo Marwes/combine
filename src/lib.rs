@@ -515,7 +515,7 @@ macro_rules! combine_parser_impl {
                 $($where_clause)*
         {
             $type_name {
-                $($arg : $arg,)*
+                $($arg,)*
                 __marker: $crate::lib::marker::PhantomData
             }
         }
@@ -908,7 +908,7 @@ mod std_tests {
         #[derive(Debug)]
         struct Error;
         impl fmt::Display for Error {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "error")
             }
         }
@@ -956,19 +956,19 @@ mod std_tests {
         }
 
         impl fmt::Display for CloneOnly {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "{}", self.0)
             }
         }
 
         impl<T: fmt::Debug> fmt::Display for DisplayVec<T> {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "[{:?}]", self.0)
             }
         }
 
         impl fmt::Display for ExtractedError {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 writeln!(f, "Parse error at {}", self.0)?;
                 Error::fmt_errors(&(self.1).0, f)
             }
