@@ -61,7 +61,7 @@ where
 {
     let position = input.position();
     match uncons(input) {
-        PeekOk(c) | CommitOk(c) => match predicate(c.clone()) {
+        PeekOk(c) | CommitOk(c) => match predicate(c) {
             Some(c) => CommitOk(c),
             None => PeekErr(Input::Error::empty(position).into()),
         },
@@ -262,7 +262,7 @@ where
                     return if committed {
                         CommitErr(error.error)
                     } else {
-                        PeekErr(error.into())
+                        PeekErr(error)
                     };
                 }
                 CommitErr(mut error) => {
@@ -632,14 +632,12 @@ where
 ///
 /// ```
 /// # use combine::*;
-/// # fn main() {
 /// #[derive(Debug, PartialEq)]
 /// struct NoClone;
 /// let result = produce(|| vec![NoClone])
 ///     .parse("hello world")
 ///     .map(|x| x.0);
 /// assert_eq!(result, Ok(vec![NoClone]));
-/// # }
 /// ```
 pub fn produce<Input, F, R>(f: F) -> Produce<Input, F>
 where

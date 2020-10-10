@@ -326,7 +326,7 @@ impl<T> Commit<T> {
     {
         match self {
             Commit::Commit(x) => match f(x) {
-                Ok((v, Commit::Peek(rest))) => Ok((v, Commit::Commit(rest))),
+                Ok((v, Commit::Peek(()))) => Ok((v, Commit::Commit(()))),
                 Err(Commit::Peek(err)) => Err(Commit::Commit(err)),
                 y => y,
             },
@@ -835,7 +835,7 @@ pub struct Tracked<E> {
 impl<E> From<E> for Tracked<E> {
     fn from(error: E) -> Self {
         Tracked {
-            error: error,
+            error,
             offset: ErrorOffset(1),
         }
     }

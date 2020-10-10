@@ -50,7 +50,7 @@ where
             // We have backtracked to far
             Err(Self::Error::from_error(
                 self.position(),
-                StreamErrorFor::<Self>::message_static_message("Backtracked to far".into()),
+                StreamErrorFor::<Self>::message_static_message("Backtracked to far"),
             ))
         } else {
             self.offset = checkpoint;
@@ -120,7 +120,7 @@ where
             if self.buffer.len() == self.buffer.capacity() {
                 self.buffer.pop_front();
             }
-            self.buffer.push_back((token.clone(), position.clone()));
+            self.buffer.push_back((token.clone(), position));
             self.offset += 1;
             Ok(token)
         } else if self.offset < self.buffer_offset - self.buffer.len() {
