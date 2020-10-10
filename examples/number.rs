@@ -1,7 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-
-
 #[cfg(not(feature = "std"))]
 use core::str;
 

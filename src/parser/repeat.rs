@@ -1535,7 +1535,7 @@ where
                 }
                 PeekErr(err) => {
                     if let Err(err) = input.reset(before) {
-                        return Err((item, CommitErr(err)))
+                        return Err((item, CommitErr(err)));
                     }
                     Err((
                         item,

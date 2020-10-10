@@ -519,7 +519,9 @@ impl<T, R> Error<T, R> {
         // First print the token that we did not expect
         // There should really just be one unexpected message at this point though we print them
         // all to be safe
-        let unexpected = errors.iter().filter(|e| matches!(**e, Error::Unexpected(_)));
+        let unexpected = errors
+            .iter()
+            .filter(|e| matches!(**e, Error::Unexpected(_)));
         for error in unexpected {
             writeln!(f, "{}", error)?;
         }
@@ -546,7 +548,9 @@ impl<T, R> Error<T, R> {
             writeln!(f)?;
         }
         // If there are any generic messages we print them out last
-        let messages = errors.iter().filter(|e| matches!(**e, Error::Message(_) | Error::Other(_)));
+        let messages = errors
+            .iter()
+            .filter(|e| matches!(**e, Error::Message(_) | Error::Other(_)));
         for error in messages {
             writeln!(f, "{}", error)?;
         }

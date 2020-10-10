@@ -186,7 +186,11 @@
 //! [fn parser]: parser/function/fn.parser.html
 //! [`parser!`]: macro.parser.html
 // inline is only used on trivial functions returning parsers
-#![allow(clippy::inline_always, clippy::type_complexity, clippy::too_many_arguments)]
+#![allow(
+    clippy::inline_always,
+    clippy::type_complexity,
+    clippy::too_many_arguments
+)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(inline)]

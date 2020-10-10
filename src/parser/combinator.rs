@@ -391,7 +391,10 @@ where
                     if input.is_partial() && input_at_eof(input) {
                         ctry!(input.reset(checkpoint).committed());
                     }
-                    CommitErr(<Input as StreamOnce>::Error::from_error(position, err.into()))
+                    CommitErr(<Input as StreamOnce>::Error::from_error(
+                        position,
+                        err.into(),
+                    ))
                 }
             },
             PeekErr(err) => PeekErr(err),

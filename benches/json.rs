@@ -125,9 +125,7 @@ where
         });
         match c {
             '\\' => committed.combine(|_| back_slash_char.parse_stream(input).into_result()),
-            '"' => Err(Commit::Peek(
-                Input::Error::empty(input.position()).into(),
-            )),
+            '"' => Err(Commit::Peek(Input::Error::empty(input.position()).into())),
             _ => Ok((c, committed)),
         }
     })

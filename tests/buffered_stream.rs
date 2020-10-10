@@ -1,6 +1,5 @@
 #![cfg(feature = "std")]
 
-
 use combine::{
     attempt, choice, many, many1,
     parser::{

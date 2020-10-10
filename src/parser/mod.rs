@@ -46,7 +46,7 @@ macro_rules! parse_mode {
         ) -> $crate::error::ParseResult<Self::Output, <$input_type as $crate::StreamOnce>::Error> {
             self.parse_mode($crate::parser::FirstMode, input, state)
         }
-    }
+    };
 }
 
 pub mod byte;
@@ -1030,7 +1030,10 @@ macro_rules! forward_deref {
         }
 
         #[inline]
-        fn add_committed_expected_error(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
+        fn add_committed_expected_error(
+            &mut self,
+            error: &mut Tracked<<Input as StreamOnce>::Error>,
+        ) {
             (**self).add_committed_expected_error(error)
         }
 
@@ -1038,7 +1041,7 @@ macro_rules! forward_deref {
         fn parser_count(&self) -> ErrorOffset {
             (**self).parser_count()
         }
-    }
+    };
 }
 
 impl<'a, P, Input> Parser<Input> for &'a mut P
