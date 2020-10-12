@@ -405,14 +405,20 @@ where
                 i += 1;
                 true
             } else {
-                !matches!(*e, Error::Expected(_))
+                match *e {
+                    Error::Expected(_) => false,
+                    _ => true,
+                }
             }
         });
         self_.error.add(info);
     }
 
     fn clear_expected(&mut self) {
-        self.errors.retain(|e| !matches!(*e, Error::Expected(_)))
+        self.errors.retain(|e| match *e {
+            Error::Expected(_) => false,
+            _ => true,
+        })
     }
 
     fn is_unexpected_end_of_input(&self) -> bool {
@@ -519,9 +525,10 @@ impl<T, R> Error<T, R> {
         // First print the token that we did not expect
         // There should really just be one unexpected message at this point though we print them
         // all to be safe
-        let unexpected = errors
-            .iter()
-            .filter(|e| matches!(**e, Error::Unexpected(_)));
+        let unexpected = errors.iter().filter(|e| match **e {
+            Error::Unexpected(_) => true,
+            _ => false,
+        });
         for error in unexpected {
             writeln!(f, "{}", error)?;
         }
@@ -548,9 +555,10 @@ impl<T, R> Error<T, R> {
             writeln!(f)?;
         }
         // If there are any generic messages we print them out last
-        let messages = errors
-            .iter()
-            .filter(|e| matches!(**e, Error::Message(_) | Error::Other(_)));
+        let messages = errors.iter().filter(|e| match **e {
+            Error::Message(_) | Error::Other(_) => true,
+            _ => false,
+        });
         for error in messages {
             writeln!(f, "{}", error)?;
         }
@@ -619,7 +627,10 @@ impl<T, R, P> Errors<T, R, P> {
     /// Removes all `Expected` errors in `self` and adds `info` instead.
     pub fn set_expected(&mut self, info: Info<T, R>) {
         // Remove all other expected messages
-        self.errors.retain(|e| !matches!(*e, Error::Expected(_)));
+        self.errors.retain(|e| match *e {
+            Error::Expected(_) => false,
+            _ => true,
+        });
         self.errors.push(Error::Expected(info));
     }
 

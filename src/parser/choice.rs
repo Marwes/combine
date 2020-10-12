@@ -252,7 +252,10 @@ macro_rules! tuple_choice_parser_inner {
                 Mode: ParseMode,
             {
                 let ($(ref mut $id,)+) = *self;
-                let empty = matches!(*state, self::$partial_state::Peek);
+                let empty = match *state {
+                    self::$partial_state::Peek => true,
+                    _ => false,
+                };
                 if mode.is_first() || empty {
                     let before_position = input.position();
                     let before = input.checkpoint();
