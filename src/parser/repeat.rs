@@ -1534,10 +1534,9 @@ where
                     Ok(v)
                 }
                 PeekErr(err) => {
-                    match input.reset(before) {
-                        Err(err) => return Err((item, CommitErr(err))),
-                        Ok(_) => (),
-                    };
+                    if let Err(err) = input.reset(before) {
+                        return Err((item, CommitErr(err)));
+                    }
                     Err((
                         item,
                         if *committed {

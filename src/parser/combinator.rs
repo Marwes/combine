@@ -324,7 +324,7 @@ where
             },
             CommitOk(o) => match (self.1)(o) {
                 Ok(x) => CommitOk(x),
-                Err(err) => CommitErr(err.into()),
+                Err(err) => CommitErr(err),
             },
             PeekErr(err) => PeekErr(err),
             CommitErr(err) => CommitErr(err),
@@ -391,7 +391,10 @@ where
                     if input.is_partial() && input_at_eof(input) {
                         ctry!(input.reset(checkpoint).committed());
                     }
-                    CommitErr(<Input as StreamOnce>::Error::from_error(position, err.into()).into())
+                    CommitErr(<Input as StreamOnce>::Error::from_error(
+                        position,
+                        err.into(),
+                    ))
                 }
             },
             PeekErr(err) => PeekErr(err),
@@ -447,7 +450,7 @@ impl<F, P> Recognize<F, P> {
                         }
                     }
                 }
-                PeekOk(mem::replace(elements, F::default()))
+                PeekOk(mem::take(elements))
             }
             CommitOk(_) => {
                 let last_position = input.position();
@@ -464,7 +467,7 @@ impl<F, P> Recognize<F, P> {
                         }
                     }
                 }
-                CommitOk(mem::replace(elements, F::default()))
+                CommitOk(mem::take(elements))
             }
             CommitErr(err) => {
                 let last_position = input.position();
@@ -846,7 +849,7 @@ where
     {
         let mut new_child_state;
         let result = {
-            let child_state = if let None = state.0 {
+            let child_state = if state.0.is_none() {
                 new_child_state = Some(Default::default());
                 new_child_state.as_mut().unwrap()
             } else {
@@ -946,7 +949,7 @@ where
     {
         let mut new_child_state;
         let result = {
-            let child_state = if let None = state.0 {
+            let child_state = if state.0.is_none() {
                 new_child_state = Some(Default::default());
                 new_child_state.as_mut().unwrap()
             } else {

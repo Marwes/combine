@@ -552,7 +552,7 @@ impl<T, R> Error<T, R> {
             write!(f, "{} `{}`", s, message)?;
         }
         if expected_count != 0 {
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         // If there are any generic messages we print them out last
         let messages = errors.iter().filter(|e| match **e {

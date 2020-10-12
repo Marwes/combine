@@ -1,6 +1,5 @@
 //! Parser example for INI files.
 
-
 use std::{
     collections::HashMap,
     env, fmt,

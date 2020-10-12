@@ -12,7 +12,7 @@
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
 //! parses.
 
-use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, mem, str::Chars};
+use crate::lib::{cmp::Ordering, fmt, marker::PhantomData, str::Chars};
 
 use crate::{
     error::{
@@ -497,6 +497,7 @@ impl<'a> Positioned for &'a str {
     }
 }
 
+#[allow(clippy::while_let_loop)]
 fn str_uncons_while<'a, F>(slice: &mut &'a str, mut chars: Chars<'a>, mut f: F) -> &'a str
 where
     F: FnMut(char) -> bool,
@@ -834,7 +835,7 @@ impl<S> From<S> for CompleteStream<S> {
 impl<'s, S> From<&'s mut S> for &'s mut CompleteStream<S> {
     fn from(t: &'s mut S) -> Self {
         // SAFETY repr(transparent) is specified on CompleteStream
-        unsafe { mem::transmute(t) }
+        unsafe { &mut *(t as *mut S as *mut CompleteStream<S>) }
     }
 }
 
