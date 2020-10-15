@@ -32,8 +32,8 @@ pub struct LanguageServerDecoder {
     content_length_parses: Rc<Cell<i32>>,
 }
 
-impl LanguageServerDecoder {
-    pub fn new() -> LanguageServerDecoder {
+impl Default for LanguageServerDecoder {
+    fn default() -> Self {
         LanguageServerDecoder {
             state: Default::default(),
             content_length_parses: Rc::new(Cell::new(0)),
@@ -161,12 +161,12 @@ async fn main() {
         PartialOp::Limited(2),
         PartialOp::Limited(3),
     ];
-    let ref mut reader = Cursor::new(input.as_bytes());
+    let reader = &mut Cursor::new(input.as_bytes());
     // Using the `partial_io` crate we emulate the partial reads that would happen when reading
     // asynchronously from an io device.
     let partial_reader = PartialAsyncRead::new(reader, seq);
 
-    let decoder = LanguageServerDecoder::new();
+    let decoder = LanguageServerDecoder::default();
     let content_length_parses = decoder.content_length_parses.clone();
 
     let result = FramedRead::new(partial_reader, decoder).try_collect().await;

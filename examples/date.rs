@@ -119,8 +119,8 @@ where
             // Its ok to just unwrap since we only parsed digits
             Date {
                 year: year.parse().unwrap(),
-                month: month,
-                day: day,
+                month,
+                day,
             }
         })
 }
@@ -143,10 +143,10 @@ where
         .map(|(hour, _, minute, _, second, time_zone)| {
             // Its ok to just unwrap since we only parsed digits
             Time {
-                hour: hour,
-                minute: minute,
-                second: second,
-                time_zone: time_zone,
+                hour,
+                minute,
+                second,
+                time_zone,
             }
         })
 }
@@ -158,10 +158,7 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (date(), char('T'), time()).map(|(date, _, time)| DateTime {
-        date: date,
-        time: time,
-    })
+    (date(), char('T'), time()).map(|(date, _, time)| DateTime { date, time })
 }
 
 #[test]
