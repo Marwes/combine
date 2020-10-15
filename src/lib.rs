@@ -189,7 +189,8 @@
 #![allow(
     clippy::inline_always,
     clippy::type_complexity,
-    clippy::too_many_arguments
+    clippy::too_many_arguments,
+    clippy::match_like_matches_macro
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 

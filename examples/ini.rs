@@ -93,8 +93,8 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (whitespace(), properties(), many(section())).map(|(_, global, sections)| Ini {
-        global: global,
-        sections: sections,
+        global,
+        sections,
     })
 }
 
