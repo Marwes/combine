@@ -92,10 +92,8 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (whitespace(), properties(), many(section())).map(|(_, global, sections)| Ini {
-        global,
-        sections,
-    })
+    (whitespace(), properties(), many(section()))
+        .map(|(_, global, sections)| Ini { global, sections })
 }
 
 #[test]

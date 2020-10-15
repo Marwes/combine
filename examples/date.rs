@@ -158,10 +158,7 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (date(), char('T'), time()).map(|(date, _, time)| DateTime {
-        date,
-        time,
-    })
+    (date(), char('T'), time()).map(|(date, _, time)| DateTime { date, time })
 }
 
 #[test]
