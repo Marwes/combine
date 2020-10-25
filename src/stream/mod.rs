@@ -50,16 +50,19 @@ macro_rules! clone_resetable {
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod buf_reader;
-#[cfg(feature = "std")]
 /// Stream wrapper which provides a `ResetStream` impl for `StreamOnce` impls which do not have
 /// one.
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod buffered;
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod easy;
 /// Stream wrapper which provides more detailed position information.
 pub mod position;
 /// Stream wrapper allowing `std::io::Read` to be used
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod read;
 /// Stream wrapper allowing custom state to be used.
 pub mod state;

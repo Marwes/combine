@@ -840,6 +840,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
     fn boxed<'a>(
         self,
     ) -> Box<dyn Parser<Input, Output = Self::Output, PartialState = Self::PartialState> + 'a>
@@ -920,6 +921,7 @@ pub trait Parser<Input: Stream> {
 
 /// Provides the `easy_parse` method which provides good error messages by default
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where
     Input::Token: PartialEq,
@@ -967,7 +969,6 @@ where
     /// ```
     ///
     /// [`ParseError`]: struct.ParseError.html
-    #[cfg(feature = "std")]
     fn easy_parse(
         &mut self,
         input: Input,

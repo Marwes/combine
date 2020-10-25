@@ -193,6 +193,7 @@
     clippy::match_like_matches_macro
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[doc(inline)]
 pub use crate::error::{ParseError, ParseResult, StdParseResult};
