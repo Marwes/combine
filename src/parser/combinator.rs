@@ -712,10 +712,12 @@ where
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 pub struct AnyPartialState(Option<Box<dyn std::any::Any>>);
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnyPartialStateParser<P>(P);
 
 #[cfg(feature = "std")]
@@ -802,6 +804,7 @@ where
 /// # }
 /// ```
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_partial_state<Input, P>(p: P) -> AnyPartialStateParser<P>
 where
     Input: Stream,
@@ -812,10 +815,12 @@ where
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 pub struct AnySendPartialState(Option<Box<dyn std::any::Any + Send>>);
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnySendPartialStateParser<P>(P);
 
 #[cfg(feature = "std")]
@@ -902,6 +907,7 @@ where
 /// # }
 /// ```
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_send_partial_state<Input, P>(p: P) -> AnySendPartialStateParser<P>
 where
     Input: Stream,
@@ -912,10 +918,12 @@ where
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 pub struct AnySendSyncPartialState(Option<Box<dyn std::any::Any + Send + Sync>>);
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnySendSyncPartialStateParser<P>(P);
 
 #[cfg(feature = "std")]
@@ -1001,6 +1009,7 @@ where
 /// # }
 /// ```
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_send_sync_partial_state<Input, P>(p: P) -> AnySendSyncPartialStateParser<P>
 where
     Input: Stream,

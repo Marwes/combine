@@ -46,7 +46,6 @@ impl<E: fmt::Display, P: fmt::Display> fmt::Display for Error<E, P> {
     }
 }
 
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 /// Used together with the `decode!` macro
 pub struct Decoder<S, P, C = Buffer> {
@@ -56,7 +55,6 @@ pub struct Decoder<S, P, C = Buffer> {
     end_of_input: bool,
 }
 
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<S, P> Decoder<S, P, Buffer>
 where
     P: Default,

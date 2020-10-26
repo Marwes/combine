@@ -133,13 +133,13 @@ pub trait CombineAsyncRead<R>: CombineBuffer<R> {
         Self: Sized;
 }
 
-#[doc(hidden)]
 #[cfg(feature = "futures-03")]
 pin_project_lite::pin_project! {
-pub struct ExtendBuf<'a, C, R> {
-    buffer: &'a mut C,
-    read: Pin<&'a mut R>
-}
+    #[doc(hidden)]
+    pub struct ExtendBuf<'a, C, R> {
+        buffer: &'a mut C,
+        read: Pin<&'a mut R>
+    }
 }
 
 #[cfg(feature = "futures-03")]
