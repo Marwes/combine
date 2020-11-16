@@ -1511,6 +1511,7 @@ impl<Input, P, Q> Parser<Input> for Spanned<P>
 where
     P: Parser<Input>,
     Input: Stream<Position = Span<Q>>,
+    Q: PartialEq,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
@@ -1528,8 +1529,13 @@ where
     {
         let start = input.position().start;
         self.0.parse_mode(mode, input, state).map_err(|mut err| {
-            let end = input.position().end;
-            err.set_position(Span { start, end });
+            let error_span = err.position();
+            // If an inner `spanned` combinator has already attached its span that will be more
+            // specific so only set a span if the current error has a position, not a span
+            if error_span.start == error_span.end {
+                let end = input.position().end;
+                err.set_position(Span { start, end });
+            }
             err
         })
     }

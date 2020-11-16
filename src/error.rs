@@ -466,6 +466,11 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
         errors
     }
 
+    fn position(&self) -> Position {
+        // TODO Remove the default implementation in a breaking release
+        unimplemented!()
+    }
+
     /// Sets the position of this `ParseError`
     fn set_position(&mut self, position: Position);
 
@@ -658,6 +663,10 @@ where
         err
     }
 
+    fn position(&self) -> Position {
+        Position::default()
+    }
+
     #[inline]
     fn set_position(&mut self, _position: Position) {}
 
@@ -840,6 +849,10 @@ where
     #[inline]
     fn from_error(_: Position, err: Self::StreamError) -> Self {
         err
+    }
+
+    fn position(&self) -> Position {
+        Position::default()
     }
 
     #[inline]

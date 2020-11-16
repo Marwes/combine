@@ -18,7 +18,7 @@ pub enum Error<E, P> {
 impl<'a, P> From<Error<crate::easy::Errors<u8, &'a [u8], P>, P>>
     for crate::easy::Errors<u8, &'a [u8], P>
 where
-    P: Ord,
+    P: Ord + Clone,
 {
     fn from(e: Error<crate::easy::Errors<u8, &'a [u8], P>, P>) -> Self {
         match e {

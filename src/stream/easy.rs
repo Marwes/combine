@@ -329,6 +329,11 @@ where
     }
 
     #[inline]
+    fn position(&self) -> Position {
+        Position::default()
+    }
+
+    #[inline]
     fn set_position(&mut self, _position: Position) {}
 
     #[inline]
@@ -412,7 +417,7 @@ impl<Item, Range, Position> crate::error::ParseError<Item, Range, Position>
 where
     Item: PartialEq,
     Range: PartialEq,
-    Position: Ord,
+    Position: Ord + Clone,
 {
     type StreamError = Error<Item, Range>;
     #[inline]
@@ -422,6 +427,11 @@ where
     #[inline]
     fn from_error(position: Position, err: Self::StreamError) -> Self {
         Self::new(position, err)
+    }
+
+    #[inline]
+    fn position(&self) -> Position {
+        self.position.clone()
     }
 
     #[inline]
