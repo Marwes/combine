@@ -10,7 +10,10 @@ use crate::{
         ResultExt, Token, Tracked,
     },
     parser::{
-        combinator::{and_then, flat_map, map, map_input, AndThen, Either, FlatMap, Map, MapInput},
+        combinator::{
+            and_then, flat_map, map, map_input, spanned, AndThen, Either, FlatMap, Map, MapInput,
+            Spanned,
+        },
         error::{expected, message, silent, Expected, Message, Silent},
         repeat::Iter,
         sequence::{then, then_partial, then_ref, Then, ThenPartial, ThenRef},
@@ -916,6 +919,32 @@ pub trait Parser<Input: Stream> {
         L: Parser<Input, Output = Self::Output>,
     {
         Either::Right(self)
+    }
+
+    /// Marks errors produced inside the `self` parser with the span from the start of the parse to
+    /// the end of it.
+    ///
+    /// [`p.spanned()`]: ../trait.Parser.html#method.spanned
+    ///
+    /// ```
+    /// use combine::{*, parser::{char::string, combinator::spanned}};
+    /// use combine::stream::{easy, span};
+    ///
+    /// let input = "hel";
+    /// let result = spanned(string("hello")).parse(
+    ///     span::Stream::<_, easy::Errors<_, _, span::Span<_>>>::from(easy::Stream::from(input)),
+    /// );
+    /// assert!(result.is_err());
+    /// assert_eq!(
+    ///     result.unwrap_err().position.map(|p| p.translate_position(input)),
+    ///     span::Span { start: 0, end: 3 },
+    /// );
+    /// ```
+    fn spanned(self) -> Spanned<Self>
+    where
+        Self: Sized,
+    {
+        spanned(self)
     }
 }
 

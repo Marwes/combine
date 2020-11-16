@@ -8,7 +8,6 @@ use crate::{
     },
     lib::marker::PhantomData,
     parser::ParseMode,
-    stream::span::Span,
     Parser, Stream, StreamOnce,
 };
 
@@ -243,47 +242,4 @@ where
     Input: Stream,
 {
     Silent(p)
-}
-
-#[derive(Clone)]
-pub struct Spanned<P>(P);
-impl<Input, P, Q> Parser<Input> for Spanned<P>
-where
-    P: Parser<Input>,
-    Input: Stream<Position = Span<Q>>,
-{
-    type Output = P::Output;
-    type PartialState = P::PartialState;
-
-    parse_mode!(Input);
-    #[inline]
-    fn parse_mode_impl<M>(
-        &mut self,
-        mode: M,
-        input: &mut Input,
-        state: &mut Self::PartialState,
-    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
-    where
-        M: ParseMode,
-    {
-        let start = input.position().start;
-        self.0.parse_mode(mode, input, state).map_err(|mut err| {
-            let end = input.position().end;
-            err.set_position(Span { start, end });
-            err
-        })
-    }
-
-    forward_parser!(Input, add_error, add_committed_expected_error, 0);
-}
-
-/// Equivalent to [`p.spanned()`].
-///
-/// [`p.spanned()`]: ../trait.Parser.html#method.spanned
-pub fn spanned<Input, P>(p: P) -> Spanned<P>
-where
-    P: Parser<Input>,
-    Input: Stream,
-{
-    Spanned(p)
 }

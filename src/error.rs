@@ -1057,12 +1057,6 @@ impl<O, E> From<StdParseResult2<O, E>> for ParseResult<O, E> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct Span<P> {
-    pub start: P,
-    pub end: P,
-}
-
 #[cfg(all(feature = "std", test))]
 mod tests_std {
 

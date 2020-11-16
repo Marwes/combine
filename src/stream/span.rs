@@ -6,7 +6,7 @@ use crate::{
     Positioned, RangeStream, RangeStreamOnce, StreamOnce,
 };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span<P> {
     pub start: P,
     pub end: P,
@@ -25,8 +25,17 @@ where
     }
 }
 
+impl<P> Span<P> {
+    pub fn map<Q>(self, mut f: impl FnMut(P) -> Q) -> Span<Q> {
+        Span {
+            start: f(self.start),
+            end: f(self.end),
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub struct Stream<S, E>(pub S, PhantomData<E>);
+pub struct Stream<S, E>(pub S, PhantomData<fn(E) -> E>);
 
 impl<S, E> From<S> for Stream<S, E> {
     fn from(stream: S) -> Self {
@@ -40,7 +49,7 @@ where
     S::Token: PartialEq,
     S::Range: PartialEq,
     E: crate::error::ParseError<S::Token, S::Range, Span<S::Position>>,
-    S::Error: ParseErrorInto<S::Token, S::Range, Span<S::Position>>,
+    S::Error: ParseErrorInto<S::Token, S::Range, S::Position>,
     <S::Error as crate::error::ParseError<S::Token, S::Range, S::Position>>::StreamError:
         StreamErrorInto<S::Token, S::Range>,
 {
@@ -65,7 +74,7 @@ where
     S::Token: PartialEq,
     S::Range: PartialEq,
     E: crate::error::ParseError<S::Token, S::Range, Span<S::Position>>,
-    S::Error: ParseErrorInto<S::Token, S::Range, Span<S::Position>>,
+    S::Error: ParseErrorInto<S::Token, S::Range, S::Position>,
     <S::Error as crate::error::ParseError<S::Token, S::Range, S::Position>>::StreamError:
         StreamErrorInto<S::Token, S::Range>,
 {
@@ -91,7 +100,7 @@ where
     S::Token: PartialEq,
     S::Range: PartialEq,
     E: crate::error::ParseError<S::Token, S::Range, Span<S::Position>>,
-    S::Error: ParseErrorInto<S::Token, S::Range, Span<S::Position>>,
+    S::Error: ParseErrorInto<S::Token, S::Range, S::Position>,
     <S::Error as crate::error::ParseError<S::Token, S::Range, S::Position>>::StreamError:
         StreamErrorInto<S::Token, S::Range>,
 {
@@ -138,7 +147,7 @@ where
     S::Token: PartialEq,
     S::Range: PartialEq,
     E: crate::error::ParseError<S::Token, S::Range, Span<S::Position>>,
-    S::Error: ParseErrorInto<S::Token, S::Range, Span<S::Position>>,
+    S::Error: ParseErrorInto<S::Token, S::Range, S::Position>,
     <S::Error as crate::error::ParseError<S::Token, S::Range, S::Position>>::StreamError:
         StreamErrorInto<S::Token, S::Range>,
 {
