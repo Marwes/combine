@@ -366,7 +366,7 @@ impl<Item, Range, Position> crate::error::ParseErrorInto<Item, Range, Position>
         T: crate::error::ParseError<Item2, Range2, Position2>,
         Item2: From<Item>,
         Range2: From<Range>,
-        Position2: From<Position> + Default,
+        Position2: From<Position>,
     {
         let mut error = T::empty(self.position.into());
         for err in self.errors {
