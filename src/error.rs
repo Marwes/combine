@@ -519,6 +519,31 @@ pub trait ParseError<Item, Range, Position>: Sized + PartialEq {
         T: ParseError<Item, Range, Position>;
 }
 
+/// Defines a conversion between two parse error types.
+///
+/// Like `ParseError::into_other` but with a more general signature
+/// (This will take the place of `into_other` on breaking release of combine)
+pub trait ParseErrorInto<Item, Range, Position>: Sized {
+    fn into_other_error<T, Item2, Range2, Position2>(self) -> T
+    where
+        T: ParseError<Item2, Range2, Position2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+        Position2: From<Position> + Default;
+}
+
+/// Defines a conversion between two stream error types.
+///
+/// Like `StreamError::into_other` but with a more general signature
+/// (This will take the place of `into_other` on breaking release of combine)
+pub trait StreamErrorInto<Item, Range>: Sized {
+    fn into_other_error<T, Item2, Range2>(self) -> T
+    where
+        T: StreamError<Item2, Range2>,
+        Item2: From<Item>,
+        Range2: From<Range>;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UnexpectedParse {
     Eoi,
@@ -663,6 +688,32 @@ where
         T: ParseError<Item, Range, Position>,
     {
         T::from_error(Position::default(), StreamError::into_other(self))
+    }
+}
+
+impl<Item, Range, Position> ParseErrorInto<Item, Range, Position> for UnexpectedParse {
+    fn into_other_error<T, Item2, Range2, Position2>(self) -> T
+    where
+        T: ParseError<Item2, Range2, Position2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+        Position2: From<Position> + Default,
+    {
+        T::from_error(
+            Position2::default(),
+            StreamErrorInto::<Item, Range>::into_other_error(self),
+        )
+    }
+}
+
+impl<Item, Range> StreamErrorInto<Item, Range> for UnexpectedParse {
+    fn into_other_error<T, Item2, Range2>(self) -> T
+    where
+        T: StreamError<Item2, Range2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+    {
+        StreamError::into_other(self)
     }
 }
 
@@ -818,6 +869,32 @@ where
         T: ParseError<Item, Range, Position>,
     {
         T::from_error(Position::default(), StreamError::into_other(self))
+    }
+}
+
+impl<Item, Range, Position> ParseErrorInto<Item, Range, Position> for StringStreamError {
+    fn into_other_error<T, Item2, Range2, Position2>(self) -> T
+    where
+        T: ParseError<Item2, Range2, Position2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+        Position2: From<Position> + Default,
+    {
+        T::from_error(
+            Position2::default(),
+            StreamErrorInto::<Item, Range>::into_other_error(self),
+        )
+    }
+}
+
+impl<Item, Range> StreamErrorInto<Item, Range> for StringStreamError {
+    fn into_other_error<T, Item2, Range2>(self) -> T
+    where
+        T: StreamError<Item2, Range2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+    {
+        StreamError::into_other(self)
     }
 }
 
