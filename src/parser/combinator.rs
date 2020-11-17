@@ -1511,7 +1511,8 @@ impl<Input, P, Q> Parser<Input> for Spanned<P>
 where
     P: Parser<Input>,
     Input: Stream<Position = Span<Q>>,
-    Q: PartialEq,
+    Input::Error: ParseError<Input::Token, Input::Range, Span<Q>>,
+    Q: Ord + Clone,
 {
     type Output = P::Output;
     type PartialState = P::PartialState;
