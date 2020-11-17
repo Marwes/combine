@@ -84,7 +84,7 @@ impl<R> BufReader<R> {
 
     /// Invalidates all data in the internal buffer.
     #[inline]
-    #[cfg(feature = "tokio-02")]
+    #[cfg(any(feature = "tokio-02", feature = "tokio-03"))]
     fn discard_buffer(self: Pin<&mut Self>) {
         let me = self.project();
         me.buf.clear();
@@ -109,7 +109,7 @@ pub trait CombineSyncRead<R>: CombineBuffer<R> {
     fn extend_buf_sync(&mut self, read: &mut R) -> io::Result<usize>;
 }
 
-#[cfg(feature = "tokio-02")]
+#[cfg(any(feature = "tokio-02", feature = "tokio-03"))]
 #[doc(hidden)]
 pub trait CombineRead<R, T: ?Sized>: CombineBuffer<R> {
     fn poll_extend_buf(
