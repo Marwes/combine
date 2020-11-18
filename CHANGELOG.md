@@ -1,3 +1,21 @@
+<a name="v4.4.0"></a>
+## v4.4.0 (2020-11-18)
+
+
+#### Features
+
+*   Add support for decoding using tokio_03 ([ce1612ff](https://github.com/Marwes/combine/commit/ce1612ffa0a15547bc967474b511ec35eaaf743f))
+*   Add a length_prefix combinator ([9e343b2a](https://github.com/Marwes/combine/commit/9e343b2a0067ea70b049369ea1023c364c14b19d), closes [#297](https://github.com/Marwes/combine/issues/297))
+*   Add a spanned combinator ([1a70f3f4](https://github.com/Marwes/combine/commit/1a70f3f4219eac71880cbb376e62d3f01c22d981))
+*   Add a spanned combinator ([9a8fead8](https://github.com/Marwes/combine/commit/9a8fead85b3eb0d7ee21f80d076af9f59aa408d1))
+*   Allow conversion between errors with different token,range,position types ([65fe0af2](https://github.com/Marwes/combine/commit/65fe0af27fa560f90da2723160efd2d1782bea4f), breaks [#](https://github.com/Marwes/combine/issues/))
+
+#### Breaking Changes
+
+*   Allow conversion between errors with different token,range,position types ([65fe0af2](https://github.com/Marwes/combine/commit/65fe0af27fa560f90da2723160efd2d1782bea4f), breaks [#](https://github.com/Marwes/combine/issues/))
+
+
+
 <a name="v4.3.2"></a>
 ### v4.3.2 (2020-09-08)
 
