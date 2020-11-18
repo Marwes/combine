@@ -696,7 +696,7 @@ where [
     len
         .and_then(|u| {
             usize::try_from(u)
-                .map_err(StreamErrorFor::<Input>::format)
+                .map_err(StreamErrorFor::<Input>::message_format)
         })
         .then_partial(|&mut len| take(len))
 }
