@@ -1561,7 +1561,103 @@ macro_rules! decode_tokio_02 {
                     }
 
                     match decoder
-                        .__before_parse_tokio(std::pin::Pin::new(&mut *read))
+                        .__before_parse_tokio_02(std::pin::Pin::new(&mut *read))
+                        .await
+                    {
+                        Ok(x) => x,
+                        Err(error) => {
+                            break 'outer Err($crate::stream::decoder::Error::Io {
+                                error,
+                                position: Clone::clone(decoder.position()),
+                            })
+                        }
+                    };
+                },
+            },
+        }
+    };
+}
+
+/// Parses an instance of `tokio::io::AsyncRead` as a `&[u8]` without reading the entire file into
+/// memory.
+///
+/// This is defined as a macro to work around the lack of Higher Ranked Types. See the
+/// example for how to pass a parser to the macro (constructing parts of the parser outside of
+/// the `decode!` call is unlikely to work.
+///
+/// ```
+/// # use tokio_03_dep as tokio;
+/// # use futures_03_dep as futures;
+/// use futures::pin_mut;
+/// use tokio::{
+///     fs::File,
+/// };
+///
+/// use combine::{decode_tokio_03, satisfy, skip_many1, many1, sep_end_by, Parser, stream::{Decoder, buf_reader::BufReader}};
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let mut read = BufReader::new(File::open("README.md").await.unwrap());
+///     let mut decoder = Decoder::new_bufferless();
+///     let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+///     assert_eq!(
+///         decode_tokio_03!(
+///             decoder,
+///             read,
+///             {
+///                 let word = many1(satisfy(|b| !is_whitespace(b)));
+///                 sep_end_by(word, skip_many1(satisfy(is_whitespace))).map(|words: Vec<Vec<u8>>| words.len())
+///             },
+///             |input, _position| combine::easy::Stream::from(input),
+///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
+///         Ok(819),
+///     );
+/// }
+/// ```
+#[cfg(feature = "tokio-03")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-03")))]
+#[macro_export]
+macro_rules! decode_tokio_03 {
+    ($decoder: expr, $read: expr, $parser: expr $(,)?) => {
+        $crate::decode_tokio_03!($decoder, $read, $parser, |input, _position| input)
+    };
+
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr $(,)?) => {
+        $crate::decode_tokio_03!($decoder, $read, $parser, $input_stream, |x| x)
+    };
+
+    ($decoder: expr, $read: expr, $parser: expr, $input_stream: expr, $post_decode: expr $(,)?) => {
+        match $decoder {
+            ref mut decoder => match $read {
+                ref mut read => 'outer: loop {
+                    let (opt, removed) = {
+                        let (state, position, buffer, end_of_input) = decoder.__inner();
+                        let buffer =
+                            $crate::stream::buf_reader::CombineBuffer::buffer(buffer, &*read);
+                        let mut stream = $crate::stream::call_with2(
+                            $crate::stream::MaybePartialStream(buffer, !end_of_input),
+                            *position,
+                            $input_stream,
+                        );
+                        let result = $crate::stream::decode($parser, &mut stream, state);
+                        *position = $crate::stream::Positioned::position(&stream);
+                        $crate::stream::call_with(stream, $post_decode);
+                        match result {
+                            Ok(x) => x,
+                            Err(err) => {
+                                break 'outer Err($crate::stream::decoder::Error::Parse(err))
+                            }
+                        }
+                    };
+
+                    decoder.advance_pin(std::pin::Pin::new(read), removed);
+
+                    if let Some(v) = opt {
+                        break 'outer Ok(v);
+                    }
+
+                    match decoder
+                        .__before_parse_tokio_03(std::pin::Pin::new(&mut *read))
                         .await
                     {
                         Ok(x) => x,
