@@ -8,7 +8,7 @@ use crate::{
     },
     lib::{fmt, marker::PhantomData, mem, str},
     parser::ParseMode,
-    stream::{input_at_eof, ResetStream, Stream, StreamErrorFor, StreamOnce},
+    stream::{input_at_eof, span::Span, ResetStream, Stream, StreamErrorFor, StreamOnce},
     Parser,
 };
 
@@ -1503,4 +1503,54 @@ where
         converter,
         _marker: PhantomData,
     }
+}
+
+#[derive(Clone)]
+pub struct Spanned<P>(P);
+impl<Input, P, Q> Parser<Input> for Spanned<P>
+where
+    P: Parser<Input>,
+    Input: Stream<Position = Span<Q>>,
+    Input::Error: ParseError<Input::Token, Input::Range, Span<Q>>,
+    Q: Ord + Clone,
+{
+    type Output = P::Output;
+    type PartialState = P::PartialState;
+
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        let start = input.position().start;
+        self.0.parse_mode(mode, input, state).map_err(|mut err| {
+            let error_span = err.position();
+            // If an inner `spanned` combinator has already attached its span that will be more
+            // specific so only set a span if the current error has a position, not a span
+            if error_span.start == error_span.end {
+                let end = input.position().end;
+                err.set_position(Span { start, end });
+            }
+            err
+        })
+    }
+
+    forward_parser!(Input, add_error, add_committed_expected_error, 0);
+}
+
+/// Equivalent to [`p.spanned()`].
+///
+/// [`p.spanned()`]: ../trait.Parser.html#method.spanned
+pub fn spanned<Input, P>(p: P) -> Spanned<P>
+where
+    P: Parser<Input>,
+    Input: Stream,
+{
+    Spanned(p)
 }

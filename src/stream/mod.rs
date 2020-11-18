@@ -64,6 +64,7 @@ pub mod position;
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod read;
+pub mod span;
 /// Stream wrapper allowing custom state to be used.
 pub mod state;
 

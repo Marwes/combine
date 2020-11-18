@@ -329,6 +329,11 @@ where
     }
 
     #[inline]
+    fn position(&self) -> Position {
+        Position::default()
+    }
+
+    #[inline]
     fn set_position(&mut self, _position: Position) {}
 
     #[inline]
@@ -358,12 +363,61 @@ where
     }
 }
 
+impl<Item, Range, Position> crate::error::ParseErrorInto<Item, Range, Position>
+    for Errors<Item, Range, Position>
+{
+    fn into_other_error<T, Item2, Range2, Position2>(self) -> T
+    where
+        T: crate::error::ParseError<Item2, Range2, Position2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+        Position2: From<Position>,
+    {
+        let mut error = T::empty(self.position.into());
+        for err in self.errors {
+            error.add(crate::error::StreamErrorInto::<Item, Range>::into_other_error(err));
+        }
+        error
+    }
+}
+
+impl<Item, Range> crate::error::StreamErrorInto<Item, Range> for Error<Item, Range> {
+    fn into_other_error<T, Item2, Range2>(self) -> T
+    where
+        T: crate::error::StreamError<Item2, Range2>,
+        Item2: From<Item>,
+        Range2: From<Range>,
+    {
+        match self {
+            Error::Unexpected(info) => match info {
+                Info::Token(x) => T::unexpected_token(x.into()),
+                Info::Range(x) => T::unexpected_range(x.into()),
+                Info::Static(x) => T::unexpected_static_message(x),
+                Info::Owned(x) => T::unexpected_format(x),
+            },
+            Error::Expected(info) => match info {
+                Info::Token(x) => T::expected_token(x.into()),
+                Info::Range(x) => T::expected_range(x.into()),
+                Info::Static(x) => T::expected_static_message(x),
+                Info::Owned(x) => T::expected_format(x),
+            },
+            Error::Message(info) => match info {
+                Info::Token(x) => T::expected_token(x.into()),
+                Info::Range(x) => T::expected_range(x.into()),
+                Info::Static(x) => T::expected_static_message(x),
+                Info::Owned(x) => T::expected_format(x),
+            },
+            Error::Other(err) => T::message_format(err),
+        }
+    }
+}
+
 impl<Item, Range, Position> crate::error::ParseError<Item, Range, Position>
     for Errors<Item, Range, Position>
 where
     Item: PartialEq,
     Range: PartialEq,
-    Position: Ord,
+    Position: Ord + Clone,
 {
     type StreamError = Error<Item, Range>;
     #[inline]
@@ -373,6 +427,11 @@ where
     #[inline]
     fn from_error(position: Position, err: Self::StreamError) -> Self {
         Self::new(position, err)
+    }
+
+    #[inline]
+    fn position(&self) -> Position {
+        self.position.clone()
     }
 
     #[inline]
