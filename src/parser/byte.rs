@@ -257,7 +257,7 @@ parser! {
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../stream/trait.RangeStream.html
+/// [`RangeStream`]: super::super::stream::RangeStream
 /// [`range`]: ../range/fn.range.html
 pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
 where [
@@ -287,7 +287,7 @@ parser! {
 /// # }
 /// ```
 ///
-/// [`RangeStream`]: ../stream/trait.RangeStream.html
+/// [`RangeStream`]: super::super::stream::RangeStream
 /// [`range`]: ../range/fn.range.html
 pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
 where [
