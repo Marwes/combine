@@ -1137,9 +1137,7 @@ where
 }
 
 /// Wrapper around iterators which allows them to be treated as a stream.
-/// Returned by [`from_iter`].
-///
-/// [`from_iter`]: fn.from_iter.html
+/// Returned by [`IteratorStream::new`].
 #[derive(Copy, Clone, Debug)]
 pub struct IteratorStream<Input>(Input);
 
