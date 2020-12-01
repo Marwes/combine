@@ -60,16 +60,16 @@ where
     P: Default,
     S: Default,
 {
-    /// Constructs a new `Decoder` with an internal buffer. Allows any `AsyncRead/Read` instance to
+    /// Constructs a new [`Decoder`] with an internal buffer. Allows any `AsyncRead/Read` instance to
     /// be used when decoding but there may be data left in the internal buffer after decoding
-    /// (accessible with `Decoder::buffer`
+    /// (accessible with [`Decoder::buffer`])
     pub fn new() -> Self {
         Decoder::default()
     }
 
-    /// Constructs a new `Decoder` with an internal buffer. Allows any `AsyncRead/Read` instance to
+    /// Constructs a new [`Decoder`] with an internal buffer. Allows any `AsyncRead/Read` instance to
     /// be used when decoding but there may be data left in the internal buffer after decoding
-    /// (accessible with `Decoder::buffer`
+    /// (accessible with [`Decoder::buffer`])
     pub fn new_buffer() -> Self {
         Decoder::new()
     }
@@ -81,9 +81,9 @@ where
     S: Default,
 {
     /// Constructs a new `Decoder` without an internal buffer. Requires the read instance to be
-    /// wrapped with combine's [`BufReader`][] instance to
+    /// wrapped with combine's [`BufReader`] instance to
     ///
-    /// [`BufReader`]: stream/buf_reader/index.html
+    /// [`BufReader`]: super::buf_reader::BufReader
     pub fn new_bufferless() -> Self {
         Decoder::default()
     }
