@@ -2,7 +2,7 @@
 //!
 //! Unless you have specific constraints preventing you from using this error type (such as being
 //! a `no_std` environment) you probably want to use this stream type. It can easily be used
-//! through the [`Parser::easy_parse`][] method.
+//! through the [`EasyParser::easy_parse`] method.
 //!
 //! The provided `Errors` type is roughly the same as `ParseError` in combine 1.x and 2.x.
 //!
@@ -79,7 +79,7 @@
 //!
 //! ```
 //!
-//! [`Parser::easy_parse`]: ../../parser/trait.Parser.html#method.easy_parse
+//! [`EasyParser::easy_parse`]: super::super::parser::EasyParser::easy_parse
 use std::{error::Error as StdError, fmt};
 
 use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
