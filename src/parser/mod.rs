@@ -465,9 +465,9 @@ pub trait Parser<Input: Stream> {
     /// the rest of the input.
     ///
     /// Since the parser returned from `f` must have a single type it can be useful to use the
-    /// `left` and `right` methods to merge parsers of differing types into one.
+    /// [`left`](Parser::left) and [`right`](Parser::right) methods to merge parsers of differing types into one.
     ///
-    /// If you are using partial parsing you may want to use `partial_then` instead.
+    /// If you are using partial parsing you may want to use [`then_partial`](Parser::then_partial) instead.
     ///
     /// ```
     /// # #![cfg(feature = "std")]
@@ -499,14 +499,14 @@ pub trait Parser<Input: Stream> {
         then(self, f)
     }
 
-    /// Variant of `then` which parses using `self` and then passes the value to `f` as a `&mut` reference.
+    /// Variant of [`then`](Parser::then) which parses using `self` and then passes the value to `f` as a `&mut` reference.
     ///
     /// Useful when doing partial parsing since it does not need to store the parser returned by
     /// `f` in the partial state. Instead it will call `f` each to request a new parser each time
     /// parsing resumes and that parser is needed.
     ///
     /// Since the parser returned from `f` must have a single type it can be useful to use the
-    /// `left` and `right` methods to merge parsers of differing types into one.
+    /// [`left`](Parser::left) and [`right`](Parser::right) methods to merge parsers of differing types into one.
     ///
     /// ```
     /// # #![cfg(feature = "std")]
@@ -853,7 +853,7 @@ pub trait Parser<Input: Stream> {
         Box::new(self)
     }
 
-    /// Wraps the parser into the `Either` enum which allows combinators such as `then` to return
+    /// Wraps the parser into the [`Either`](crate::parser::combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
     /// multiple different parser types (merging them to one)
     ///
     /// ```
@@ -887,7 +887,7 @@ pub trait Parser<Input: Stream> {
         Either::Left(self)
     }
 
-    /// Wraps the parser into the `Either` enum which allows combinators such as `then` to return
+    /// Wraps the parser into the [`Either`](crate::parser::combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
     /// multiple different parser types (merging them to one)
     ///
     /// ```
