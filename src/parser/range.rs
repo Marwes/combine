@@ -202,9 +202,9 @@ where
 /// Zero-copy parser which returns a pair: (committed input range, parsed value).
 ///
 ///
-/// [`combinator::recognize_with_value`][] is a non-`RangeStream` alternative.
+/// [`combinator::recognize_with_value`] is a non-`RangeStream` alternative.
 ///
-/// [`combinator::recognize_with_value`]: ../../parser/combinator/fn.recognize_with_value.html
+/// [`combinator::recognize_with_value`]: recognize_with_value
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::recognize_with_value;
@@ -234,9 +234,9 @@ where
 /// Zero-copy parser which reads a range of length `i.len()` and succeeds if `i` is equal to that
 /// range.
 ///
-/// [`tokens2`][] is a non-`RangeStream` alternative.
+/// [`tokens`] is a non-`RangeStream` alternative.
 ///
-/// [`tokens2`]: ../../parser/token/fn.tokens2.html
+/// [`tokens`]: super::token::tokens
 /// ```
 /// # extern crate combine;
 /// # use combine::parser::range::range;
