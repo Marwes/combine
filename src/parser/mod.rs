@@ -853,7 +853,7 @@ pub trait Parser<Input: Stream> {
         Box::new(self)
     }
 
-    /// Wraps the parser into the [`Either`](crate::parser::combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
+    /// Wraps the parser into the [`Either`](combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
     /// multiple different parser types (merging them to one)
     ///
     /// ```
@@ -887,7 +887,7 @@ pub trait Parser<Input: Stream> {
         Either::Left(self)
     }
 
-    /// Wraps the parser into the [`Either`](crate::parser::combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
+    /// Wraps the parser into the [`Either`](combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
     /// multiple different parser types (merging them to one)
     ///
     /// ```
