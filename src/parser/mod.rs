@@ -1,6 +1,6 @@
 //! A collection of both concrete parsers as well as parser combinators.
 //!
-//! Implements the `Parser` trait which is the core of `combine` and contains the submodules
+//! Implements the [`Parser`] trait which is the core of `combine` and contains the submodules
 //! implementing all combine parsers.
 
 use crate::{
@@ -94,11 +94,11 @@ pub trait Parser<Input: Stream> {
     ///
     /// This is the most straightforward entry point to a parser. Since it does not decorate the
     /// input in any way you may find the error messages a hard to read. If that is the case you
-    /// may want to try wrapping your input with an [`easy::Stream`][] or call [`easy_parse`][]
+    /// may want to try wrapping your input with an [`easy::Stream`] or call [`easy_parse`]
     /// instead.
     ///
-    /// [`easy::Stream`]: ../easy/struct.Stream.html
-    /// [`easy_parse`]: trait.Parser.html#method.easy_parse
+    /// [`easy::Stream`]: super::easy::Stream
+    /// [`easy_parse`]: super::parser::EasyParser::easy_parse
     fn parse(
         &mut self,
         mut input: Input,
@@ -130,10 +130,10 @@ pub trait Parser<Input: Stream> {
     /// Semantically equivalent to [`parse_stream`], except this method returns a flattened result
     /// type, combining `Result` and [`Commit`] into a single [`ParseResult`].
     ///
-    /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
+    /// [`Stream::uncons`]: super::stream::StreamOnce::uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Commit`]: ../error/enum.Commit.html
-    /// [`ParseResult`]: ../error/enum.ParseResult.html
+    /// [`Commit`]: super::error::Commit
+    /// [`ParseResult`]: super::error::ParseResult
     #[inline]
     fn parse_stream(
         &mut self,
@@ -167,9 +167,9 @@ pub trait Parser<Input: Stream> {
     /// encountered before consuming input. The default implementation always returns all errors,
     /// with [`add_error`] being a no-op.
     ///
-    /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
+    /// [`Stream::uncons`]: super::stream::StreamOnce::uncons
     /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Error`]: ../stream/trait.StreamOnce.html#associatedtype.Error
+    /// [`Error`]: super::stream::StreamOnce::Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(
@@ -452,7 +452,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     ///
-    /// [`choice!`]: ../macro.choice.html
+    /// [`choice!`]: super::choice!
     fn or<P2>(self, p: P2) -> Or<Self, P2>
     where
         Self: Sized,
@@ -779,7 +779,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     ///
-    /// [`many`]: ../combinator/fn.many.html
+    /// [`many`]: repeat::many
     fn iter(self, input: &mut Input) -> Iter<'_, Input, Self, Self::PartialState, FirstMode>
     where
         Self: Parser<Input> + Sized,
@@ -809,7 +809,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     ///
-    /// [`many`]: ../combinator/fn.many.html
+    /// [`many`]: repeat::many
     fn partial_iter<'a, 's, M>(
         self,
         mode: M,
