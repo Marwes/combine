@@ -258,7 +258,7 @@ parser! {
 /// ```
 ///
 /// [`RangeStream`]: super::super::stream::RangeStream
-/// [`range`]: ../range/fn.range.html
+/// [`range`]: super::range::range
 pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
 where [
     Input: Stream<Token = u8, Range = &'b [u8]>,
@@ -288,7 +288,7 @@ parser! {
 /// ```
 ///
 /// [`RangeStream`]: super::super::stream::RangeStream
-/// [`range`]: ../range/fn.range.html
+/// [`range`]: super::range::range
 pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
 where [
     C: FnMut(u8, u8) -> bool,

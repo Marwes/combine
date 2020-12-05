@@ -131,7 +131,7 @@ pub trait Parser<Input: Stream> {
     /// type, combining `Result` and [`Commit`] into a single [`ParseResult`].
     ///
     /// [`Stream::uncons`]: super::stream::StreamOnce::uncons
-    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
+    /// [`parse_stream`]: Parser::parse_stream
     /// [`Commit`]: super::error::Commit
     /// [`ParseResult`]: super::error::ParseResult
     #[inline]
@@ -168,7 +168,7 @@ pub trait Parser<Input: Stream> {
     /// with [`add_error`] being a no-op.
     ///
     /// [`Stream::uncons`]: super::stream::StreamOnce::uncons
-    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
+    /// [`parse_stream`]: Parser::parse_stream
     /// [`Error`]: super::stream::StreamOnce::Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
