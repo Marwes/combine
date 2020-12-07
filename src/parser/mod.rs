@@ -1,6 +1,6 @@
 //! A collection of both concrete parsers as well as parser combinators.
 //!
-//! Implements the `Parser` trait which is the core of `combine` and contains the submodules
+//! Implements the [`Parser`] trait which is the core of `combine` and contains the submodules
 //! implementing all combine parsers.
 
 use crate::{
@@ -94,11 +94,11 @@ pub trait Parser<Input: Stream> {
     ///
     /// This is the most straightforward entry point to a parser. Since it does not decorate the
     /// input in any way you may find the error messages a hard to read. If that is the case you
-    /// may want to try wrapping your input with an [`easy::Stream`][] or call [`easy_parse`][]
+    /// may want to try wrapping your input with an [`easy::Stream`] or call [`easy_parse`]
     /// instead.
     ///
-    /// [`easy::Stream`]: ../easy/struct.Stream.html
-    /// [`easy_parse`]: trait.Parser.html#method.easy_parse
+    /// [`easy::Stream`]: super::easy::Stream
+    /// [`easy_parse`]: super::parser::EasyParser::easy_parse
     fn parse(
         &mut self,
         mut input: Input,
@@ -130,10 +130,10 @@ pub trait Parser<Input: Stream> {
     /// Semantically equivalent to [`parse_stream`], except this method returns a flattened result
     /// type, combining `Result` and [`Commit`] into a single [`ParseResult`].
     ///
-    /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
-    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Commit`]: ../error/enum.Commit.html
-    /// [`ParseResult`]: ../error/enum.ParseResult.html
+    /// [`Stream::uncons`]: super::stream::StreamOnce::uncons
+    /// [`parse_stream`]: Parser::parse_stream
+    /// [`Commit`]: super::error::Commit
+    /// [`ParseResult`]: super::error::ParseResult
     #[inline]
     fn parse_stream(
         &mut self,
@@ -167,9 +167,9 @@ pub trait Parser<Input: Stream> {
     /// encountered before consuming input. The default implementation always returns all errors,
     /// with [`add_error`] being a no-op.
     ///
-    /// [`Stream::uncons`]: ../trait.StreamOnce.html#tymethod.uncons
-    /// [`parse_stream`]: trait.Parser.html#method.parse_stream
-    /// [`Error`]: ../stream/trait.StreamOnce.html#associatedtype.Error
+    /// [`Stream::uncons`]: super::stream::StreamOnce::uncons
+    /// [`parse_stream`]: Parser::parse_stream
+    /// [`Error`]: super::stream::StreamOnce::Error
     /// [`add_error`]: trait.Parser.html#method.add_error
     #[inline]
     fn parse_lazy(
@@ -452,7 +452,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     ///
-    /// [`choice!`]: ../macro.choice.html
+    /// [`choice!`]: super::choice!
     fn or<P2>(self, p: P2) -> Or<Self, P2>
     where
         Self: Sized,
@@ -465,9 +465,9 @@ pub trait Parser<Input: Stream> {
     /// the rest of the input.
     ///
     /// Since the parser returned from `f` must have a single type it can be useful to use the
-    /// `left` and `right` methods to merge parsers of differing types into one.
+    /// [`left`](Parser::left) and [`right`](Parser::right) methods to merge parsers of differing types into one.
     ///
-    /// If you are using partial parsing you may want to use `partial_then` instead.
+    /// If you are using partial parsing you may want to use [`then_partial`](Parser::then_partial) instead.
     ///
     /// ```
     /// # #![cfg(feature = "std")]
@@ -499,14 +499,14 @@ pub trait Parser<Input: Stream> {
         then(self, f)
     }
 
-    /// Variant of `then` which parses using `self` and then passes the value to `f` as a `&mut` reference.
+    /// Variant of [`then`](Parser::then) which parses using `self` and then passes the value to `f` as a `&mut` reference.
     ///
     /// Useful when doing partial parsing since it does not need to store the parser returned by
     /// `f` in the partial state. Instead it will call `f` each to request a new parser each time
     /// parsing resumes and that parser is needed.
     ///
     /// Since the parser returned from `f` must have a single type it can be useful to use the
-    /// `left` and `right` methods to merge parsers of differing types into one.
+    /// [`left`](Parser::left) and [`right`](Parser::right) methods to merge parsers of differing types into one.
     ///
     /// ```
     /// # #![cfg(feature = "std")]
@@ -779,7 +779,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     ///
-    /// [`many`]: ../combinator/fn.many.html
+    /// [`many`]: repeat::many
     fn iter(self, input: &mut Input) -> Iter<'_, Input, Self, Self::PartialState, FirstMode>
     where
         Self: Parser<Input> + Sized,
@@ -809,7 +809,7 @@ pub trait Parser<Input: Stream> {
     /// # }
     /// ```
     ///
-    /// [`many`]: ../combinator/fn.many.html
+    /// [`many`]: repeat::many
     fn partial_iter<'a, 's, M>(
         self,
         mode: M,
@@ -853,7 +853,7 @@ pub trait Parser<Input: Stream> {
         Box::new(self)
     }
 
-    /// Wraps the parser into the `Either` enum which allows combinators such as `then` to return
+    /// Wraps the parser into the [`Either`](combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
     /// multiple different parser types (merging them to one)
     ///
     /// ```
@@ -887,7 +887,7 @@ pub trait Parser<Input: Stream> {
         Either::Left(self)
     }
 
-    /// Wraps the parser into the `Either` enum which allows combinators such as `then` to return
+    /// Wraps the parser into the [`Either`](combinator::Either) enum which allows combinators such as [`then`](Parser::then) to return
     /// multiple different parser types (merging them to one)
     ///
     /// ```
