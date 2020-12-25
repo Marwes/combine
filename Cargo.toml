@@ -37,6 +37,7 @@ tokio-dep = { version = "1", package = "tokio", default-features = false, option
 futures-io-03 = { version = "0.3.1", package = "futures-io", default-features = false, optional = true }
 futures-util-03 = { version = "0.3.1", package = "futures-util", features = ["io", "std"], default-features = false, optional = true }
 bytes_05 = { version = "0.5", package = "bytes", optional =  true }
+bytes = { version = "1", optional =  true }
 
 [dev-dependencies]
 async-std = "1"
@@ -47,7 +48,7 @@ once_cell = "1.0"
 futures-03-dep = { version = "0.3.1", package = "futures" }
 tokio-02-dep = { version = "0.2", features = ["fs", "io-driver", "io-util", "macros"], package = "tokio" }
 tokio-03-dep = { version = "0.3", features = ["fs", "macros", "rt-multi-thread"], package = "tokio" }
-tokio-dep = { version = "1", features = ["fs", "macros", "rt-multi-thread", "io-util"], package = "tokio" }
+tokio-dep = { version = "1", features = ["fs", "macros", "rt", "rt-multi-thread", "io-util"], package = "tokio" }
 tokio-util = { version = "0.6", features = ["codec"] }
 partial-io = { version = "0.3", features = ["tokio", "quickcheck"] }
 quickcheck = "0.6"
@@ -63,7 +64,7 @@ tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-util-03"]
 tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-util-03"]
 tokio = ["tokio-dep", "futures-util-03"]
 futures-03 = ["pin-project", "std", "futures-io-03", "futures-util-03"]
-std = ["memchr/use_std", "bytes_05", "pin-project"]
+std = ["memchr/use_std", "bytes", "pin-project"]
 
 [[test]]
 name = "async"

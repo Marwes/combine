@@ -11,7 +11,7 @@ use std::task::{Context, Poll};
 use std::future::Future;
 
 use {
-    bytes_05::{Buf, BufMut, BytesMut},
+    bytes::{Buf, BufMut, BytesMut},
     pin_project_lite::pin_project,
 };
 
@@ -205,10 +205,10 @@ where
             self.0.reserve(8 * 1024);
         }
         // Copy of tokio's read_buf method (but it has to force initialize the buffer)
-        let bs = self.0.bytes_mut();
+        let bs = self.0.chunk_mut();
 
-        for b in &mut *bs {
-            *b = MaybeUninit::new(0);
+        for i in 0..bs.len() {
+            bs.write_byte(i, 0);
         }
         ExtendBuf { buffer: self, read }
     }
@@ -227,7 +227,7 @@ where
         if !self.0.has_remaining_mut() {
             self.0.reserve(8 * 1024);
         }
-        read.poll_read_buf(cx, &mut self.0)
+        read.poll_read_buf(cx, &mut Bytes05(&mut self.0))
     }
 }
 
@@ -244,7 +244,13 @@ where
         if !self.0.has_remaining_mut() {
             self.0.reserve(8 * 1024);
         }
-        let mut buf = tokio_03_dep::io::ReadBuf::uninit(self.0.bytes_mut());
+        let uninit = self.0.chunk_mut();
+        let mut buf = unsafe {
+            tokio_03_dep::io::ReadBuf::uninit(std::slice::from_raw_parts_mut(
+                uninit.as_mut_ptr() as *mut MaybeUninit<u8>,
+                uninit.len(),
+            ))
+        };
         ready!(read.poll_read(cx, &mut buf))?;
         let n = buf.filled().len();
         unsafe {
@@ -258,14 +264,14 @@ where
 fn tokio_03_read_buf(
     cx: &mut Context<'_>,
     read: Pin<&mut impl tokio_03_dep::io::AsyncRead>,
-    bs: &mut bytes_05::BytesMut,
+    bs: &mut bytes::BytesMut,
 ) -> Poll<io::Result<usize>> {
     if !bs.has_remaining_mut() {
         bs.reserve(8 * 1024);
     }
 
     unsafe {
-        let uninit = bs.bytes_mut();
+        let uninit = bs.chunk_mut();
         let mut buf = tokio_03_dep::io::ReadBuf::uninit(std::slice::from_raw_parts_mut(
             uninit.as_mut_ptr() as *mut MaybeUninit<u8>,
             uninit.len(),
@@ -290,7 +296,11 @@ where
         if !self.0.has_remaining_mut() {
             self.0.reserve(8 * 1024);
         }
-        let mut buf = tokio_dep::io::ReadBuf::uninit(self.0.bytes_mut());
+        let mut buf = unsafe {
+            tokio_dep::io::ReadBuf::uninit(
+                &mut *(self.0.chunk_mut() as *mut _ as *mut [MaybeUninit<u8>]),
+            )
+        };
         ready!(read.poll_read(cx, &mut buf))?;
         let n = buf.filled().len();
         unsafe {
@@ -304,14 +314,14 @@ where
 fn tokio_read_buf(
     cx: &mut Context<'_>,
     read: Pin<&mut impl tokio_dep::io::AsyncRead>,
-    bs: &mut bytes_05::BytesMut,
+    bs: &mut bytes::BytesMut,
 ) -> Poll<io::Result<usize>> {
     if !bs.has_remaining_mut() {
         bs.reserve(8 * 1024);
     }
 
     unsafe {
-        let uninit = bs.bytes_mut();
+        let uninit = bs.chunk_mut();
         let mut buf = tokio_dep::io::ReadBuf::uninit(std::slice::from_raw_parts_mut(
             uninit.as_mut_ptr() as *mut MaybeUninit<u8>,
             uninit.len(),
@@ -363,14 +373,14 @@ where
     // Copy of tokio's read_buf method (but it has to force initialize the buffer)
     let copied = unsafe {
         let n = {
-            let bs = buf.bytes_mut();
+            let bs = buf.chunk_mut();
 
-            for b in &mut *bs {
-                *b = MaybeUninit::new(0);
+            for i in 0..bs.len() {
+                bs.write_byte(i, 0);
             }
 
             // Convert to `&mut [u8]`
-            let bs = &mut *(bs as *mut [MaybeUninit<u8>] as *mut [u8]);
+            let bs = &mut *(bs as *mut _ as *mut [u8]);
 
             let n = read.read(bs)?;
             assert!(n <= bs.len(), "AsyncRead reported that it initialized more than the number of bytes in the buffer");
@@ -381,6 +391,22 @@ where
         n
     };
     Ok(copied)
+}
+
+#[cfg(feature = "tokio-02")]
+struct Bytes05<'a>(&'a mut BytesMut);
+
+#[cfg(feature = "tokio-02")]
+impl bytes_05::BufMut for Bytes05<'_> {
+    fn remaining_mut(&self) -> usize {
+        self.0.remaining_mut()
+    }
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        self.0.advance_mut(cnt)
+    }
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        unsafe { &mut *(self.0.chunk_mut() as *mut _ as *mut [MaybeUninit<u8>]) }
+    }
 }
 
 #[cfg(feature = "tokio-02")]
@@ -398,7 +424,7 @@ where
         if !me.buf.has_remaining_mut() {
             me.buf.reserve(8 * 1024);
         }
-        tokio_02_dep::io::AsyncRead::poll_read_buf(me.inner, cx, me.buf)
+        tokio_02_dep::io::AsyncRead::poll_read_buf(me.inner, cx, &mut Bytes05(me.buf))
     }
 }
 
@@ -459,10 +485,10 @@ where
             me.buf.reserve(8 * 1024);
         }
         // Copy of tokio's read_buf method (but it has to force initialize the buffer)
-        let bs = me.buf.bytes_mut();
+        let bs = me.buf.chunk_mut();
 
-        for b in &mut *bs {
-            *b = MaybeUninit::new(0);
+        for i in 0..bs.len() {
+            bs.write_byte(i, 0);
         }
         ExtendBuf { buffer: self, read }
     }
@@ -480,9 +506,9 @@ where
     // Copy of tokio's read_buf method (but it has to force initialize the buffer)
     let copied = unsafe {
         let n = {
-            let bs = buf.bytes_mut();
+            let bs = buf.chunk_mut();
             // Convert to `&mut [u8]`
-            let bs = &mut *(bs as *mut [MaybeUninit<u8>] as *mut [u8]);
+            let bs = &mut *(bs as *mut _ as *mut [u8]);
 
             let n = ready!(read.poll_read(cx, bs))?;
             assert!(n <= bs.len(), "AsyncRead reported that it initialized more than the number of bytes in the buffer");
@@ -535,7 +561,7 @@ impl<R: tokio_02_dep::io::AsyncRead> tokio_02_dep::io::AsyncBufRead for BufReade
         // to tell the compiler that the pos..cap slice is always valid.
 
         if me.buf.is_empty() {
-            ready!(me.inner.poll_read_buf(cx, me.buf))?;
+            ready!(me.inner.poll_read_buf(cx, &mut Bytes05(me.buf)))?;
         }
         Poll::Ready(Ok(&me.buf[..]))
     }
@@ -558,7 +584,7 @@ impl<R: tokio_02_dep::io::AsyncRead + tokio_02_dep::io::AsyncWrite> tokio_02_dep
         self.get_pin_mut().poll_write(cx, buf)
     }
 
-    fn poll_write_buf<B: Buf>(
+    fn poll_write_buf<B: bytes_05::Buf>(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut B,
@@ -754,7 +780,7 @@ mod tests {
     };
 
     impl<R: AsyncRead> BufReader<R> {
-        async fn extend_buf_tokio(mut self: Pin<&mut Self>) -> io::Result<usize> {
+        async fn extend_buf_tokio_02(mut self: Pin<&mut Self>) -> io::Result<usize> {
             futures_util_03::future::poll_fn(|cx| Bufferless.poll_extend_buf(cx, self.as_mut()))
                 .await
         }
@@ -798,10 +824,10 @@ mod tests {
         let read = BufReader::with_capacity(3, &[1u8, 2, 3, 4, 5, 6, 7, 8, 9, 0][..]);
         futures_util_03::pin_mut!(read);
 
-        assert_eq!(read.as_mut().extend_buf_tokio().await.unwrap(), 3);
+        assert_eq!(read.as_mut().extend_buf_tokio_02().await.unwrap(), 3);
         assert_eq!(read.buffer(), [1, 2, 3]);
 
-        assert_eq!(read.as_mut().extend_buf_tokio().await.unwrap(), 7);
+        assert_eq!(read.as_mut().extend_buf_tokio_02().await.unwrap(), 7);
         assert_eq!(read.buffer(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     }
 }

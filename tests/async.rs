@@ -8,7 +8,7 @@ use std::{
 };
 
 use {
-    bytes_05::{Buf, BytesMut},
+    bytes::{Buf, BytesMut},
     combine::{
         any, count_min_max,
         error::{ParseError, StreamError},
@@ -36,6 +36,7 @@ use {
     partial_io::PartialRead,
     quick_error::quick_error,
     quickcheck::quickcheck,
+    tokio_dep as tokio,
     tokio_util::codec::{Decoder, FramedRead},
 };
 
@@ -660,8 +661,7 @@ fn decode_tokio_02() {
     quickcheck(
         (|ops: PartialWithErrors<GenWouldBlock>| {
             let buf = include_bytes!("../README.md");
-            let mut runtime = tokio::runtime::Builder::new()
-                .basic_scheduler()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .build()
                 .unwrap();
             runtime.block_on(async {
@@ -697,8 +697,7 @@ fn decode_tokio_03() {
     quickcheck(
         (|ops: PartialWithErrors<GenWouldBlock>| {
             let buf = include_bytes!("../README.md");
-            let mut runtime = tokio::runtime::Builder::new()
-                .basic_scheduler()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .build()
                 .unwrap();
             runtime.block_on(async {
@@ -734,8 +733,7 @@ fn decode_tokio() {
     quickcheck(
         (|ops: PartialWithErrors<GenWouldBlock>| {
             let buf = include_bytes!("../README.md");
-            let mut runtime = tokio::runtime::Builder::new()
-                .basic_scheduler()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .build()
                 .unwrap();
             runtime.block_on(async {
@@ -799,10 +797,9 @@ fn decode_async_std() {
 #[tokio::main]
 async fn decode_loop() {
     use tokio::fs::File;
-    use tokio_02_dep as tokio;
 
     use combine::{
-        decode_tokio_02, many1, satisfy, skip_many1,
+        decode_tokio, many1, satisfy, skip_many1,
         stream::{buf_reader::BufReader, Decoder},
     };
     let mut read = BufReader::new(File::open("README.md").await.unwrap());
@@ -813,7 +810,7 @@ async fn decode_loop() {
     loop {
         // Suppresses a warning about duplicate label
         async {
-            decode_tokio_02!(
+            decode_tokio!(
                 decoder,
                 read,
                 many1(satisfy(|b| !is_whitespace(b))),
@@ -825,7 +822,7 @@ async fn decode_loop() {
 
         count += 1;
 
-        if decode_tokio_02!(
+        if decode_tokio!(
             decoder,
             read,
             skip_many1(satisfy(is_whitespace)),
