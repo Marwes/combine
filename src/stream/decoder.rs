@@ -6,8 +6,10 @@ use crate::{
 use std::{
     fmt,
     io::{self, Read},
-    pin::Pin,
 };
+
+#[cfg(feature = "pin-project-lite")]
+use std::pin::Pin;
 
 #[derive(Debug)]
 pub enum Error<E, P> {
