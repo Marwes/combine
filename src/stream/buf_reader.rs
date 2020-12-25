@@ -1,8 +1,12 @@
-use std::{
-    io::{self, BufRead, Read},
-    mem::MaybeUninit,
-    pin::Pin,
-};
+use std::io::{self, BufRead, Read};
+
+#[cfg(any(
+    features = "futures-03",
+    feature = "tokio-02",
+    feature = "tokio-03",
+    feature = "tokio"
+))]
+use std::{mem::MaybeUninit, pin::Pin};
 
 #[cfg(feature = "futures-util-03")]
 use std::task::{Context, Poll};
@@ -10,10 +14,10 @@ use std::task::{Context, Poll};
 #[cfg(feature = "futures-03")]
 use std::future::Future;
 
-use {
-    bytes::{Buf, BufMut, BytesMut},
-    pin_project_lite::pin_project,
-};
+use bytes::{Buf, BufMut, BytesMut};
+
+#[cfg(feature = "pin-project-lite")]
+use pin_project_lite::pin_project;
 
 #[cfg(feature = "tokio-03")]
 use tokio_03_dep::io::AsyncBufRead as _;
@@ -24,6 +28,7 @@ use tokio_dep::io::AsyncBufRead as _;
 #[cfg(feature = "futures-util-03")]
 use futures_util_03::ready;
 
+#[cfg(feature = "pin-project-lite")]
 pin_project! {
     /// `BufReader` used by `Decoder` when it is constructed with [`Decoder::new_bufferless`][]
     ///
@@ -34,6 +39,16 @@ pin_project! {
         inner: R,
         buf: BytesMut
     }
+}
+
+#[cfg(not(feature = "pin-project-lite"))]
+/// `BufReader` used by `Decoder` when it is constructed with [`Decoder::new_bufferless`][]
+///
+/// [`Decoder::new_bufferless`]: ../decoder/struct.Decoder.html#method.new_bufferless
+#[derive(Debug)]
+pub struct BufReader<R> {
+    inner: R,
+    buf: BytesMut,
 }
 
 impl<R> BufReader<R> {
@@ -64,6 +79,7 @@ impl<R> BufReader<R> {
         &mut self.inner
     }
 
+    #[cfg(feature = "pin-project-lite")]
     /// Gets a pinned mutable reference to the underlying reader.
     ///
     /// It is inadvisable to directly read from the underlying reader.
@@ -104,6 +120,7 @@ pub trait CombineBuffer<R>: sealed::Sealed {
 
     fn advance(&mut self, read: &mut R, len: usize);
 
+    #[cfg(feature = "pin-project-lite")]
     fn advance_pin(&mut self, read: Pin<&mut R>, len: usize);
 }
 
@@ -173,6 +190,7 @@ impl<R> CombineBuffer<R> for Buffer {
         self.0.advance(len);
     }
 
+    #[cfg(feature = "pin-project-lite")]
     fn advance_pin(&mut self, _read: Pin<&mut R>, len: usize) {
         self.0.advance(len);
     }
@@ -348,6 +366,7 @@ impl<R> CombineBuffer<BufReader<R>> for Bufferless {
         read.buf.advance(len);
     }
 
+    #[cfg(feature = "pin-project-lite")]
     fn advance_pin(&mut self, read: Pin<&mut BufReader<R>>, len: usize) {
         read.project().buf.advance(len);
     }

@@ -107,6 +107,7 @@ impl<S, P, C> Decoder<S, P, C> {
     }
 
     #[doc(hidden)]
+    #[cfg(feature = "pin-project-lite")]
     pub fn advance_pin<R>(&mut self, read: Pin<&mut R>, removed: usize)
     where
         C: CombineBuffer<R>,

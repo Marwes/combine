@@ -60,11 +60,11 @@ default = ["std"]
 # Run the mp4 benchmark, requires a mp4 file named `small.mp4` in the benches directory
 mp4 = []
 pin-project = ["pin-project-lite"]
-tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-util-03"]
-tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-util-03"]
-tokio = ["tokio-dep", "futures-util-03"]
-futures-03 = ["pin-project", "std", "futures-io-03", "futures-util-03"]
-std = ["memchr/use_std", "bytes", "pin-project"]
+tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-util-03", "pin-project-lite"]
+tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-util-03", "pin-project-lite"]
+tokio = ["tokio-dep", "futures-util-03", "pin-project-lite"]
+futures-03 = ["pin-project", "std", "futures-io-03", "futures-util-03", "pin-project-lite"]
+std = ["memchr/use_std", "bytes"]
 
 [[test]]
 name = "async"
