@@ -36,7 +36,6 @@ use {
     partial_io::PartialRead,
     quick_error::quick_error,
     quickcheck::quickcheck,
-    tokio_02_dep as tokio,
     tokio_util::codec::{Decoder, FramedRead},
 };
 
@@ -709,6 +708,43 @@ fn decode_tokio_03() {
                 let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
                 assert_eq!(
                     combine::decode_tokio_03!(
+                        decoder,
+                        read,
+                        {
+                            let word = many1(satisfy(|b| !is_whitespace(b)));
+                            sep_end_by(word, skip_many1(satisfy(is_whitespace)))
+                                .map(|words: Vec<Vec<u8>>| words.len())
+                        },
+                        |input, _| combine::easy::Stream::from(input)
+                    )
+                    .map_err(From::from)
+                    .map_err(
+                        |err: combine::easy::Errors<u8, &[u8], _>| err.map_range(|r| r.to_owned())
+                    )
+                    .map_err(|err| err.map_position(|p| p.translate_position(&decoder.buffer()))),
+                    Ok(WORDS_IN_README),
+                );
+            })
+        }) as fn(_) -> _,
+    )
+}
+
+#[test]
+fn decode_tokio() {
+    quickcheck(
+        (|ops: PartialWithErrors<GenWouldBlock>| {
+            let buf = include_bytes!("../README.md");
+            let mut runtime = tokio::runtime::Builder::new()
+                .basic_scheduler()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                let mut read = PartialAsyncRead::new(&buf[..], ops);
+                let mut decoder =
+                    combine::stream::Decoder::<_, combine::stream::PointerOffset<[u8]>>::new();
+                let is_whitespace = |b: u8| b == b' ' || b == b'\r' || b == b'\n';
+                assert_eq!(
+                    combine::decode_tokio!(
                         decoder,
                         read,
                         {
