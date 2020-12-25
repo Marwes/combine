@@ -1,3 +1,14 @@
+<a name="v4.5.0"></a>
+## v4.5.0 (2020-12-25)
+
+
+#### Features
+
+*   Remove pin-project-lite from the 'std' feature ([32ef87b0](https://github.com/Marwes/combine/commit/32ef87b08a643c9814cb9eec6d1f3adfe220c690))
+*   Add async decoding for tokio version 1 ([8e91f57d](https://github.com/Marwes/combine/commit/8e91f57d1ddaefafcaf244df7a7eea2096c6d6aa))
+
+
+
 <a name="v4.4.0"></a>
 ## v4.4.0 (2020-11-18)
 
