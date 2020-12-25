@@ -6,8 +6,10 @@ use crate::{
 use std::{
     fmt,
     io::{self, Read},
-    pin::Pin,
 };
+
+#[cfg(feature = "pin-project-lite")]
+use std::pin::Pin;
 
 #[derive(Debug)]
 pub enum Error<E, P> {
@@ -107,6 +109,7 @@ impl<S, P, C> Decoder<S, P, C> {
     }
 
     #[doc(hidden)]
+    #[cfg(feature = "pin-project-lite")]
     pub fn advance_pin<R>(&mut self, read: Pin<&mut R>, removed: usize)
     where
         C: CombineBuffer<R>,
@@ -175,6 +178,25 @@ impl<S, P, C> Decoder<S, P, C> {
     where
         R: tokio_03_dep::io::AsyncRead,
         C: crate::stream::buf_reader::CombineRead<R, dyn tokio_03_dep::io::AsyncRead>,
+    {
+        let copied =
+            futures_util_03::future::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
+                .await?;
+        if copied == 0 {
+            self.end_of_input = true;
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<S, P, C> Decoder<S, P, C> {
+    #[doc(hidden)]
+    pub async fn __before_parse_tokio<R>(&mut self, mut reader: Pin<&mut R>) -> io::Result<()>
+    where
+        R: tokio_dep::io::AsyncRead,
+        C: crate::stream::buf_reader::CombineRead<R, dyn tokio_dep::io::AsyncRead>,
     {
         let copied =
             futures_util_03::future::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))

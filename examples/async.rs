@@ -2,10 +2,10 @@
 
 use std::{cell::Cell, io::Cursor, rc::Rc, str};
 
-use {futures_03_dep as futures, tokio_02_dep as tokio};
+use {futures_03_dep as futures, tokio_dep as tokio};
 
 use {
-    bytes_05::{Buf, BytesMut},
+    bytes::{Buf, BytesMut},
     combine::{
         error::{ParseError, StreamError},
         parser::{
