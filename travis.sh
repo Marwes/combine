@@ -14,4 +14,7 @@ else
 
     cargo "$@" build --no-default-features
     cargo "$@" test --no-default-features --examples
+
+    cargo "$@" check --no-default-features --features tokio-02
+    cargo "$@" check --no-default-features --features tokio-03
 fi

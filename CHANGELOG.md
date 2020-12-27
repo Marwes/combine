@@ -1,3 +1,13 @@
+<a name="v4.5.1"></a>
+### v4.5.1 (2020-12-27)
+
+
+#### Bug Fixes
+
+*   Correct the tokio-02 feature ([466a50d3](https://github.com/Marwes/combine/commit/466a50d3533118cca0bafab48451fd39f92a8233))
+
+
+
 <a name="v4.5.0"></a>
 ## v4.5.0 (2020-12-25)
 
