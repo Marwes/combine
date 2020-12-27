@@ -266,7 +266,7 @@ dependencies = [
 
 [[package]]
 name = "combine"
-version = "4.5.1-alpha.0"
+version = "4.5.1"
 dependencies = [
  "async-std",
  "bytes 0.5.6",
