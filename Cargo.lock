@@ -278,7 +278,7 @@ dependencies = [
  "memchr",
  "once_cell",
  "partial-io",
- "pin-project-lite 0.1.11",
+ "pin-project-lite 0.2.0",
  "quick-error",
  "quickcheck",
  "regex",

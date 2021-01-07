@@ -29,7 +29,7 @@ path = "src/lib.rs"
 [dependencies]
 regex = { version = "1", optional = true }
 memchr = { version = "2.2", default-features = false }
-pin-project-lite = { version = "0.1.11", optional = true }
+pin-project-lite = { version = "0.2", optional = true }
 # Future proofing so that tokio-0.3, tokio-0.1 etc can be supported
 tokio-02-dep = { version = "0.2.3", package = "tokio", features = ["io-util"], default-features = false, optional = true }
 tokio-03-dep = { version = "0.3", package = "tokio", default-features = false, optional = true }
