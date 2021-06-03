@@ -702,7 +702,7 @@ where
 
 impl<'a, T> Positioned for &'a [T]
 where
-    T: Clone + PartialEq,
+    T: Clone,
 {
     #[inline]
     fn position(&self) -> Self::Position {
@@ -712,7 +712,7 @@ where
 
 impl<'a, T> StreamOnce for &'a [T]
 where
-    T: Clone + PartialEq,
+    T: Clone,
 {
     type Token = T;
     type Range = &'a [T];
@@ -1020,7 +1020,7 @@ impl<'a, T> Clone for SliceStream<'a, T> {
 
 impl<'a, T> Positioned for SliceStream<'a, T>
 where
-    T: PartialEq + 'a,
+    T: 'a,
 {
     #[inline]
     fn position(&self) -> Self::Position {
@@ -1030,7 +1030,7 @@ where
 
 impl<'a, T> StreamOnce for SliceStream<'a, T>
 where
-    T: PartialEq + 'a,
+    T: 'a,
 {
     type Token = &'a T;
     type Range = &'a [T];
