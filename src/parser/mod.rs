@@ -7,7 +7,7 @@ use crate::{
     error::{
         ErrorInfo, ParseError,
         ParseResult::{self, *},
-        ResultExt, Token, Tracked,
+        ResultExt, StreamError, Token, Tracked,
     },
     parser::{
         combinator::{
@@ -18,7 +18,7 @@ use crate::{
         repeat::Iter,
         sequence::{then, then_partial, then_ref, Then, ThenPartial, ThenRef},
     },
-    stream::{Stream, StreamOnce},
+    stream::{Stream, StreamErrorFor, StreamOnce},
     ErrorOffset,
 };
 
@@ -147,6 +147,8 @@ pub trait Parser<Input: Stream> {
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).committed());
                 error.error.add_unexpected(Token(t));
+            } else {
+                error.error.add(StreamErrorFor::<Input>::end_of_input());
             }
             self.add_error(error);
         }
@@ -214,6 +216,8 @@ pub trait Parser<Input: Stream> {
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).committed());
                 error.error.add_unexpected(Token(t));
+            } else {
+                error.error.add(StreamErrorFor::<Input>::end_of_input());
             }
             self.add_error(error);
         }
@@ -1129,6 +1133,8 @@ pub trait ParseMode: Copy {
             if let Ok(t) = input.uncons() {
                 ctry!(input.reset(before).committed());
                 error.error.add_unexpected(Token(t));
+            } else {
+                error.error.add(StreamErrorFor::<Input>::end_of_input());
             }
             parser.add_error(error);
         }
