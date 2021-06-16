@@ -18,3 +18,7 @@ else
     cargo "$@" check --no-default-features --features tokio-02
     cargo "$@" check --no-default-features --features tokio-03
 fi
+
+if [[ "$TRAVIS_RUST_VERSION" == "stable" ]]; then
+    cargo doc
+fi
