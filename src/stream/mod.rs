@@ -204,9 +204,11 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
         F: FnMut(Self::Token) -> bool,
     {
         let mut committed = false;
+        let mut started_at_eoi = true;
         let result = self.uncons_while(|c| {
             let ok = f(c);
             committed |= ok;
+            started_at_eoi = false;
             ok
         });
         if committed {
@@ -214,6 +216,8 @@ pub trait RangeStreamOnce: StreamOnce + ResetStream {
                 Ok(x) => CommitOk(x),
                 Err(x) => CommitErr(x),
             }
+        } else if started_at_eoi {
+            PeekErr(Tracked::from(StreamErrorFor::<Self>::end_of_input()))
         } else {
             PeekErr(Tracked::from(
                 StreamErrorFor::<Self>::unexpected_static_message(""),
@@ -558,7 +562,7 @@ impl<'a> RangeStreamOnce for &'a str {
                     return PeekErr(Tracked::from(StringStreamError::UnexpectedParse));
                 }
             }
-            None => return PeekErr(Tracked::from(StringStreamError::UnexpectedParse)),
+            None => return PeekErr(Tracked::from(StringStreamError::Eoi)),
         }
 
         CommitOk(str_uncons_while(self, chars, f))
@@ -683,8 +687,15 @@ where
     where
         F: FnMut(Self::Token) -> bool,
     {
-        if !self.first().cloned().map_or(false, &mut f) {
-            return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
+        match self.first() {
+            Some(c) => {
+                if !f(c.clone()) {
+                    return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
+                }
+            }
+            None => {
+                return PeekErr(Tracked::from(UnexpectedParse::Eoi));
+            }
         }
 
         CommitOk(slice_uncons_while(self, 1, f))
@@ -1119,8 +1130,13 @@ where
     where
         F: FnMut(Self::Token) -> bool,
     {
-        if !self.0.first().map_or(false, &mut f) {
-            return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
+        match self.0.first() {
+            Some(c) => {
+                if !f(c) {
+                    return PeekErr(Tracked::from(UnexpectedParse::Unexpected));
+                }
+            }
+            None => return PeekErr(Tracked::from(UnexpectedParse::Eoi)),
         }
 
         CommitOk(slice_uncons_while_ref(&mut self.0, 1, f))
@@ -1276,7 +1292,7 @@ where
 /// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
 pub fn decode<Input, P>(
     mut parser: P,
-    mut input: &mut Input,
+    input: &mut Input,
     partial_state: &mut P::PartialState,
 ) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
 where
@@ -1284,11 +1300,60 @@ where
     Input: RangeStream,
 {
     let start = input.checkpoint();
-    match parser.parse_with_state(&mut input, partial_state) {
+    match parser.parse_with_state(input, partial_state) {
         Ok(message) => Ok((Some(message), input.distance(&start))),
         Err(err) => {
-            if input.is_partial() && err.is_unexpected_end_of_input() {
-                Ok((None, input.distance(&start)))
+            if err.is_unexpected_end_of_input() {
+                if input.is_partial() {
+                    // The parser expected more input to parse and input is partial, return `None`
+                    // as we did not finish and also return how much may be removed from the stream
+                    Ok((None, input.distance(&start)))
+                } else {
+                    Err(err)
+                }
+            } else {
+                Err(err)
+            }
+        }
+    }
+}
+
+/// Decodes `input` using `parser`. Like `decode` but works directly in both
+/// `tokio_util::Decoder::decode` and `tokio_util::Decoder::decode_eof`
+///
+/// Return `Ok(Some(token), committed_data)` if there was enough data to finish parsing using
+/// `parser`.
+/// Returns `Ok(None, committed_data)` if `input` did not contain enough data to finish parsing
+/// using `parser`.
+/// Returns `Ok(None, 0)` if `input` did not contain enough data to finish parsing
+/// using `parser`.
+///
+/// See `examples/async.rs` for example usage in a `tokio_io::codec::Decoder`
+pub fn decode_tokio<Input, P>(
+    mut parser: P,
+    input: &mut Input,
+    partial_state: &mut P::PartialState,
+) -> Result<(Option<P::Output>, usize), <Input as StreamOnce>::Error>
+where
+    P: Parser<Input>,
+    Input: RangeStream,
+{
+    let start = input.checkpoint();
+    match parser.parse_with_state(input, partial_state) {
+        Ok(message) => Ok((Some(message), input.distance(&start))),
+        Err(err) => {
+            if err.is_unexpected_end_of_input() {
+                if input.is_partial() {
+                    // The parser expected more input to parse and input is partial, return `None`
+                    // as we did not finish and also return how much may be removed from the stream
+                    Ok((None, input.distance(&start)))
+                } else if input_at_eof(input) && input.distance(&start) == 0 {
+                    // We are at eof and the input is empty, return None to indicate that we are
+                    // done
+                    Ok((None, 0))
+                } else {
+                    Err(err)
+                }
             } else {
                 Err(err)
             }

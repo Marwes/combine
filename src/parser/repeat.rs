@@ -245,7 +245,7 @@ where
 
 enum State<E> {
     Ok,
-    PeekErr,
+    PeekErr(E),
     CommitErr(E),
 }
 
@@ -273,7 +273,7 @@ where
 
     fn into_result_<O>(self, value: O) -> ParseResult<O, Input::Error> {
         match self.state {
-            State::Ok | State::PeekErr => {
+            State::Ok | State::PeekErr(_) => {
                 if self.committed {
                     CommitOk(value)
                 } else {
@@ -289,7 +289,7 @@ where
         O: Default,
     {
         match self.state {
-            State::Ok | State::PeekErr => {
+            State::Ok | State::PeekErr(_) => {
                 let value = mem::take(value);
                 if self.committed {
                     CommitOk(value)
@@ -310,12 +310,21 @@ where
         >>::StreamError,
     ) -> ParseResult<T, Input::Error> {
         match self.state {
-            State::Ok | State::PeekErr => {
+            State::Ok => {
                 let err = <Input as StreamOnce>::Error::from_error(self.input.position(), err);
                 if self.committed {
                     CommitErr(err)
                 } else {
                     PeekErr(err.into())
+                }
+            }
+            State::PeekErr(mut e) => {
+                let err = <Input as StreamOnce>::Error::from_error(self.input.position(), err);
+                e = e.merge(err);
+                if self.committed {
+                    CommitErr(e)
+                } else {
+                    PeekErr(e.into())
                 }
             }
             State::CommitErr(mut e) => {
@@ -350,12 +359,11 @@ where
                 self.committed = true;
                 Some(v)
             }
-            PeekErr(_) => {
+            PeekErr(e) => {
                 self.state = match self.input.reset(before) {
                     Err(err) => State::CommitErr(err),
-                    Ok(_) => State::PeekErr,
+                    Ok(_) => State::PeekErr(e.error),
                 };
-                self.state = State::PeekErr;
                 None
             }
             CommitErr(e) => {

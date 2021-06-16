@@ -93,6 +93,9 @@ macro_rules! impl_decoder {
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
                 (&mut &mut *self).decode(src)
             }
+            fn decode_eof(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                (&mut &mut *self).decode_eof(src)
+            }
         }
 
         impl<'a> Decoder for &'a mut $typ {
@@ -100,12 +103,21 @@ macro_rules! impl_decoder {
             type Error = Error;
 
             fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                self.decode_stream(src, false)
+            }
+            fn decode_eof(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+                self.decode_stream(src, true)
+            }
+        }
+
+        impl<'a> $typ {
+            fn decode_stream(&mut self, src: &mut BytesMut, eof: bool) -> Result<Option<$token>, Error> {
                 let (opt, removed_len) = {
                     let str_src = str::from_utf8(&src[..])?;
                     println!("Decoding `{}`", str_src);
-                    combine::stream::decode(
+                    combine::stream::decode_tokio(
                         any_partial_state(mk_parser!($parser, self, ($($custom_state)*))),
-                        &mut easy::Stream(combine::stream::PartialStream(str_src)),
+                        &mut easy::Stream(combine::stream::MaybePartialStream(str_src, !eof)),
                         &mut self.0,
                     ).map_err(|err| {
                         // Since err contains references into `src` we must remove these before
@@ -794,7 +806,7 @@ fn decode_async_std() {
     )
 }
 
-#[tokio::main]
+#[tokio::test]
 async fn decode_loop() {
     use tokio::fs::File;
 
@@ -808,29 +820,34 @@ async fn decode_loop() {
 
     let mut count = 0;
     loop {
-        // Suppresses a warning about duplicate label
-        async {
+        // async block suppresses a warning about duplicate label
+        if async {
             decode_tokio!(
                 decoder,
                 read,
                 many1(satisfy(|b| !is_whitespace(b))),
                 |input, _position| combine::easy::Stream::from(input),
             )
-            .unwrap();
+            .is_err()
         }
-        .await;
+        .await
+        {
+            break;
+        }
 
         count += 1;
 
-        if decode_tokio!(
-            decoder,
-            read,
-            skip_many1(satisfy(is_whitespace)),
-            |input, _position| combine::easy::Stream::from(input),
-        )
-        .is_err()
         {
-            break;
+            if decode_tokio!(
+                decoder,
+                read,
+                skip_many1(satisfy(is_whitespace)),
+                |input, _position| combine::easy::Stream::from(input),
+            )
+            .is_err()
+            {
+                break;
+            }
         }
     }
     assert_eq!(819, count);
