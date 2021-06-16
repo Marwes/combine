@@ -7,9 +7,10 @@ use combine::{
         error::unexpected,
         range::{self, range},
         repeat::{count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until},
-        token::{any, eof, position, token, value, Token},
+        token::{any, eof, position, token, tokens, value, Token},
     },
-    EasyParser, Parser,
+    stream::SliceStream,
+    EasyParser, Parser, Stream,
 };
 
 #[test]
@@ -666,5 +667,31 @@ mod tests_std {
             parser.easy_parse("let").map_err(|err| err.errors),
             Err(vec![]),
         );
+    }
+
+    #[test]
+    fn test_no_eq() {
+        #[derive(Clone)]
+        struct NoEq;
+
+        let input: &[NoEq] = &[NoEq];
+
+        fn parse(stream: impl Stream) {
+            assert!(any().and(eof()).parse(stream).is_ok());
+        }
+
+        // Verify impl of Stream for &[T] does not require PartialEq.
+        parse(input);
+
+        // Verify impl of Stream for SliceStream<T> does not require PartialEq.
+        parse(SliceStream(input));
+
+        // Verify impl of Stream for &mut T does not require PartialEq.
+        parse(&mut SliceStream(input));
+
+        // Verify tokens() does not require PartialEq.
+        tokens(|_item, _token| true, "dummy ErrorInfo", vec![NoEq])
+            .parse(input)
+            .expect("parse succeeded");
     }
 }
