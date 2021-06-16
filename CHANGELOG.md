@@ -1,3 +1,13 @@
+<a name="v4.6.0"></a>
+## v4.6.0 (2021-06-16)
+
+
+#### Features
+
+*   Add decode_tokio ([aa20bf64](https://github.com/Marwes/combine/commit/aa20bf641bc5deed7e521de289f2b0963034f750))
+
+
+
 <a name="v4.5.2"></a>
 ### v4.5.2 (2021-01-07)
 
