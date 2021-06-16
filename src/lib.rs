@@ -884,7 +884,7 @@ mod std_tests {
     fn inner_error_consume() {
         let mut p = many::<Vec<_>, _, _>(between(char('['), char(']'), digit()));
         let result = p.easy_parse(position::Stream::new("[1][2][]"));
-        assert!(result.is_err(), format!("{:?}", result));
+        assert!(result.is_err(), "{:?}", result);
         let error = result.map(|x| format!("{:?}", x)).unwrap_err();
         assert_eq!(error.position, SourcePosition { line: 1, column: 8 });
     }

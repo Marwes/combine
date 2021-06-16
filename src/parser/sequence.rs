@@ -72,6 +72,7 @@ macro_rules! tuple_parser {
             $(
                 pub $id: $id,
             )*
+            #[allow(dead_code)]
             offset: u8,
             _marker: PhantomData <( $h, $( $id),* )>,
         }
