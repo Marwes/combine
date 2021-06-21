@@ -358,27 +358,30 @@ where
         buf.reserve(8 * 1024);
     }
 
-    // Copy of tokio's read_buf method (but it has to force initialize the buffer)
-    let copied = unsafe {
-        let n = {
-            let bs = buf.chunk_mut();
+    // Copy of tokio's poll_read_buf method (but it has to force initialize the buffer)
+    let n = {
+        let bs = buf.chunk_mut();
 
-            for i in 0..bs.len() {
-                bs.write_byte(i, 0);
-            }
+        for i in 0..bs.len() {
+            bs.write_byte(i, 0);
+        }
 
-            // Convert to `&mut [u8]`
-            let bs = &mut *(bs as *mut _ as *mut [u8]);
+        // Convert to `&mut [u8]`
+        // SAFETY: the entire buffer is preinitialized above
+        let bs = unsafe { &mut *(bs as *mut _ as *mut [u8]) };
 
-            let n = read.read(bs)?;
-            assert!(n <= bs.len(), "AsyncRead reported that it initialized more than the number of bytes in the buffer");
-            n
-        };
-
-        buf.advance_mut(n);
+        let n = read.read(bs)?;
+        assert!(
+            n <= bs.len(),
+            "AsyncRead reported that it initialized more than the number of bytes in the buffer"
+        );
         n
     };
-    Ok(copied)
+
+    // SAFETY: the entire buffer has been preinitialized
+    unsafe { buf.advance_mut(n) };
+
+    Ok(n)
 }
 
 #[cfg(feature = "tokio-02")]
