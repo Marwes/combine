@@ -492,21 +492,27 @@ where
     R: futures_util_03::io::AsyncRead,
 {
     // Copy of tokio's read_buf method (but it has to force initialize the buffer)
-    let copied = unsafe {
-        let n = {
-            let bs = buf.chunk_mut();
-            // Convert to `&mut [u8]`
-            let bs = &mut *(bs as *mut _ as *mut [u8]);
+    let n = {
+        let bs = buf.chunk_mut();
+        // preinit the buffer
+        for i in 0..bs.len() {
+            bs.write_byte(i, 0);
+        }
 
-            let n = ready!(read.poll_read(cx, bs))?;
-            assert!(n <= bs.len(), "AsyncRead reported that it initialized more than the number of bytes in the buffer");
-            n
-        };
+        // Convert to `&mut [u8]`
+        // SAFETY: preinitialize the buffer
+        let bs = unsafe { &mut *(bs as *mut _ as *mut [u8]) };
 
-        buf.advance_mut(n);
+        let n = ready!(read.poll_read(cx, bs))?;
+        assert!(
+            n <= bs.len(),
+            "AsyncRead reported that it initialized more than the number of bytes in the buffer"
+        );
         n
     };
-    Poll::Ready(Ok(copied))
+    // SAFETY: the buffer was preinitialized
+    unsafe { buf.advance_mut(n) };
+    Poll::Ready(Ok(n))
 }
 
 #[cfg(feature = "tokio-02")]
