@@ -34,6 +34,7 @@ pin-project-lite = { version = "0.2", optional = true }
 tokio-02-dep = { version = "0.2.3", package = "tokio", features = ["io-util"], default-features = false, optional = true }
 tokio-03-dep = { version = "0.3", package = "tokio", default-features = false, optional = true }
 tokio-dep = { version = "1", package = "tokio", default-features = false, optional = true }
+tokio-util = { version = "0.6", features = ["codec"], default-features = false, optional = true }
 futures-io-03 = { version = "0.3.1", package = "futures-io", default-features = false, optional = true }
 futures-util-03 = { version = "0.3.1", package = "futures-util", features = ["io", "std"], default-features = false, optional = true }
 bytes_05 = { version = "0.5", package = "bytes", optional =  true }
@@ -49,7 +50,6 @@ futures-03-dep = { version = "0.3.1", package = "futures" }
 tokio-02-dep = { version = "0.2", features = ["fs", "io-driver", "io-util", "macros"], package = "tokio" }
 tokio-03-dep = { version = "0.3", features = ["fs", "macros", "rt-multi-thread"], package = "tokio" }
 tokio-dep = { version = "1", features = ["fs", "macros", "rt", "rt-multi-thread", "io-util"], package = "tokio" }
-tokio-util = { version = "0.6", features = ["codec"] }
 partial-io = { version = "0.3", features = ["tokio", "quickcheck"] }
 quickcheck = "0.6"
 quick-error = "1.0"
@@ -62,7 +62,7 @@ mp4 = []
 pin-project = ["pin-project-lite"]
 tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-util-03", "pin-project-lite", "bytes_05"]
 tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-util-03", "pin-project-lite"]
-tokio = ["tokio-dep", "futures-util-03", "pin-project-lite"]
+tokio = ["tokio-dep", "tokio-util/io", "futures-util-03", "pin-project-lite"]
 futures-03 = ["pin-project", "std", "futures-io-03", "futures-util-03", "pin-project-lite"]
 std = ["memchr/use_std", "bytes"]
 
