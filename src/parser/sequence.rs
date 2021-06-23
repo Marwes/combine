@@ -179,6 +179,7 @@ macro_rules! tuple_parser {
                         }
                     };
                     state.offset = $h.parser_count().0.saturating_add(1);
+                    // SAFETY: must be set to avoid UB below when unwrapping
                     state.$h.value = Some(temp);
 
                     // Once we have successfully parsed the partial input we may resume parsing in
@@ -211,6 +212,7 @@ macro_rules! tuple_parser {
                             }
                         };
                         state.offset = state.offset.saturating_add($id.parser_count().0);
+                        // SAFETY: must be set to avoid UB below when unwrapping
                         state.$id.value = Some(temp);
 
                         // Once we have successfully parsed the partial input we may resume parsing in
@@ -219,6 +221,7 @@ macro_rules! tuple_parser {
                     }
                 )*
 
+                // SAFETY: requires both $h and $id to be set, see previous SAFETY comments
                 let value = unsafe { (state.$h.unwrap_value(), $(state.$id.unwrap_value()),*) };
                 if first_empty_parser != 0 {
                     CommitOk(value)
