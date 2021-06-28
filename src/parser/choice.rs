@@ -350,6 +350,41 @@ array_choice_parser!(
     30 31 32
 );
 
+#[cfg(feature = "std")]
+impl<Input, P> ChoiceParser<Input> for Vec<P>
+where
+    Input: Stream,
+    P: Parser<Input>,
+{
+
+    type Output = P::Output;
+    type PartialState = <[P] as ChoiceParser<Input>>::PartialState;
+
+    parse_mode_choice!(Input);
+    #[inline]
+    fn parse_mode_choice<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        if mode.is_first() {
+            self[..].parse_first(input, state)
+        } else {
+            self[..].parse_partial(input, state)
+        }
+    }
+    fn add_error_choice(
+        &mut self,
+        error: &mut Tracked<<Input as StreamOnce>::Error>
+    ) {
+        self[..].add_error_choice(error)
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Choice<P>(P);
 
