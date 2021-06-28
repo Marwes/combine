@@ -891,3 +891,204 @@ where
 {
     ThenRef(p, f)
 }
+
+#[derive(Copy, Clone)]
+pub struct Loop<F, S>(F, S);
+
+impl<Input, F, S, P, G> Parser<Input> for Loop<F, S>
+where
+    Input: Stream,
+    F: FnMut(&mut S) -> P,
+    S: Clone,
+    P: Parser<Input, Output = G>,
+    G: FnOnce(&mut S)
+{
+    type Output = S;
+    type PartialState = (Option<S>, Option<P>, bool, P::PartialState);
+
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        let Self(ref mut next_func, ref init_state) = *self;
+        LoopGen(next_func, || init_state.clone()).parse_mode_impl(mode, input, state)
+    }
+}
+
+// Takes a function `func` and initial `state`. Function is applied to current
+// state and generates a parser outputting function to update the state. This
+// is repeated until the generated parser fails.
+//
+/// ```
+/// # extern crate combine;
+/// # use std::collections::HashMap;
+/// # use combine::{Parser, Stream, many1, token, value, unexpected_any, optional, choice};
+/// # use combine::parser::char::digit;
+/// # use combine::parser::sequence::loop_parser;
+/// # fn main() {
+/// // Parses 'a', 'b' and 'c' such that there is no consecutive letters returning their count
+/// #[derive(PartialEq, Eq, Clone, Hash)]
+/// enum Token { A, B, C }
+/// fn token_parser<Input>(last_token: &Option<Token>) -> impl Parser<Input, Output = Token>
+/// where
+///     Input: Stream<Token = char>
+/// {
+///     let mut choices = vec![];
+///     if *last_token != Some(Token::A) {
+///         choices.push(token('a').map(|_| Token::A).left());
+///     }
+///     if *last_token != Some(Token::B) {
+///         choices.push(token('b').map(|_| Token::B).left().right());
+///     }
+///     if *last_token != Some(Token::C) {
+///         choices.push(token('c').map(|_| Token::C).right().right());
+///     }
+///     choice(choices)
+/// }
+/// let result = loop_parser((HashMap::<Token, usize>::new(), None), |(_, last_token)| {
+///     token_parser(last_token).map(|current_token| move |(ref mut acc, ref mut last_token): &mut (HashMap::<Token, usize>, Option<Token>)| {
+///         *acc.entry(current_token.clone()).or_insert(0) += 1;
+///         *last_token = Some(current_token);
+///     })
+/// }).map(|x| x.0).parse("ababacbcbcaa");
+/// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::A)), Ok(Some(&4)));
+/// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::B)), Ok(Some(&4)));
+/// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::C)), Ok(Some(&3)));
+/// assert_eq!(result.as_ref().map(|x| x.1), Ok("a"));
+/// # }
+/// ```
+pub fn loop_parser<Input, F, P, G, S>(state: S, func: F) -> Loop<F, S>
+where
+    Input: Stream,
+    F: FnMut(&mut S) -> P,
+    P: Parser<Input, Output = G>,
+    G: FnOnce(&mut S),
+    S: Clone
+{
+    Loop(func, state)
+}
+
+#[derive(Copy, Clone)]
+pub struct LoopGen<F, G>(F, G);
+
+impl<Input, F, G, S, P, H> Parser<Input> for LoopGen<F, G>
+where
+    Input: Stream,
+    F: FnMut(&mut S) -> P,
+    G: FnMut() -> S,
+    P: Parser<Input, Output = H>,
+    H: FnOnce(&mut S)
+{
+    type Output = S;
+    type PartialState = (Option<S>, Option<P>, bool, P::PartialState);
+
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        let Self(ref mut next_func, ref mut state_gen) = *self;
+        let (ref mut state, ref mut parser, ref mut committed, ref mut partial_state) = *state;
+        if mode.is_first() {
+            debug_assert!(state.is_none());
+            debug_assert!(parser.is_none());
+            debug_assert!(!*committed);
+            *state = Some(state_gen());
+            *parser = Some(next_func(state.as_mut().unwrap()));
+        }
+        let parser = parser.as_mut().unwrap();
+        loop {
+            let before = input.checkpoint();
+            let result = parser.parse_mode_impl(mode, input, partial_state);
+            let mutator = match result {
+                CommitOk(next_mutator) => {
+                    *committed = true;
+                    next_mutator
+                },
+                PeekOk(next_mutator) => next_mutator,
+                CommitErr(e) => return CommitErr(e),
+                PeekErr(_) => {
+                    match input.reset(before) {
+                        Ok(_) => if *committed {
+                            return CommitOk(state.take().unwrap())
+                        } else {
+                            return PeekOk(state.take().unwrap())
+                        },
+                        Err(err) => return CommitErr(err)
+                    };
+                }
+            };
+            let state = state.as_mut().unwrap();
+            mutator(state);
+            *parser = next_func(state);
+            *partial_state = Default::default();
+            mode.set_first();
+        }
+    }
+}
+
+// Takes a function `func` and initial `state`. Function is applied to current
+// state and generates a parser outputting function to update the state. This
+// is repeated until the generated parser fails.
+//
+/// ```
+/// # extern crate combine;
+/// # use std::collections::HashMap;
+/// # use combine::{Parser, Stream, many1, token, value, unexpected_any, optional, choice};
+/// # use combine::parser::char::digit;
+/// # use combine::parser::sequence::loop_gen;
+/// # fn main() {
+/// // Parses 'a', 'b' and 'c' such that there is no consecutive letters returning their count
+/// #[derive(PartialEq, Eq, Clone, Hash)]
+/// enum Token { A, B, C }
+/// fn token_parser<Input>(last_token: &Option<Token>) -> impl Parser<Input, Output = Token>
+/// where
+///     Input: Stream<Token = char>
+/// {
+///     let mut choices = vec![];
+///     if *last_token != Some(Token::A) {
+///         choices.push(token('a').map(|_| Token::A).left());
+///     }
+///     if *last_token != Some(Token::B) {
+///         choices.push(token('b').map(|_| Token::B).left().right());
+///     }
+///     if *last_token != Some(Token::C) {
+///         choices.push(token('c').map(|_| Token::C).right().right());
+///     }
+///     choice(choices)
+/// }
+/// let result = loop_gen(|| (HashMap::<Token, usize>::new(), None), |(_, last_token)| {
+///     token_parser(last_token).map(|current_token| move |(ref mut acc, ref mut last_token): &mut (HashMap::<Token, usize>, Option<Token>)| {
+///         *acc.entry(current_token.clone()).or_insert(0) += 1;
+///         *last_token = Some(current_token);
+///     })
+/// }).map(|x| x.0).parse("ababacbcbcaa");
+/// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::A)), Ok(Some(&4)));
+/// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::B)), Ok(Some(&4)));
+/// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::C)), Ok(Some(&3)));
+/// assert_eq!(result.as_ref().map(|x| x.1), Ok("a"));
+/// # }
+/// ```
+pub fn loop_gen<Input, F, G, S, P, H>(state_gen: G, func: F) -> LoopGen<F, G>
+where
+    Input: Stream,
+    F: FnMut(&mut S) -> P,
+    G: FnMut() -> S,
+    P: Parser<Input, Output = H>,
+    H: FnOnce(&mut S)
+{
+    LoopGen(func, state_gen)
+}
