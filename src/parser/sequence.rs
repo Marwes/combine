@@ -882,15 +882,15 @@ where
 }
 
 #[derive(Copy, Clone)]
-pub struct Loop<F, S, P>(F, S, Option<P>);
+pub struct Loop<F, G, S, P>(F, G, S, Option<P>);
 
-impl<Input, F, S, P, G> Parser<Input> for Loop<F, S, P>
+impl<Input, F, G, S, P> Parser<Input> for Loop<F, G, S, P>
 where
     Input: Stream,
     F: FnMut(&mut S) -> P,
     S: Clone,
-    P: Parser<Input, Output = G>,
-    G: FnOnce(&mut S)
+    P: Parser<Input>,
+    G: FnMut(&mut S, P::Output)
 {
     type Output = S;
     type PartialState = (Option<S>, bool, P::PartialState);
@@ -906,15 +906,15 @@ where
     where
         M: ParseMode,
     {
-        let Self(ref mut next_func, ref init_state, ref mut parser) = *self;
-        let mut lg = LoopGen(next_func, || init_state.clone(), parser.take());
+        let Self(ref mut next_func, ref mut state_gen, ref mut init_state, ref mut parser) = *self;
+        let mut lg: LoopGen<&mut F, _, &mut G, P> = LoopGen(next_func, || init_state.clone(), state_gen, parser.take());
         let result = lg.parse_mode_impl(mode, input, state);
-        *parser = lg.2;
+        *parser = lg.3;
         result
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        if let Some(parser) = &mut self.2 {
+        if let Some(parser) = &mut self.3 {
             parser.add_error(errors);
         }
     }
@@ -924,7 +924,7 @@ where
     }
 
     fn parser_count(&self) -> ErrorOffset {
-        if let Some(parser) = &self.2 {
+        if let Some(parser) = &self.3 {
             parser.parser_count()
         } else {
             ErrorOffset(1)
@@ -946,7 +946,8 @@ where
 /// // Parses 'a', 'b' and 'c' such that there is no consecutive letters returning their count
 /// #[derive(PartialEq, Eq, Clone, Hash)]
 /// enum Token { A, B, C }
-/// fn token_parser<Input>(last_token: &Option<Token>) -> impl Parser<Input, Output = Token>
+/// type State = (HashMap::<Token, usize>, Option<Token>);
+/// fn token_parser<Input>((_, last_token): &mut State) -> impl Parser<Input, Output = Token>
 /// where
 ///     Input: Stream<Token = char>
 /// {
@@ -962,39 +963,38 @@ where
 ///     }
 ///     choice(choices)
 /// }
-/// let result = loop_parser((HashMap::<Token, usize>::new(), None), |(_, last_token)| {
-///     token_parser(last_token).map(|current_token| move |(ref mut acc, ref mut last_token): &mut (HashMap::<Token, usize>, Option<Token>)| {
-///         *acc.entry(current_token.clone()).or_insert(0) += 1;
-///         *last_token = Some(current_token);
-///     })
-/// }).map(|x| x.0).parse("ababacbcbcaa");
+/// fn update_state((ref mut acc, ref mut last_token): &mut State, current_token: Token) {
+///     *acc.entry(current_token.clone()).or_insert(0) += 1;
+///     *last_token = Some(current_token);
+/// }
+/// let result = loop_parser((HashMap::<Token, usize>::new(), None), token_parser, update_state).map(|x| x.0).parse("ababacbcbcaa");
 /// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::A)), Ok(Some(&4)));
 /// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::B)), Ok(Some(&4)));
 /// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::C)), Ok(Some(&3)));
 /// assert_eq!(result.as_ref().map(|x| x.1), Ok("a"));
 /// # }
 /// ```
-pub fn loop_parser<Input, F, P, G, S>(state: S, func: F) -> Loop<F, S, P>
+pub fn loop_parser<Input, F, P, G, S>(init_state: S, next_parser: F, mutator: G) -> Loop<F, G, S, P>
 where
     Input: Stream,
     F: FnMut(&mut S) -> P,
-    P: Parser<Input, Output = G>,
-    G: FnOnce(&mut S),
-    S: Clone
+    S: Clone,
+    P: Parser<Input>,
+    G: FnMut(&mut S, P::Output)
 {
-    Loop(func, state, None)
+    Loop(next_parser, mutator, init_state, None)
 }
 
 #[derive(Copy, Clone)]
-pub struct LoopGen<F, G, P>(F, G, Option<P>);
+pub struct LoopGen<F, G, H, P>(F, G, H, Option<P>);
 
-impl<Input, F, G, S, P, H> Parser<Input> for LoopGen<F, G, P>
+impl<Input, F, G, S, P, H> Parser<Input> for LoopGen<F, G, H, P>
 where
     Input: Stream,
     F: FnMut(&mut S) -> P,
     G: FnMut() -> S,
-    P: Parser<Input, Output = H>,
-    H: FnOnce(&mut S)
+    P: Parser<Input>,
+    H: FnMut(&mut S, P::Output)
 {
     type Output = S;
     type PartialState = (Option<S>, bool, P::PartialState);
@@ -1010,7 +1010,7 @@ where
     where
         M: ParseMode,
     {
-        let Self(ref mut next_func, ref mut state_gen, ref mut parser) = *self;
+        let Self(ref mut next_func, ref mut state_gen, ref mut mutator, ref mut parser) = *self;
         let (ref mut state, ref mut committed, ref mut partial_state) = *state;
         if mode.is_first() {
             debug_assert!(state.is_none());
@@ -1023,12 +1023,12 @@ where
         loop {
             let before = input.checkpoint();
             let result = parser.parse_mode_impl(mode, input, partial_state);
-            let mutator = match result {
-                CommitOk(next_mutator) => {
+            let value = match result {
+                CommitOk(next_value) => {
                     *committed = true;
-                    next_mutator
+                    next_value
                 },
-                PeekOk(next_mutator) => next_mutator,
+                PeekOk(next_value) => next_value,
                 CommitErr(e) => return CommitErr(e),
                 PeekErr(_) => {
                     match input.reset(before) {
@@ -1042,7 +1042,7 @@ where
                 }
             };
             let state = state.as_mut().unwrap();
-            mutator(state);
+            mutator(state, value);
             *parser = next_func(state);
             *partial_state = Default::default();
             mode.set_first();
@@ -1050,7 +1050,7 @@ where
     }
 
     fn add_error(&mut self, errors: &mut Tracked<<Input as StreamOnce>::Error>) {
-        if let Some(parser) = &mut self.2 {
+        if let Some(parser) = &mut self.3 {
             parser.add_error(errors);
         }
     }
@@ -1060,7 +1060,7 @@ where
     }
 
     fn parser_count(&self) -> ErrorOffset {
-        if let Some(parser) = &self.2 {
+        if let Some(parser) = &self.3 {
             parser.parser_count()
         } else {
             ErrorOffset(1)
@@ -1081,7 +1081,8 @@ where
 /// // Parses 'a', 'b' and 'c' such that there is no consecutive letters returning their count
 /// #[derive(PartialEq, Eq, Clone, Hash)]
 /// enum Token { A, B, C }
-/// fn token_parser<Input>(last_token: &Option<Token>) -> impl Parser<Input, Output = Token>
+/// type State = (HashMap::<Token, usize>, Option<Token>);
+/// fn token_parser<Input>((_, last_token): &mut State) -> impl Parser<Input, Output = Token>
 /// where
 ///     Input: Stream<Token = char>
 /// {
@@ -1097,27 +1098,26 @@ where
 ///     }
 ///     choice(choices)
 /// }
-/// let result = loop_gen(|| (HashMap::<Token, usize>::new(), None), |(_, last_token)| {
-///     token_parser(last_token).map(|current_token| move |(ref mut acc, ref mut last_token): &mut (HashMap::<Token, usize>, Option<Token>)| {
-///         *acc.entry(current_token.clone()).or_insert(0) += 1;
-///         *last_token = Some(current_token);
-///     })
-/// }).map(|x| x.0).parse("ababacbcbcaa");
+/// fn update_state((ref mut acc, ref mut last_token): &mut State, current_token: Token) {
+///     *acc.entry(current_token.clone()).or_insert(0) += 1;
+///     *last_token = Some(current_token);
+/// }
+/// let result = loop_gen(|| (HashMap::<Token, usize>::new(), None), token_parser, update_state).map(|x| x.0).parse("ababacbcbcaa");
 /// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::A)), Ok(Some(&4)));
 /// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::B)), Ok(Some(&4)));
 /// assert_eq!(result.as_ref().map(|x| x.0.get(&Token::C)), Ok(Some(&3)));
 /// assert_eq!(result.as_ref().map(|x| x.1), Ok("a"));
 /// # }
 /// ```
-pub fn loop_gen<Input, F, G, S, P, H>(state_gen: G, func: F) -> LoopGen<F, G, P>
+pub fn loop_gen<Input, F, G, S, P, H>(state_gen: G, next_parser: F, mutator: H) -> LoopGen<F, G, H, P>
 where
     Input: Stream,
     F: FnMut(&mut S) -> P,
     G: FnMut() -> S,
-    P: Parser<Input, Output = H>,
-    H: FnOnce(&mut S)
+    P: Parser<Input>,
+    H: FnMut(&mut S, P::Output)
 {
-    LoopGen(func, state_gen, None)
+    LoopGen(next_parser, state_gen, mutator, None)
 }
 
 
@@ -1138,7 +1138,8 @@ mod tests {
     fn loop_gen_error() {
         #[derive(PartialEq, Eq, Clone, Debug, Hash)]
         enum Token { A, B, C }
-        fn token_parser<Input>(last_token: &Option<Token>) -> impl Parser<Input, Output = Token>
+        type State = (HashMap::<Token, usize>, Option<Token>);
+        fn token_parser<Input>((_, last_token): &mut State) -> impl Parser<Input, Output = Token>
         where
             Input: Stream<Token = char>
         {
@@ -1154,14 +1155,13 @@ mod tests {
             }
             choice(choices)
         }
+        fn update_state((ref mut acc, ref mut last_token): &mut State, current_token: Token) {
+            *acc.entry(current_token.clone()).or_insert(0) += 1;
+            *last_token = Some(current_token);
+        }
         let string = "ababacbcbcaa";
         let result = (
-            loop_gen(|| (HashMap::<Token, usize>::new(), None), |(_, last_token)| {
-                token_parser(last_token).map(|current_token| move |(ref mut acc, ref mut last_token): &mut (HashMap::<Token, usize>, Option<Token>)| {
-                    *acc.entry(current_token.clone()).or_insert(0) += 1;
-                    *last_token = Some(current_token);
-                })
-            }),
+            loop_gen(|| (HashMap::<Token, usize>::new(), None), token_parser, update_state),
             eof()
         ).easy_parse(string);
         let result = result.as_ref();
