@@ -616,11 +616,18 @@ impl<'a, T> Range for &'a [T] {
     }
 }
 
-fn slice_uncons_while<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+#[repr(usize)]
+enum UnconsStart {
+    Zero = 0,
+    One = 1,
+}
+
+fn slice_uncons_while<'a, T, F>(slice: &mut &'a [T], start: UnconsStart, mut f: F) -> &'a [T]
 where
     F: FnMut(T) -> bool,
     T: Clone,
 {
+    let mut i = start as usize;
     let len = slice.len();
     let mut found = false;
 
@@ -634,7 +641,9 @@ where
         };
     }
 
-    while len - i >= 8 {
+    // SAFETY: ensures we can access at least 8 elements starting at i, making get_unchecked sound.
+    // uses saturating arith in case len=0, i=1
+    while len.saturating_sub(i) >= 8 {
         check!();
         check!();
         check!();
@@ -679,7 +688,7 @@ where
     where
         F: FnMut(Self::Token) -> bool,
     {
-        Ok(slice_uncons_while(self, 0, f))
+        Ok(slice_uncons_while(self, UnconsStart::Zero, f))
     }
 
     #[inline]
@@ -698,7 +707,7 @@ where
             }
         }
 
-        CommitOk(slice_uncons_while(self, 1, f))
+        CommitOk(slice_uncons_while(self, UnconsStart::One, f))
     }
 
     #[inline]
@@ -1060,10 +1069,11 @@ where
     }
 }
 
-fn slice_uncons_while_ref<'a, T, F>(slice: &mut &'a [T], mut i: usize, mut f: F) -> &'a [T]
+fn slice_uncons_while_ref<'a, T, F>(slice: &mut &'a [T], start: UnconsStart, mut f: F) -> &'a [T]
 where
     F: FnMut(&'a T) -> bool,
 {
+    let mut i = start as usize;
     let len = slice.len();
     let mut found = false;
 
@@ -1077,7 +1087,9 @@ where
         };
     }
 
-    while len - i >= 8 {
+    // SAFETY: ensures we can access at least 8 elements starting at i, making get_unchecked sound.
+    // uses saturating arith in case len=0, i=1
+    while len.saturating_sub(i) >= 8 {
         check!();
         check!();
         check!();
@@ -1122,7 +1134,7 @@ where
     where
         F: FnMut(Self::Token) -> bool,
     {
-        Ok(slice_uncons_while_ref(&mut self.0, 0, f))
+        Ok(slice_uncons_while_ref(&mut self.0, UnconsStart::Zero, f))
     }
 
     #[inline]
@@ -1139,7 +1151,7 @@ where
             None => return PeekErr(Tracked::from(UnexpectedParse::Eoi)),
         }
 
-        CommitOk(slice_uncons_while_ref(&mut self.0, 1, f))
+        CommitOk(slice_uncons_while_ref(&mut self.0, UnconsStart::One, f))
     }
 
     #[inline]
