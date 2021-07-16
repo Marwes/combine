@@ -629,6 +629,8 @@ where
 {
     let mut i = start as usize;
     let len = slice.len();
+    // SAFETY: We only call this function with `One` if the slice has length >= 1
+    debug_assert!(len >= i, "");
     let mut found = false;
 
     macro_rules! check {
@@ -642,8 +644,7 @@ where
     }
 
     // SAFETY: ensures we can access at least 8 elements starting at i, making get_unchecked sound.
-    // uses saturating arith in case len=0, i=1
-    while len.saturating_sub(i) >= 8 {
+    while len - i >= 8 {
         check!();
         check!();
         check!();
