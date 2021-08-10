@@ -616,6 +616,9 @@ pub mod stream;
 #[macro_use]
 pub mod parser;
 
+#[cfg(feature = "futures-core-03")]
+pub mod future_ext;
+
 #[doc(hidden)]
 #[derive(Clone, PartialOrd, PartialEq, Debug, Copy)]
 pub struct ErrorOffset(u8);
