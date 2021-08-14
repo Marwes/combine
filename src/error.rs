@@ -43,6 +43,8 @@ macro_rules! ctry {
 /// `Token`, `Range`, `Format` or `Static`/`&'static str`
 pub trait ErrorInfo<'s, T, R> {
     type Format: fmt::Display;
+
+    #[allow(clippy::wrong_self_convention)]
     fn into_info(&'s self) -> Info<T, R, Self::Format>;
 }
 
@@ -1030,10 +1032,9 @@ impl<O, E> ParseResult<O, E> {
     }
 }
 
-impl<T, E> Into<Result<Commit<T>, Commit<Tracked<E>>>> for ParseResult<T, E> {
-    #[inline]
-    fn into(self) -> Result<Commit<T>, Commit<Tracked<E>>> {
-        match self {
+impl<T, E> From<ParseResult<T, E>> for Result<Commit<T>, Commit<Tracked<E>>> {
+    fn from(res: ParseResult<T, E>) -> Self {
+        match res {
             CommitOk(t) => Ok(Commit::Commit(t)),
             PeekOk(t) => Ok(Commit::Peek(t)),
             CommitErr(e) => Err(Commit::Commit(e.into())),
@@ -1042,12 +1043,12 @@ impl<T, E> Into<Result<Commit<T>, Commit<Tracked<E>>>> for ParseResult<T, E> {
     }
 }
 
-impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
+impl<O, E> From<ParseResult<O, E>> for StdParseResult2<O, E> {
     #[inline]
-    fn into(self) -> StdParseResult2<O, E> {
+    fn from(res: ParseResult<O, E>) -> StdParseResult2<O, E> {
         use self::ParseResult::*;
 
-        match self {
+        match res {
             CommitOk(t) => Ok((t, Commit::Commit(()))),
             PeekOk(t) => Ok((t, Commit::Peek(()))),
             CommitErr(e) => Err(Commit::Commit(e.into())),

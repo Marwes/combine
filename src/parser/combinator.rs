@@ -1182,29 +1182,29 @@ mod internal {
 use self::internal::Sealed;
 
 pub trait StrLike: Sealed {
-    fn from_utf8(&self) -> Result<&str, ()>;
+    fn from_utf8(&self) -> Option<&str>;
 }
 
 #[cfg(feature = "alloc")]
 impl Sealed for String {}
 #[cfg(feature = "alloc")]
 impl StrLike for String {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        Ok(self)
+    fn from_utf8(&self) -> Option<&str> {
+        Some(self)
     }
 }
 
 impl<'a> Sealed for &'a str {}
 impl<'a> StrLike for &'a str {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        Ok(*self)
+    fn from_utf8(&self) -> Option<&str> {
+        Some(*self)
     }
 }
 
 impl Sealed for str {}
 impl StrLike for str {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        Ok(self)
+    fn from_utf8(&self) -> Option<&str> {
+        Some(self)
     }
 }
 
@@ -1212,22 +1212,22 @@ impl StrLike for str {
 impl Sealed for Vec<u8> {}
 #[cfg(feature = "alloc")]
 impl StrLike for Vec<u8> {
-    fn from_utf8(&self) -> Result<&str, ()> {
+    fn from_utf8(&self) -> Option<&str> {
         (**self).from_utf8()
     }
 }
 
 impl<'a> Sealed for &'a [u8] {}
 impl<'a> StrLike for &'a [u8] {
-    fn from_utf8(&self) -> Result<&str, ()> {
+    fn from_utf8(&self) -> Option<&str> {
         (**self).from_utf8()
     }
 }
 
 impl Sealed for [u8] {}
 impl StrLike for [u8] {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        str::from_utf8(self).map_err(|_| ())
+    fn from_utf8(&self) -> Option<&str> {
+        str::from_utf8(self).ok()
     }
 }
 
@@ -1278,7 +1278,7 @@ where [
 {
     parser.and_then(|r| {
         r.from_utf8()
-            .map_err(|_| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
+            .ok_or_else(|| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
             .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_format))
     })
 }

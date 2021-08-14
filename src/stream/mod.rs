@@ -576,7 +576,7 @@ impl<'a> RangeStreamOnce for &'a str {
             }
             match s.as_bytes().get(index) {
                 None => false,
-                Some(&b) => b < 128 || b >= 192,
+                Some(b) => !(128..=192).contains(b),
             }
         }
         if size <= self.len() {
