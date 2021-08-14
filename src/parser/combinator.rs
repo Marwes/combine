@@ -12,6 +12,9 @@ use crate::{
     Parser,
 };
 
+#[cfg(feature = "alloc")]
+use alloc::{string::String, vec::Vec};
+
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
 impl<Input, O, P> Parser<Input> for NotFollowedBy<P>
@@ -1182,9 +1185,9 @@ pub trait StrLike: Sealed {
     fn from_utf8(&self) -> Result<&str, ()>;
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl Sealed for String {}
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl StrLike for String {
     fn from_utf8(&self) -> Result<&str, ()> {
         Ok(self)
@@ -1205,9 +1208,9 @@ impl StrLike for str {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl Sealed for Vec<u8> {}
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl StrLike for Vec<u8> {
     fn from_utf8(&self) -> Result<&str, ()> {
         (**self).from_utf8()

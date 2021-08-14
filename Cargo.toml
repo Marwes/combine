@@ -65,6 +65,7 @@ tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-util-03", "pin-projec
 tokio = ["tokio-dep", "tokio-util/io", "futures-util-03", "pin-project-lite"]
 futures-03 = ["pin-project", "std", "futures-io-03", "futures-util-03", "pin-project-lite"]
 std = ["memchr/use_std", "bytes"]
+alloc = []
 
 [[test]]
 name = "async"
