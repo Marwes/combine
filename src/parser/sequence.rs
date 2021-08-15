@@ -788,7 +788,7 @@ where
     ThenPartial(p, f)
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "std", test))]
 mod tests {
 
     use crate::parser::{token::any, EasyParser};

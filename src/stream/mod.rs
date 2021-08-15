@@ -1891,7 +1891,7 @@ mod tests {
         input.uncons().unwrap();
         assert_eq!(input.distance(&before), 2);
 
-        input.reset(before.clone()).unwrap();
+        input.reset(before).unwrap();
         assert_eq!(input.distance(&before), 0);
     }
 }

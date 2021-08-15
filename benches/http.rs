@@ -1,3 +1,5 @@
+#![cfg(feature = "alloc")]
+
 #[macro_use]
 extern crate criterion;
 #[macro_use]
@@ -29,7 +31,8 @@ struct Header<'a> {
 }
 
 fn is_token(c: u8) -> bool {
-    match c {
+    !matches!(
+        c,
         128..=255
         | 0..=31
         | b'('
@@ -49,9 +52,8 @@ fn is_token(c: u8) -> bool {
         | b'='
         | b'{'
         | b'}'
-        | b' ' => false,
-        _ => true,
-    }
+        | b' '
+    )
 }
 
 fn is_horizontal_space(c: u8) -> bool {
@@ -64,7 +66,7 @@ fn is_not_space(c: u8) -> bool {
     c != b' '
 }
 fn is_http_version(c: u8) -> bool {
-    c >= b'0' && c <= b'9' || c == b'.'
+    (b'0'..=b'9').contains(&c)
 }
 
 fn end_of_line<'a, Input>() -> impl Parser<Input, Output = u8>
@@ -94,9 +96,9 @@ where
     })
 }
 
-fn parse_http_request<'a, Input>(
-    input: Input,
-) -> Result<((Request<'a>, Vec<Header<'a>>), Input), Input::Error>
+type HttpRequest<'a> = (Request<'a>, Vec<Header<'a>>);
+
+fn parse_http_request<'a, Input>(input: Input) -> Result<(HttpRequest<'a>, Input), Input::Error>
 where
     Input: RangeStream<Token = u8, Range = &'a [u8]>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
@@ -122,7 +124,7 @@ where
     request.parse(input)
 }
 
-static REQUESTS: &'static [u8] = include_bytes!("http-requests.txt");
+static REQUESTS: &[u8] = include_bytes!("http-requests.txt");
 
 fn http_requests_small(b: &mut Bencher<'_>) {
     http_requests_bench(b, easy::Stream(REQUESTS))

@@ -599,7 +599,7 @@ pub mod num {
         pub F64, f64, be_f64, le_f64, read_f64
     );
 
-    #[cfg(test)]
+    #[cfg(all(feature = "std", test))]
     mod tests {
 
         use crate::stream::{buffered, position, IteratorStream};

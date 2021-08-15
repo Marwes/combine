@@ -74,10 +74,12 @@ required-features = ["tokio-02", "futures-util-03"]
 [[bench]]
 name = "json"
 harness = false
+required-features = ["std"]
 
 [[bench]]
 name = "http"
 harness = false
+required-features = ["alloc"]
 
 [[bench]]
 name = "mp4"
@@ -86,7 +88,7 @@ required-features = ["mp4"]
 
 [[example]]
 name = "async"
-required-features = ["std"]
+required-features = ["std", "tokio"]
 
 [[example]]
 name = "date"

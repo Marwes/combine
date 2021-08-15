@@ -1,4 +1,5 @@
 #![cfg(feature = "std")]
+#![cfg(feature = "tokio")]
 
 use std::{cell::Cell, io::Cursor, rc::Rc, str};
 

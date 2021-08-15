@@ -1,15 +1,12 @@
 use combine::{
     parser::{
-        byte::bytes_cmp,
-        char::{digit, letter, string, string_cmp},
-        choice::{choice, optional},
-        combinator::{attempt, no_partial, not_followed_by},
-        error::unexpected,
-        range::{self, range},
-        repeat::{count, count_min_max, many, sep_by, sep_end_by1, skip_until, take_until},
-        token::{any, eof, position, token, value, Token},
+        char::{digit, letter},
+        choice::choice,
+        combinator::not_followed_by,
+        range::range,
+        token::{any, eof, token, Token},
     },
-    EasyParser, Parser,
+    Parser,
 };
 
 #[test]
@@ -45,20 +42,24 @@ fn not_followed_by_does_not_consume_any_input() {
 
 #[cfg(feature = "std")]
 mod tests_std {
-
-    use combine::{
-        parser::{
-            byte::{alpha_num, bytes, num::be_u32},
-            char::{char, digit, letter},
-        },
-        stream::{
-            easy::{self, Error, Errors},
-            position::{self, SourcePosition},
-        },
-        Parser,
-    };
-
     use super::*;
+
+    use combine::easy::{Error, Errors};
+    use combine::parser::byte::alpha_num;
+    use combine::parser::byte::bytes;
+    use combine::parser::byte::bytes_cmp;
+    use combine::parser::byte::num::be_u32;
+    use combine::parser::char::char;
+    use combine::parser::char::{string, string_cmp};
+    use combine::parser::combinator::no_partial;
+    use combine::parser::range;
+    use combine::parser::repeat::{skip_until, take_until};
+    use combine::stream::position;
+    use combine::stream::position::SourcePosition;
+    use combine::{
+        attempt, count, count_min_max, easy, many, optional, position, sep_by, sep_end_by1,
+        unexpected, value, EasyParser,
+    };
 
     #[derive(Clone, PartialEq, Debug)]
     struct CloneOnly {
@@ -85,8 +86,10 @@ mod tests_std {
 
     #[test]
     fn sep_by_committed_error() {
+        type TwoLetters = Vec<(char, char)>;
+
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(Vec<(char, char)>, &str), easy::ParseError<&str>> =
+        let result_err: Result<(TwoLetters, &str), easy::ParseError<&str>> =
             parser2.easy_parse("a,bc");
         assert!(result_err.is_err());
     }
@@ -619,7 +622,7 @@ mod tests_std {
 
     #[test]
     fn lifetime_inference() {
-        fn _string<'a>(source: &'a str) {
+        fn _string(source: &str) {
             range::take(1).or(string("a")).parse(source).ok();
             range::take(1)
                 .or(string_cmp("a", |x, y| x == y))
@@ -628,7 +631,7 @@ mod tests_std {
             let _: &'static str = string("a").parse(source).unwrap().0;
             let _: &'static str = string_cmp("a", |x, y| x == y).parse(source).unwrap().0;
         }
-        fn _bytes<'a>(source: &'a [u8]) {
+        fn _bytes(source: &[u8]) {
             range::take(1).or(bytes(&[0u8])).parse(source).ok();
             range::take(1)
                 .or(bytes_cmp(&[0u8], |x, y| x == y))

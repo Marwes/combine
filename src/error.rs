@@ -1088,8 +1088,7 @@ mod tests_std {
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
         ][..];
-        let result =
-            crate::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
+        let result = crate::parser::range::take_while(|c: CloneOnly| c.s == "x").parse(input);
         assert_eq!(
             result,
             Ok((
