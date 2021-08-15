@@ -86,10 +86,10 @@ mod tests_std {
 
     #[test]
     fn sep_by_committed_error() {
-        type TwoLetters = Vec<(char, char)>;
+        type TwoLettersList = Vec<(char, char)>;
 
         let mut parser2 = sep_by((letter(), letter()), token(','));
-        let result_err: Result<(TwoLetters, &str), easy::ParseError<&str>> =
+        let result_err: Result<(TwoLettersList, &str), easy::ParseError<&str>> =
             parser2.easy_parse("a,bc");
         assert!(result_err.is_err());
     }
