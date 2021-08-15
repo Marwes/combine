@@ -6,7 +6,7 @@ use crate::{
         ParseResult::{self, *},
         ResultExt, StreamError, Tracked,
     },
-    lib::{any::Any, fmt, marker::PhantomData, mem, str},
+    lib::{fmt, marker::PhantomData, mem, str},
     parser::ParseMode,
     stream::{input_at_eof, span::Span, ResetStream, Stream, StreamErrorFor, StreamOnce},
     Parser,
@@ -14,6 +14,9 @@ use crate::{
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String, vec::Vec};
+
+#[cfg(feature = "alloc")]
+use crate::lib::any::Any;
 
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
