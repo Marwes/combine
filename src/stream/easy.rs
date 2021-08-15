@@ -80,7 +80,16 @@
 //! ```
 //!
 //! [`EasyParser::easy_parse`]: super::super::parser::EasyParser::easy_parse
-use std::{error::Error as StdError, fmt};
+
+use core as std;
+
+#[cfg(feature = "std")]
+use std::error::Error as StdError;
+
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, string::String, string::ToString, vec, vec::Vec};
+
+use std::fmt;
 
 use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
 
@@ -193,6 +202,13 @@ impl<R> From<u8> for Info<u8, R> {
     }
 }
 
+#[doc(hidden)]
+#[cfg(feature = "alloc")]
+pub trait DebugAndDisplay: fmt::Display + fmt::Debug {}
+
+#[cfg(feature = "alloc")]
+impl<T> DebugAndDisplay for T where T: fmt::Display + fmt::Debug {}
+
 /// Enum used to store information about an error that has occurred during parsing.
 #[derive(Debug)]
 pub enum Error<T, R> {
@@ -203,7 +219,10 @@ pub enum Error<T, R> {
     /// Generic message
     Message(Info<T, R>),
     /// Variant for containing other types of errors
+    #[cfg(feature = "std")]
     Other(Box<dyn StdError + Send + Sync>),
+    #[cfg(feature = "alloc")]
+    Other(Box<dyn DebugAndDisplay + Send + Sync>),
 }
 
 impl<Item, Range> StreamError<Item, Range> for Error<Item, Range>
@@ -276,6 +295,7 @@ where
     }
 
     #[inline]
+    #[cfg(feature = "std")]
     fn other<E>(err: E) -> Self
     where
         E: StdError + Send + Sync + 'static,
@@ -539,6 +559,7 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Error<T, R> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T, R, E> From<E> for Error<T, R>
 where
     E: StdError + 'static + Send + Sync,
@@ -766,6 +787,7 @@ impl<T, R, P> Errors<T, R, P> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T, R, P> StdError for Errors<T, R, P>
 where
     P: fmt::Display + fmt::Debug,

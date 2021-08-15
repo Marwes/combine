@@ -27,6 +27,9 @@ use self::{
     sequence::{skip, with, Skip, With},
 };
 
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+
 /// Internal API. May break without a semver bump
 #[macro_export]
 #[doc(hidden)]
@@ -953,7 +956,7 @@ pub trait Parser<Input: Stream> {
 }
 
 /// Provides the `easy_parse` method which provides good error messages by default
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where
@@ -1025,7 +1028,7 @@ where
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> EasyParser<Input> for P
 where
     P: ?Sized + Parser<crate::easy::Stream<Input>>,
@@ -1086,7 +1089,7 @@ where
     forward_deref!(Input);
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<P, Input> Parser<Input> for Box<P>
 where
     P: ?Sized + Parser<Input>,
