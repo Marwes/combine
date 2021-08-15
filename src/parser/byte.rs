@@ -641,7 +641,7 @@ pub mod num {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "std", test))]
 mod tests {
 
     use crate::stream::{buffered, position, read};
