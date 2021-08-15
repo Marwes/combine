@@ -849,7 +849,7 @@ pub trait Parser<Input: Stream> {
     /// assert_eq!(result, Ok((('a', 'c'), "")));
     /// # }
     /// ```
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
     fn boxed<'a>(
         self,
