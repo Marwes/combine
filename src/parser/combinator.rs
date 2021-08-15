@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[cfg(feature = "alloc")]
-use alloc::{string::String, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
@@ -714,16 +714,16 @@ where
     Ignore(p)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 pub struct AnyPartialState(Option<Box<dyn std::any::Any>>);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnyPartialStateParser<P>(P);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> Parser<Input> for AnyPartialStateParser<P>
 where
     Input: Stream,
@@ -806,7 +806,7 @@ where
 ///
 /// # }
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_partial_state<Input, P>(p: P) -> AnyPartialStateParser<P>
 where
@@ -817,16 +817,16 @@ where
     AnyPartialStateParser(p)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 pub struct AnySendPartialState(Option<Box<dyn std::any::Any + Send>>);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnySendPartialStateParser<P>(P);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> Parser<Input> for AnySendPartialStateParser<P>
 where
     Input: Stream,
@@ -909,7 +909,7 @@ where
 ///
 /// # }
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_send_partial_state<Input, P>(p: P) -> AnySendPartialStateParser<P>
 where
@@ -920,16 +920,16 @@ where
     AnySendPartialStateParser(p)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
 pub struct AnySendSyncPartialState(Option<Box<dyn std::any::Any + Send + Sync>>);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnySendSyncPartialStateParser<P>(P);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> Parser<Input> for AnySendSyncPartialStateParser<P>
 where
     Input: Stream,
@@ -1011,7 +1011,7 @@ where
 ///
 /// # }
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_send_sync_partial_state<Input, P>(p: P) -> AnySendSyncPartialStateParser<P>
 where
