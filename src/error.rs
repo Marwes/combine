@@ -1032,9 +1032,10 @@ impl<O, E> ParseResult<O, E> {
     }
 }
 
-impl<T, E> From<ParseResult<T, E>> for Result<Commit<T>, Commit<Tracked<E>>> {
-    fn from(res: ParseResult<T, E>) -> Self {
-        match res {
+impl<T, E> Into<Result<Commit<T>, Commit<Tracked<E>>>> for ParseResult<T, E> {
+    #[inline]
+    fn into(self) -> Result<Commit<T>, Commit<Tracked<E>>> {
+        match self {
             CommitOk(t) => Ok(Commit::Commit(t)),
             PeekOk(t) => Ok(Commit::Peek(t)),
             CommitErr(e) => Err(Commit::Commit(e.into())),
@@ -1043,12 +1044,12 @@ impl<T, E> From<ParseResult<T, E>> for Result<Commit<T>, Commit<Tracked<E>>> {
     }
 }
 
-impl<O, E> From<ParseResult<O, E>> for StdParseResult2<O, E> {
+impl<O, E> Into<StdParseResult2<O, E>> for ParseResult<O, E> {
     #[inline]
-    fn from(res: ParseResult<O, E>) -> StdParseResult2<O, E> {
+    fn into(self) -> StdParseResult2<O, E> {
         use self::ParseResult::*;
 
-        match res {
+        match self {
             CommitOk(t) => Ok((t, Commit::Commit(()))),
             PeekOk(t) => Ok((t, Commit::Peek(()))),
             CommitErr(e) => Err(Commit::Commit(e.into())),
