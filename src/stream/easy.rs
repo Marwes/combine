@@ -81,15 +81,13 @@
 //!
 //! [`EasyParser::easy_parse`]: super::super::parser::EasyParser::easy_parse
 
-use core as std;
-
 #[cfg(feature = "std")]
 use std::error::Error as StdError;
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String, string::ToString, vec, vec::Vec};
 
-use std::fmt;
+use crate::lib::fmt;
 
 use crate::error::{Info as PrimitiveInfo, ParseResult, StreamError, Tracked};
 
@@ -221,7 +219,7 @@ pub enum Error<T, R> {
     /// Variant for containing other types of errors
     #[cfg(feature = "std")]
     Other(Box<dyn StdError + Send + Sync>),
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
     Other(Box<dyn DebugAndDisplay + Send + Sync>),
 }
 
@@ -723,7 +721,7 @@ impl<T, R, P> Errors<T, R, P> {
         T: PartialEq,
         R: PartialEq,
     {
-        use std::cmp::Ordering;
+        use crate::lib::cmp::Ordering;
 
         // Only keep the errors which occurred after consuming the most amount of data
         match self.position.cmp(&other.position) {
