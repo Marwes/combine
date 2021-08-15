@@ -66,7 +66,7 @@ fn is_not_space(c: u8) -> bool {
     c != b' '
 }
 fn is_http_version(c: u8) -> bool {
-    (b'0'..=b'9').contains(&c)
+    (b'0'..=b'9').contains(&c) || c == b'.'
 }
 
 fn end_of_line<'a, Input>() -> impl Parser<Input, Output = u8>
