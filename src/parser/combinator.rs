@@ -6,7 +6,7 @@ use crate::{
         ParseResult::{self, *},
         ResultExt, StreamError, Tracked,
     },
-    lib::{fmt, marker::PhantomData, mem, str},
+    lib::{any::Any, fmt, marker::PhantomData, mem, str},
     parser::ParseMode,
     stream::{input_at_eof, span::Span, ResetStream, Stream, StreamErrorFor, StreamOnce},
     Parser,
@@ -717,7 +717,7 @@ where
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
-pub struct AnyPartialState(Option<Box<dyn std::any::Any>>);
+pub struct AnyPartialState(Option<Box<dyn Any>>);
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
@@ -820,7 +820,7 @@ where
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
-pub struct AnySendPartialState(Option<Box<dyn std::any::Any + Send>>);
+pub struct AnySendPartialState(Option<Box<dyn Any + Send>>);
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
@@ -923,7 +923,7 @@ where
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
-pub struct AnySendSyncPartialState(Option<Box<dyn std::any::Any + Send + Sync>>);
+pub struct AnySendSyncPartialState(Option<Box<dyn Any + Send + Sync>>);
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
