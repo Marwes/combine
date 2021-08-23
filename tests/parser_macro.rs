@@ -1,3 +1,5 @@
+#![allow(clippy::single_match)]
+
 #[macro_use]
 extern crate combine;
 

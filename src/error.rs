@@ -43,6 +43,8 @@ macro_rules! ctry {
 /// `Token`, `Range`, `Format` or `Static`/`&'static str`
 pub trait ErrorInfo<'s, T, R> {
     type Format: fmt::Display;
+
+    #[allow(clippy::wrong_self_convention)]
     fn into_info(&'s self) -> Info<T, R, Self::Format>;
 }
 
@@ -1087,8 +1089,7 @@ mod tests_std {
             CloneOnly { s: "x".to_string() },
             CloneOnly { s: "y".to_string() },
         ][..];
-        let result =
-            crate::parser::range::take_while(|c: CloneOnly| c.s == "x".to_string()).parse(input);
+        let result = crate::parser::range::take_while(|c: CloneOnly| c.s == "x").parse(input);
         assert_eq!(
             result,
             Ok((

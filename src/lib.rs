@@ -195,6 +195,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 #[doc(inline)]
 pub use crate::error::{ParseError, ParseResult, StdParseResult};
 
@@ -703,7 +706,7 @@ mod std_tests {
         }
     }
 
-    fn integer<'a, Input>(input: &mut Input) -> StdParseResult<i64, Input>
+    fn integer<Input>(input: &mut Input) -> StdParseResult<i64, Input>
     where
         Input: Stream<Token = char>,
         Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
@@ -867,11 +870,11 @@ mod std_tests {
             .map(|x| x.to_string())
             .or(many1(digit()));
         match p.easy_parse(position::Stream::new("le123")) {
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 1 }),
         }
         match p.easy_parse(position::Stream::new("let1")) {
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
             Err(err) => assert_eq!(err.position, SourcePosition { line: 1, column: 4 }),
         }
     }

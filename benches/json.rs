@@ -1,6 +1,8 @@
 // `impl Trait` is not required for this parser but we use to to show that it can be used to
 // significantly simplify things
 
+#![cfg(feature = "std")]
+
 #[macro_use]
 extern crate criterion;
 
@@ -223,7 +225,7 @@ fn json_test() {
         Ok(result) => assert_eq!(result, (expected, "")),
         Err(e) => {
             println!("{}", e);
-            assert!(false);
+            panic!();
         }
     }
 }
@@ -241,10 +243,10 @@ fn bench_json(bencher: &mut Bencher<'_>) {
     let mut parser = json_value();
     match parser.easy_parse(position::Stream::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
-        Ok(_) => assert!(false),
+        Ok(_) => panic!(),
         Err(err) => {
             println!("{}", err);
-            assert!(false);
+            panic!();
         }
     }
     bencher.iter(|| {
@@ -258,10 +260,10 @@ fn bench_json_core_error(bencher: &mut Bencher<'_>) {
     let mut parser = json_value();
     match parser.parse(position::Stream::new(&data[..])) {
         Ok((Value::Array(_), _)) => (),
-        Ok(_) => assert!(false),
+        Ok(_) => panic!(),
         Err(err) => {
             println!("{}", err);
-            assert!(false);
+            panic!();
         }
     }
     bencher.iter(|| {
@@ -275,10 +277,10 @@ fn bench_json_core_error_no_position(bencher: &mut Bencher<'_>) {
     let mut parser = json_value();
     match parser.parse(&data[..]) {
         Ok((Value::Array(_), _)) => (),
-        Ok(_) => assert!(false),
+        Ok(_) => panic!(),
         Err(err) => {
             println!("{}", err);
-            assert!(false);
+            panic!();
         }
     }
     bencher.iter(|| {
@@ -300,10 +302,10 @@ fn bench_buffered_json(bencher: &mut Bencher<'_>) {
             Ok((Value::Array(v), _)) => {
                 black_box(v);
             }
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
+                panic!();
             }
         }
     });

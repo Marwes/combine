@@ -64,7 +64,8 @@ tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-core-03", "pin-projec
 tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-core-03", "pin-project-lite"]
 tokio = ["tokio-dep", "tokio-util/io", "futures-core-03", "pin-project-lite"]
 futures-03 = ["pin-project", "std", "futures-core-03", "futures-io-03", "pin-project-lite"]
-std = ["memchr/use_std", "bytes"]
+std = ["memchr/use_std", "bytes", "alloc"]
+alloc = []
 
 [[test]]
 name = "async"
@@ -73,10 +74,12 @@ required-features = ["tokio-02", "futures-io-03"]
 [[bench]]
 name = "json"
 harness = false
+required-features = ["std"]
 
 [[bench]]
 name = "http"
 harness = false
+required-features = ["std"]
 
 [[bench]]
 name = "mp4"
@@ -85,7 +88,7 @@ required-features = ["mp4"]
 
 [[example]]
 name = "async"
-required-features = ["std"]
+required-features = ["std", "tokio"]
 
 [[example]]
 name = "date"

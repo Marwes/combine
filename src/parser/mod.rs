@@ -27,6 +27,9 @@ use self::{
     sequence::{skip, with, Skip, With},
 };
 
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+
 /// Internal API. May break without a semver bump
 #[macro_export]
 #[doc(hidden)]
@@ -846,7 +849,7 @@ pub trait Parser<Input: Stream> {
     /// assert_eq!(result, Ok((('a', 'c'), "")));
     /// # }
     /// ```
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
     fn boxed<'a>(
         self,
@@ -1086,7 +1089,7 @@ where
     forward_deref!(Input);
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<P, Input> Parser<Input> for Box<P>
 where
     P: ?Sized + Parser<Input>,

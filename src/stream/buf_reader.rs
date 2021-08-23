@@ -902,6 +902,7 @@ mod tests_sync {
     use std::io::Read;
 
     #[test]
+    #[allow(clippy::unused_io_amount)]
     fn buf_reader() {
         let mut read = BufReader::with_capacity(3, &[1u8, 2, 3, 4, 5, 6, 7, 8, 9, 0][..]);
 

@@ -52,7 +52,7 @@ macro_rules! clone_resetable {
 pub mod buf_reader;
 /// Stream wrapper which provides a `ResetStream` impl for `StreamOnce` impls which do not have
 /// one.
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod buffered;
 #[cfg(feature = "std")]
@@ -576,7 +576,7 @@ impl<'a> RangeStreamOnce for &'a str {
             }
             match s.as_bytes().get(index) {
                 None => false,
-                Some(&b) => b < 128 || b >= 192,
+                Some(b) => !(128..=192).contains(b),
             }
         }
         if size <= self.len() {
@@ -1891,7 +1891,7 @@ mod tests {
         input.uncons().unwrap();
         assert_eq!(input.distance(&before), 2);
 
-        input.reset(before.clone()).unwrap();
+        input.reset(before).unwrap();
         assert_eq!(input.distance(&before), 0);
     }
 }

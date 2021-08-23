@@ -220,7 +220,7 @@ where
     Input: Stream<Token = u8>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    satisfy(|ch| ch >= b'0' && ch <= b'7').expected("octal digit")
+    satisfy(|ch| (b'0'..=b'7').contains(&ch)).expected("octal digit")
 }
 
 /// Parses an ASCII hexdecimal digit (accepts both uppercase and lowercase).
@@ -599,7 +599,7 @@ pub mod num {
         pub F64, f64, be_f64, le_f64, read_f64
     );
 
-    #[cfg(test)]
+    #[cfg(all(feature = "std", test))]
     mod tests {
 
         use crate::stream::{buffered, position, IteratorStream};
@@ -641,7 +641,7 @@ pub mod num {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "std", test))]
 mod tests {
 
     use crate::stream::{buffered, position, read};

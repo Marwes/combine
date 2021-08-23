@@ -12,6 +12,12 @@ use crate::{
     Parser,
 };
 
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, string::String, vec::Vec};
+
+#[cfg(feature = "alloc")]
+use crate::lib::any::Any;
+
 #[derive(Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
 impl<Input, O, P> Parser<Input> for NotFollowedBy<P>
@@ -711,16 +717,16 @@ where
     Ignore(p)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
-pub struct AnyPartialState(Option<Box<dyn std::any::Any>>);
+pub struct AnyPartialState(Option<Box<dyn Any>>);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnyPartialStateParser<P>(P);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> Parser<Input> for AnyPartialStateParser<P>
 where
     Input: Stream,
@@ -803,7 +809,7 @@ where
 ///
 /// # }
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_partial_state<Input, P>(p: P) -> AnyPartialStateParser<P>
 where
@@ -814,16 +820,16 @@ where
     AnyPartialStateParser(p)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
-pub struct AnySendPartialState(Option<Box<dyn std::any::Any + Send>>);
+pub struct AnySendPartialState(Option<Box<dyn Any + Send>>);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnySendPartialStateParser<P>(P);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> Parser<Input> for AnySendPartialStateParser<P>
 where
     Input: Stream,
@@ -906,7 +912,7 @@ where
 ///
 /// # }
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_send_partial_state<Input, P>(p: P) -> AnySendPartialStateParser<P>
 where
@@ -917,16 +923,16 @@ where
     AnySendPartialStateParser(p)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[derive(Default)]
-pub struct AnySendSyncPartialState(Option<Box<dyn std::any::Any + Send + Sync>>);
+pub struct AnySendSyncPartialState(Option<Box<dyn Any + Send + Sync>>);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct AnySendSyncPartialStateParser<P>(P);
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<Input, P> Parser<Input> for AnySendSyncPartialStateParser<P>
 where
     Input: Stream,
@@ -1008,7 +1014,7 @@ where
 ///
 /// # }
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn any_send_sync_partial_state<Input, P>(p: P) -> AnySendSyncPartialStateParser<P>
 where
@@ -1179,52 +1185,52 @@ mod internal {
 use self::internal::Sealed;
 
 pub trait StrLike: Sealed {
-    fn from_utf8(&self) -> Result<&str, ()>;
+    fn from_utf8(&self) -> Option<&str>;
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl Sealed for String {}
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl StrLike for String {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        Ok(self)
+    fn from_utf8(&self) -> Option<&str> {
+        Some(self)
     }
 }
 
 impl<'a> Sealed for &'a str {}
 impl<'a> StrLike for &'a str {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        Ok(*self)
+    fn from_utf8(&self) -> Option<&str> {
+        Some(*self)
     }
 }
 
 impl Sealed for str {}
 impl StrLike for str {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        Ok(self)
+    fn from_utf8(&self) -> Option<&str> {
+        Some(self)
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl Sealed for Vec<u8> {}
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl StrLike for Vec<u8> {
-    fn from_utf8(&self) -> Result<&str, ()> {
+    fn from_utf8(&self) -> Option<&str> {
         (**self).from_utf8()
     }
 }
 
 impl<'a> Sealed for &'a [u8] {}
 impl<'a> StrLike for &'a [u8] {
-    fn from_utf8(&self) -> Result<&str, ()> {
+    fn from_utf8(&self) -> Option<&str> {
         (**self).from_utf8()
     }
 }
 
 impl Sealed for [u8] {}
 impl StrLike for [u8] {
-    fn from_utf8(&self) -> Result<&str, ()> {
-        str::from_utf8(self).map_err(|_| ())
+    fn from_utf8(&self) -> Option<&str> {
+        str::from_utf8(self).ok()
     }
 }
 
@@ -1275,7 +1281,7 @@ where [
 {
     parser.and_then(|r| {
         r.from_utf8()
-            .map_err(|_| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
+            .ok_or_else(|| StreamErrorFor::<Input>::expected_static_message("UTF-8"))
             .and_then(|s| s.parse().map_err(StreamErrorFor::<Input>::message_format))
     })
 }
