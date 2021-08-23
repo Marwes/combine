@@ -79,7 +79,7 @@ required-features = ["std"]
 [[bench]]
 name = "http"
 harness = false
-required-features = ["alloc"]
+required-features = ["std"]
 
 [[bench]]
 name = "mp4"
