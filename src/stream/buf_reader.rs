@@ -8,7 +8,7 @@ use std::io::{self, BufRead, Read};
 ))]
 use std::{mem::MaybeUninit, pin::Pin};
 
-#[cfg(feature = "futures-util-03")]
+#[cfg(feature = "futures-core-03")]
 use std::task::{Context, Poll};
 
 #[cfg(feature = "futures-03")]
@@ -25,8 +25,8 @@ use tokio_03_dep::io::AsyncBufRead as _;
 #[cfg(feature = "tokio")]
 use tokio_dep::io::AsyncBufRead as _;
 
-#[cfg(feature = "futures-util-03")]
-use futures_util_03::ready;
+#[cfg(feature = "futures-core-03")]
+use futures_core_03::ready;
 
 #[cfg(feature = "pin-project-lite")]
 pin_project! {
@@ -208,7 +208,7 @@ where
 #[cfg(feature = "futures-03")]
 impl<R> CombineAsyncRead<R> for Buffer
 where
-    R: futures_util_03::io::AsyncRead,
+    R: futures_io_03::AsyncRead,
 {
     fn poll_extend_buf(
         &mut self,
@@ -454,7 +454,7 @@ where
 #[cfg(feature = "futures-03")]
 impl<R> CombineAsyncRead<BufReader<R>> for Bufferless
 where
-    R: futures_util_03::io::AsyncRead,
+    R: futures_io_03::AsyncRead,
 {
     fn poll_extend_buf(
         &mut self,
@@ -492,7 +492,7 @@ fn poll_extend_buf<R>(
     read: Pin<&mut R>,
 ) -> Poll<io::Result<usize>>
 where
-    R: futures_util_03::io::AsyncRead,
+    R: futures_io_03::AsyncRead,
 {
     // Copy of tokio's read_buf method (but it has to force initialize the buffer)
     let n = {
@@ -778,8 +778,7 @@ mod tests {
 
     impl<R: AsyncRead> BufReader<R> {
         async fn extend_buf_tokio_02(mut self: Pin<&mut Self>) -> io::Result<usize> {
-            futures_util_03::future::poll_fn(|cx| Bufferless.poll_extend_buf(cx, self.as_mut()))
-                .await
+            crate::future_ext::poll_fn(|cx| Bufferless.poll_extend_buf(cx, self.as_mut())).await
         }
     }
 
@@ -819,7 +818,7 @@ mod tests {
     #[tokio::test]
     async fn buf_reader_extend_buf() {
         let read = BufReader::with_capacity(3, &[1u8, 2, 3, 4, 5, 6, 7, 8, 9, 0][..]);
-        futures_util_03::pin_mut!(read);
+        futures_03_dep::pin_mut!(read);
 
         assert_eq!(read.as_mut().extend_buf_tokio_02().await.unwrap(), 3);
         assert_eq!(read.buffer(), [1, 2, 3]);
@@ -846,8 +845,7 @@ mod tests_tokio_1 {
 
     impl<R: AsyncRead> BufReader<R> {
         async fn extend_buf_tokio(mut self: Pin<&mut Self>) -> io::Result<usize> {
-            futures_util_03::future::poll_fn(|cx| Bufferless.poll_extend_buf(cx, self.as_mut()))
-                .await
+            crate::future_ext::poll_fn(|cx| Bufferless.poll_extend_buf(cx, self.as_mut())).await
         }
     }
 
@@ -887,7 +885,7 @@ mod tests_tokio_1 {
     #[tokio::test]
     async fn buf_reader_extend_buf() {
         let read = BufReader::with_capacity(3, &[1u8, 2, 3, 4, 5, 6, 7, 8, 9, 0][..]);
-        futures_util_03::pin_mut!(read);
+        futures_03_dep::pin_mut!(read);
 
         assert_eq!(read.as_mut().extend_buf_tokio().await.unwrap(), 3);
         assert_eq!(read.buffer(), [1, 2, 3]);

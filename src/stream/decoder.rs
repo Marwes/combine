@@ -161,7 +161,7 @@ impl<S, P, C> Decoder<S, P, C> {
         C: crate::stream::buf_reader::CombineRead<R, dyn tokio_02_dep::io::AsyncRead>,
     {
         let copied =
-            futures_util_03::future::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
+            crate::future_ext::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
                 .await?;
         if copied == 0 {
             self.end_of_input = true;
@@ -180,7 +180,7 @@ impl<S, P, C> Decoder<S, P, C> {
         C: crate::stream::buf_reader::CombineRead<R, dyn tokio_03_dep::io::AsyncRead>,
     {
         let copied =
-            futures_util_03::future::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
+            crate::future_ext::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
                 .await?;
         if copied == 0 {
             self.end_of_input = true;
@@ -199,7 +199,7 @@ impl<S, P, C> Decoder<S, P, C> {
         C: crate::stream::buf_reader::CombineRead<R, dyn tokio_dep::io::AsyncRead>,
     {
         let copied =
-            futures_util_03::future::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
+            crate::future_ext::poll_fn(|cx| self.buffer.poll_extend_buf(cx, reader.as_mut()))
                 .await?;
         if copied == 0 {
             self.end_of_input = true;
