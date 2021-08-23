@@ -956,7 +956,7 @@ pub trait Parser<Input: Stream> {
 }
 
 /// Provides the `easy_parse` method which provides good error messages by default
-#[cfg(feature = "alloc")]
+#[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait EasyParser<Input: Stream>: Parser<crate::easy::Stream<Input>>
 where
@@ -1028,7 +1028,7 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(feature = "std")]
 impl<Input, P> EasyParser<Input> for P
 where
     P: ?Sized + Parser<crate::easy::Stream<Input>>,

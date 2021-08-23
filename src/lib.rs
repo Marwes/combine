@@ -201,7 +201,7 @@ extern crate alloc;
 #[doc(inline)]
 pub use crate::error::{ParseError, ParseResult, StdParseResult};
 
-#[cfg(feature = "alloc")]
+#[cfg(feature = "std")]
 #[doc(inline)]
 pub use crate::parser::EasyParser;
 
@@ -607,7 +607,7 @@ pub mod lib {
     pub use std::*;
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(feature = "std")]
 #[doc(inline)]
 pub use crate::stream::easy;
 

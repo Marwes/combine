@@ -55,7 +55,7 @@ pub mod buf_reader;
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod buffered;
-#[cfg(feature = "alloc")]
+#[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod easy;
 /// Stream wrapper which provides more detailed position information.
