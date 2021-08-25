@@ -1,3 +1,14 @@
+<a name="v4.6.1"></a>
+### v4.6.1 (2021-08-25)
+
+
+#### Performance
+
+*   Avoid a saturating add in slice_uncons_while ([7f330b0c](https://github.com/Marwes/combine/commit/7f330b0cacd61131df88c919074ffa8136100299))
+*   Avoid a saturating add in slice_uncons_while ([ad4180dd](https://github.com/Marwes/combine/commit/ad4180dd7d3530d47502795ead21e13b7816aed7))
+
+
+
 <a name="v4.6.0"></a>
 ## v4.6.0 (2021-06-16)
 
