@@ -271,7 +271,6 @@ where
 /// # extern crate combine;
 /// # use combine::*;
 /// # use combine::parser::char::string_cmp;
-/// use std::ascii::AsciiExt;
 /// # fn main() {
 /// let result = string_cmp("rust", |l, r| l.eq_ignore_ascii_case(&r))
 ///     .parse("RusT")
