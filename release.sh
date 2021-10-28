@@ -6,4 +6,7 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-clog --$VERSION && git add CHANGELOG.md && git commit -m "Updated changelog" && cargo release $VERSION
+clog --$VERSION && \
+    git add CHANGELOG.md && \
+    git commit -m "Updated changelog" && \
+    cargo release --execute $VERSION
