@@ -1,3 +1,17 @@
+<a name="v4.6.2"></a>
+### v4.6.2 (2021-10-28)
+
+
+#### Performance
+
+*   Handle restarts better in take_until_byte{,s,2,3} ([03b19498](https://github.com/Marwes/combine/commit/03b19498189c873cdf8195a207a9f5a747ca40b7), closes [#327](https://github.com/Marwes/combine/issues/327))
+
+#### Bug Fixes
+
+*   warning ([08753d3e](https://github.com/Marwes/combine/commit/08753d3ebf072c0765e99bd6f440b52ef93cab40))
+
+
+
 <a name="v4.6.1"></a>
 ### v4.6.1 (2021-08-25)
 
