@@ -311,6 +311,7 @@ macro_rules! take_until {
         parser!{
             #[derive(Clone)]
             pub struct $type_name;
+            type PartialState = usize;
             $(#[$attr])*
             pub fn $func_name[Input]($($param : u8),*)(Input) -> Input::Range
                 where [
@@ -389,6 +390,7 @@ take_until! {
 }
 
 parser! {
+type PartialState = usize;
 /// Zero-copy parser which reads a range of 0 or more tokens until `needle` is found.
 ///
 /// If `a`, 'b' or `c` is not found, the parser will return an error.
