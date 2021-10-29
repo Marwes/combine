@@ -64,11 +64,10 @@ where
 {
     lex(range::recognize((
         optional(char('-')),
-        char('0').or((
-            skip_many1(digit()),
+        (
+            char('0').map(|_| ()).or(skip_many1(digit())),
             optional((char('.'), skip_many(digit()))),
-        )
-            .map(|_| '0')),
+        ),
         optional((
             (one_of("eE".chars()), optional(one_of("+-".chars()))),
             skip_many1(digit()),
