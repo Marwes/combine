@@ -162,8 +162,8 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Info<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Info::Token(ref c) => write!(f, "{}", c),
-            Info::Range(ref c) => write!(f, "{}", c),
+            Info::Token(ref c) => write!(f, "`{}`", c),
+            Info::Range(ref c) => write!(f, "`{}`", c),
             Info::Owned(ref s) => write!(f, "{}", s),
             Info::Static(s) => write!(f, "{}", s),
         }
@@ -571,7 +571,7 @@ impl<T, R> Error<T, R> {
     /// let m = format!("{}", result.unwrap_err());
     /// let expected = r"Parse error at line: 2, column: 3
     /// Unexpected `,`
-    /// Expected `.`, `a` or `digit`
+    /// Expected `.`, `a` or digit
     /// ";
     /// assert_eq!(m, expected);
     /// # }
@@ -608,7 +608,7 @@ impl<T, R> Error<T, R> {
                 // Last expected message to be written
                 _ => " or",
             };
-            write!(f, "{} `{}`", s, message)?;
+            write!(f, "{} {}", s, message)?;
         }
         if expected_count != 0 {
             writeln!(f)?;
@@ -792,8 +792,8 @@ where
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Error<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Error::Unexpected(ref c) => write!(f, "Unexpected `{}`", c),
-            Error::Expected(ref s) => write!(f, "Expected `{}`", s),
+            Error::Unexpected(ref c) => write!(f, "Unexpected {}", c),
+            Error::Expected(ref s) => write!(f, "Expected {}", s),
             Error::Message(ref msg) => msg.fmt(f),
             Error::Other(ref err) => err.fmt(f),
         }
