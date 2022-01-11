@@ -1,0 +1,28 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        rust: [1.40.0, stable, beta, nightly]
+    env:
+      CARGO_INCREMENTAL: 0 # Incremental compilation is slower and bloats the cache
+      RUST_BACKTRACE: 1
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build
+    - name: Run tests
+      run: cargo test
