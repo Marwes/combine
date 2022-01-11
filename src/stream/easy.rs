@@ -162,12 +162,39 @@ impl<T: PartialEq, R: PartialEq> PartialEq for Info<T, R> {
 impl<T: fmt::Display, R: fmt::Display> fmt::Display for Info<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Info::Token(ref c) => write!(f, "`{}`", c),
-            Info::Range(ref c) => write!(f, "`{}`", c),
+            Info::Token(ref c) => escaped_token(c, '`', f),
+            Info::Range(ref c) => escaped_token(c, '`', f),
             Info::Owned(ref s) => write!(f, "{}", s),
             Info::Static(s) => write!(f, "{}", s),
         }
     }
+}
+
+fn escaped_token<T: fmt::Display>(
+    token: &T,
+    quote: char,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    let token = token.to_string();
+    write!(f, "{}", quote)?;
+    for c in token.chars() {
+        match c {
+            '\t' | '\n' | '\r' => {
+                write!(f, "{}", c.escape_debug())?;
+            }
+            c if c.is_ascii_control() => {
+                write!(f, "{}", c.escape_debug())?;
+            }
+            c if c == quote => {
+                write!(f, "\\{}", quote)?;
+            }
+            _ => {
+                write!(f, "{}", c)?;
+            }
+        }
+    }
+    write!(f, "{}", quote)?;
+    Ok(())
 }
 
 impl<R> From<char> for Info<char, R> {
