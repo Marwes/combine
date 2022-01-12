@@ -1,3 +1,13 @@
+<a name="v4.6.3"></a>
+### v4.6.3 (2022-01-12)
+
+
+#### Bug Fixes
+
+* **easy:**  Only back-quote parser tokens ([08962d1d](https://github.com/Marwes/combine/commit/08962d1d4287c03edb84bd73a9eb09a42f294bc8), closes [#334](https://github.com/Marwes/combine/issues/334))
+
+
+
 <a name="v4.6.2"></a>
 ### v4.6.2 (2021-10-28)
 
