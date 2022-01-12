@@ -25,7 +25,7 @@
 //! use combine::parser::char::{digit, letter};
 //! const MSG: &'static str = r#"Parse error at line: 1, column: 1
 //! Unexpected `|`
-//! Expected `digit` or `letter`
+//! Expected digit or letter
 //! "#;
 //!
 //! fn main() {
