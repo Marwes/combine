@@ -701,6 +701,48 @@ where [
         .then_partial(|&mut len| take(len))
 }
 }
+#[derive(Copy, Clone)]
+pub struct Offset<P>(usize, P);
+
+impl<Input, O, P> Parser<Input> for Offset<P>
+where
+    Input: RangeStream,
+    P: Parser<Input, Output = O>,
+{
+    type Output = O;
+    type PartialState = ();
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<O, <Input as StreamOnce>::Error> {
+        let before = input.checkpoint();
+        ctry!(uncons_range(input, self.0));
+        let result = self.1.parse_lazy(input);
+        ctry!(input.reset(before).committed());
+        let (o, _input) = ctry!(result);
+        PeekOk(o)
+    }
+
+    forward_parser!(Input, add_error add_committed_expected_error parser_count, 1);
+}
+
+/// Parser that skip `count` and then parse data resetting back to original location
+///
+/// ```
+/// # extern crate combine;
+/// # use combine::parser::range::{take, offset};
+/// # use combine::*;
+/// # fn main() {
+/// let mut parser = offset(3, take(3));
+/// assert_eq!(parser.parse("1234567890"), Ok(("456", "1234567890")));
+/// # }
+/// ```
+pub fn offset<Input, P>(count: usize, p: P) -> Offset<P>
+where
+    P: Parser<Input>,
+    Input: RangeStream,
+{
+    Offset(count, p)
+}
 
 #[cfg(test)]
 mod tests {
