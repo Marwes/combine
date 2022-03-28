@@ -17,6 +17,7 @@ use {
     criterion::{black_box, Bencher, Criterion},
 };
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct Request<'a> {
     method: &'a [u8],
@@ -24,6 +25,7 @@ struct Request<'a> {
     version: &'a [u8],
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct Header<'a> {
     name: &'a [u8],
