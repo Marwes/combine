@@ -34,7 +34,7 @@ pin-project-lite = { version = "0.2", optional = true }
 tokio-02-dep = { version = "0.2.3", package = "tokio", features = ["io-util"], default-features = false, optional = true }
 tokio-03-dep = { version = "0.3", package = "tokio", default-features = false, optional = true }
 tokio-dep = { version = "1", package = "tokio", default-features = false, optional = true }
-tokio-util = { version = "0.6", features = ["codec"], default-features = false, optional = true }
+tokio-util = { version = "0.7", features = ["codec"], default-features = false, optional = true }
 futures-core-03 = { version = "0.3.1", package = "futures-core", default-features = false, optional = true }
 futures-io-03 = { version = "0.3.1", package = "futures-io", default-features = false, optional = true }
 bytes_05 = { version = "0.5", package = "bytes", optional =  true }
