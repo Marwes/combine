@@ -634,7 +634,7 @@ fn skip_count_min_max_test() {
     assert_eq!(result.unwrap(), [""]);
 }
 
-const WORDS_IN_README: usize = 819;
+const WORDS_IN_README: usize = 824;
 
 #[test]
 fn decode_std() {
@@ -850,5 +850,5 @@ async fn decode_loop() {
             }
         }
     }
-    assert_eq!(819, count);
+    assert_eq!(824, count);
 }

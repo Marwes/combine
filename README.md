@@ -26,13 +26,19 @@ let result = parser.parse("Pick up that word!");
 assert_eq!(result, Ok((Some("word".to_string()), "!")));
 ```
 
-A tutorial as well as explanations on what goes on inside combine can be found in [the wiki](https://github.com/Marwes/combine/wiki).
-
 Larger examples can be found in the [examples][], [tests][] and [benches][] folders.
 
 [examples]:https://github.com/Marwes/combine/tree/master/examples
 [tests]:https://github.com/Marwes/combine/tree/master/tests
 [benches]:https://github.com/Marwes/combine/tree/master/benches
+
+## Tutorial
+
+A tutorial as well as explanations on what goes on inside combine can be found in [the wiki](https://github.com/Marwes/combine/wiki).
+
+### Translation
+
+[Japanese](https://github.com/sadnessOjisan/combine-ja)
 
 ## Links
 
