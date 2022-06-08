@@ -22,7 +22,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        override: true
+
     - name: Build
       run: cargo build
+
     - name: Run tests
       run: ./ci.sh
