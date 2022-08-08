@@ -32,5 +32,16 @@ jobs:
     - name: Build
       run: cargo build
 
+    - name: Check 1.40
+      if: ${{ matrix.rust == '1.40.0' }}
+      run: |
+        cargo "$@" check
+        cargo "$@" check --no-default-features
+
     - name: Run tests
+      if: ${{ matrix.rust != '1.40.0' }}
       run: ./ci.sh
+
+    - name: Check docs
+      if: ${{ matrix.rust == 'stable' }}
+      run: cargo doc

@@ -85,7 +85,6 @@ parser! {
     /// assert!(parser.parse("!").is_err());
     /// # }
     /// ```
-    #[inline]
     pub fn recognize[Input, P](parser: P)(Input) -> <Input as StreamOnce>::Range
     where [
         P: Parser<Input>,
