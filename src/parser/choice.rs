@@ -50,7 +50,7 @@ macro_rules! parse_mode_choice {
             input: &mut Input,
             state: &mut Self::PartialState,
         ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
-            self.parse_mode_choice($crate::parser::PartialMode::default(), input, state)
+            self.parse_mode_choice($crate::parser::TRY_PARTIAL, input, state)
         }
 
         fn parse_first(
@@ -483,7 +483,7 @@ where
         input: &mut Input,
         state: &mut Self::PartialState,
     ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error> {
-        slice_parse_mode(self, crate::parser::PartialMode::default(), input, state)
+        slice_parse_mode(self, crate::parser::TRY_PARTIAL, input, state)
     }
 
     #[inline]

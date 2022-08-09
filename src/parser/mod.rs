@@ -41,7 +41,7 @@ macro_rules! parse_mode {
             input: &mut $input_type,
             state: &mut Self::PartialState,
         ) -> $crate::error::ParseResult<Self::Output, <$input_type as $crate::StreamOnce>::Error> {
-            self.parse_mode($crate::parser::PartialMode::default(), input, state)
+            self.parse_mode($crate::parser::TRY_PARTIAL, input, state)
         }
 
         #[inline]
@@ -313,7 +313,7 @@ pub trait Parser<Input: Stream> {
         if mode.is_first() {
             FirstMode.parse_committed(self, input, state)
         } else {
-            PartialMode::default().parse_committed(self, input, state)
+            TRY_PARTIAL.parse_committed(self, input, state)
         }
     }
 
@@ -1171,12 +1171,20 @@ impl ParseMode for FirstMode {
     }
 }
 
+#[cfg(feature = "partial")]
+pub(crate) const TRY_PARTIAL: PartialMode = PartialMode { first: false };
+#[cfg(not(feature = "partial"))]
+pub(crate) const TRY_PARTIAL: FirstMode = FirstMode;
+
 /// Internal API. May break without a semver bump
 #[doc(hidden)]
 #[derive(Copy, Clone, Default)]
+#[cfg(feature = "partial")]
 pub struct PartialMode {
     pub first: bool,
 }
+
+#[cfg(feature = "partial")]
 impl ParseMode for PartialMode {
     #[inline]
     fn is_first(self) -> bool {
