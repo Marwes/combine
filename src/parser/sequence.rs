@@ -14,17 +14,6 @@ use crate::{
     ErrorOffset, Parser, Stream, StreamOnce,
 };
 
-macro_rules! dispatch_on {
-    ($i: expr, $f: expr;) => {
-    };
-    ($i: expr, $f: expr; $first: ident $(, $id: ident)*) => { {
-        let b = $f($i, $first);
-        if b {
-            dispatch_on!($i + 1, $f; $($id),*);
-        }
-    } }
-}
-
 macro_rules! count {
     () => { 0 };
     ($f: ident) => { 1 };
@@ -63,6 +52,37 @@ macro_rules! last_ident {
     ($id: ident, $($rest: ident),+) => { last_ident!($($rest),+) };
 }
 
+fn add_sequence_error<Input>(
+    i: &mut usize,
+    first_empty_parser: usize,
+    inner_offset: ErrorOffset,
+    err: &mut Tracked<Input::Error>,
+    parser: &mut impl Parser<Input>,
+) -> bool
+where
+    Input: Stream,
+{
+    if *i + 1 == first_empty_parser {
+        Parser::add_committed_expected_error(parser, err);
+    }
+    if *i >= first_empty_parser {
+        if err.offset <= ErrorOffset(1) {
+            // We reached the last parser we need to add errors to (and the
+            // parser that actually returned the error), use the returned
+            // offset for that parser.
+            err.offset = inner_offset;
+        }
+        Parser::add_error(parser, err);
+        if err.offset <= ErrorOffset(1) {
+            return false;
+        }
+    }
+    err.offset = ErrorOffset(err.offset.0.saturating_sub(Parser::parser_count(parser).0));
+
+    *i += 1;
+    true
+}
+
 macro_rules! tuple_parser {
     ($partial_state: ident; $h: ident $(, $id: ident)*) => {
         #[allow(non_snake_case)]
@@ -99,27 +119,20 @@ macro_rules! tuple_parser {
                     if let Ok(t) = input.uncons() {
                         err.error.add(StreamError::unexpected_token(t));
                     }
-                    dispatch_on!(0, |i, mut p| {
-                        if i + 1 == first_empty_parser {
-                            Parser::add_committed_expected_error(&mut p, &mut err);
+
+                    #[allow(unused_assignments)]
+                    let mut i = 0;
+                    loop {
+                        if !add_sequence_error(&mut i, first_empty_parser, inner_offset, &mut err, $h) {
+                            break;
                         }
-                        if i >= first_empty_parser {
-                            if err.offset <= ErrorOffset(1) {
-                                // We reached the last parser we need to add errors to (and the
-                                // parser that actually returned the error), use the returned
-                                // offset for that parser.
-                                err.offset = inner_offset;
-                            }
-                            Parser::add_error(&mut p, &mut err);
-                            if err.offset <= ErrorOffset(1) {
-                                return false;
-                            }
+                        $(
+                        if !add_sequence_error(&mut i, first_empty_parser, inner_offset, &mut err, $id) {
+                            break;
                         }
-                        err.offset = ErrorOffset(
-                            err.offset.0.saturating_sub(Parser::parser_count(&p).0)
-                        );
-                        true
-                    }; $h $(, $id)*);
+                        )*
+                        break;
+                    }
                     CommitErr(err.error)
                 } else {
                     PeekErr(err)
