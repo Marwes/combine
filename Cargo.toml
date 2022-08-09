@@ -28,7 +28,7 @@ path = "src/lib.rs"
 
 [dependencies]
 regex = { version = "1", optional = true }
-memchr = { version = "2.2", default-features = false }
+memchr = { version = "2.3", default-features = false }
 pin-project-lite = { version = "0.2", optional = true }
 # Future proofing so that tokio-0.3, tokio-0.1 etc can be supported
 tokio-02-dep = { version = "0.2.3", package = "tokio", features = ["io-util"], default-features = false, optional = true }
@@ -64,7 +64,7 @@ tokio-02 = ["pin-project", "std", "tokio-02-dep", "futures-core-03", "pin-projec
 tokio-03 = ["pin-project", "std", "tokio-03-dep", "futures-core-03", "pin-project-lite"]
 tokio = ["tokio-dep", "tokio-util/io", "futures-core-03", "pin-project-lite"]
 futures-03 = ["pin-project", "std", "futures-core-03", "futures-io-03", "pin-project-lite"]
-std = ["memchr/use_std", "bytes", "alloc"]
+std = ["memchr/std", "bytes", "alloc"]
 alloc = []
 
 [[test]]
