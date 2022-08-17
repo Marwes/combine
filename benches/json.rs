@@ -1,6 +1,3 @@
-// `impl Trait` is not required for this parser but we use to to show that it can be used to
-// significantly simplify things
-
 #![cfg(feature = "std")]
 
 #[macro_use]
