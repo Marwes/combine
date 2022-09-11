@@ -165,7 +165,6 @@ pub trait Stream: StreamOnce + ResetStream + Positioned {}
 impl<Input> Stream for Input
 where
     Input: StreamOnce + Positioned + ResetStream,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
 }
 

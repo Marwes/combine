@@ -296,7 +296,6 @@ impl<T> Commit<T> {
     /// //and " respectively
     /// fn char<Input>(input: &mut Input) -> StdParseResult<char, Input>
     ///     where Input: Stream<Token = char>,
-    ///           Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     /// {
     ///     let (c, committed) = satisfy(|c| c != '"').parse_stream(input).into_result()?;
     ///     match c {

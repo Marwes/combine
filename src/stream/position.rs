@@ -111,13 +111,13 @@ where
     }
 }
 
-impl<Input, X, E> Positioned for Stream<Input, X>
+impl<Input, X, S> Positioned for Stream<Input, X>
 where
     Input: StreamOnce,
     X: Positioner<Input::Token>,
-    E: StreamError<Input::Token, Input::Range>,
-    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = E>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = E>,
+    S: StreamError<Input::Token, Input::Range>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
 {
     #[inline]
     fn position(&self) -> Self::Position {
@@ -130,8 +130,8 @@ where
     Input: StreamOnce,
     X: Positioner<Input::Token>,
     S: StreamError<Input::Token, Input::Range>,
-    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>
-        + ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, X::Position, StreamError = S>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position, StreamError = S>,
 {
     type Token = Input::Token;
     type Range = Input::Range;

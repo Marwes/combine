@@ -1,7 +1,7 @@
 //! Module containing parsers specialized on byte streams.
 
 use crate::{
-    error::{self, ParseError, ParseResult::*},
+    error::{self, ParseResult::*},
     parser::{
         combinator::no_partial,
         range::{take_fn, TakeRange},
@@ -24,7 +24,6 @@ use crate::{
 pub fn byte<Input>(c: u8) -> Token<Input>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     token(c)
 }
@@ -51,7 +50,6 @@ macro_rules! byte_parser {
 pub fn digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(digit, Digit, is_ascii_digit())
 }
@@ -69,7 +67,6 @@ where
 pub fn space<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(space, Space, is_ascii_whitespace)
 }
@@ -87,7 +84,6 @@ where
 pub fn spaces<Input>() -> impl Parser<Input, Output = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     skip_many(space()).expected("whitespaces")
 }
@@ -103,7 +99,6 @@ where
 pub fn newline<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch: u8| ch == b'\n').expected("lf newline")
 }
@@ -120,7 +115,6 @@ where
 pub fn crlf<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     no_partial(satisfy(|ch: u8| ch == b'\r').with(newline())).expected("crlf newline")
 }
@@ -136,7 +130,6 @@ where
 pub fn tab<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch| ch == b'\t').expected("tab")
 }
@@ -152,7 +145,6 @@ where
 pub fn upper<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(upper, Upper, is_ascii_uppercase)
 }
@@ -168,7 +160,6 @@ where
 pub fn lower<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(lower, Lower, is_ascii_lowercase)
 }
@@ -185,7 +176,6 @@ where
 pub fn alpha_num<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(alpha_num, AlphaNum, is_ascii_alphanumeric)
 }
@@ -202,7 +192,6 @@ where
 pub fn letter<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(letter, Letter, is_ascii_alphabetic)
 }
@@ -218,7 +207,6 @@ where
 pub fn oct_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     satisfy(|ch| (b'0'..=b'7').contains(&ch)).expected("octal digit")
 }
@@ -234,7 +222,6 @@ where
 pub fn hex_digit<Input>() -> impl Parser<Input, Output = u8, PartialState = ()>
 where
     Input: Stream<Token = u8>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     byte_parser!(hex_digit, HexDigit, is_ascii_hexdigit())
 }
@@ -262,7 +249,6 @@ parser! {
 pub fn bytes['a, 'b, Input](s: &'static [u8])(Input) -> &'a [u8]
 where [
     Input: Stream<Token = u8, Range = &'b [u8]>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 ]
 {
     bytes_cmp(s, |l: u8, r: u8| l == r)
@@ -293,7 +279,6 @@ pub fn bytes_cmp['a, 'b, C, Input](s: &'static [u8], cmp: C)(Input) -> &'a [u8]
 where [
     C: FnMut(u8, u8) -> bool,
     Input: Stream<Token = u8, Range = &'b [u8]>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 ]
 {
     let s = *s;
@@ -457,7 +442,6 @@ pub mod num {
             pub fn $be_name<'a, Input>() -> impl Parser<Input, Output = $output_type, PartialState = ()>
             where
                 Input: Stream<Token = u8>,
-                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
             {
                 parser(|input: &mut Input| {
                     let checkpoint = input.checkpoint();
@@ -479,7 +463,6 @@ pub mod num {
             pub fn $le_name<'a, Input>() -> impl Parser<Input, Output = $output_type, PartialState = ()>
             where
                 Input: Stream<Token = u8>,
-                Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
             {
                 parser(|input: &mut Input| {
                     let checkpoint = input.checkpoint();

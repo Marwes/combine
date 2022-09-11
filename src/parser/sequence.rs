@@ -109,7 +109,6 @@ macro_rules! tuple_parser {
                 $h: &mut $h $(, $id : &mut $id )*
             ) -> ParseResult<($h::Output, $($id::Output),*), <Input as StreamOnce>::Error>
                 where Input: Stream,
-                      Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
                       $h: Parser<Input>,
                       $($id: Parser<Input>),*
             {
@@ -143,7 +142,6 @@ macro_rules! tuple_parser {
         #[allow(non_snake_case)]
         impl <Input: Stream, $h:, $($id:),*> Parser<Input> for ($h, $($id),*)
             where Input: Stream,
-                  Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
                   $h: Parser<Input>,
                   $($id: Parser<Input>),*
         {
