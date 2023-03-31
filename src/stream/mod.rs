@@ -1401,7 +1401,7 @@ where
 ///         },
 ///         |input, _position| combine::easy::Stream::from(input),
 ///     ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
-///     Ok(824),
+///     Ok(773),
 /// );
 /// ```
 #[cfg(feature = "std")]
@@ -1497,7 +1497,7 @@ macro_rules! decode {
 ///             },
 ///             |input, _position| combine::easy::Stream::from(input),
 ///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
-///         Ok(824),
+///         Ok(773),
 ///     );
 /// }
 /// ```
@@ -1591,7 +1591,7 @@ macro_rules! decode_futures_03 {
 ///             },
 ///             |input, _position| combine::easy::Stream::from(input),
 ///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
-///         Ok(824),
+///         Ok(773),
 ///     );
 /// }
 /// ```
@@ -1687,7 +1687,7 @@ macro_rules! decode_tokio_02 {
 ///             },
 ///             |input, _position| combine::easy::Stream::from(input),
 ///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
-///         Ok(824),
+///         Ok(773),
 ///     );
 /// }
 /// ```
@@ -1783,7 +1783,7 @@ macro_rules! decode_tokio_03 {
 ///             },
 ///             |input, _position| combine::easy::Stream::from(input),
 ///         ).map_err(combine::easy::Errors::<u8, &[u8], _>::from),
-///         Ok(824),
+///         Ok(773),
 ///     );
 /// }
 /// ```
