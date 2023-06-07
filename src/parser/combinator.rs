@@ -360,7 +360,6 @@ where
     P: Parser<Input>,
     F: FnMut(P::Output) -> Result<O, E>,
     E: Into<<Input::Error as ParseError<Input::Token, Input::Range, Input::Position>>::StreamError>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     type Output = O;
     type PartialState = P::PartialState;
@@ -1002,7 +1001,6 @@ where
 /// fn example<Input>() -> impl Parser<Input, Output = (char, char), PartialState = AnySendSyncPartialState>
 /// where
 ///     Input: Stream<Token = char>,
-///     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 /// {
 ///     any_send_sync_partial_state((letter(), letter()))
 /// }
@@ -1374,7 +1372,6 @@ pub type FnOpaque<Input, O, S = ()> =
 /// fn expr<Input>() -> FnOpaque<Input, Expr>
 /// where
 ///     Input: Stream<Token = char>,
-///     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 /// {
 ///     opaque!(
 ///         // `no_partial` disables partial parsing and replaces the partial state with `()`,
@@ -1517,7 +1514,6 @@ impl<Input, P, Q> Parser<Input> for Spanned<P>
 where
     P: Parser<Input>,
     Input: Stream<Position = Span<Q>>,
-    Input::Error: ParseError<Input::Token, Input::Range, Span<Q>>,
     Q: Ord + Clone,
 {
     type Output = P::Output;
