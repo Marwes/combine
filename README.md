@@ -65,7 +65,7 @@ If you end up trying it I welcome any feedback from your experience with it. I a
 
 ### Why does my errors contain inscrutable positions?
 
-Since `combine` aims to crate parsers with little to no overhead, streams over `&str` and `&[T]` do not carry any extra position information, but instead, they only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `PointerOffset` which represents the position or wrap your stream with `State`.
+Since `combine` aims to crate parsers with little to no overhead, streams over `&str` and `&[T]` do not carry any extra position information, but instead, they only rely on comparing the pointer of the buffer to check which `Stream` is further ahead than another `Stream`. To retrieve a better position, either call `translate_position` on the `PointerOffset` which represents the position or wrap your stream with `position::Stream`.
 
 ### How does it compare to nom?
 
