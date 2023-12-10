@@ -84,10 +84,10 @@
 //! If we need a parser that is mutually recursive or if we want to export a reusable parser the
 //! [`parser!`] macro can be used. In effect it makes it possible to return a parser without naming
 //! the type of the parser (which can be very large due to combine's trait based approach). While
-//! it is possible to do avoid naming the type without the macro those solutions require either allocation
-//! (`Box<dyn Parser< Input, Output = O, PartialState = P>>`) or nightly rust via `impl Trait`. The
-//! macro thus threads the needle and makes it possible to have non-allocating, anonymous parsers
-//! on stable rust.
+//! it is possible to do avoid naming the type without the macro those solutions require either
+//! allocation (`Box<dyn Parser< Input, Output = O, PartialState = P>>`) or via `impl Trait` in the
+//! return position. The macro thus threads the needle and makes it possible to have
+//! non-allocating, anonymous parsers on stable rust.
 //!
 //! ```
 //! #[macro_use]
@@ -239,8 +239,8 @@ pub use crate::parser::token::tokens_cmp;
 /// The expression which creates the parser should have no side effects as it may be called
 /// multiple times even during a single parse attempt.
 ///
-/// NOTE: If you are using rust nightly you can use `impl Trait` instead. See the [json parser][] for
-/// an example.
+/// NOTE: You can use `impl Trait` in the return position instead. See the [json parser][] for an
+/// example.
 ///
 /// [json parser]:https://github.com/Marwes/combine/blob/master/benches/json.rs
 ///
