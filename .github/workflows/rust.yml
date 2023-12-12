@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        rust: [1.51.0, stable, beta, nightly]
+        rust: [1.61.0, stable, beta, nightly]
     env:
       CARGO_INCREMENTAL: 0 # Incremental compilation is slower and bloats the cache
       RUST_BACKTRACE: 1
@@ -32,14 +32,14 @@ jobs:
     - name: Build
       run: cargo build
 
-    - name: Check 1.51
-      if: ${{ matrix.rust == '1.51.0' }}
+    - name: Check 1.61
+      if: ${{ matrix.rust == '1.61.0' }}
       run: |
         cargo "$@" check
         cargo "$@" check --no-default-features
 
     - name: Run tests
-      if: ${{ matrix.rust != '1.51.0' }}
+      if: ${{ matrix.rust != '1.61.0' }}
       run: ./ci.sh
 
     - name: Check docs
