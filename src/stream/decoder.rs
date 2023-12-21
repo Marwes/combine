@@ -136,7 +136,7 @@ impl<S, P, C> Decoder<S, P, C> {
 
 impl<S, P, C> Decoder<S, P, C>
 where
-    C: ,
+    C:,
 {
     #[doc(hidden)]
     pub fn __before_parse<R>(&mut self, mut reader: R) -> io::Result<()>
