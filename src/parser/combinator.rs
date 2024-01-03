@@ -664,6 +664,30 @@ where
     forward_parser!(Input, add_error add_committed_expected_error parser_count, 0);
 }
 
+/// Wraps a parser `p` and disables partial parsing for it (changing the `PartialState` to `()`)
+///
+/// Partial parsing lets a parser accept incomplete (partial) input resume parsing when more input is available without re-parsing any part of the input.
+/// By disabling partial parsing for a parser it will need to restart its parse from the beginning once more input is available (no_partial ONLY affects the wrapped parser,
+/// any parsers calling the `no_partial` parser will still employ partial parsing).
+///
+/// If you are not using partial parsing this has no effect (except changing the typing of the parser).
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate combine;
+/// # use combine::parser::combinator::no_partial;
+/// # use combine::parser::char::letter;
+/// # use combine::*;
+///
+/// # fn main() {
+///
+/// assert_eq!(
+///     (no_partial(letter()), letter()).easy_parse("ab"),
+///     Ok((('a', 'b'), ""))
+/// );
+///
+/// # }
+/// ```
 pub fn no_partial<Input, P>(p: P) -> NoPartial<P>
 where
     Input: Stream,

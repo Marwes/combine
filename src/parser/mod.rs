@@ -842,6 +842,8 @@ pub trait Parser<Input: Stream> {
     ///     -> Box<dyn Parser<&'input str, Output = (char, char), PartialState = ()> + 'input>
     ///     where F: FnMut(char) -> bool + 'static
     /// {
+    ///     // Using no_partial here we do not need to name the type of `PartialState`
+    ///     // (though it disables partial parsing, if partial parsing is used `any_partial_state` can be used instead)
     ///     combine::parser::combinator::no_partial((token(c), satisfy(f))).boxed()
     /// }
     /// let result = test('a', |c| c >= 'a' && c <= 'f')
