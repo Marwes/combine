@@ -1,3 +1,8 @@
+<a name="v4.6.7"></a>
+### v4.6.7 (2024-04-10)
+
+* perf: avoid initializing huge buffers in the stream decoder
+
 <a name="v4.6.6"></a>
 ### v4.6.6 (2022-08-09)
 
