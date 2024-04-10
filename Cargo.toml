@@ -86,6 +86,11 @@ name = "mp4"
 harness = false
 required-features = ["mp4"]
 
+[[bench]]
+name = "buffers"
+harness = false
+required-features = ["std"]
+
 [[example]]
 name = "async"
 required-features = ["std", "tokio"]
