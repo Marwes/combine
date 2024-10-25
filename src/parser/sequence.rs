@@ -21,6 +21,7 @@ macro_rules! count {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct SequenceState<T, U> {
     pub value: Option<T>,
     pub state: U,
@@ -86,7 +87,7 @@ where
 macro_rules! tuple_parser {
     ($partial_state: ident; $h: ident $(, $id: ident)*) => {
         #[allow(non_snake_case)]
-        #[derive(Default)]
+        #[derive(Debug, Default)]
         pub struct $partial_state < $h $(, $id )* > {
             pub $h: $h,
             $(
@@ -505,7 +506,7 @@ macro_rules! struct_parser {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct With<P1, P2>((Ignore<P1>, P2));
 impl<Input, P1, P2> Parser<Input> for With<P1, P2>
 where
@@ -553,7 +554,7 @@ where
     With((ignore(p1), p2))
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Skip<P1, P2>((P1, Ignore<P2>));
 impl<Input, P1, P2> Parser<Input> for Skip<P1, P2>
 where
@@ -591,7 +592,7 @@ where
 }
 
 parser! {
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone)]
     pub struct Between;
     type PartialState = <Map<(L, P, R), fn ((L::Output, P::Output, R::Output)) -> P::Output> as Parser<Input>>::PartialState;
 /// Parses `open` followed by `parser` followed by `close`.
@@ -623,7 +624,7 @@ where [
 }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Then<P, F>(P, F);
 impl<Input, P, N, F> Parser<Input> for Then<P, F>
 where
@@ -713,7 +714,7 @@ where
     Then(p, f)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ThenPartial<P, F>(P, F);
 impl<Input, P, N, F> Parser<Input> for ThenPartial<P, F>
 where
@@ -810,7 +811,7 @@ mod tests {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ThenRef<P, F>(P, F);
 impl<Input, P, N, F> Parser<Input> for ThenRef<P, F>
 where

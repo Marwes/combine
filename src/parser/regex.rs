@@ -218,6 +218,7 @@ mod regex {
     }
 }
 
+#[derive(Debug)]
 pub struct Match<R, Input>(R, PhantomData<Input>);
 
 impl<'a, Input, R> Parser<Input> for Match<R, Input>
@@ -273,7 +274,7 @@ where
     Match(regex, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Find<R, Input>(R, PhantomData<fn() -> Input>);
 
 impl<'a, Input, R> Parser<Input> for Find<R, Input>
@@ -334,7 +335,7 @@ where
     Find(regex, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FindMany<F, R, Input>(R, PhantomData<fn() -> (Input, F)>);
 
 impl<'a, Input, F, R> Parser<Input> for FindMany<F, R, Input>
@@ -392,7 +393,7 @@ where
     FindMany(regex, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Captures<F, R, Input>(R, PhantomData<fn() -> (Input, F)>);
 
 impl<'a, Input, F, R> Parser<Input> for Captures<F, R, Input>
@@ -460,7 +461,7 @@ where
     Captures(regex, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CapturesMany<F, G, R, Input>(R, PhantomData<fn() -> (Input, F, G)>);
 
 impl<'a, Input, F, G, R> Parser<Input> for CapturesMany<F, G, R, Input>

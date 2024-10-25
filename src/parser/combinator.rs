@@ -18,7 +18,7 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 #[cfg(feature = "alloc")]
 use crate::lib::any::Any;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct NotFollowedBy<P>(P);
 impl<Input, O, P> Parser<Input> for NotFollowedBy<P>
 where
@@ -86,7 +86,7 @@ where
  * TODO :: Rename `Try` to `Attempt`
  * Because this is public, it's name cannot be changed without also making a breaking change.
  */
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Try<P>(P);
 impl<Input, O, P> Parser<Input> for Try<P>
 where
@@ -164,7 +164,7 @@ where
     Try(p)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct LookAhead<P>(P);
 
 impl<Input, O, P> Parser<Input> for LookAhead<P>
@@ -211,7 +211,7 @@ where
     LookAhead(p)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Map<P, F>(P, F);
 impl<Input, A, B, P, F> Parser<Input> for Map<P, F>
 where
@@ -256,7 +256,7 @@ where
     Map(p, f)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct MapInput<P, F>(P, F);
 impl<Input, A, B, P, F> Parser<Input> for MapInput<P, F>
 where
@@ -301,7 +301,7 @@ where
     MapInput(p, f)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct FlatMap<P, F>(P, F);
 impl<Input, A, B, P, F> Parser<Input> for FlatMap<P, F>
 where
@@ -352,7 +352,7 @@ where
     FlatMap(p, f)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct AndThen<P, F>(P, F);
 impl<Input, P, F, O, E> Parser<Input> for AndThen<P, F>
 where
@@ -423,7 +423,7 @@ where
     AndThen(p, f)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Recognize<F, P>(P, PhantomData<fn() -> F>);
 
 impl<F, P> Recognize<F, P> {
@@ -548,6 +548,7 @@ where
     Recognize(parser, PhantomData)
 }
 
+#[derive(Debug)]
 pub enum Either<L, R> {
     Left(L),
     Right(R),
@@ -629,6 +630,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct NoPartial<P>(P);
 
 impl<Input, P> Parser<Input> for NoPartial<P>
@@ -672,7 +674,7 @@ where
     NoPartial(p)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Ignore<P>(P);
 impl<Input, P> Parser<Input> for Ignore<P>
 where
@@ -718,11 +720,12 @@ where
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AnyPartialState(Option<Box<dyn Any>>);
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+#[derive(Debug)]
 pub struct AnyPartialStateParser<P>(P);
 
 #[cfg(feature = "alloc")]
@@ -821,11 +824,12 @@ where
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AnySendPartialState(Option<Box<dyn Any + Send>>);
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+#[derive(Debug)]
 pub struct AnySendPartialStateParser<P>(P);
 
 #[cfg(feature = "alloc")]
@@ -924,11 +928,12 @@ where
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AnySendSyncPartialState(Option<Box<dyn Any + Send + Sync>>);
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+#[derive(Debug)]
 pub struct AnySendSyncPartialStateParser<P>(P);
 
 #[cfg(feature = "alloc")]
@@ -1023,7 +1028,7 @@ where
     AnySendSyncPartialStateParser(p)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Lazy<P>(P);
 impl<Input, O, P, R> Parser<Input> for Lazy<P>
 where
@@ -1094,7 +1099,7 @@ where
     Lazy(p)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Factory<P, R>(P, Option<R>);
 
 impl<P, R> Factory<P, R> {
@@ -1285,7 +1290,7 @@ where [
 }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Opaque<F, Input, O, S>(F, PhantomData<fn(&mut Input, &mut S) -> O>);
 impl<Input, F, O, S> Parser<Input> for Opaque<F, Input, O, S>
 where
@@ -1421,6 +1426,7 @@ macro_rules! opaque {
     };
 }
 
+#[derive(Debug)]
 pub struct InputConverter<InputInner, P, C>
 where
     InputInner: Stream,
@@ -1508,7 +1514,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Spanned<P>(P);
 impl<Input, P, Q> Parser<Input> for Spanned<P>
 where

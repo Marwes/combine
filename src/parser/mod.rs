@@ -1147,7 +1147,7 @@ pub trait ParseMode: Copy {
 
 /// Internal API. May break without a semver bump
 #[doc(hidden)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct FirstMode;
 impl ParseMode for FirstMode {
     #[inline]
@@ -1173,7 +1173,7 @@ impl ParseMode for FirstMode {
 
 /// Internal API. May break without a semver bump
 #[doc(hidden)]
-#[derive(Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct PartialMode {
     pub first: bool,
 }

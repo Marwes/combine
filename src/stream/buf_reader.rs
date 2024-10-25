@@ -179,7 +179,7 @@ where
 }
 
 /// Marker used by `Decoder` for an internal buffer
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Buffer(pub(crate) BytesMut);
 
 impl sealed::Sealed for Buffer {}
@@ -324,7 +324,7 @@ fn tokio_read_buf(
 }
 
 /// Marker used by `Decoder` for an external buffer
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Bufferless;
 
 impl sealed::Sealed for Bufferless {}

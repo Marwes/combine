@@ -188,7 +188,7 @@
     clippy::inline_always,
     clippy::type_complexity,
     clippy::too_many_arguments,
-    clippy::match_like_matches_macro
+    clippy::match_like_matches_macro,
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -427,6 +427,7 @@ macro_rules! combine_parser_impl {
     ) => {
 
         $(#[$derive])*
+        #[allow(missing_debug_implementations)]
         $struct_vis struct $type_name<$($type_params)*>
             where <$input_type as $crate::stream::StreamOnce>::Error:
                 $crate::error::ParseError<

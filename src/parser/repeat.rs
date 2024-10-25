@@ -72,7 +72,7 @@ parser! {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct CountMinMax<F, P> {
     parser: P,
     min: usize,
@@ -243,6 +243,29 @@ where
     mode: M,
 }
 
+use std::fmt;
+
+impl<'a, Input, P, S, M> fmt::Debug for Iter<'a, Input, P, S, M>
+where
+    Input: Stream,
+    P: Parser<Input> + fmt::Debug,
+    S: fmt::Debug,
+    M: fmt::Debug,
+    <Input as StreamOnce>::Error: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Iter")
+            .field("parser", &self.parser)
+            .field("input", &format_args!("<Input>"))
+            .field("committed", &self.committed)
+            .field("state", &self.state)
+            .field("partial_state", &self.partial_state)
+            .field("mode", &self.mode)
+            .finish()
+    }
+}
+
+#[derive(Debug)]
 enum State<E> {
     Ok,
     PeekErr(E),
@@ -374,7 +397,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Many<F, P>(P, PhantomData<F>);
 
 impl<F, Input, P> Parser<Input> for Many<F, P>
@@ -447,7 +470,7 @@ where
     Many(p, PhantomData)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Many1<F, P>(P, PhantomData<fn() -> F>);
 impl<F, Input, P> Parser<Input> for Many1<F, P>
 where
@@ -535,7 +558,7 @@ where
     Many1(p, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[doc(hidden)]
 // FIXME Should not be public
 pub struct Sink;
@@ -609,7 +632,7 @@ where [
 }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SepBy<F, P, S> {
     parser: P,
     separator: S,
@@ -684,7 +707,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SepBy1<F, P, S> {
     parser: P,
     separator: S,
@@ -791,7 +814,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SepEndBy<F, P, S> {
     parser: P,
     separator: S,
@@ -865,7 +888,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SepEndBy1<F, P, S> {
     parser: P,
     separator: S,
@@ -977,7 +1000,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Chainl1<P, Op>(P, Op);
 impl<Input, P, Op> Parser<Input> for Chainl1<P, Op>
 where
@@ -1067,7 +1090,7 @@ where
     Chainl1(parser, op)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Chainr1<P, Op>(P, Op);
 impl<Input, P, Op> Parser<Input> for Chainr1<P, Op>
 where
@@ -1139,7 +1162,7 @@ where
     Chainr1(parser, op)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct TakeUntil<F, P> {
     end: P,
     _marker: PhantomData<fn() -> F>,
@@ -1261,7 +1284,7 @@ parser! {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct RepeatUntil<F, P, E> {
     parser: P,
     end: E,
@@ -1373,9 +1396,10 @@ parser! {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EscapedState<T, U>(PhantomData<(T, U)>);
 
+#[derive(Debug)]
 pub struct Escaped<P, Q, I> {
     parser: P,
     escape: I,
@@ -1487,6 +1511,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Iterate<F, I, P> {
     parser: P,
     iterable: I,

@@ -217,6 +217,7 @@ macro_rules! tuple_choice_parser {
 macro_rules! tuple_choice_parser_inner {
     ($partial_state: ident; $($id: ident)+) => {
         #[doc(hidden)]
+        #[allow(missing_debug_implementations)]
         pub enum $partial_state<$($id),+> {
             Peek,
             $(
@@ -350,7 +351,7 @@ array_choice_parser!(
     30 31 32
 );
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Choice<P>(P);
 
 impl<Input, P> Parser<Input> for Choice<P>
@@ -557,7 +558,7 @@ where
     Choice(ps)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Or<P1, P2>(Choice<(P1, P2)>);
 impl<Input, O, P1, P2> Parser<Input> for Or<P1, P2>
 where
@@ -630,7 +631,7 @@ where
     Or(choice((p1, p2)))
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Optional<P>(P);
 impl<Input, P> Parser<Input> for Optional<P>
 where

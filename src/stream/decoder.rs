@@ -48,7 +48,7 @@ impl<E: fmt::Display, P: fmt::Display> fmt::Display for Error<E, P> {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 /// Used together with the `decode!` macro
 pub struct Decoder<S, P, C = Buffer> {
     position: P,
