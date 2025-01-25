@@ -358,19 +358,18 @@ where
     R: Read,
 {
     let size = 8 * 1024;
-    if !buf.has_remaining_mut() {
+    if buf.capacity() == buf.len() {
         buf.reserve(size);
     }
 
     // Copy of tokio's poll_read_buf method (but it has to force initialize the buffer)
     let n = {
-        let bs = buf.chunk_mut();
+        let bs = buf.spare_capacity_mut();
 
         let initial_size = bs.len().min(size);
         let bs = &mut bs[..initial_size];
-        for i in 0..bs.len() {
-            bs.write_byte(i, 0);
-        }
+        // SAFETY: the above slicing operation guarantees `bs.len() == initial_size`
+        unsafe { bs.as_mut_ptr().cast::<u8>().write_bytes(0, initial_size) }
 
         // Convert to `&mut [u8]`
         // SAFETY: the entire buffer is preinitialized above
