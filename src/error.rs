@@ -123,6 +123,7 @@ impl<R> ErrorInfo<'_, Self, R> for u8 {
 }
 
 /// Newtype which constructs an `Info::Token` through `ErrorInfo`
+#[derive(Debug)]
 pub struct Token<T>(pub T);
 
 impl<T, R> From<Token<T>> for Info<T, R, &'static str> {
@@ -142,6 +143,7 @@ where
 }
 
 /// Newtype which constructs an `Info::Range` through `ErrorInfo`
+#[derive(Debug)]
 pub struct Range<R>(pub R);
 
 impl<T, R> From<Range<R>> for Info<T, R, &'static str> {
@@ -162,6 +164,7 @@ where
 
 /// Newtype which constructs an `Info::Static` through `ErrorInfo`
 /// A plain `&'static str` can also be used, this exists for consistency.
+#[derive(Debug)]
 pub struct Static(&'static str);
 
 impl<T, R, F> From<Static> for Info<T, R, F>
@@ -181,6 +184,7 @@ impl<'s, T, R> ErrorInfo<'s, T, R> for Static {
 }
 
 /// Newtype which constructs an `Info::Format` through `ErrorInfo`
+#[derive(Debug)]
 pub struct Format<F>(pub F)
 where
     F: fmt::Display;

@@ -4,6 +4,7 @@ use crate::lib::pin::Pin;
 use crate::lib::task::{Context, Poll};
 
 // Replace usage of this with std::future::poll_fn once it stabilizes
+#[derive(Debug)]
 pub struct PollFn<F> {
     f: F,
 }

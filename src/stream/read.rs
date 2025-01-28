@@ -154,6 +154,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Stream<R> {
     bytes: Bytes<R>,
 }

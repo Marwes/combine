@@ -28,6 +28,7 @@ use crate::stream::{
 
 use crate::Parser;
 
+#[derive(Debug)]
 pub struct Range<Input>(Input::Range)
 where
     Input: RangeStream;
@@ -146,7 +147,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct RecognizeWithValue<P>(P);
 
 impl<Input, P> Parser<Input> for RecognizeWithValue<P>
@@ -256,6 +257,7 @@ where
     Range(i)
 }
 
+#[derive(Debug)]
 pub struct Take<Input>(usize, PhantomData<fn(Input)>);
 impl<Input> Parser<Input> for Take<Input>
 where
@@ -300,6 +302,7 @@ where
     Take(n, PhantomData)
 }
 
+#[derive(Debug)]
 pub struct TakeWhile<Input, F>(F, PhantomData<fn(Input) -> Input>);
 impl<Input, F> Parser<Input> for TakeWhile<Input, F>
 where
@@ -358,6 +361,7 @@ where
     TakeWhile(f, PhantomData)
 }
 
+#[derive(Debug)]
 pub struct TakeWhile1<Input, F>(F, PhantomData<fn(Input) -> Input>);
 impl<Input, F> Parser<Input> for TakeWhile1<Input, F>
 where
@@ -416,6 +420,7 @@ where
     TakeWhile1(f, PhantomData)
 }
 
+#[derive(Debug)]
 pub struct TakeUntilRange<Input>(Input::Range)
 where
     Input: RangeStream;
@@ -548,6 +553,7 @@ impl From<Option<usize>> for TakeRange {
     }
 }
 
+#[derive(Debug)]
 pub struct TakeFn<F, Input> {
     searcher: F,
     _marker: PhantomData<fn(Input)>,

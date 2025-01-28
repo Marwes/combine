@@ -11,7 +11,7 @@ use crate::{
     Parser, Stream, StreamOnce,
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Unexpected<I, T, E>(E, PhantomData<fn(I) -> (I, T)>)
 where
     I: Stream;
@@ -92,7 +92,7 @@ where
     Unexpected(message, PhantomData)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Message<P, S>(P, S);
 impl<Input, P, S> Parser<Input> for Message<P, S>
 where
@@ -149,7 +149,7 @@ where
     Message(p, msg)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Expected<P, S>(P, S);
 impl<Input, P, S> Parser<Input> for Expected<P, S>
 where
@@ -195,7 +195,7 @@ where
     Expected(p, info)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Silent<P>(P);
 impl<Input, P> Parser<Input> for Silent<P>
 where

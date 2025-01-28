@@ -19,7 +19,7 @@ impl<'a, Input: Stream, O> Parser<Input>
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct FnParser<Input, F>(F, PhantomData<fn(Input) -> Input>);
 
 /// Wraps a function, turning it into a parser.
@@ -93,7 +93,7 @@ where
     }
 }
 
-#[derive(Copy)]
+#[derive(Debug, Copy)]
 pub struct EnvParser<E, Input, T>
 where
     Input: Stream,

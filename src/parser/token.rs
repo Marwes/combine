@@ -11,7 +11,7 @@ use crate::{
     Parser,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Any<Input>(PhantomData<fn(Input) -> Input>);
 
 impl<Input> Parser<Input> for Any<Input>
@@ -48,7 +48,7 @@ where
     Any(PhantomData)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Satisfy<Input, P> {
     predicate: P,
     _marker: PhantomData<Input>,
@@ -112,7 +112,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SatisfyMap<Input, P> {
     predicate: P,
     _marker: PhantomData<Input>,
@@ -166,7 +166,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Token<Input>
 where
     Input: Stream,
@@ -216,7 +216,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Tokens<C, E, T, Input>
 where
     Input: Stream,
@@ -321,7 +321,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TokensCmp<C, T, Input>
 where
     Input: Stream,
@@ -420,7 +420,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Position<Input>
 where
     Input: Stream,
@@ -465,7 +465,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct OneOf<T, Input>
 where
     Input: Stream,
@@ -518,7 +518,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct NoneOf<T, Input>
 where
     Input: Stream,
@@ -576,7 +576,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Value<Input, T>(T, PhantomData<fn(Input) -> Input>);
 impl<Input, T> Parser<Input> for Value<Input, T>
 where
@@ -611,7 +611,7 @@ where
     Value(v, PhantomData)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Produce<Input, F>(F, PhantomData<fn(Input) -> Input>);
 impl<Input, F, R> Parser<Input> for Produce<Input, F>
 where
@@ -647,7 +647,7 @@ where
     Produce(f, PhantomData)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Eof<Input>(PhantomData<Input>);
 impl<Input> Parser<Input> for Eof<Input>
 where
