@@ -11,7 +11,7 @@ use {
     bytes::{Buf, BytesMut},
     combine::{
         any, count_min_max,
-        error::{ParseError, StreamError},
+        error::StreamError,
         many1, parser,
         parser::{
             byte::{num, take_until_bytes},
