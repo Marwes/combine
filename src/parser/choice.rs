@@ -495,6 +495,7 @@ where
         slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
+    #[allow(dead_code)] // this needs to be there for rust 1.61
     #[inline]
     fn parse_mode_choice<M>(
         &mut self,
