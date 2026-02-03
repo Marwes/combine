@@ -73,7 +73,7 @@ where
     F: fmt::Display + 's,
 {
     type Format = &'s F;
-    fn into_info(&'s self) -> Info<T, R, <Self as ErrorInfo<'_, T, R>>::Format> {
+    fn into_info(&'s self) -> Info<T, R, <Self as ErrorInfo<'s, T, R>>::Format> {
         match self {
             Info::Token(b) => Info::Token(b.clone()),
             Info::Range(b) => Info::Range(b.clone()),

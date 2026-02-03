@@ -17,6 +17,7 @@ categories = ["parsing", "no-std"]
 license = "MIT"
 
 edition = "2018"
+include = ["Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE", "src/**/*.rs"]
 
 [package.metadata.docs.rs]
 all-features = true

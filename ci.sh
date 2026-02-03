@@ -16,3 +16,4 @@ cargo "$@" test --no-default-features --examples
 
 cargo "$@" check --no-default-features --features tokio-02
 cargo "$@" check --no-default-features --features tokio-03
+cargo "$@" package --all-features
