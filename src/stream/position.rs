@@ -246,7 +246,7 @@ where
 }
 
 /// Struct which represents a position in a source file.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct SourcePosition {
     /// Current line of the input
     pub line: i32,
