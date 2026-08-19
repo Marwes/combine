@@ -495,6 +495,20 @@ where
         slice_parse_mode(self, crate::parser::FirstMode, input, state)
     }
 
+    #[allow(dead_code)] // this needs to be there for rust 1.78
+    #[inline]
+    fn parse_mode_choice<M>(
+        &mut self,
+        _mode: M,
+        _input: &mut Input,
+        _state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        unreachable!()
+    }
+
     fn add_error_choice(&mut self, error: &mut Tracked<<Input as StreamOnce>::Error>) {
         if error.offset != ErrorOffset(0) {
             for p in self {
