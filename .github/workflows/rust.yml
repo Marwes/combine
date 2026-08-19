@@ -14,6 +14,9 @@ jobs:
     strategy:
       matrix:
         rust: [1.61.0, stable, beta, nightly]
+        include:
+          - rust: nightly
+            experimental: true
     env:
       CARGO_INCREMENTAL: 0 # Incremental compilation is slower and bloats the cache
       RUST_BACKTRACE: 1
@@ -40,6 +43,7 @@ jobs:
 
     - name: Run tests
       if: ${{ matrix.rust != '1.61.0' }}
+      continue-on-error: ${{ matrix.experimental }}
       run: ./ci.sh
 
     - name: Check docs
