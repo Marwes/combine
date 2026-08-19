@@ -123,8 +123,6 @@ mod regex {
 
     use super::{find_iter, MatchFind, Regex};
 
-    pub use self::regex::*;
-
     impl<'t> MatchFind for regex::Match<'t> {
         type Range = &'t str;
         fn end(&self) -> usize {

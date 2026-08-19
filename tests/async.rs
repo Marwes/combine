@@ -11,7 +11,7 @@ use {
     bytes::{Buf, BytesMut},
     combine::{
         any, count_min_max,
-        error::{ParseError, StreamError},
+        error::StreamError,
         many1, parser,
         parser::{
             byte::{num, take_until_bytes},
@@ -194,7 +194,10 @@ macro_rules! impl_byte_decoder {
     }
 }
 
-use partial_io::{GenNoErrors, GenWouldBlock, PartialOp, PartialWithErrors};
+use partial_io::{
+    quickcheck_types::{GenNoErrors, GenWouldBlock, PartialWithErrors},
+    PartialOp,
+};
 
 fn run_decoder<B, D, S>(input: &B, seq: S, decoder: D) -> Result<Vec<D::Item>, D::Error>
 where
@@ -515,10 +518,12 @@ quickcheck! {
         assert_eq!(result.unwrap(), ["123", "456", "789"]);
     }
 
-    fn any_send_partial_state_do_not_forget_state(sizes: Vec<usize>, seq: PartialWithErrors<GenWouldBlock>) -> () {
+    fn any_send_partial_state_do_not_forget_state(sizes: Vec<u16>, seq: PartialWithErrors<GenWouldBlock>) -> () {
         impl_decoder!{ TestParser, usize,
             any_send_partial_state(content_length().map(|bytes| bytes.len()))
         }
+
+        let sizes = sizes.into_iter().map(usize::from).collect::<Vec<_>>();
 
         let input : String = sizes
             .iter()
