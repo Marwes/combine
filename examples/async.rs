@@ -8,14 +8,14 @@ use {futures_03_dep as futures, tokio_dep as tokio};
 use {
     bytes::{Buf, BytesMut},
     combine::{
-        error::{ParseError, StreamError},
+        from_str,
         parser::{
             byte::digit,
             combinator::{any_partial_state, AnyPartialState},
             range::{range, recognize, take},
         },
         skip_many, skip_many1,
-        stream::{easy, PartialStream, RangeStream, StreamErrorFor},
+        stream::{easy, PartialStream, RangeStream},
         Parser,
     },
     futures::prelude::*,
@@ -57,18 +57,11 @@ fn decode_parser<'a, Input>(
 where
     Input: RangeStream<Token = u8, Range = &'a [u8]> + 'a,
 {
-    let content_length = range(&b"Content-Length: "[..])
-        .with(recognize(skip_many1(digit())).and_then(|digits: &[u8]| {
-            str::from_utf8(digits)
-                .unwrap()
-                .parse::<usize>()
-                // Convert the error from `.parse` into an error combine understands
-                .map_err(StreamErrorFor::<Input>::other)
-        }))
-        .map(move |x| {
-            content_length_parses.set(content_length_parses.get() + 1);
-            x
-        });
+    let number = from_str(recognize(skip_many1(digit())));
+    let content_length = range(&b"Content-Length: "[..]).with(number).map(move |x| {
+        content_length_parses.set(content_length_parses.get() + 1);
+        x
+    });
 
     // `any_partial_state` boxes the state which hides the type and lets us store it in
     // `self`
