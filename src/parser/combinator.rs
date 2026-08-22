@@ -1434,7 +1434,7 @@ where
 #[macro_export]
 macro_rules! opaque {
     ($e: expr) => {
-        $crate::opaque!($e,);
+        $crate::opaque!($e,)
     };
     ($e: expr,) => {
         $crate::parser::combinator::opaque(
