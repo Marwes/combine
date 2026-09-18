@@ -6,7 +6,7 @@
 //! errors instead of just `None` and if they implement the `RangeStreamOnce` trait they are also
 //! capable of returning multiple items at the same time, usually in the form of a slice.
 //!
-//! In addition to he functionality above, a proper `Stream` usable by a `Parser` must also have a
+//! In addition to the functionality above, a proper `Stream` usable by a `Parser` must also have a
 //! position (marked by the `Positioned` trait) and must also be resetable (marked by the
 //! `ResetStream` trait). The former is used to ensure that errors at different points in the stream
 //! aren't combined and the latter is used in parsers such as `or` to try multiple alternative
