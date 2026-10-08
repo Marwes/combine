@@ -227,6 +227,7 @@ where
 }
 
 parser! {
+type PartialState = usize;
 /// Parses the bytes `s`.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the
@@ -256,6 +257,7 @@ where [
 }
 
 parser! {
+type PartialState = usize;
 /// Parses the bytes `s` using `cmp` to compare each token.
 ///
 /// If you have a stream implementing [`RangeStream`] such as `&[u8]` you can also use the

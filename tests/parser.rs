@@ -1,11 +1,13 @@
 use combine::{
     parser::{
+        byte::bytes,
         char::{digit, letter},
         choice::choice,
         combinator::not_followed_by,
         range::range,
         token::{any, eof, token, Token},
     },
+    stream::{decode, PartialStream},
     Parser,
 };
 
@@ -38,6 +40,38 @@ fn not_followed_by_does_not_consume_any_input() {
 
     assert_eq!(parser.parse("aa"), Ok(("a", "a")));
     assert!(parser.parse("aaa").is_err());
+}
+
+#[test]
+fn bytes_partial_split_across_chunks() {
+    fn parser<'a>(
+    ) -> impl Parser<PartialStream<&'a [u8]>, Output = (Vec<u8>, Vec<u8>), PartialState = impl Default>
+    {
+        (bytes(&b"abc"[..]), bytes(&b"def"[..]))
+            .map(|(a, b): (&[u8], &[u8])| (a.to_vec(), b.to_vec()))
+    }
+
+    let mut buf: Vec<u8> = b"abcde".to_vec();
+    let mut state = Default::default();
+
+    // First chunk ends in the middle of "def"
+    let committed = {
+        let (out, committed) = decode(parser(), &mut PartialStream(&buf[..]), &mut state).unwrap();
+        eprintln!("first: out={:?} committed={}", out, committed);
+        assert!(out.is_none());
+        committed
+    };
+    buf.drain(..committed);
+
+    // Rest of the input arrives
+    buf.extend_from_slice(b"f");
+    eprintln!(
+        "buffer for second call: {:?}",
+        std::str::from_utf8(&buf).unwrap()
+    );
+    let result = decode(parser(), &mut PartialStream(&buf[..]), &mut state);
+    eprintln!("second: {:?}", result);
+    assert_eq!(result.unwrap().0, Some((b"abc".to_vec(), b"def".to_vec())));
 }
 
 #[cfg(feature = "std")]
