@@ -633,6 +633,7 @@ where
 
 #[cfg(feature = "std")]
 parser! {
+type PartialState = (P::PartialState, Option<(bool, usize)>, <Take<Input> as Parser<Input>>::PartialState);
 /// Takes a parser which parses a `length` then extracts a range of that length and returns it.
 /// Commonly used in binary formats
 ///
@@ -668,6 +669,7 @@ where [
 
 #[cfg(not(feature = "std"))]
 parser! {
+type PartialState = (P::PartialState, Option<(bool, usize)>, <Take<Input> as Parser<Input>>::PartialState);
 /// Takes a parser which parses a `length` then extracts a range of that length and returns it.
 /// Commonly used in binary formats
 ///

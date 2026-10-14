@@ -236,15 +236,30 @@ where
     Input: Stream,
 {
     type Output = T;
-    type PartialState = ();
+    /// The number of tokens that have already been matched (and committed) by a previous call.
+    type PartialState = usize;
+
+    parse_mode!(Input);
     #[inline]
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<T, Input::Error> {
+    fn parse_mode_impl<M>(
+        &mut self,
+        mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, <Input as StreamOnce>::Error>
+    where
+        M: ParseMode,
+    {
+        if mode.is_first() {
+            *state = 0;
+        }
         let start = input.position();
-        let mut committed = false;
-        for c in self.tokens.clone() {
+        let mut committed = *state != 0;
+        for c in self.tokens.clone().into_iter().skip(*state) {
             match crate::stream::uncons(input) {
                 CommitOk(other) | PeekOk(other) => {
                     if !(self.cmp)(c, other.clone()) {
+                        *state = 0;
                         return if committed {
                             let mut errors = <Input as StreamOnce>::Error::from_error(
                                 start,
@@ -257,6 +272,7 @@ where
                         };
                     }
                     committed = true;
+                    *state += 1;
                 }
                 PeekErr(mut error) => {
                     error.error.set_position(start);
@@ -272,6 +288,7 @@ where
                 }
             }
         }
+        *state = 0;
         if committed {
             CommitOk(self.tokens.clone())
         } else {

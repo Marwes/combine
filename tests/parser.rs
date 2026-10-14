@@ -4,8 +4,9 @@ use combine::{
         char::{digit, letter},
         choice::choice,
         combinator::not_followed_by,
-        range::range,
-        token::{any, eof, token, Token},
+        range::{length_prefix, range, recognize, take_while1},
+        repeat::{count, escaped},
+        token::{any, eof, one_of, token, tokens, Token},
     },
     stream::{decode, PartialStream},
     Parser,
@@ -42,36 +43,85 @@ fn not_followed_by_does_not_consume_any_input() {
     assert!(parser.parse("aaa").is_err());
 }
 
+/// Feeds `chunks` one at a time to the parser (as the `decode_*` macros do), dropping the input
+/// that the parser reports as committed after each call. The input is leaked so that the partial
+/// state is not tied to the borrow of the buffer.
+macro_rules! decode_chunks {
+    ($parser:expr, $chunks:expr) => {{
+        let mut buf: Vec<u8> = Vec::new();
+        let mut state = Default::default();
+        let mut result = None;
+        for chunk in $chunks {
+            buf.extend_from_slice(chunk);
+            let input: &'static [u8] = Box::leak(buf.clone().into_boxed_slice());
+            let (out, committed) = decode($parser, &mut PartialStream(input), &mut state)
+                .map_err(|err| format!("{:?}", err))?;
+            buf.drain(..committed);
+            if out.is_some() {
+                result = out;
+                break;
+            }
+        }
+        Ok::<_, String>(result)
+    }};
+}
+
 #[test]
-fn bytes_partial_split_across_chunks() {
-    fn parser<'a>(
-    ) -> impl Parser<PartialStream<&'a [u8]>, Output = (Vec<u8>, Vec<u8>), PartialState = impl Default>
-    {
-        (bytes(&b"abc"[..]), bytes(&b"def"[..]))
-            .map(|(a, b): (&[u8], &[u8])| (a.to_vec(), b.to_vec()))
-    }
+fn bytes_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        (bytes(&b"abc"[..]), bytes(&b"def"[..])),
+        [&b"abcde"[..], &b"f"[..]]
+    )?;
+    assert_eq!(result, Some((&b"abc"[..], &b"def"[..])));
+    Ok(())
+}
 
-    let mut buf: Vec<u8> = b"abcde".to_vec();
-    let mut state = Default::default();
+#[test]
+fn tokens_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        tokens(
+            |&l: &u8, r| l == r,
+            combine::error::Range(&b"abcdef"[..]),
+            &b"abcdef"[..]
+        ),
+        [&b"abcde"[..], &b"f"[..]]
+    )?;
+    assert_eq!(result, Some(&b"abcdef"[..]));
+    Ok(())
+}
 
-    // First chunk ends in the middle of "def"
-    let committed = {
-        let (out, committed) = decode(parser(), &mut PartialStream(&buf[..]), &mut state).unwrap();
-        eprintln!("first: out={:?} committed={}", out, committed);
-        assert!(out.is_none());
-        committed
-    };
-    buf.drain(..committed);
+#[test]
+fn count_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        (count::<Vec<u8>, _, _>(4, any()), token(b';')),
+        [&b"ab"[..], &b"cd;"[..]]
+    )?;
+    assert_eq!(result, Some((b"abcd".to_vec(), b';')));
+    Ok(())
+}
 
-    // Rest of the input arrives
-    buf.extend_from_slice(b"f");
-    eprintln!(
-        "buffer for second call: {:?}",
-        std::str::from_utf8(&buf).unwrap()
-    );
-    let result = decode(parser(), &mut PartialStream(&buf[..]), &mut state);
-    eprintln!("second: {:?}", result);
-    assert_eq!(result.unwrap().0, Some((b"abc".to_vec(), b"def".to_vec())));
+#[test]
+fn length_prefix_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(length_prefix(any()), [&b"\x03a"[..], &b"bc"[..]])?;
+    assert_eq!(result, Some(&b"abc"[..]));
+    Ok(())
+}
+
+#[test]
+fn escaped_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        recognize((
+            escaped(
+                take_while1(|c| c != b'"' && c != b'\\'),
+                b'\\',
+                one_of(b"\\\"n".iter().cloned())
+            ),
+            token(b'"')
+        )),
+        [&b"ab\\"[..], &b"\"cd\""[..]]
+    )?;
+    assert_eq!(result, Some(&b"ab\\\"cd\""[..]));
+    Ok(())
 }
 
 #[cfg(feature = "std")]
