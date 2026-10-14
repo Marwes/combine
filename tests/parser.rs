@@ -44,25 +44,28 @@ fn not_followed_by_does_not_consume_any_input() {
 }
 
 /// Feeds `chunks` one at a time to the parser (as the `decode_*` macros do), dropping the input
-/// that the parser reports as committed after each call. The input is leaked so that the partial
-/// state is not tied to the borrow of the buffer.
+/// that the parser reports as committed after each call.
 macro_rules! decode_chunks {
     ($parser:expr, $chunks:expr) => {{
         let mut buf: Vec<u8> = Vec::new();
         let mut state = Default::default();
-        let mut result = None;
-        for chunk in $chunks {
+        let chunks = $chunks;
+        let mut chunks = chunks.iter();
+        // `break` with the output instead of assigning it to a variable that outlives the loop so
+        // that an output borrowing from `buf` does not conflict with the mutation of `buf`
+        Ok::<_, String>(loop {
+            let chunk = match chunks.next() {
+                Some(chunk) => chunk,
+                None => break None,
+            };
             buf.extend_from_slice(chunk);
-            let input: &'static [u8] = Box::leak(buf.clone().into_boxed_slice());
-            let (out, committed) = decode($parser, &mut PartialStream(input), &mut state)
+            let (out, committed) = decode($parser, &mut PartialStream(&buf[..]), &mut state)
                 .map_err(|err| format!("{:?}", err))?;
-            buf.drain(..committed);
             if out.is_some() {
-                result = out;
-                break;
+                break out;
             }
-        }
-        Ok::<_, String>(result)
+            buf.drain(..committed);
+        })
     }};
 }
 
@@ -102,8 +105,11 @@ fn count_partial_split_across_chunks() -> Result<(), String> {
 
 #[test]
 fn length_prefix_partial_split_across_chunks() -> Result<(), String> {
-    let result = decode_chunks!(length_prefix(any()), [&b"\x03a"[..], &b"bc"[..]])?;
-    assert_eq!(result, Some(&b"abc"[..]));
+    let result = decode_chunks!(
+        length_prefix(any()).map(|range: &[u8]| range.to_vec()),
+        [&b"\x03a"[..], &b"bc"[..]]
+    )?;
+    assert_eq!(result, Some(b"abc".to_vec()));
     Ok(())
 }
 
@@ -117,10 +123,11 @@ fn escaped_partial_split_across_chunks() -> Result<(), String> {
                 one_of(b"\\\"n".iter().cloned())
             ),
             token(b'"')
-        )),
+        ))
+        .map(|range: &[u8]| range.to_vec()),
         [&b"ab\\"[..], &b"\"cd\""[..]]
     )?;
-    assert_eq!(result, Some(&b"ab\\\"cd\""[..]));
+    assert_eq!(result, Some(b"ab\\\"cd\"".to_vec()));
     Ok(())
 }
 
