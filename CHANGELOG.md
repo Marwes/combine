@@ -1,3 +1,10 @@
+## [4.6.9](https://github.com/Marwes/combine/compare/v4.6.8..v4.6.9) - 2026-10-15
+
+### Bug Fixes
+
+- Handle partial parsing in parsers based on TokensCmp - ([c8742a5](https://github.com/Marwes/combine/commit/c8742a59452e20f16d92d95b30b7a88390e7aa0a)) - Markus Westerlind
+- Make count/length_prefix/escaped handle partial parsing correctly - ([148333e](https://github.com/Marwes/combine/commit/148333ec4a9715e387644757b1b5b93cb12da4e7)) - Markus Westerlind
+
 ## [4.6.8](https://github.com/Marwes/combine/compare/v4.6.7..v4.6.8) - 2026-08-25
 
 ### Bug Fixes
