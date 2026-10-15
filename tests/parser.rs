@@ -1,11 +1,14 @@
 use combine::{
     parser::{
+        byte::bytes,
         char::{digit, letter},
         choice::choice,
         combinator::not_followed_by,
-        range::range,
-        token::{any, eof, token, Token},
+        range::{length_prefix, range, recognize, take_while1},
+        repeat::{count, escaped},
+        token::{any, eof, one_of, token, tokens, Token},
     },
+    stream::{decode, PartialStream},
     Parser,
 };
 
@@ -38,6 +41,94 @@ fn not_followed_by_does_not_consume_any_input() {
 
     assert_eq!(parser.parse("aa"), Ok(("a", "a")));
     assert!(parser.parse("aaa").is_err());
+}
+
+/// Feeds `chunks` one at a time to the parser (as the `decode_*` macros do), dropping the input
+/// that the parser reports as committed after each call.
+macro_rules! decode_chunks {
+    ($parser:expr, $chunks:expr) => {{
+        let mut buf: Vec<u8> = Vec::new();
+        let mut state = Default::default();
+        let chunks = $chunks;
+        let mut chunks = chunks.iter();
+        // `break` with the output instead of assigning it to a variable that outlives the loop so
+        // that an output borrowing from `buf` does not conflict with the mutation of `buf`
+        Ok::<_, String>(loop {
+            let chunk = match chunks.next() {
+                Some(chunk) => chunk,
+                None => break None,
+            };
+            buf.extend_from_slice(chunk);
+            let (out, committed) = decode($parser, &mut PartialStream(&buf[..]), &mut state)
+                .map_err(|err| format!("{:?}", err))?;
+            if out.is_some() {
+                break out;
+            }
+            buf.drain(..committed);
+        })
+    }};
+}
+
+#[test]
+fn bytes_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        (bytes(&b"abc"[..]), bytes(&b"def"[..])),
+        [&b"abcde"[..], &b"f"[..]]
+    )?;
+    assert_eq!(result, Some((&b"abc"[..], &b"def"[..])));
+    Ok(())
+}
+
+#[test]
+fn tokens_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        tokens(
+            |&l: &u8, r| l == r,
+            combine::error::Range(&b"abcdef"[..]),
+            &b"abcdef"[..]
+        ),
+        [&b"abcde"[..], &b"f"[..]]
+    )?;
+    assert_eq!(result, Some(&b"abcdef"[..]));
+    Ok(())
+}
+
+#[test]
+fn count_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        (count::<Vec<u8>, _, _>(4, any()), token(b';')),
+        [&b"ab"[..], &b"cd;"[..]]
+    )?;
+    assert_eq!(result, Some((b"abcd".to_vec(), b';')));
+    Ok(())
+}
+
+#[test]
+fn length_prefix_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        length_prefix(any()).map(|range: &[u8]| range.to_vec()),
+        [&b"\x03a"[..], &b"bc"[..]]
+    )?;
+    assert_eq!(result, Some(b"abc".to_vec()));
+    Ok(())
+}
+
+#[test]
+fn escaped_partial_split_across_chunks() -> Result<(), String> {
+    let result = decode_chunks!(
+        recognize((
+            escaped(
+                take_while1(|c| c != b'"' && c != b'\\'),
+                b'\\',
+                one_of(b"\\\"n".iter().cloned())
+            ),
+            token(b'"')
+        ))
+        .map(|range: &[u8]| range.to_vec()),
+        [&b"ab\\"[..], &b"\"cd\""[..]]
+    )?;
+    assert_eq!(result, Some(b"ab\\\"cd\"".to_vec()));
+    Ok(())
 }
 
 #[cfg(feature = "std")]

@@ -13,7 +13,7 @@ use crate::{
         function::{parser, FnParser},
         sequence::With,
         token::{value, Value},
-        FirstMode, ParseMode,
+        ParseMode,
     },
     stream::{uncons, Stream, StreamOnce},
     ErrorOffset, Parser,
@@ -21,6 +21,7 @@ use crate::{
 
 parser! {
 pub struct Count;
+type PartialState = <CountMinMax<F, P> as Parser<Input>>::PartialState;
 
 /// Parses `parser` from zero up to `count` times.
 ///
@@ -1374,7 +1375,13 @@ parser! {
 }
 
 #[derive(Default)]
-pub struct EscapedState<T, U>(PhantomData<(T, U)>);
+pub struct EscapedState<T, U> {
+    committed: bool,
+    /// `true` if the escape token has been consumed and `escape_parser` is (to be) run
+    escaping: bool,
+    parser: T,
+    escape_parser: U,
+}
 
 pub struct Escaped<P, Q, I> {
     parser: P,
@@ -1391,47 +1398,68 @@ where
     type Output = ();
     type PartialState = EscapedState<P::PartialState, Q::PartialState>;
 
-    fn parse_lazy(&mut self, input: &mut Input) -> ParseResult<Self::Output, Input::Error> {
-        let mut committed = Commit::Peek(());
+    parse_mode!(Input);
+    #[inline]
+    fn parse_mode_impl<M>(
+        &mut self,
+        mut mode: M,
+        input: &mut Input,
+        state: &mut Self::PartialState,
+    ) -> ParseResult<Self::Output, Input::Error>
+    where
+        M: ParseMode,
+    {
+        if mode.is_first() {
+            state.committed = false;
+            state.escaping = false;
+        }
         loop {
-            match self.parser.parse_lazy(input) {
-                PeekOk(_) => {}
-                CommitOk(_) => {
-                    committed = Commit::Commit(());
-                }
-                PeekErr(_) => {
-                    let checkpoint = input.checkpoint();
-                    match uncons(input) {
-                        CommitOk(ref c) | PeekOk(ref c) if *c == self.escape => {
-                            match self.escape_parser.parse_committed_mode(
-                                FirstMode,
-                                input,
-                                &mut Default::default(),
-                            ) {
-                                PeekOk(_) => {}
-                                CommitOk(_) => {
-                                    committed = Commit::Commit(());
-                                }
-                                CommitErr(err) => return CommitErr(err),
-                                PeekErr(err) => {
-                                    return CommitErr(err.error);
-                                }
+            if !state.escaping {
+                match self.parser.parse_mode(mode, input, &mut state.parser) {
+                    PeekOk(_) => {}
+                    CommitOk(_) => {
+                        state.committed = true;
+                    }
+                    PeekErr(_) => {
+                        let checkpoint = input.checkpoint();
+                        match uncons(input) {
+                            CommitOk(ref c) | PeekOk(ref c) if *c == self.escape => {
+                                state.committed = true;
+                                state.escaping = true;
+                            }
+                            CommitErr(err) => {
+                                // `parser` is done, start it from scratch if we are resumed
+                                state.parser = Default::default();
+                                return CommitErr(err);
+                            }
+                            _ => {
+                                ctry!(input.reset(checkpoint).committed());
+                                return if state.committed {
+                                    CommitOk(())
+                                } else {
+                                    PeekOk(())
+                                };
                             }
                         }
-                        CommitErr(err) => {
-                            return CommitErr(err);
-                        }
-                        _ => {
-                            ctry!(input.reset(checkpoint).committed());
-                            return if committed.is_peek() {
-                                PeekOk(())
-                            } else {
-                                CommitOk(())
-                            };
-                        }
+                    }
+                    CommitErr(err) => return CommitErr(err),
+                }
+                mode.set_first();
+            }
+            if state.escaping {
+                match self
+                    .escape_parser
+                    .parse_committed_mode(mode, input, &mut state.escape_parser)
+                {
+                    PeekOk(_) | CommitOk(_) => {
+                        state.escaping = false;
+                    }
+                    CommitErr(err) => return CommitErr(err),
+                    PeekErr(err) => {
+                        return CommitErr(err.error);
                     }
                 }
-                CommitErr(err) => return CommitErr(err),
+                mode.set_first();
             }
         }
     }
