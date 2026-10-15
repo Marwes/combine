@@ -1,0 +1,48 @@
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release: patch, minor, major or an explicit version like 4.7.0"
+        required: true
+        default: patch
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    environment: prod
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # git-cliff needs the full history and tags
+        # Deploy key with write access that is allowed to bypass the master ruleset
+        ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+    - uses: Swatinem/rust-cache@v2
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-release,git-cliff
+    - name: Configure git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    - name: Release
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        VERSION: ${{ inputs.version }}
+      # Bumps the version, updates CHANGELOG.md (see release.toml), commits, publishes, tags and pushes
+      run: cargo release "$VERSION" --execute --no-confirm
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG=$(git describe --tags --abbrev=0)
+        git cliff --latest --strip all > RELEASE_NOTES.md
+        gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md
