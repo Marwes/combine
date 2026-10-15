@@ -1,0 +1,3 @@
+pre-release-commit-message = "chore: Version {{version}}"
+# Skipped on dry runs so the changelog isn't left modified
+pre-release-hook = ["sh", "-c", "test \"$DRY_RUN\" = true || git cliff --unreleased --tag \"v$NEW_VERSION\" --prepend CHANGELOG.md"]
